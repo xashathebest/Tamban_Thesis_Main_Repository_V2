@@ -1,0 +1,5 @@
+INFO:     127.0.0.1:61859 - "GET /api/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61859 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57807 - "GET /assets/app.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57807 - "POST /api/inspection/start HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54459 - "GET /api/status HTTP/1.1" 200 OK
