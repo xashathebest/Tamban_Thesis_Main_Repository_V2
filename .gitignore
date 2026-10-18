@@ -1,0 +1,37 @@
+# Python caches and test artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments and local package builds
+.venv/
+venv/
+env/
+ENV/
+build/
+dist/
+*.egg-info/
+
+# Frontend dependencies and build output
+node_modules/
+.next/
+coverage/
+
+# Local secrets and machine-specific configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Generated audit/dependency workspaces
+Thesis/.audit_tmp/
+Thesis/tmp/quant_deps/
+Thesis/tmp/quant_deps2/
+Thesis/tmp/__pycache__/
+Thesis/tmp/*.whl

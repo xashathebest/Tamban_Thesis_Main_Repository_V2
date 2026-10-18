@@ -1,6 +1,0 @@
-INFO:     127.0.0.1:59881 - "GET /api/status HTTP/1.1" 200 OK
-INFO:     127.0.0.1:59881 - "GET / HTTP/1.1" 200 OK
-INFO:     127.0.0.1:59881 - "GET /assets/app.js HTTP/1.1" 200 OK
-INFO:     127.0.0.1:62470 - "POST /api/analyze-image HTTP/1.1" 503 Service Unavailable
-INFO:     127.0.0.1:62471 - "POST /api/inspection/start HTTP/1.1" 200 OK
-INFO:     127.0.0.1:62471 - "POST /api/inspection/stop HTTP/1.1" 200 OK
