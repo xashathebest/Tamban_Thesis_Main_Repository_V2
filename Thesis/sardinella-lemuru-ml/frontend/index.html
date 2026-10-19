@@ -97,13 +97,13 @@
               <span aria-hidden="true"><svg class="icon" aria-hidden="true" viewBox="0 0 24 24"><use href="#icon-review"></use></svg></span>
               <b>Expert</b>
             </button>
-            <button class="nav-item nav-secondary" type="button" data-anchor="analytics-section" data-tooltip="Analytics" aria-label="Analytics">
+            <button class="nav-item nav-secondary" type="button" data-anchor="analytics-section" data-tooltip="Analytics in Live Inspection" aria-label="Analytics in Live Inspection">
               <span aria-hidden="true">
                 <svg class="icon" aria-hidden="true" viewBox="0 0 24 24">
                   <use href="#icon-chart"></use>
                 </svg>
               </span>
-              <b>Analytics</b>
+              <b>Analytics in Live</b>
             </button>
             <button class="nav-item nav-secondary" type="button" id="sidebar-export" data-tooltip="Export" aria-label="Export">
               <span aria-hidden="true">
@@ -137,6 +137,7 @@
             <p id="page-subtitle">Sardinella lemuru quality inspection</p>
           </div>
           <div class="header-actions">
+            <button class="button quiet hidden" id="lan-logout" type="button">Sign out</button>
             <div class="status-cluster" aria-label="Runtime status">
               <span class="compact-status neutral" id="connection-pill">
                 <i></i>
@@ -200,7 +201,7 @@
                   </div>
                   <div class="camera-readout">
                     <span class="live-badge neutral" id="live-badge">OFFLINE</span>
-                    <span id="feed-fps">0.0 FPS</span>
+                    <span id="feed-fps">AI processing: 0.0 FPS</span>
                     <span id="feed-resolution">—</span>
                   </div>
                   <button class="camera-settings-trigger" id="camera-settings-button" type="button" aria-label="Open camera calibration">
@@ -224,6 +225,8 @@
                   </div>
                 </div>
                 <div class="camera-actions">
+                  <button class="button quiet hidden" id="preview-mode-button" type="button" aria-pressed="false">View raw preview</button>
+                  <p id="preview-mode-description" role="status">Processed feed with AI annotations. Preview FPS and display latency are not measured.</p>
                   <div class="inspection-state neutral" id="inspection-state">
                     <i></i>
                     Stopped
@@ -352,6 +355,7 @@
                       <dd id="latest-effective-weights">—</dd>
                     </div>
                   </dl>
+                  <p class="muted">Model 1 confidence is a detection score. Weighted Model 2 support is grading evidence; neither is a measured accuracy or calibrated probability of a correct grade.</p>
                 </section>
                 <div class="feature-list">
                   <h3>Part evidence</h3>
@@ -436,7 +440,7 @@
                 </div>
                 <div class="analytics-grid">
                   <article class="chart-card surface">
-                    <h3>Grade distribution</h3>
+                    <h3>Original AI grade distribution</h3>
                     <div class="chart-empty" id="grade-chart-empty">Waiting for inspection data</div>
                     <div class="donut-wrap hidden" id="grade-chart">
                       <div class="donut" id="grade-donut">
@@ -540,11 +544,15 @@
             <section class="surface history-workspace">
               <div class="history-filters">
                 <label>
+                  Session
+                  <select id="history-session"><option value="">Current session</option></select>
+                </label>
+                <label>
                   Search fish ID
                   <input id="history-search" type="search" placeholder="#0128">
                 </label>
                 <label>
-                  Grade
+                  AI grade
                   <select id="history-grade">
                     <option value="">All grades</option>
                     <option>Class A</option>
@@ -576,7 +584,7 @@
                     <tr>
                       <th scope="col">Fish ID</th>
                       <th scope="col">Timestamp</th>
-                      <th scope="col">Grade</th>
+                      <th scope="col">AI grade</th>
                       <th scope="col">Final support</th>
                       <th scope="col">Model 1 confidence</th>
                       <th scope="col">Detected regions</th>
@@ -620,6 +628,10 @@
                   <div>
                     <dt>Detection confidence</dt>
                     <dd id="detector-threshold">—</dd>
+                  </div>
+                  <div>
+                    <dt>Tracker</dt>
+                    <dd id="detector-tracker">Checking</dd>
                   </div>
                 </dl>
               </article>
@@ -690,7 +702,7 @@
               <p>Consultation clips record what an expert said. They do not prove that a mathematical weighting rule is optimal.</p>
             </div>
             <section class="surface expert-workspace">
-              <p>Topics: body emphasis and 50-30-20, missing head, missing tail, belly defects, and A/B/C distinctions.</p>
+              <p>Topics: body emphasis and 50-30-20, missing head, missing tail, belly defects, and A/B/C distinctions. These are research topics; the current models do not detect belly defects.</p>
               <form id="expert-access-form" class="expert-access-form">
                 <label for="expert-token">Research access token</label>
                 <input id="expert-token" type="password" autocomplete="off" required>
@@ -781,7 +793,7 @@
           </div>
         </dl>
       </section>
-      <section class="settings-section">
+      <section class="settings-section hidden" aria-hidden="true">
         <h3>Display</h3>
         <label class="switch-row">
           <span>Show part overlays</span>
@@ -869,7 +881,7 @@
       <section class="calibration-section hidden" id="image-statistics-section">
         <div class="calibration-section-head">
           <h3>Image conditions</h3>
-          <span>Informational</span>
+          <span>Diagnostic only</span>
         </div>
         <dl class="image-statistics">
           <div>
@@ -889,6 +901,7 @@
             <dd id="stat-contrast">-</dd>
           </div>
         </dl>
+        <p class="muted">Grayscale image statistics (0–255) for camera conditions only; they do not affect grading. Fish regions use detector rectangles and can include background.</p>
         <p class="condition-warning hidden" id="camera-condition-warning"></p>
       </section>
       <details class="calibration-section research-calibration-section">
@@ -986,6 +999,10 @@
         </fieldset>
         <fieldset>
           <legend>Fields</legend>
+          <label>
+            <input type="checkbox" id="export-all-evidence">
+            Export all evidence columns (ignores individual field choices)
+          </label>
           <div class="export-fields">
             <label>
               <input type="checkbox" value="fish_id" checked>
@@ -1001,11 +1018,23 @@
             </label>
             <label>
               <input type="checkbox" value="grade" checked>
-              Grade
+              AI grade
             </label>
             <label>
               <input type="checkbox" value="grade_confidence" checked>
               Final support
+            </label>
+            <label>
+              <input type="checkbox" value="manual_grade">
+              Manual grade
+            </label>
+            <label>
+              <input type="checkbox" value="reviewer">
+              Reviewer
+            </label>
+            <label>
+              <input type="checkbox" value="review_timestamp">
+              Review timestamp
             </label>
             <label>
               <input type="checkbox" value="detected_regions" checked>
@@ -1020,14 +1049,25 @@
               Processing time
             </label>
           </div>
+          <p class="hidden" id="export-fields-error" role="alert">Choose at least one field or select all evidence columns.</p>
         </fieldset>
-        <p class="muted">Exports include only evidence produced by the two supplied models.</p>
+        <p class="muted">AI evidence and operator reviews are identified separately.</p>
+        <p id="export-feedback" role="status" aria-live="polite"></p>
         <div class="modal-actions">
           <button class="button quiet" id="cancel-export-button" type="button">Cancel</button>
           <button class="button primary" id="confirm-export-button" type="submit">Export</button>
         </div>
       </form>
     </section>
-    <script src="/assets/app.js?v=pushfix1" defer></script>
+    <dialog id="lan-login-dialog" class="history-analysis-dialog" aria-labelledby="lan-login-title">
+      <form id="lan-login-form">
+        <h2 id="lan-login-title">Sign in to the inspection system</h2>
+        <p>Enter the access token provided for your role.</p>
+        <label>Access token <input id="lan-token" type="password" autocomplete="off" required></label>
+        <p id="lan-login-message" role="alert"></p>
+        <button class="button primary" type="submit">Sign in</button>
+      </form>
+    </dialog>
+    <script src="/assets/app.js?v=deepqa19" defer></script>
   </body>
 </html>

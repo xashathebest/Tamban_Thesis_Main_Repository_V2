@@ -1,0 +1,53 @@
+﻿{
+  "measurement": "synthetic single-crop grading-engine wall time, not camera FPS",
+  "crop_px": [
+    160,
+    80
+  ],
+  "warmup_per_condition": 5,
+  "samples_per_condition": 30,
+  "median_ms": {
+    "off": 0.256,
+    "on": 14.901
+  },
+  "sample": {
+    "fish_id": 1,
+    "algorithm_version": "rectangular_rgb_hsv_lab_proxies_v1",
+    "used_for_final_grade": false,
+    "body": {
+      "status": "measured",
+      "measurement_source": "Model 2 part-detection bounding box; no segmentation mask",
+      "missing_value_reason": null,
+      "missing_values": {},
+      "frame_rois": [
+        {
+          "frame_id": 34,
+          "frame_id_missing_reason": null,
+          "crop_local_bbox": [
+            30,
+            10,
+            120,
+            70
+          ]
+        }
+      ],
+      "values": {
+        "mean_hue_deg": 37.499999999999986,
+        "median_hue_deg": 37.49999999999999,
+        "mean_saturation": 0.6315789473684211,
+        "median_saturation": 0.631578947368421,
+        "mean_value": 0.7450980392156862,
+        "median_value": 0.7450980392156863,
+        "yellow_ratio_proxy": 1.0,
+        "brown_ratio_proxy": 0.0,
+        "dark_patch_ratio_proxy": 0.0,
+        "discoloration_coverage_proxy": 1.0,
+        "specular_ratio_proxy": 0.0
+      }
+    },
+    "texture": {
+      "status": "unavailable",
+      "missing_value_reason": "no_validated_fish_mask_in_runtime"
+    }
+  }
+}

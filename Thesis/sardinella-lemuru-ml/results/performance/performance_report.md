@@ -1,0 +1,9 @@
+# Live performance and accuracy comparison
+
+Status: **BLOCKED — no paired target-camera baseline/optimized measurements or independent expert-labeled fish data are available.** Empty cells in `comparison.csv` mean not measured; they are not zeros. The previously mentioned approximately 5 FPS has not been reproduced. No FPS improvement, grade accuracy, detection recall, counting accuracy, ID stability, or part-ownership claim is supported.
+
+The present work preserved the current inference settings and grading policy. The isolated model-free suite passed 588 tests with 6 skipped and 92 subtests; two registered-checkpoint CPU compatibility tests passed. These are software and model-loading checks, not scientific accuracy or real-camera throughput measurements. PyTorch in this environment is CPU-only; no CUDA comparison was possible.
+
+For a defensible comparison, follow `docs/runtime_baseline.md` and `docs/model2_schedule_benchmark.md`, using the same target camera, lighting, scene, warm-up, duration, checkpoint hashes, settings and independent labels for baseline and candidate runs. Collect capture, browser preview and AI rates separately, frame age, stage p50/p95, queue replacements, status/browser latency and fish/minute. Independently score fish counts, detection recall, ID switches, parent-part ownership, evidence coverage, A/B/C/Rejected confusion and Ungraded rates. Record actual run configurations and measurement limitations alongside results before recommending changes. The existing replay guide documents limitations that must be addressed for an acceptance study.
+
+Existing `status_polling_fixtures.md` and `browser_render_profile.md` contain synthetic or stopped-camera measurements, not real pipeline FPS. Browser preview FPS and capture-to-display age are not currently measured by the MJPEG diagnostics. Target-hardware verification and independent scientific evaluation remain required.

@@ -96,7 +96,7 @@ class YoloDetectionAdapter(BasePartAdapter):
                 model = factory(str(self.checkpoint_path))
                 if getattr(model, "task", None) != "detect":
                     raise ValueError(f"Expected detect task, got {getattr(model, 'task', None)!r}")
-                _validate_classes(getattr(model, "names", SOURCE_CLASSES))
+                _validate_classes(getattr(model, "names", {}))
                 self.model = model
                 self.is_loaded = True
                 self.error = None
@@ -181,7 +181,7 @@ class YoloSegmentationAdapter(BasePartAdapter):
                 model = factory(str(self.checkpoint_path))
                 if getattr(model, "task", None) != "segment":
                     raise ValueError(f"Expected segment task, got {getattr(model, 'task', None)!r}")
-                _validate_classes(getattr(model, "names", SOURCE_CLASSES))
+                _validate_classes(getattr(model, "names", {}))
                 self.model = model
                 self.is_loaded = True
                 self.error = None

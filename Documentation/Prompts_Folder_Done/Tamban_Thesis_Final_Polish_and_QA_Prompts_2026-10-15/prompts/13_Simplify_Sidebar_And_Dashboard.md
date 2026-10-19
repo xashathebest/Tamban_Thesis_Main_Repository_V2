@@ -1,0 +1,40 @@
+# Prompt 13: Remove redundant navigation and visual clutter
+
+**Priority / phase:** P2 - UI polish
+
+## Paste this prompt into your coding assistant
+
+You are working on our existing **Tamban fish detection, counting and body-part-based quality grading thesis system**, with a FastAPI/Python backend and browser frontend. Complete **only this task**; do not run the entire polish roadmap in one response. The current repository may have changed since the October 2026 audits.
+
+**Objective:** Remove redundant navigation and visual clutter.
+
+### Inspection and implementation tasks
+
+Review `frontend/index.html`, `frontend/app.js`, styles and any frontend component files. Consolidate duplicate Settings entry points (previously header + sidebar), Export entry points, duplicate display controls and repeated model information. Ensure Analytics has a truthful and predictable destination: real separate view or clearly identified disclosure within Live Inspection; don't masquerade one as the other.
+Design around core operator tasks: Live Inspection, Analyze Image, History/Review, Reports/Export, Settings, optional Expert Evidence. Prioritize camera feed, session status, fish count and A/B/C/Rejected/Ungraded totals. De-emphasize secondary charts and technical panels, but preserve access.
+Avoid breaking element IDs, handlers, API calls or browser refresh. Do not remove persisted workflows just because panels look repetitive.
+
+### Required verification
+
+Use smoke tests for every nav action and keyboard activation, verify single source of truth for duplicate controls, responsive widths, and unchanged backend API behavior. Include before/after screenshots when browser access allows.
+
+### Deliverables for this step
+
+Nav map, changed frontend files, usability checklist and no-regression screenshots/tests.
+
+## Execution rules (apply to this prompt)
+
+- Operate on the **latest repository state**; earlier audit findings are leads to verify, not proof that a bug is still present. If already fixed, document evidence and make no unnecessary changes.
+- Inspect relevant code and reproduce the issue **before** editing. Make incremental, reviewable changes; preserve working features and the two-model architecture.
+- Missing large YOLO checkpoints in a shared ZIP are expected. Clearly distinguish simulated/model-free tests from actual model inference; label unavailable evaluations **BLOCKED**.
+- Do not change scientific grade weights, required parts, rejection criteria, confidence interpretation, or feature-to-grade rules without explicit research approval and validation. No detected head is NOT proof the fish physically lacks a head; **Ungraded** is not **Rejected**.
+- Include regression tests, full test commands/results, files changed, any API/config behavior change, and a rollback or feature flag when the behavior is significant. No fabricated measurements or claims of 100% accuracy.
+- Stop and request approval before destructive dataset migrations, incompatible database/schema changes, irreversible historical result changes, or scientifically material policy decisions.
+
+### Completion response format
+
+1. **Finding/status:** confirmed bug, already fixed, improvement, or blocked, with source paths and short evidence.
+2. **Changes made:** precise files/functions, concise before vs after.
+3. **Tests:** commands, pass/fail/skip/blocked counts and relevant output.
+4. **Risks and open questions:** anything requiring expert approval, camera, GPU or checkpoint.
+5. **Next action:** handoff to the next numbered prompt without starting it.

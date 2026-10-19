@@ -1,0 +1,13 @@
+{
+  "date": "2026-10-18",
+  "scope": "isolated model-free regression, no model checkpoints",
+  "command": "python -B tests/run_model_free_isolated.py",
+  "passed": 588,
+  "skipped": 6,
+  "subtests_passed": 92,
+  "warnings": 7,
+  "elapsed_seconds": 19.53,
+  "hardware_field_validation": "BLOCKED",
+  "independent_scientific_validation": "BLOCKED",
+  "release_readiness": "NOT READY"
+}

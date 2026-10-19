@@ -1,0 +1,2 @@
+﻿Session ID,Fish ID,Timestamp,AI Final Grade,Weighting Method,Tail Evaluation Status,Body Effective Weight,Head Effective Weight,Tail Effective Weight
+synthetic-session,Synthetic QA fish,2026-10-18T12:00:00-04:00,Class A,head_body_only,not_detected,0.625,0.375,0.0

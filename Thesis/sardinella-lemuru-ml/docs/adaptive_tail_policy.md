@@ -1,0 +1,25 @@
+# Adaptive Part-Weighted Fish Grading with Optional Tail Evaluation
+
+The configured `tail_optional_v1` policy (configuration version 4.0) is a proposed design intended to reduce penalties when a Tail measurement is unavailable. It does not establish improved accuracy or reliable detection of tail defects. Independent, expert-labeled fish-level videos are not currently available for that comparison.
+
+## Evidence and decision
+
+Model 2 emits trained part-and-grade detections for Body, Head, and Tail. For each accepted frame, the engine retains the highest detection confidence per region and grade; it averages those values over the observed frames for a track. These values are model support, not calibrated probabilities or independently measured physical quality scores. A region is available only when its presence confidence meets the configured minimum (0.25 by default); the detector can filter candidates earlier, so a filtered candidate may appear as not detected.
+
+For each grade separately, the engine multiplies the region's support by its active weight and sums the contributions. If Body, Head, and Tail are available, the weights are 0.50, 0.30, and 0.20. If Body and Head are available but Tail is unavailable, the weights are 0.50 / 0.80 = 0.625 and 0.30 / 0.80 = 0.375; Tail contributes no invented score. The active weights sum to one in both eligible cases. For example, Class A support of 0.87 for Body and 0.79 for Head becomes 0.840; under the former fixed-weight `standard` policy it was 0.672 with no Tail contribution.
+
+Both Body and Head are required. If either is unavailable, the fish is Ungraded and requires review. Existing parent/ownership, temporal, coverage, score and margin gates still apply. The default live track requires two eligible distinct frames, each with Body and Head; a still image does not require temporal aggregation. A reliable Tail prediction remains in the calculation even when its trained label is Rejected. The existing optional Rejected override remains disabled by default, so a Rejected Tail label participates in the weighted decision but does not itself guarantee a Rejected final grade. No trained model classes or grade thresholds were changed.
+
+The previous `standard` mode remains available for historical comparisons: its original weights stay fixed and missing regions contribute zero; it requires Body but can permit Body-only evidence if the other gates pass. `strict` and the separate research mode `two_part_v1` remain available. Historical records should be interpreted using their recorded policy and configuration; the current default must not be applied retroactively without explicitly labeling the result as a recomputation.
+
+## Audit fields and limitations
+
+Each new fish result records `weighting_method`, `weights_used` and `tail_status`, in addition to the existing original/effective weights and policy snapshot. Status distinguishes evaluated, not detected, below threshold when the candidate reaches the grading engine, and unavailable when the available evidence cannot establish a more specific status. An unobserved Tail is not evidence that the physical tail is missing or intact. UI and CSV/XLSX exports expose the method and Tail status; older records may lack these fields.
+
+Optional Tail evaluation can hide poor Tail condition when the model misses or filters the relevant detection. Tail visibility may correlate with occlusion, handling, defects, camera angle or specimen characteristics; therefore missingness cannot be assumed random. The redistribution and unchanged thresholds may alter grade distribution, false rejection and false acceptance, and requiring Head may increase abstentions. Existing overlap ownership and track evidence reduce attribution errors but do not prove correct association in difficult real scenes. Synthetic tests demonstrate code behavior, not biological validity or operational performance.
+
+## Required independent evaluation
+
+Before making an accuracy or reliability claim, lock the two policies and thresholds, then collect independent recordings with specimen-level identities, expert fish-level grade labels and separately documented Tail visibility/condition. Include zero, one, three and six or more fish, difficult overlaps, partially visible tails, damaged tails, and unseen sessions/specimens; prevent related specimens or recording sessions from crossing evaluation splits. Record expert disagreement and adjudication.
+
+Run both policies on the same locked detector output and report the number and proportion graded and Ungraded, class-wise precision/recall/F1, confusion matrices, accuracy and agreement with experts, false rejection and false acceptance, including uncertainty and counts. Stratify by Tail visibility, Tail quality and overlap, and report missing mandatory-part rates and per-fish ownership errors. Include abstentions in the reporting rather than comparing only automatically graded fish. Part-level annotations alone cannot establish fish-level grade agreement.

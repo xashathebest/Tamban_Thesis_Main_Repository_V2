@@ -1,0 +1,11 @@
+{
+  "resolution": [640, 480],
+  "clips": [
+    {
+      "id": "annotated-existing-video-smoke-only",
+      "path": "../tamban_inference/20260919_032226/camera_annotated.mp4",
+      "expert_crossings": null,
+      "note": "Previously annotated video, used only to check that the replay tool starts; unsuitable for a research comparison."
+    }
+  ]
+}

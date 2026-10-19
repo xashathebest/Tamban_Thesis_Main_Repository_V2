@@ -1,4 +1,15 @@
 const $ = (id) => document.getElementById(id);
+const unwrappedFetch = window.fetch.bind(window);
+let lanEnabled = false, lanReady = false, lanCsrf = null;
+window.fetch = (input, options = {}) => {
+  const url = new URL(typeof input === "string" ? input : input.url, window.location.href);
+  const method = String(options.method || (input instanceof Request ? input.method : "GET")).toUpperCase();
+  if (lanEnabled && lanCsrf && url.origin === window.location.origin && url.pathname.startsWith("/api/") && !["GET", "HEAD", "OPTIONS"].includes(method)) {
+    const headers = new Headers(options.headers || (input instanceof Request ? input.headers : undefined));
+    headers.set("X-CSRF-Token", lanCsrf); options = { ...options, headers };
+  }
+  return unwrappedFetch(input, options);
+};
 
 const elements = {
   shell: $("app-shell"), sidebarToggle: $("sidebar-toggle"),
@@ -7,7 +18,7 @@ const elements = {
   alert: $("alert"), alertTitle: $("alert-title"), alertCopy: $("alert-copy"), alertDetails: $("alert-details"),
   liveBadge: $("live-badge"), inspectionState: $("inspection-state"), start: $("start-button"), emptyStart: $("empty-start-button"), stop: $("stop-button"), reset: $("reset-button"),
   video: $("video-feed"), placeholder: $("video-placeholder"), placeholderTitle: $("placeholder-title"), placeholderCopy: $("placeholder-copy"),
-  feedFps: $("feed-fps"), feedResolution: $("feed-resolution"),
+  feedFps: $("feed-fps"), feedResolution: $("feed-resolution"), previewMode: $("preview-mode-button"), previewDescription: $("preview-mode-description"),
   resultEmpty: $("result-empty"), resultActive: $("result-active"), resultEmptyTitle: $("result-empty-title"), resultEmptyCopy: $("result-empty-copy"),
   decision: $("decision"), resultFish: $("result-fish"), resultLabel: $("result-label"), confidence: $("confidence"), confidenceBar: $("confidence-bar"), resultProcessing: $("result-processing"), resultTime: $("result-time"), latestFeatures: $("latest-feature-list"), classificationPolicy: $("classification-policy"),
   latestVerdictDetails: $("latest-verdict-details"), latestVerdictStatus: $("latest-verdict-status"), latestVerdictReason: $("latest-verdict-reason"), latestDetectionConfidence: $("latest-detection-confidence"), latestModel2Evidence: $("latest-model2-evidence"), latestCoverage: $("latest-coverage"), latestEffectiveWeights: $("latest-effective-weights"),
@@ -17,7 +28,7 @@ const elements = {
   featureChartEmpty: $("feature-chart-empty"), featureChart: $("feature-chart"), throughputChartEmpty: $("throughput-chart-empty"), throughputChart: $("throughput-chart"), throughputLine: $("throughput-line"), throughputCaption: $("throughput-caption"),
   confidenceChartEmpty: $("confidence-chart-empty"), confidenceChart: $("confidence-chart"), averageGradeConfidence: $("average-grade-confidence"),
   recentEmpty: $("recent-empty"), recentWrap: $("recent-table-wrap"), recentHistoryBody: $("recent-history-body"), viewAll: $("view-all-button"),
-  historyEmpty: $("history-empty"), historyWrap: $("history-table-wrap"), historyBody: $("history-body"), historySearch: $("history-search"), historyGrade: $("history-grade"), historyFeature: $("history-feature"), historyConfidence: $("history-confidence"), historyFilter: $("history-filter-button"), historyPrev: $("history-prev"), historyNext: $("history-next"), historyPage: $("history-page"),
+  historyEmpty: $("history-empty"), historyWrap: $("history-table-wrap"), historyBody: $("history-body"), historySession: $("history-session"), historySearch: $("history-search"), historyGrade: $("history-grade"), historyFeature: $("history-feature"), historyConfidence: $("history-confidence"), historyFilter: $("history-filter-button"), historyPrev: $("history-prev"), historyNext: $("history-next"), historyPage: $("history-page"),
   reviewEmpty: $("review-empty"), reviewWrap: $("review-table-wrap"), reviewBody: $("review-body"), reviewPrev: $("review-prev"), reviewNext: $("review-next"), reviewPage: $("review-page"),
   exportButton: $("export-button"), sidebarExport: $("sidebar-export"), exportModal: $("export-modal"), exportForm: $("export-form"), closeExport: $("close-export-button"), cancelExport: $("cancel-export-button"), dateRange: $("date-range"), exportStartDate: $("export-start-date"), exportEndDate: $("export-end-date"),
   settingsButton: $("settings-button"), sidebarSettings: $("sidebar-settings"), settingsDrawer: $("settings-drawer"), closeSettings: $("close-settings-button"), scrim: $("scrim"),
@@ -28,7 +39,7 @@ const elements = {
   cameraProfileConfirmation: $("camera-profile-confirmation"), cameraRecordEmptyReference: $("camera-record-empty-reference-button"), cameraRecordFishReference: $("camera-record-fish-reference-button"), cameraOperatorName: $("camera-operator-name"), cameraInstallationDeviceIdentity: $("camera-install-device-identity"), cameraInstallationHeight: $("camera-install-camera-height"), cameraInstallationAngle: $("camera-install-camera-angle"), cameraInstallationConveyor: $("camera-install-conveyor-position"), cameraInstallationLighting: $("camera-install-lighting-position"), cameraConfirmProfile: $("camera-confirm-profile-button"),
   slider: $("confidence-slider"), settingsThreshold: $("settings-threshold"), confidenceMinus: $("confidence-minus"), confidencePlus: $("confidence-plus"), resetConfidence: $("reset-confidence-button"),
   qualitySlider: $("quality-confidence-slider"), settingsQualityThreshold: $("settings-quality-threshold"), qualityConfidenceMinus: $("quality-confidence-minus"), qualityConfidencePlus: $("quality-confidence-plus"), resetQualityConfidence: $("reset-quality-confidence-button"),
-  detectorModelName: $("detector-model-name"), detectorModelStatus: $("detector-model-status"), detectorCheckpoint: $("detector-checkpoint"), detectorDevice: $("detector-device"), detectorThreshold: $("detector-threshold"),
+  detectorModelName: $("detector-model-name"), detectorModelStatus: $("detector-model-status"), detectorCheckpoint: $("detector-checkpoint"), detectorDevice: $("detector-device"), detectorThreshold: $("detector-threshold"), detectorTracker: $("detector-tracker"),
   segmenterModelName: $("segmenter-model-name"), segmenterModelStatus: $("segmenter-model-status"), segmenterCheckpoint: $("segmenter-checkpoint"), segmenterDevice: $("segmenter-device"), segmenterInference: $("segmenter-inference"),
   settingsResolution: $("settings-resolution"), settingsFps: $("settings-fps"), settingsQualityMode: $("settings-quality-mode"), settingsQualityInterval: $("settings-quality-interval"), settingsQualityRoiPadding: $("settings-quality-roi-padding"),
   runtimeDiagnostics: $("runtime-diagnostics"), runtimeDiagnosticsNote: $("runtime-diagnostics-note"), runtimeDiagnosticsValues: $("runtime-diagnostics-values"), debugRuntimeEnabled: $("debug-runtime-enabled"), debugPause: $("debug-pause-button"), hardNegativeList: $("hard-negative-list"),
@@ -44,7 +55,7 @@ const overlayControls = {
 };
 const viewMeta = {
   live: ["Live Inspection", "Real-time Sardinella Lemuru quality inspection"],
-  history: ["Inspection History", "Current-session fish inspection records"],
+  history: ["Inspection History", "Fish inspection records by session"],
   review: ["Review Queue", "Ungraded fish that need an operator decision"],
   model: ["Model", "Local inference availability and operator-safe configuration"],
   expert: ["Expert Validation", "Private research consultation library"],
@@ -56,10 +67,16 @@ const gradeColors = Object.fromEntries(
 );
 
 let latestStatus = null;
+let analyticsSnapshot = null;
+let analyticsSnapshotKey = null;
+let analyticsRequestInFlight = false;
+let analyticsController = null;
 let streamAttached = false;
 let streamReady = false;
+let rawPreview = false;
 let selectedUpload = null;
 let uploadInFlight = false;
+let exportInFlight = false;
 let selectedView = "live";
 let historyState = { page: 1, totalPages: 1 };
 let reviewState = { page: 1, totalPages: 1 };
@@ -68,6 +85,7 @@ let defaultQualityConfidence = 0.25;
 let partQualityChart = null;
 let colorTrendChart = null;
 let statusRequestInFlight = false;
+let statusController = null;
 let cameraCalibrationStatus = null;
 let controlRequestInFlight = false;
 let controlRevision = 0;
@@ -77,6 +95,13 @@ let historyRequestVersion = 0;
 let reviewRequestVersion = 0;
 let historyRequestKey = null;
 let reviewRequestKey = null;
+let historyController = null;
+let reviewController = null;
+let historyLoadedRevision = null;
+let reviewLoadedRevision = null;
+let renderedAnalytics = null;
+let cameraRenderKey = null;
+let alertRenderKey = null;
 let latestEvidenceKey = null;
 let recentHistoryKey = null;
 let historyRowsKey = null;
@@ -111,7 +136,7 @@ function hasEvents(data) { return Number(data?.counters?.total || 0) > 0; }
 
 function attachStream() {
   if (streamAttached) return;
-  elements.video.src = `/api/video-feed?t=${Date.now()}`;
+  elements.video.src = `/api/video-feed${rawPreview ? "/raw" : ""}?t=${Date.now()}`;
   streamAttached = true;
 }
 elements.video.addEventListener("load", () => { streamReady = true; elements.placeholder.classList.add("hidden"); });
@@ -128,7 +153,8 @@ function renderAlert(data) {
   const modelIssue = data.model_status !== "ready";
   const segmenterIssue = data.runtime_mode !== "part_preview" && ["unavailable", "error"].includes(data.segmenter_status);
   const inspectionIssue = data.inspection_status === "errored";
-  const visible = modelIssue || segmenterIssue || inspectionIssue;
+  const trackerWarning = data.runtime_mode !== "part_preview" && Boolean(data.tracker_warning);
+  const visible = modelIssue || segmenterIssue || inspectionIssue || trackerWarning;
   elements.alert.classList.toggle("hidden", !visible);
   if (!visible) return;
   if (modelIssue) {
@@ -141,16 +167,26 @@ function renderAlert(data) {
     elements.alertTitle.textContent = "Quality Model unavailable";
     elements.alertCopy.textContent = "Fish detection can continue, but fish are recorded as Ungraded until Model 2 is available.";
     elements.alertDetails.textContent = data.segmenter_message || "No diagnostic details supplied.";
-  } else {
+  } else if (inspectionIssue) {
     elements.alertTitle.textContent = "Inspection unavailable";
     elements.alertCopy.textContent = "The camera or inspection worker needs attention.";
     elements.alertDetails.textContent = data.message || "No diagnostic details supplied.";
+  } else {
+    elements.alertTitle.textContent = "Tracker warning";
+    elements.alertCopy.textContent = `Active tracker: ${data.tracker_backend || "unknown"}.`;
+    elements.alertDetails.textContent = data.tracker_warning;
   }
 }
 
 function renderCamera(data) {
   const inspection = data.inspection_status;
-  const running = ["starting", "running"].includes(inspection);
+  elements.previewMode.classList.toggle("hidden", !data.raw_preview_available);
+  if (!data.raw_preview_available && rawPreview) { rawPreview = false; elements.video.removeAttribute("src"); streamAttached = false; streamReady = false; }
+  elements.previewMode.textContent = rawPreview ? "View processed feed" : "View raw preview";
+  elements.previewMode.setAttribute("aria-pressed", String(rawPreview));
+  elements.previewDescription.textContent = rawPreview ? "Raw camera preview, without AI annotations. Preview FPS and display latency are not measured." : "Processed feed with AI annotations. Preview FPS and display latency are not measured.";
+  elements.video.alt = rawPreview ? "Raw local webcam preview without AI annotations" : "Annotated local webcam feed";
+  const running = ["starting", "running", "stopping"].includes(inspection);
   const preview = data.runtime_mode === "part_preview";
   setCompactStatus($("connection-pill"), "Server", "Online", "ready");
   $("runtime-mode-label").textContent = preview ? "Research mode · Part preview" : "Local inspection · Whole fish";
@@ -165,11 +201,15 @@ function renderCamera(data) {
   elements.inspectionState.className = `inspection-state ${stateClass(inspection)}`;
   elements.inspectionState.replaceChildren(document.createElement("i"), document.createTextNode(titleCase(inspection)));
   elements.liveBadge.className = `live-badge ${stateClass(inspection)}`;
-  elements.liveBadge.textContent = inspection === "running" ? "LIVE" : inspection === "starting" ? "STARTING" : "OFFLINE";
+  elements.liveBadge.textContent = inspection === "running" ? "LIVE" : inspection === "starting" ? "STARTING" : inspection === "stopping" ? "STOPPING" : "OFFLINE";
   elements.start.disabled = controlRequestInFlight || running || data.model_status !== "ready";
   elements.emptyStart.disabled = elements.start.disabled;
-  elements.stop.disabled = controlRequestInFlight || !running;
-  elements.reset.disabled = controlRequestInFlight || inspection === "starting";
+  // Show one Start action: in the empty feed while stopped, or with the
+  // other controls while an inspection is starting, running, or stopping.
+  elements.start.classList.toggle("hidden", !running);
+  elements.emptyStart.classList.toggle("hidden", running);
+  elements.stop.disabled = controlRequestInFlight || !["starting", "running"].includes(inspection);
+  elements.reset.disabled = controlRequestInFlight || ["starting", "stopping"].includes(inspection);
   elements.analyze.disabled = uploadInFlight || !selectedUpload || !data.upload_analysis_available;
   if (running) attachStream();
   else if (streamAttached) { elements.video.removeAttribute("src"); streamAttached = false; streamReady = false; }
@@ -177,12 +217,15 @@ function renderCamera(data) {
   if (inspection === "starting") {
     elements.placeholderTitle.textContent = "Starting inspection";
     elements.placeholderCopy.textContent = "Opening the local camera and preparing inference.";
+  } else if (inspection === "stopping") {
+    elements.placeholderTitle.textContent = "Stopping inspection";
+    elements.placeholderCopy.textContent = "Waiting for the camera and inference worker to finish.";
   } else if (inspection === "errored") {
-    elements.placeholderTitle.textContent = "Camera unavailable";
-    elements.placeholderCopy.textContent = "Check the connected camera, then start inspection again.";
+    elements.placeholderTitle.textContent = "Inspection needs attention";
+    elements.placeholderCopy.textContent = data.message || "Check the status message, then start inspection again.";
   } else if (inspection === "running" && !streamReady) {
     elements.placeholderTitle.textContent = "Connecting to inspection camera…";
-    elements.placeholderCopy.textContent = "Waiting for the first processed camera frame.";
+    elements.placeholderCopy.textContent = rawPreview ? "Waiting for the first raw camera frame." : "Waiting for the first processed camera frame.";
   } else {
     elements.placeholderTitle.textContent = "Camera is currently stopped.";
     elements.placeholderCopy.textContent = data.model_status === "ready"
@@ -190,7 +233,7 @@ function renderCamera(data) {
       : "The local model is unavailable. See the status message above.";
   }
   const fps = Number(data.fps || 0);
-  elements.feedFps.textContent = `${fps.toFixed(1)} FPS`;
+  elements.feedFps.textContent = `AI processing: ${fps.toFixed(1)} FPS`;
   const frameSize = data.frame_size;
   elements.feedResolution.textContent = Array.isArray(frameSize) ? `${frameSize[0]} × ${frameSize[1]}` : "—";
   elements.settingsResolution.textContent = elements.feedResolution.textContent;
@@ -289,7 +332,7 @@ function appendFullAnalysis(container, event) {
   });
   appendAnalysisBlock(body, "Evidence coverage", (block) => {
     const grid = document.createElement("div"); grid.className = "analysis-data-grid";
-    const observed = observedRegions(event); addAnalysisDatum(grid, "Observed regions", observed.length ? observed.join(" / ") : "None"); addAnalysisDatum(grid, "Original coverage", coverageText(event)); addAnalysisDatum(grid, "Effective calculation", effectiveWeightText(event)); addAnalysisDatum(grid, "Usable Model 2 frames", eventValue(event, "observation_count") ?? "-"); block.append(grid);
+    const observed = observedRegions(event); addAnalysisDatum(grid, "Observed regions", observed.length ? observed.join(" / ") : "None"); addAnalysisDatum(grid, "Original coverage", coverageText(event)); addAnalysisDatum(grid, "Weighting method", titleCase(String(analysis.weighting_method || "not recorded").replaceAll("_", " "))); addAnalysisDatum(grid, "Tail evaluation", titleCase(String(analysis.tail_status || "not recorded").replaceAll("_", " "))); addAnalysisDatum(grid, "Effective calculation", effectiveWeightText(event)); addAnalysisDatum(grid, "Usable Model 2 frames", eventValue(event, "observation_count") ?? "-"); block.append(grid);
   });
   appendAnalysisBlock(body, "Confidence concepts", (block) => {
     const grid = document.createElement("div"); grid.className = "analysis-data-grid";
@@ -335,7 +378,7 @@ function appendFullAnalysis(container, event) {
   });
   const supporting = analysis.supporting_image_measurements;
   appendAnalysisBlock(body, "Supporting Image Measurements", (block) => {
-    const note = document.createElement("p"); note.textContent = "Not used for final grade. These rectangular image regions may include background; no fish mask is available."; block.append(note);
+    const note = document.createElement("p"); note.textContent = "Diagnostic only; not used for the final grade. Rectangular regions may include background; no fish mask is available. Yellow and highlight values are image proxies, not validated defect or shininess detection."; block.append(note);
     if (!supporting || typeof supporting !== "object") { const line = document.createElement("p"); line.textContent = "Measurements are unavailable for this record."; block.append(line); return; }
     ["Whole Fish", "Body", "Head", "Tail"].forEach((region) => {
       const item = supporting.regions?.[region] || {}; const values = item.values || {}; const line = document.createElement("p");
@@ -343,7 +386,7 @@ function appendFullAnalysis(container, event) {
       else {
         const hue = typeof values.mean_hue_deg === "number" && Number.isFinite(values.mean_hue_deg) ? `${values.mean_hue_deg.toFixed(1)}°` : "unavailable";
         const frames = (item.frame_rois || []).map((frame) => frame.frame_id ?? "unknown").join(", ") || "unknown";
-        line.textContent = `${region}: hue ${hue}; saturation ${scoreText(values.mean_saturation)}; brightness ${scoreText(values.mean_value)}; yellow ${scoreText(values.yellow_ratio_proxy)}; highlight proxy ${scoreText(values.specular_ratio_proxy)}. Source: ${item.measurement_source || "unknown"}; frames: ${frames}.`;
+        line.textContent = `${region}: hue ${hue}; saturation ${scoreText(values.mean_saturation)}; HSV value (brightness proxy) ${scoreText(values.mean_value)}; yellow proxy ${scoreText(values.yellow_ratio_proxy)}; highlight proxy ${scoreText(values.specular_ratio_proxy)}. Source: ${item.measurement_source || "unknown"}; frames: ${frames}.`;
       }
       block.append(line);
     });
@@ -444,7 +487,7 @@ function renderKpis(data) {
   elements.kpiGrid.querySelector(".metric-waiting")?.remove();
   if (data.runtime_mode === "part_preview") {
     cards.splice(0, cards.length, ["Counting disabled", "—", "Research part preview"], ["Grading disabled", "—", "No whole-fish verdicts"]);
-    secondary.splice(0, secondary.length, ["Inspection FPS", `${Number(data.fps || 0).toFixed(1)}`, "Preview frames per second"]);
+    secondary.splice(0, secondary.length, ["Inspection FPS", `${Number(data.fps || 0).toFixed(1)}`, "AI processed frames per second"]);
   }
   reconcileCards(elements.kpiGrid, kpiCards, cards, ([label, value, note, emphasis]) => kpiCard(label, value, note, Boolean(emphasis)));
   reconcileCards($("secondary-kpi-grid"), secondaryKpiCards, secondary, ([label, value, note]) => kpiCard(label, value, note, false, secondaryKpiCards));
@@ -516,7 +559,8 @@ function renderAnalytics(analytics) {
   const throughput = analytics.throughput || []; const maxTotal = Math.max(1, ...throughput.map((item) => Number(item.total || 0))); const denominator = Math.max(1, throughput.length - 1);
   const points = throughput.map((item, index) => `${(index / denominator) * 560},${166 - (Number(item.total || 0) / maxTotal) * 142}`).join(" ");
   elements.throughputLine.setAttribute("points", points || "0,166");
-  elements.throughputCaption.textContent = `${total} fish · ${throughput.length} observations`;
+  const trendLabel = Number(analytics.trend_events_total || 0) > throughput.length ? `latest ${throughput.length}` : `${throughput.length}`;
+  elements.throughputCaption.textContent = `${total} fish · ${trendLabel} observations`;
   if (confidenceAvailable) elements.averageGradeConfidence.textContent = `M1 raw ${formatPercent(analytics.average_detection_confidence)} · final support ${formatPercent(analytics.average_grade_confidence)}`;
 }
 
@@ -573,24 +617,30 @@ function appendManualReviewPanel(container, event) {
   const currentManual = manualGrade(event); if (!needsReview(event) && !currentManual) return;
   const panel = document.createElement("section"); panel.className = "manual-review-panel";
   const heading = document.createElement("h3"); heading.textContent = "Manual review"; const original = document.createElement("p");
-  original.textContent = `Original AI verdict: ${aiFinalGrade(event)}. Weighted final support: ${scoreText(weightedFinalSupport(event))}. This evidence is retained when a manual grade is recorded.`;
+  original.textContent = `Session: ${event.session_id || "current session"}. Original AI verdict: ${aiFinalGrade(event)}. Weighted final support: ${scoreText(weightedFinalSupport(event))}. This evidence is retained when a manual grade is recorded.`;
   const controls = document.createElement("div"); controls.className = "manual-review-controls"; const label = document.createElement("label"); label.textContent = "Manual final grade";
   const select = document.createElement("select"); select.setAttribute("aria-label", "Manual final grade"); const empty = document.createElement("option"); empty.value = ""; empty.textContent = "Select an operator grade"; select.append(empty);
   MANUAL_GRADE_CHOICES.forEach((grade) => { const option = document.createElement("option"); option.value = grade; option.textContent = grade === "Rejected" ? "Rejected" : `Class ${grade}`; option.selected = manualChoiceForDisplay(currentManual) === grade; select.append(option); });
   label.append(select); const save = document.createElement("button"); save.type = "button"; save.className = "button primary"; save.textContent = currentManual ? "Update manual grade" : "Record manual grade"; save.disabled = !select.value;
   const message = document.createElement("p"); message.className = "manual-review-message"; if (currentManual) message.textContent = `Manual final grade currently recorded as ${currentManual}.`;
   select.addEventListener("change", () => { save.disabled = !select.value; message.textContent = ""; message.classList.remove("error"); });
-  save.addEventListener("click", () => submitManualReview(event, select.value, save, message)); controls.append(label, save); panel.append(heading, original, controls, message); container.append(panel);
+  const reviewerLabel = document.createElement("label"); reviewerLabel.textContent = "Reviewer (optional)"; const reviewer = document.createElement("input"); reviewer.type = "text"; reviewer.maxLength = 120; reviewer.value = event.reviewer || ""; reviewerLabel.append(reviewer);
+  save.addEventListener("click", () => submitManualReview(event, select.value, save, message, reviewer.value)); controls.append(label, reviewerLabel, save);
+  if (currentManual) { const clear = document.createElement("button"); clear.type = "button"; clear.className = "button quiet"; clear.textContent = "Clear manual grade"; clear.addEventListener("click", () => submitManualReview(event, null, clear, message, reviewer.value)); controls.append(clear); }
+  panel.append(heading, original, controls, message); container.append(panel);
 }
-async function submitManualReview(event, selectedGrade, button, message) {
-  if (!selectedGrade || event?.track_id == null) return;
+async function submitManualReview(event, selectedGrade, button, message, reviewer = "") {
+  if ((selectedGrade !== null && !selectedGrade) || event?.track_id == null) return;
   button.disabled = true; message.classList.remove("error"); message.textContent = "Saving manual final grade...";
   try {
-    const response = await fetch(`/api/reviews/${encodeURIComponent(String(event.track_id))}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ manual_grade: selectedGrade }) });
+    const request = { manual_grade: selectedGrade, reviewer: reviewer.trim() || null }; if (event.session_id) request.session_id = event.session_id;
+    const response = await fetch(`/api/reviews/${encodeURIComponent(String(event.track_id))}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(request) });
     const payload = await response.json().catch(() => ({})); if (!response.ok) throw new Error(payload.detail || `HTTP ${response.status}`);
     const updated = payload.item && typeof payload.item === "object" ? payload.item : null;
-    message.textContent = "Manual final grade saved. The original AI verdict is unchanged.";
-    if (updated) openHistoryAnalysis(updated); await getStatus(); await loadHistory(); await loadReviewQueue();
+    message.textContent = selectedGrade === null ? "Manual grade cleared. The original AI verdict is unchanged." : "Manual final grade saved. The original AI verdict is unchanged.";
+    if (updated) openHistoryAnalysis(updated); await getStatus();
+    if (selectedView === "history") await loadHistory();
+    else if (selectedView === "review") await loadReviewQueue();
   } catch (error) { message.classList.add("error"); message.textContent = error instanceof Error ? error.message : "Manual review could not be saved."; button.disabled = false; }
 }
 function openHistoryAnalysis(event) {
@@ -613,6 +663,7 @@ function renderModel(data) {
   elements.detectorModelName.closest(".model-card").querySelector(".eyebrow").textContent = preview ? "RESEARCH · PART MODEL" : "MODEL 1 · FISH DETECTION";
   const detector = data.model_info?.detector || {}; const segmenter = data.model_info?.quality || {}; const diagnostic = segmenter.diagnostics || {};
   elements.detectorModelName.textContent = detector.name || "Fish detector"; elements.detectorModelStatus.textContent = titleCase(detector.status); elements.detectorCheckpoint.textContent = detector.checkpoint_resolved ? "Resolved" : "Unresolved"; elements.detectorDevice.textContent = detector.device || "—"; elements.detectorThreshold.textContent = formatPercent(Number(detector.confidence_threshold) * 100);
+  elements.detectorTracker.textContent = preview ? "Not used" : (data.tracker_backend || "Checking");
   elements.segmenterModelName.textContent = segmenter.name || "Quality Model"; elements.segmenterModelStatus.textContent = titleCase(segmenter.status); elements.segmenterCheckpoint.textContent = segmenter.checkpoint_resolved ? "Resolved" : "Unresolved"; elements.segmenterDevice.textContent = segmenter.device || "—"; elements.segmenterInference.textContent = diagnostic.last_inference_ms == null ? "No measurement" : `${diagnostic.last_inference_ms} ms`;
 }
 
@@ -625,13 +676,17 @@ function renderRuntimeDiagnostics(data) {
   const enabled = Boolean(diagnostics.enabled); elements.debugRuntimeEnabled.checked = enabled; elements.debugPause.disabled = !enabled; elements.debugPause.textContent = diagnostics.paused ? "Resume inspection" : "Pause on current frame";
   elements.runtimeDiagnosticsNote.textContent = enabled
     ? "Debug mode is bounded and research-only. Raw candidates and saved crops do not change production predictions, grading, or history."
-    : "Off by default. Enable only while investigating Model 1 / Model 2 runtime behavior.";
+    : performance.recording_enabled === false
+      ? "Runtime sample recording is disabled for an overhead experiment. Debug capture is off."
+      : "Clean runtime counters remain active. Debug capture changes candidate collection and saves research artifacts; leave it off for baseline measurements.";
   elements.runtimeDiagnosticsValues.replaceChildren(
     diagnosticsRow("Capture FPS", performance.calls_per_second?.camera_capture == null ? "—" : `${Number(performance.calls_per_second.camera_capture).toFixed(1)}`),
     diagnosticsRow("Processing FPS", performance.calls_per_second?.processed_frame == null ? "—" : `${Number(performance.calls_per_second.processed_frame).toFixed(1)}`),
     diagnosticsRow("Dropped stale frames", queue.dropped_frames ?? "—"), diagnosticsRow("Queue depth", queue.depth ?? "—"),
-    diagnosticsRow("Model 1 p50 / p95", timings.model1_inference?.p50 == null ? "—" : `${timings.model1_inference.p50} / ${timings.model1_inference.p95} ms`),
-    diagnosticsRow("Model 2 p50 / p95", timings.model2_inference?.p50 == null ? "—" : `${timings.model2_inference.p50} / ${timings.model2_inference.p95} ms`),
+    diagnosticsRow("Model 1 host time p50 / p95", timings.model1_inference?.p50 == null ? "—" : `${timings.model1_inference.p50} / ${timings.model1_inference.p95} ms (${timings.model1_inference.count} samples)`),
+    diagnosticsRow("Model 2 host time p50 / p95", timings.model2_inference?.p50 == null ? "—" : `${timings.model2_inference.p50} / ${timings.model2_inference.p95} ms (${timings.model2_inference.count} samples)`),
+    diagnosticsRow("Model 2 calls / active fish / mode", `${performance.counters?.model2 ?? 0} / ${diagnostics.active_tracks ?? 0} / ${diagnostics.quality_inference_mode ?? "—"}`),
+    diagnosticsRow("Timing scope", "Host durations; GPU work may be asynchronous. Some stages overlap."),
     diagnosticsRow("JPEG p50 / p95", timings.jpeg_encoding?.p50 == null ? "—" : `${timings.jpeg_encoding.p50} / ${timings.jpeg_encoding.p95} ms`),
     diagnosticsRow("Frontend render p50 / p95", timings.frontend_render?.p50 == null ? "Waiting for browser telemetry" : `${timings.frontend_render.p50} / ${timings.frontend_render.p95} ms`),
     diagnosticsRow("Model 2 raw / associated / rejected / unassigned", `${diagnostics.model2_raw_candidates ?? 0} / ${diagnostics.model2_associated_parts ?? 0} / ${diagnostics.model2_rejected_candidates ?? 0} / ${diagnostics.model2_unassigned_candidates ?? 0}`),
@@ -663,7 +718,7 @@ function renderGradingSettings(data) {
     section = document.createElement("section");
     section.id = "grading-settings-section";
     section.className = "settings-section";
-    section.innerHTML = "<h3>Grading policy</h3><p class=\"muted\">Read-only policy snapshot. Weighted support is not a calibrated probability.</p><dl class=\"settings-list\"><div><dt>Mode</dt><dd id=\"settings-grading-mode\">—</dd></div><div><dt>Part evidence threshold</dt><dd id=\"settings-part-evidence-threshold\">—</dd></div><div><dt>Final verdict threshold</dt><dd id=\"settings-final-verdict-threshold\">—</dd></div><div><dt>Minimum grade margin</dt><dd id=\"settings-grade-margin\">—</dd></div><div><dt>Required coverage</dt><dd id=\"settings-coverage\">—</dd></div><div><dt>Fixed weights</dt><dd id=\"settings-part-weights\">—</dd></div></dl>";
+    section.innerHTML = "<h3>Grading policy</h3><p class=\"muted\">Read-only policy snapshot. Weighted support is not a calibrated probability.</p><dl class=\"settings-list\"><div><dt>Mode</dt><dd id=\"settings-grading-mode\">—</dd></div><div><dt>Part evidence threshold</dt><dd id=\"settings-part-evidence-threshold\">—</dd></div><div><dt>Final verdict threshold</dt><dd id=\"settings-final-verdict-threshold\">—</dd></div><div><dt>Minimum grade margin</dt><dd id=\"settings-grade-margin\">—</dd></div><div><dt>Required coverage</dt><dd id=\"settings-coverage\">—</dd></div><div><dt>Original weights</dt><dd id=\"settings-part-weights\">—</dd></div></dl>";
     const cameraSection = [...elements.settingsDrawer.querySelectorAll(".settings-section")]
       .find((candidate) => candidate.querySelector("h3")?.textContent?.trim() === "Camera");
     if (cameraSection) cameraSection.before(section); else elements.settingsDrawer.append(section);
@@ -691,7 +746,7 @@ function syncSettings(data) {
   elements.settingsQualityInterval.textContent = Number.isFinite(interval) && interval > 0 ? `Every ${interval} processed frame${interval === 1 ? "" : "s"}` : "—";
   const padding = Number(qualityRuntime.roi_padding ?? qualityRuntime.diagnostics?.roi_padding);
   elements.settingsQualityRoiPadding.textContent = Number.isFinite(padding) ? `${padding} px` : "—";
-  const policyLocked = Boolean(data.policy_settings_locked ?? ["starting", "running"].includes(data.inspection_status));
+  const policyLocked = Boolean(data.policy_settings_locked ?? ["starting", "running", "stopping"].includes(data.inspection_status));
   [elements.slider, elements.confidenceMinus, elements.confidencePlus, elements.resetConfidence, elements.qualitySlider, elements.qualityConfidenceMinus, elements.qualityConfidencePlus, elements.resetQualityConfidence]
     .forEach((control) => { if (control) { control.disabled = policyLocked; control.title = policyLocked ? "Stop inspection before changing this policy setting." : ""; } });
   const display = data.display_settings || {};
@@ -700,7 +755,21 @@ function syncSettings(data) {
 }
 
 function render(data) {
-  const renderStarted = performance.now(); latestStatus = data; defaultConfidence = Number(data.default_confidence_threshold ?? defaultConfidence); defaultQualityConfidence = Number(data.default_quality_confidence_threshold ?? defaultQualityConfidence); renderAlert(data); renderCamera(data); renderLatest(data); renderKpis(data); renderFeatureCounters(data); renderAnalytics(data.analytics); renderRecent(data.recent_history); renderModel(data); syncSettings(data); renderRuntimeDiagnostics(data);
+  const renderStarted = performance.now(); latestStatus = data; defaultConfidence = Number(data.default_confidence_threshold ?? defaultConfidence); defaultQualityConfidence = Number(data.default_quality_confidence_threshold ?? defaultQualityConfidence);
+  const alertKey = JSON.stringify([data.model_status, data.segmenter_status, data.inspection_status, data.runtime_mode, data.message, data.segmenter_message, data.upload_analysis_available, data.tracker_backend, data.tracker_warning]);
+  if (alertKey !== alertRenderKey) { renderAlert(data); alertRenderKey = alertKey; }
+  const cameraKey = JSON.stringify([data.inspection_status, data.camera_status, data.model_status, data.segmenter_status, data.runtime_mode, data.model_info?.quality?.status, data.model_info?.detector?.device, data.fps, data.frame_size, data.message, data.raw_preview_available, data.upload_analysis_available, Boolean(selectedUpload), uploadInFlight, streamReady, streamAttached, controlRequestInFlight]);
+  if (cameraKey !== cameraRenderKey) { renderCamera(data); cameraRenderKey = cameraKey; }
+  if (selectedView === "live") {
+    renderLatest(data); renderKpis(data); renderFeatureCounters(data); renderRecent(data.recent_history);
+    Object.entries(overlayControls).forEach(([name, controls]) => controls.forEach((control) => { if (control) control.checked = Boolean(data.display_settings?.[name]); }));
+    if ($("analytics-disclosure").open && data.analytics !== renderedAnalytics) {
+      renderAnalytics(data.analytics); renderedAnalytics = data.analytics;
+    }
+    if ($("advanced-diagnostics").open) renderRuntimeDiagnostics(data);
+  }
+  if (selectedView === "model") renderModel(data);
+  if (activePanel === elements.settingsDrawer) syncSettings(data);
   if (data.runtime_diagnostics?.enabled) fetch("/api/debug/frontend-metrics", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ render_ms: performance.now() - renderStarted }) }).catch(() => {});
   const reviewCount = Number(data.review_queue_count || 0);
   $("review-count").textContent = String(reviewCount);
@@ -716,8 +785,9 @@ function render(data) {
     $("analytics-section").classList.remove("hidden");
     elements.featureCounterGrid.closest(".feature-section").classList.remove("hidden");
   }
-  if (selectedView === "history") loadHistory();
-  else if (selectedView === "review") loadReviewQueue();
+  const dataRevision = analyticsVersion(data);
+  if (selectedView === "history" && historyLoadedRevision !== dataRevision) loadHistory();
+  else if (selectedView === "review" && reviewLoadedRevision !== dataRevision) loadReviewQueue();
 }
 
 function renderBackendUnavailable() {
@@ -735,22 +805,63 @@ function renderBackendUnavailable() {
 }
 async function getStatus() {
   // A slow response must never overtake the next poll and redraw stale UI.
-  if (statusRequestInFlight || controlRequestInFlight) return;
+  if (!lanReady || (lanEnabled && !lanCsrf) || document.hidden || statusRequestInFlight || controlRequestInFlight) return;
   statusRequestInFlight = true;
+  const controller = new AbortController(); statusController = controller;
+  const timeout = setTimeout(() => controller.abort(), 10000);
   const revision = controlRevision;
   try {
-    const response = await fetch("/api/status", { cache: "no-store" });
+    const response = await fetch("/api/status/live", { cache: "no-store", signal: controller.signal });
+    if (response.status === 401 && lanEnabled) { lanCsrf = null; showLanLogin(); }
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
-    if (revision === controlRevision && !controlRequestInFlight) render(data);
-  } catch (_) {
-    if (revision === controlRevision && !controlRequestInFlight) renderBackendUnavailable();
+    if (revision === controlRevision && !controlRequestInFlight) {
+      const key = analyticsVersion(data);
+      if (key === analyticsSnapshotKey) {
+        data.analytics = analyticsSnapshot;
+        data.feature_counters = analyticsSnapshot?.feature_counts || {};
+      }
+      render(data);
+      if (key !== analyticsSnapshotKey) refreshAnalytics(key);
+    }
+  } catch (error) {
+    if (!document.hidden && revision === controlRevision && !controlRequestInFlight) { cameraRenderKey = null; alertRenderKey = null; renderBackendUnavailable(); }
   } finally {
+    clearTimeout(timeout); if (statusController === controller) statusController = null;
     statusRequestInFlight = false;
+  }
+}
+function analyticsVersion(data) {
+  const session = data?.durable_session?.session_id ?? null;
+  // The legacy in-memory fallback has no SQLite revision before a session exists.
+  return JSON.stringify([session, data?.event_revision ?? null, session ? null : data?.recent_history || []]);
+}
+async function refreshAnalytics(key) {
+  if (document.hidden || analyticsRequestInFlight) return;
+  analyticsRequestInFlight = true;
+  const controller = new AbortController(); analyticsController = controller;
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  try {
+    const response = await fetch("/api/analytics?range_name=current_session", { cache: "no-store", signal: controller.signal });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    const session = latestStatus?.durable_session?.session_id ?? null;
+    if (analyticsVersion(latestStatus) !== key || (data.session_id ?? null) !== session ||
+        (data.event_revision ?? null) !== (latestStatus?.event_revision ?? null)) return;
+    analyticsSnapshot = data;
+    analyticsSnapshotKey = key;
+    render({ ...latestStatus, analytics: data, feature_counters: data.feature_counts || {} });
+  } catch (_) {
+    // Retry on the next status poll without replacing current live data.
+  } finally {
+    clearTimeout(timeout);
+    if (analyticsController === controller) analyticsController = null;
+    analyticsRequestInFlight = false;
   }
 }
 async function postControl(path) {
   if (controlRequestInFlight) return;
+  statusController?.abort();
   controlRequestInFlight = true;
   controlRevision += 1;
   const feedback = $("control-feedback");
@@ -785,6 +896,10 @@ async function postSettings(payload) {
 function showView(view) {
   if (!viewMeta[view]) return;
   if (selectedView === "expert" && view !== "expert") closeExpertLibrary();
+  if (selectedView !== view) {
+    historyController?.abort(); reviewController?.abort();
+    historyRequestVersion++; reviewRequestVersion++; historyRequestKey = null; reviewRequestKey = null;
+  }
   selectedView = view;
   Object.keys(viewMeta).forEach((name) => $("view-" + name).classList.toggle("hidden", name !== view));
   const [title, subtitle] = viewMeta[view]; elements.pageTitle.textContent = title; elements.pageSubtitle.textContent = subtitle;
@@ -793,8 +908,9 @@ function showView(view) {
     if (button.dataset.view === view) button.setAttribute("aria-current", "page");
     else button.removeAttribute("aria-current");
   });
-  if (view === "history") loadHistory(true);
+  if (view === "history") { loadHistorySessions(); loadHistory(true); }
   if (view === "review") loadReviewQueue(true);
+  if (latestStatus) render(latestStatus);
   window.scrollTo({ top: 0, behavior: motionPreference() });
 }
 function motionPreference() { return window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"; }
@@ -827,9 +943,9 @@ function closePanel(panel) {
   updateScrim();
   panelTrigger?.focus();
 }
-function openSettings() { openPanel(elements.settingsDrawer); }
+function openSettings() { if (latestStatus) syncSettings(latestStatus); openPanel(elements.settingsDrawer); }
 function closeSettings() { closePanel(elements.settingsDrawer); }
-function openExport() { openPanel(elements.exportModal); }
+function openExport() { updateExportSelection(); openPanel(elements.exportModal); }
 function closeExport() { closePanel(elements.exportModal); }
 function openCameraCalibration() { openPanel(elements.cameraCalibrationDrawer); loadCameraCalibration(); }
 function closeCameraCalibration() { closePanel(elements.cameraCalibrationDrawer); }
@@ -987,24 +1103,38 @@ function reviewFilterMatches(event) {
 function setHistoryPageState(state, total, itemCount) {
   state.totalPages = Math.max(1, Math.ceil(total / 25)); state.page = Math.min(Math.max(1, state.page), state.totalPages); elements.historyPage.textContent = `Page ${state.page} of ${state.totalPages}`; elements.historyPrev.disabled = state.page <= 1; elements.historyNext.disabled = state.page >= state.totalPages; return itemCount;
 }
+async function loadHistorySessions() {
+  try {
+    const response = await fetch("/api/sessions?limit=1000"); const data = await response.json(); if (!response.ok) throw new Error(data.detail || "Sessions unavailable");
+    const selected = elements.historySession.value; elements.historySession.replaceChildren();
+    const current = document.createElement("option"); current.value = ""; current.textContent = "Current session"; elements.historySession.append(current);
+    (data.items || []).forEach((session) => { const option = document.createElement("option"); option.value = session.session_id; option.textContent = `${session.started_at || "Unknown date"} · ${session.session_id}`; elements.historySession.append(option); });
+    elements.historySession.value = selected;
+  } catch (error) { elements.historyEmpty.textContent = error instanceof Error ? error.message : "Sessions unavailable."; }
+}
 async function loadHistory(resetPage = false) {
   ensureHistoryVerdictFilter(); if (resetPage) historyState.page = 1;
-  const requestKey = JSON.stringify([historyState.page, elements.historySearch.value, elements.historyGrade.value, elements.historyFeature.value, elements.historyConfidence.value, elements.historyVerdict?.value, latestStatus?.durable_session?.session_id]);
+  if (document.hidden || selectedView !== "history") return;
+  const dataRevision = analyticsVersion(latestStatus);
+  const requestKey = JSON.stringify([historyState.page, elements.historySession.value, elements.historySearch.value, elements.historyGrade.value, elements.historyFeature.value, elements.historyConfidence.value, elements.historyVerdict?.value, dataRevision]);
   if (historyRequestKey === requestKey) return;
+  historyController?.abort();
+  const controller = new AbortController(); historyController = controller;
   historyRequestKey = requestKey;
   const version = ++historyRequestVersion;
   elements.historyEmpty.textContent = "No inspection records match these filters.";
   try {
     if (elements.historyVerdict?.value === "NEEDS_REVIEW") {
-      const response = await fetch("/api/reviews?include_reviewed=true"); const data = await response.json(); if (version !== historyRequestVersion) return; if (!response.ok) throw new Error(data.detail || "Review filter unavailable");
+      const reviewQuery = new URLSearchParams({ include_reviewed: "true" }); if (elements.historySession.value) reviewQuery.set("session_id", elements.historySession.value);
+      const response = await fetch(`/api/reviews?${reviewQuery}`, { signal: controller.signal }); const data = await response.json(); if (version !== historyRequestVersion || selectedView !== "history") return; if (!response.ok) throw new Error(data.detail || "Review filter unavailable");
       const filtered = (data.items || []).filter(reviewFilterMatches); const total = filtered.length; setHistoryPageState(historyState, total, total); const pageItems = filtered.slice((historyState.page - 1) * 25, historyState.page * 25);
-      elements.historyEmpty.classList.toggle("hidden", pageItems.length > 0); elements.historyWrap.classList.toggle("hidden", pageItems.length === 0); renderHistoryRows(pageItems); return;
+      elements.historyEmpty.classList.toggle("hidden", pageItems.length > 0); elements.historyWrap.classList.toggle("hidden", pageItems.length === 0); renderHistoryRows(pageItems); historyLoadedRevision = dataRevision; return;
     }
-    const query = new URLSearchParams({ page: String(historyState.page), page_size: "25" }); if (elements.historySearch.value.trim()) query.set("search", elements.historySearch.value.trim()); if (elements.historyGrade.value) query.set("grade", elements.historyGrade.value); if (elements.historyFeature.value) query.set("feature", elements.historyFeature.value); if (elements.historyConfidence.value) query.set("min_confidence", elements.historyConfidence.value);
-    const response = await fetch(`/api/history?${query}`); const data = await response.json(); if (version !== historyRequestVersion) return; if (!response.ok) throw new Error(data.detail || "History unavailable"); historyState.totalPages = data.total_pages || 1; historyState.page = data.page || 1; elements.historyPage.textContent = `Page ${historyState.page} of ${historyState.totalPages}`; elements.historyPrev.disabled = historyState.page <= 1; elements.historyNext.disabled = historyState.page >= historyState.totalPages;
-    const rows = data.items || []; elements.historyEmpty.classList.toggle("hidden", rows.length > 0); elements.historyWrap.classList.toggle("hidden", rows.length === 0); renderHistoryRows(rows);
-  } catch (error) { if (version === historyRequestVersion) { elements.historyEmpty.textContent = error instanceof Error ? error.message : "History unavailable."; elements.historyEmpty.classList.remove("hidden"); elements.historyWrap.classList.add("hidden"); } }
-  finally { if (version === historyRequestVersion) historyRequestKey = null; }
+    const query = new URLSearchParams({ page: String(historyState.page), page_size: "25" }); if (elements.historySession.value) query.set("session_id", elements.historySession.value); if (elements.historySearch.value.trim()) query.set("search", elements.historySearch.value.trim()); if (elements.historyGrade.value) query.set("grade", elements.historyGrade.value); if (elements.historyFeature.value) query.set("feature", elements.historyFeature.value); if (elements.historyConfidence.value) query.set("min_confidence", elements.historyConfidence.value);
+    const response = await fetch(`/api/history?${query}`, { signal: controller.signal }); const data = await response.json(); if (version !== historyRequestVersion || selectedView !== "history") return; if (!response.ok) throw new Error(data.detail || "History unavailable"); historyState.totalPages = data.total_pages || 1; historyState.page = data.page || 1; elements.historyPage.textContent = `Page ${historyState.page} of ${historyState.totalPages}`; elements.historyPrev.disabled = historyState.page <= 1; elements.historyNext.disabled = historyState.page >= historyState.totalPages;
+    const rows = data.items || []; elements.historyEmpty.classList.toggle("hidden", rows.length > 0); elements.historyWrap.classList.toggle("hidden", rows.length === 0); renderHistoryRows(rows); historyLoadedRevision = dataRevision;
+  } catch (error) { if (error.name !== "AbortError" && version === historyRequestVersion) { elements.historyEmpty.textContent = error instanceof Error ? error.message : "History unavailable."; elements.historyEmpty.classList.remove("hidden"); elements.historyWrap.classList.add("hidden"); } }
+  finally { if (version === historyRequestVersion) { historyRequestKey = null; historyController = null; } }
 }
 function renderReviewRows(rows) {
   const key = JSON.stringify(rows); if (reviewRowsKey === key) return; reviewRowsKey = key;
@@ -1018,17 +1148,21 @@ function renderReviewRows(rows) {
 }
 async function loadReviewQueue(resetPage = false) {
   if (!elements.reviewBody) return; if (resetPage) reviewState.page = 1;
-  const requestKey = JSON.stringify([reviewState.page, latestStatus?.durable_session?.session_id]);
+  if (document.hidden || selectedView !== "review") return;
+  const dataRevision = analyticsVersion(latestStatus);
+  const requestKey = JSON.stringify([reviewState.page, dataRevision]);
   if (reviewRequestKey === requestKey) return;
+  reviewController?.abort();
+  const controller = new AbortController(); reviewController = controller;
   reviewRequestKey = requestKey;
   const version = ++reviewRequestVersion;
   elements.reviewEmpty.textContent = "No fish currently need review.";
   try {
-    const response = await fetch("/api/reviews"); const data = await response.json(); if (version !== reviewRequestVersion) return; if (!response.ok) throw new Error(data.detail || "Review queue unavailable"); const allItems = Array.isArray(data.items) ? data.items : []; const total = finiteNumber(data.total) ?? allItems.length;
+    const response = await fetch("/api/reviews", { signal: controller.signal }); const data = await response.json(); if (version !== reviewRequestVersion || selectedView !== "review") return; if (!response.ok) throw new Error(data.detail || "Review queue unavailable"); const allItems = Array.isArray(data.items) ? data.items : []; const total = finiteNumber(data.total) ?? allItems.length;
     reviewState.totalPages = Math.max(1, Math.ceil(total / 25)); reviewState.page = Math.min(Math.max(1, reviewState.page), reviewState.totalPages); elements.reviewPage.textContent = `Page ${reviewState.page} of ${reviewState.totalPages}`; elements.reviewPrev.disabled = reviewState.page <= 1; elements.reviewNext.disabled = reviewState.page >= reviewState.totalPages;
-    const rows = allItems.slice((reviewState.page - 1) * 25, reviewState.page * 25); elements.reviewEmpty.classList.toggle("hidden", rows.length > 0); elements.reviewWrap.classList.toggle("hidden", rows.length === 0); renderReviewRows(rows);
-  } catch (error) { if (version === reviewRequestVersion) { elements.reviewEmpty.textContent = error instanceof Error ? error.message : "Review queue unavailable."; elements.reviewEmpty.classList.remove("hidden"); elements.reviewWrap.classList.add("hidden"); } }
-  finally { if (version === reviewRequestVersion) reviewRequestKey = null; }
+    const rows = allItems.slice((reviewState.page - 1) * 25, reviewState.page * 25); elements.reviewEmpty.classList.toggle("hidden", rows.length > 0); elements.reviewWrap.classList.toggle("hidden", rows.length === 0); renderReviewRows(rows); reviewLoadedRevision = dataRevision;
+  } catch (error) { if (error.name !== "AbortError" && version === reviewRequestVersion) { elements.reviewEmpty.textContent = error instanceof Error ? error.message : "Review queue unavailable."; elements.reviewEmpty.classList.remove("hidden"); elements.reviewWrap.classList.add("hidden"); } }
+  finally { if (version === reviewRequestVersion) { reviewRequestKey = null; reviewController = null; } }
 }
 
 function setConfidence(value, apply = false) {
@@ -1044,12 +1178,23 @@ function toggleUpload(show) { elements.uploadWorkspace.classList.toggle("hidden"
 
 document.querySelectorAll(".nav-item[data-view]").forEach((button) => button.addEventListener("click", () => showView(button.dataset.view)));
 document.querySelectorAll(".nav-item[data-anchor]").forEach((button) => button.addEventListener("click", () => { showView("live"); $("analytics-disclosure").open = true; setTimeout(() => { $(button.dataset.anchor).scrollIntoView({ behavior: motionPreference(), block: "start" }); document.querySelectorAll(".nav-item").forEach((item) => item.classList.toggle("active", item === button)); }, 30); }));
+$("analytics-disclosure").addEventListener("toggle", () => { if (selectedView === "live" && $("analytics-disclosure").open && latestStatus) render(latestStatus); });
+$("advanced-diagnostics").addEventListener("toggle", () => { if (selectedView === "live" && $("advanced-diagnostics").open && latestStatus) render(latestStatus); });
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    statusController?.abort(); analyticsController?.abort(); historyController?.abort(); reviewController?.abort();
+    historyRequestVersion++; reviewRequestVersion++; historyRequestKey = null; reviewRequestKey = null;
+  } else {
+    historyLoadedRevision = null; reviewLoadedRevision = null; getStatus();
+  }
+});
 elements.sidebarToggle.addEventListener("click", () => {
   const collapsed = elements.shell.classList.toggle("sidebar-collapsed");
   elements.sidebarToggle.setAttribute("aria-expanded", String(!collapsed));
   elements.sidebarToggle.setAttribute("aria-label", collapsed ? "Expand sidebar" : "Collapse sidebar");
 });
 elements.start.addEventListener("click", () => postControl("/api/inspection/start")); elements.emptyStart.addEventListener("click", () => postControl("/api/inspection/start")); elements.stop.addEventListener("click", () => postControl("/api/inspection/stop"));
+elements.previewMode.addEventListener("click", () => { rawPreview = !rawPreview; elements.video.removeAttribute("src"); streamAttached = false; streamReady = false; if (latestStatus) renderCamera(latestStatus); });
 elements.reset.addEventListener("click", () => { if (!hasEvents(latestStatus) || window.confirm("Reset this session? Live counters will reset. Saved inspection records will remain in the local database.")) postControl("/api/session/reset"); });
 elements.uploadMode.addEventListener("click", () => toggleUpload(true)); elements.closeUpload.addEventListener("click", () => toggleUpload(false));
 elements.uploadInput.addEventListener("change", () => { selectedUpload = elements.uploadInput.files?.[0] || null; elements.uploadResults.classList.add("hidden"); if (!selectedUpload) { elements.uploadStatus.textContent = "No image selected"; elements.uploadImage.classList.add("hidden"); elements.analyze.disabled = true; return; } elements.uploadStatus.textContent = "Ready"; elements.uploadNote.textContent = `${selectedUpload.name} is ready for separate local analysis.`; const reader = new FileReader(); reader.onload = () => { elements.uploadImage.src = reader.result; elements.uploadImage.classList.remove("hidden"); }; reader.readAsDataURL(selectedUpload); elements.analyze.disabled = !latestStatus?.upload_analysis_available; });
@@ -1057,7 +1202,7 @@ elements.analyze.addEventListener("click", async () => { if (!selectedUpload || 
 function renderUploadQuality(counters) { const grid = $("upload-quality-counter-grid"); grid.replaceChildren(); Object.entries(counters || {}).forEach(([name, value]) => { const card = document.createElement("article"); card.className = "feature-counter"; card.append(Object.assign(document.createElement("span"), { textContent: name }), Object.assign(document.createElement("strong"), { textContent: String(value) }), Object.assign(document.createElement("small"), { textContent: "Image analysis only" })); grid.append(card); }); }
 
 ensureHistoryVerdictFilter();
-elements.viewAll.addEventListener("click", () => showView("history")); elements.historyFilter.addEventListener("click", () => loadHistory(true)); elements.historyPrev.addEventListener("click", () => { if (historyState.page > 1) { historyState.page -= 1; loadHistory(); } }); elements.historyNext.addEventListener("click", () => { if (historyState.page < historyState.totalPages) { historyState.page += 1; loadHistory(); } });
+elements.viewAll.addEventListener("click", () => showView("history")); elements.historyFilter.addEventListener("click", () => loadHistory(true)); elements.historySession.addEventListener("change", () => loadHistory(true)); elements.historyPrev.addEventListener("click", () => { if (historyState.page > 1) { historyState.page -= 1; loadHistory(); } }); elements.historyNext.addEventListener("click", () => { if (historyState.page < historyState.totalPages) { historyState.page += 1; loadHistory(); } });
 elements.reviewPrev.addEventListener("click", () => { if (reviewState.page > 1) { reviewState.page -= 1; loadReviewQueue(); } }); elements.reviewNext.addEventListener("click", () => { if (reviewState.page < reviewState.totalPages) { reviewState.page += 1; loadReviewQueue(); } });
 elements.settingsButton.addEventListener("click", openSettings); elements.sidebarSettings.addEventListener("click", openSettings); elements.closeSettings.addEventListener("click", closeSettings); elements.openConfidence.addEventListener("click", openSettings); elements.cameraSettingsButton.addEventListener("click", openCameraCalibration); elements.closeCameraCalibration.addEventListener("click", closeCameraCalibration); elements.scrim.addEventListener("click", () => { closeSettings(); closeCameraCalibration(); closeExport(); });
 elements.exportButton.addEventListener("click", openExport); elements.sidebarExport.addEventListener("click", openExport); elements.closeExport.addEventListener("click", closeExport); elements.cancelExport.addEventListener("click", closeExport);
@@ -1077,7 +1222,56 @@ elements.debugRuntimeEnabled.addEventListener("change", () => postRuntimeDiagnos
 elements.debugPause.addEventListener("click", () => postRuntimeDiagnostics({ paused: !Boolean(latestStatus?.runtime_diagnostics?.paused) }));
 Object.entries(overlayControls).forEach(([name, controls]) => controls.filter(Boolean).forEach((control) => control.addEventListener("change", () => setOverlay(name, control.checked))));
 document.querySelectorAll("input[name=export-range]").forEach((input) => input.addEventListener("change", () => { elements.dateRange.classList.toggle("hidden", document.querySelector("input[name=export-range]:checked").value !== "custom"); }));
-elements.exportForm.addEventListener("submit", async (event) => { event.preventDefault(); const button = $("confirm-export-button"); const fields = [...document.querySelectorAll(".export-fields input:checked")].map((input) => input.value); if (!fields.length) return; const payload = { format: document.querySelector("input[name=export-format]:checked").value, range: document.querySelector("input[name=export-range]:checked").value, fields, complete_analysis: true, start_date: elements.exportStartDate.value || null, end_date: elements.exportEndDate.value || null }; button.disabled = true; try { const response = await fetch("/api/export", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); if (!response.ok) { const error = await response.json(); throw new Error(error.detail || "Export failed."); } const blob = await response.blob(); const anchor = document.createElement("a"); const disposition = response.headers.get("content-disposition") || ""; const name = disposition.match(/filename="?([^";]+)"?/)?.[1] || `sardinella_inspection.${payload.format}`; anchor.href = URL.createObjectURL(blob); anchor.download = name; document.body.append(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(anchor.href); closeExport(); } catch (error) { elements.alert.classList.remove("hidden"); elements.alertTitle.textContent = "Export unavailable"; elements.alertCopy.textContent = "Inspection data could not be exported."; elements.alertDetails.textContent = error instanceof Error ? error.message : "Unknown export error."; } finally { button.disabled = false; } });
+function updateExportSelection() {
+  const hasFields = $("export-all-evidence").checked || Boolean(document.querySelector(".export-fields input:checked"));
+  const custom = document.querySelector("input[name=export-range]:checked").value === "custom";
+  const start = elements.exportStartDate.value, end = elements.exportEndDate.value;
+  const datesValid = !custom || !start || !end || start <= end;
+  $("confirm-export-button").disabled = exportInFlight || !hasFields || !datesValid;
+  $("export-fields-error").classList.toggle("hidden", hasFields);
+  $("export-feedback").textContent = !datesValid ? "Start date must be on or before end date." : "";
+}
+elements.exportForm.addEventListener("change", updateExportSelection);
+elements.exportForm.addEventListener("input", updateExportSelection);
+elements.exportForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (exportInFlight) return;
+  const button = $("confirm-export-button");
+  const fields = [...document.querySelectorAll(".export-fields input:checked")].map((input) => input.value);
+  const completeAnalysis = $("export-all-evidence").checked;
+  const invalidSelection = !completeAnalysis && !fields.length;
+  $("export-fields-error").classList.toggle("hidden", !invalidSelection);
+  if (invalidSelection) return;
+  const isCustom = document.querySelector("input[name=export-range]:checked").value === "custom";
+  if (isCustom && elements.exportStartDate.value && elements.exportEndDate.value && elements.exportStartDate.value > elements.exportEndDate.value) { updateExportSelection(); return; }
+  const payload = {
+    format: document.querySelector("input[name=export-format]:checked").value,
+    range: document.querySelector("input[name=export-range]:checked").value,
+    fields,
+    complete_analysis: completeAnalysis,
+    start_date: elements.exportStartDate.value || null,
+    end_date: elements.exportEndDate.value || null,
+  };
+  button.disabled = true;
+  exportInFlight = true;
+  $("export-feedback").textContent = "Preparing export…";
+  try {
+    const response = await fetch("/api/export", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (!response.ok) { const error = await response.json(); throw new Error(error.detail || "Export failed."); }
+    const blob = await response.blob();
+    const anchor = document.createElement("a");
+    const disposition = response.headers.get("content-disposition") || "";
+    const name = disposition.match(/filename="?([^";]+)"?/)?.[1] || `sardinella_inspection.${payload.format}`;
+    anchor.href = URL.createObjectURL(blob); anchor.download = name; document.body.append(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(anchor.href); closeExport();
+  } catch (error) {
+    $("export-feedback").textContent = error instanceof Error ? `Export unavailable: ${error.message}` : "Export unavailable.";
+  } finally {
+    exportInFlight = false;
+    const custom = document.querySelector("input[name=export-range]:checked").value === "custom";
+    const start = elements.exportStartDate.value, end = elements.exportEndDate.value;
+    button.disabled = !($("export-all-evidence").checked || document.querySelector(".export-fields input:checked")) || (custom && Boolean(start && end && start > end));
+  }
+});
 
 const expertState = { token: "", clips: [], controller: null, version: 0, videoUrl: null };
 function closeExpertLibrary() {
@@ -1165,4 +1359,37 @@ $("expert-access-form").addEventListener("submit", async (event) => {
 });
 $("expert-category").addEventListener("change", renderExpertList);
 
-getStatus(); setInterval(getStatus, 900);
+function showLanLogin() {
+  $("lan-logout").classList.add("hidden");
+  const dialog = $("lan-login-dialog"); if (!dialog.open) dialog.showModal();
+}
+$("lan-login-dialog").addEventListener("cancel", (event) => event.preventDefault());
+$("lan-login-form").addEventListener("submit", async (event) => {
+  event.preventDefault(); const token = $("lan-token").value; $("lan-token").value = ""; $("lan-login-message").textContent = "Signing in...";
+  try {
+    const response = await fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }) });
+    const data = await response.json(); if (!response.ok) throw new Error(data.detail || "Sign-in failed.");
+    lanCsrf = data.csrf_token; $("lan-login-message").textContent = ""; $("lan-login-dialog").close();
+    $("lan-logout").textContent = `Sign out (${data.role})`; $("lan-logout").classList.remove("hidden"); getStatus();
+  } catch (error) { $("lan-login-message").textContent = error instanceof Error ? error.message : "Sign-in failed."; }
+});
+$("lan-logout").addEventListener("click", async () => {
+  try {
+    const response = await fetch("/api/auth/logout", { method: "POST" });
+    if (!response.ok) throw new Error("Sign out failed.");
+    lanCsrf = null; elements.video.removeAttribute("src"); streamAttached = false; showLanLogin();
+  } catch (_) { $("lan-logout").textContent = "Sign out failed; try again"; }
+});
+async function initializeLanSecurity() {
+  try {
+    const response = await fetch("/api/auth/mode", { cache: "no-store" }); if (!response.ok) throw new Error("Security profile unavailable.");
+    lanEnabled = Boolean((await response.json()).lan_security); lanReady = true;
+    if (lanEnabled) {
+      const sessionResponse = await fetch("/api/auth/session", { cache: "no-store" });
+      if (sessionResponse.ok) { const session = await sessionResponse.json(); lanCsrf = session.csrf_token; $("lan-logout").textContent = `Sign out (${session.role})`; $("lan-logout").classList.remove("hidden"); }
+      else showLanLogin();
+    }
+    getStatus();
+  } catch (_) { lanReady = false; setTimeout(initializeLanSecurity, 3000); }
+}
+initializeLanSecurity(); setInterval(getStatus, 900);

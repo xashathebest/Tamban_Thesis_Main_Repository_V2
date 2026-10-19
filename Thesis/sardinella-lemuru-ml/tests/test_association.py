@@ -33,6 +33,23 @@ class FullFrameAssociationTests(unittest.TestCase):
         self.assertIsNone(result.track_id)
         self.assertGreaterEqual(len(result.candidates), 2)
 
+    def test_crossing_known_tracks_abstains_during_overlap_then_recovers(self) -> None:
+        before = associate_parts_to_parents(
+            [part(0, (12, 20, 40, 50))],
+            [ParentAnchor(1, (0, 0, 100, 100)), ParentAnchor(2, (140, 0, 240, 100))],
+        )[0]
+        overlap = associate_parts_to_parents(
+            [part(0, (80, 20, 110, 50))],
+            [ParentAnchor(1, (0, 0, 120, 100)), ParentAnchor(2, (5, 0, 125, 100))],
+        )[0]
+        after = associate_parts_to_parents(
+            [part(0, (155, 20, 180, 50))],
+            [ParentAnchor(1, (140, 0, 240, 100)), ParentAnchor(2, (0, 0, 100, 100))],
+        )[0]
+        self.assertEqual((before.status, before.track_id), ("ASSIGNED", 1))
+        self.assertEqual((overlap.status, overlap.track_id), ("AMBIGUOUS", None))
+        self.assertEqual((after.status, after.track_id), ("ASSIGNED", 1))
+
     def test_outside_part_is_unassigned(self) -> None:
         associations = associate_parts_to_parents(
             [part(0, (220, 20, 250, 60))],
@@ -40,6 +57,12 @@ class FullFrameAssociationTests(unittest.TestCase):
         )
         self.assertEqual(associations[0].status, "UNASSIGNED")
         self.assertIsNone(associations[0].track_id)
+
+    def test_no_visible_parent_leaves_part_unassigned(self) -> None:
+        result = associate_parts_to_parents([part(0, (10, 20, 40, 50))], [])[0]
+        self.assertEqual(result.status, "UNASSIGNED")
+        self.assertIsNone(result.track_id)
+        self.assertEqual(result.candidates, ())
 
     def test_thresholds_are_configurable_without_forcing_assignment(self) -> None:
         associations = associate_parts_to_parents(

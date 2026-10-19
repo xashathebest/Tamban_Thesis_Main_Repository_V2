@@ -1,0 +1,27 @@
+........................................................................ [ 16%]
+........................................................................ [ 33%]
+......s................ss............................... [ 46%]
+........s........................................................... [ 62%]
+................................................s... [ 74%]
+.................................... [ 83%]
+.................................................................... [ 99%]
+...                                                                      [100%]
+============================== warnings summary ===============================
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\fastapi\testclient.py:1
+  C:\Users\User\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+tests/test_evaluate_feature_model.py::FeatureEvaluationTests::test_group_bootstrap_returns_intervals
+tests/test_evaluate_feature_model.py::FeatureEvaluationTests::test_group_bootstrap_returns_intervals
+tests/test_evaluate_feature_model.py::FeatureEvaluationTests::test_group_bootstrap_returns_intervals
+tests/test_evaluate_feature_model.py::FeatureEvaluationTests::test_group_bootstrap_returns_intervals
+tests/test_evaluate_feature_model.py::FeatureEvaluationTests::test_group_bootstrap_returns_intervals
+  C:\Users\User\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\sklearn\metrics\_classification.py:614: UserWarning: A single label was found in 'y_true' and 'y_pred'. For the confusion matrix to have the correct shape, use the 'labels' parameter to pass all known labels.
+    warnings.warn(
+
+tests/test_evaluate_feature_model.py::FeatureEvaluationTests::test_rejected_false_accept_is_complement_of_recall
+  C:\Users\User\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\sklearn\metrics\_classification.py:2939: UserWarning: y_pred contains classes not in y_true
+    warnings.warn("y_pred contains classes not in y_true")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+422 passed, 5 skipped, 7 warnings, 80 subtests passed in 10.08s

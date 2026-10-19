@@ -1,5 +1,5 @@
-python detect_tamban.py --source "video.mp4" --portable-joblib
-python detect_tamban.py --source 0 --portable-joblib --show
+python scripts\detect_tamban.py --source "video.mp4" --portable-joblib
+python scripts\detect_tamban.py --source 0 --portable-joblib --show
 
 cd C:\Users\User\Downloads\Thesis\sardinella-lemuru-ml
 py -m src.api

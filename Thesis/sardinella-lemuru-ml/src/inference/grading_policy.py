@@ -84,8 +84,8 @@ class GradingPolicy:
             "minimum_grade_margin",
         ):
             _unit_interval(getattr(self, name), field=name)
-        if self.grading_mode not in {"standard", "strict", "two_part_v1"}:
-            raise ValueError("grading_mode must be 'standard', 'strict', or 'two_part_v1'.")
+        if self.grading_mode not in {"standard", "strict", "two_part_v1", "tail_optional_v1"}:
+            raise ValueError("Unknown grading_mode.")
         for name in ("minimum_regions_observed", "strict_minimum_regions_observed"):
             value = getattr(self, name)
             if not isinstance(value, int) or not 1 <= value <= len(PART_NAMES):
@@ -94,12 +94,26 @@ class GradingPolicy:
             value = getattr(self, name)
             if value is not None:
                 _unit_interval(value, field=name)
+        if self.grading_mode == "tail_optional_v1":
+            if not self.require_body or self.body_weight <= 0 or self.head_weight <= 0:
+                raise ValueError("Tail-optional grading requires Body and Head with positive weights.")
+            if self.minimum_regions_observed > 2 or self.minimum_original_weight_coverage > self.body_weight + self.head_weight + 1e-9:
+                raise ValueError("Tail-optional grading cannot require Tail through region or coverage gates.")
 
     def weight(self, region: str) -> float:
         return {"Body": self.body_weight, "Head": self.head_weight, "Tail": self.tail_weight}[region]
 
     def active_minimum_regions(self) -> int:
-        return self.strict_minimum_regions_observed if self.grading_mode == "strict" else self.minimum_regions_observed
+        if self.grading_mode == "strict":
+            return self.strict_minimum_regions_observed
+        return max(2, self.minimum_regions_observed) if self.grading_mode == "tail_optional_v1" else self.minimum_regions_observed
+
+    def required_regions(self) -> tuple[str, ...]:
+        if self.grading_mode == "strict":
+            return PART_NAMES
+        if self.grading_mode == "tail_optional_v1":
+            return ("Body", "Head")
+        return ("Body",) if self.require_body or self.grading_mode == "two_part_v1" else ()
 
     def active_minimum_coverage(self) -> float:
         return (
@@ -129,9 +143,8 @@ class GradingPolicy:
 class FishGradingInput:
     """Already aggregated evidence and gate context for one physical fish.
 
-    ``part_scores`` must contain raw support by ``(region, grade)``.  Missing
-    or unreliable regions deliberately contribute zero rather than receiving a
-    renormalized share of another region's original weight.
+    ``part_scores`` contains raw support by ``(region, grade)``. The configured
+    policy determines how unobserved regions affect the effective weights.
     """
 
     part_scores: Mapping[str, Mapping[str, object]]
@@ -223,14 +236,16 @@ def grade_fish(input_value: FishGradingInput, policy: GradingPolicy) -> FishPoli
     observed = tuple(
         region
         for region in PART_NAMES
-        if bool(present_flags.get(region, True)) and presence[region] >= policy.minimum_part_confidence
+        if bool(present_flags.get(region, True)) and presence[region] > 0 and presence[region] >= policy.minimum_part_confidence
     )
     observed_set = set(observed)
     coverage = sum(policy.weight(region) for region in observed)
 
-    # The original configured anatomy weights remain fixed.  An unavailable
-    # region receives a zero contribution, never a larger effective weight.
     effective_weights = {region: (policy.weight(region) if region in observed_set else 0.0) for region in PART_NAMES}
+    if policy.grading_mode == "tail_optional_v1" and {"Body", "Head"}.issubset(observed_set) and "Tail" not in observed_set:
+        mandatory_weight = policy.body_weight + policy.head_weight
+        effective_weights["Body"] = policy.body_weight / mandatory_weight
+        effective_weights["Head"] = policy.head_weight / mandatory_weight
     contributions = {
         region: {
             grade: all_scores[region][grade] * effective_weights[region]
@@ -254,7 +269,7 @@ def grade_fish(input_value: FishGradingInput, policy: GradingPolicy) -> FishPoli
     # whether a caller later relaxes the standard-mode Body requirement.  This
     # makes a frame-edge-clipped Head or Tail an explicit abstention cause
     # rather than a generic low-coverage result.
-    required_regions = PART_NAMES if policy.grading_mode == "strict" else (("Body",) if policy.require_body or policy.grading_mode == "two_part_v1" else ())
+    required_regions = policy.required_regions()
     missing_required_regions = tuple(region for region in required_regions if region not in observed_set)
     if not input_value.parent_usable:
         reasons.append(UG_PARENT_UNCERTAIN)

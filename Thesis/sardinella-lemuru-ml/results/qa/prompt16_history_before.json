@@ -1,0 +1,74 @@
+{
+  "method": "Synthetic SQLite rows; single call per measurement; tracemalloc Python allocation peak, not process RSS; no camera or FPS measurement.",
+  "results": [
+    {
+      "records": 100,
+      "history_first_page": {
+        "milliseconds": 9.72,
+        "python_peak_bytes": 376845,
+        "result_size": 25
+      },
+      "analytics_first": {
+        "milliseconds": 10.27,
+        "python_peak_bytes": 342683,
+        "result_size": 100
+      },
+      "analytics_repeat": {
+        "milliseconds": 10.34,
+        "python_peak_bytes": 342683,
+        "result_size": 100
+      },
+      "live_status": {
+        "milliseconds": 2.34,
+        "python_peak_bytes": 12602,
+        "result_size": 0
+      }
+    },
+    {
+      "records": 10000,
+      "history_first_page": {
+        "milliseconds": 865.66,
+        "python_peak_bytes": 38421811,
+        "result_size": 25
+      },
+      "analytics_first": {
+        "milliseconds": 1805.11,
+        "python_peak_bytes": 38044255,
+        "result_size": 10000
+      },
+      "analytics_repeat": {
+        "milliseconds": 1531.15,
+        "python_peak_bytes": 38446913,
+        "result_size": 10000
+      },
+      "live_status": {
+        "milliseconds": 4.7,
+        "python_peak_bytes": 9879,
+        "result_size": 0
+      }
+    },
+    {
+      "records": 100000,
+      "history_first_page": {
+        "milliseconds": 12405.78,
+        "python_peak_bytes": 384354132,
+        "result_size": 25
+      },
+      "analytics_first": {
+        "milliseconds": 18261.88,
+        "python_peak_bytes": 384356362,
+        "result_size": 100000
+      },
+      "analytics_repeat": {
+        "milliseconds": 16746.62,
+        "python_peak_bytes": 384758402,
+        "result_size": 100000
+      },
+      "live_status": {
+        "milliseconds": 5.43,
+        "python_peak_bytes": 10071,
+        "result_size": 0
+      }
+    }
+  ]
+}

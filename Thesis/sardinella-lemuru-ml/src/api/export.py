@@ -18,6 +18,7 @@ EXPORT_FIELDS = {
     "verdict_reason_code": "Verdict Reason Code", "reason_codes": "All Verdict Reason Codes", "verdict_reason": "Verdict Reason",
     "second_grade": "Second Evidence Grade", "second_support": "Second Evidence Support (%)", "grade_margin": "Top-vs-Second Margin (%)",
     "manual_grade": "Manual Grade", "manual_override": "Manual Override", "review_timestamp": "Review Timestamp",
+    "reviewer": "Reviewer", "review_source": "Review Source",
     "detection_confidence": "Model 1 Detection Confidence (%)",
     "grade_confidence": "Accepted Final Grade Support (%)", "observed_region_count": "Observed Region Count",
     "observed_regions": "Observed Regions", "original_weight_coverage": "Original Evidence Coverage (%)",
@@ -84,7 +85,15 @@ EXPORT_FIELDS = {
     "tail_class_a_evidence": "Tail Class A Evidence (%)", "tail_class_b_evidence": "Tail Class B Evidence (%)",
     "tail_class_c_evidence": "Tail Class C Evidence (%)", "tail_rejected_evidence": "Tail Rejected Evidence (%)",
     "model2_available": "Model 2 Available", "session_id": "Session ID",
+    "weighting_method": "Weighting Method", "tail_evaluation_status": "Tail Evaluation Status",
 }
+# These columns describe detector rectangles, not segmented fish or grading
+# inputs. Keep the API field keys stable while making standalone CSV/XLSX
+# headers carry the limitation even when other columns are omitted.
+for _region in ("body", "head", "tail", "whole_fish"):
+    for _metric in ("mean_hue", "median_hue", "mean_saturation", "mean_value", "yellow_ratio"):
+        _field = f"{_region}_{_metric}"
+        EXPORT_FIELDS[_field] += " (diagnostic only; rectangular ROI)"
 DEFAULT_EXPORT_FIELDS = tuple(EXPORT_FIELDS)
 
 
@@ -181,6 +190,8 @@ def inspection_row(event: dict[str, object]) -> dict[str, object]:
         "manual_grade": event.get("manual_grade") or "",
         "manual_override": "Yes" if event.get("manual_override") else "No",
         "review_timestamp": event.get("review_timestamp") or "",
+        "reviewer": event.get("reviewer") or "",
+        "review_source": event.get("review_source") or "",
         "detection_confidence": _number(model1.get("confidence") if isinstance(model1, dict) else event.get("final_confidence"), scale=100),
         "grade_confidence": _number(event.get("quality_confidence"), scale=100),
         "observed_region_count": len(analysis.get("observed_regions", ())) if isinstance(analysis.get("observed_regions"), list) else "",
@@ -219,6 +230,8 @@ def inspection_row(event: dict[str, object]) -> dict[str, object]:
         "minimum_coverage_setting": _number(trace.get("minimum_original_weight_coverage")),
         "minimum_grade_margin_setting": _number(trace.get("minimum_grade_margin")),
         "grading_mode": trace.get("grading_mode", ""),
+        "weighting_method": analysis.get("weighting_method", ""),
+        "tail_evaluation_status": analysis.get("tail_status", ""),
         "quality_inference_mode": trace.get("quality_inference_mode", ""),
         "roi_padding": _number(trace.get("roi_padding")),
         "tracker_backend": trace.get("tracker_backend", ""),
@@ -289,6 +302,16 @@ def filter_events(events: Iterable[dict[str, object]], *, range_name: str = "cur
     ]
 
 
+def _csv_spreadsheet_text(value: object) -> object:
+    """Keep user-supplied text from becoming a formula in spreadsheet apps."""
+
+    if isinstance(value, str) and value and (
+        value[0] in "\t\r\n" or value.lstrip().startswith(("=", "+", "-", "@"))
+    ):
+        return "'" + value
+    return value
+
+
 def make_csv(events: Iterable[dict[str, object]], fields: Iterable[str]) -> bytes:
     selected = tuple(fields)
     buffer = StringIO(newline="")
@@ -296,7 +319,7 @@ def make_csv(events: Iterable[dict[str, object]], fields: Iterable[str]) -> byte
     writer.writeheader()
     for event in events:
         row = inspection_row(event)
-        writer.writerow({EXPORT_FIELDS[field]: row[field] for field in selected})
+        writer.writerow({EXPORT_FIELDS[field]: _csv_spreadsheet_text(row[field]) for field in selected})
     return buffer.getvalue().encode("utf-8-sig")
 
 
@@ -314,6 +337,7 @@ def make_xlsx(
     grading_rules: Mapping[str, object] | None = None,
     *,
     session_configuration: Mapping[str, object] | None = None,
+    session_configurations: Iterable[Mapping[str, object]] | None = None,
 ) -> bytes:
     """Create explainable inspection sheets plus an optional durable session snapshot."""
 
@@ -348,29 +372,43 @@ def make_xlsx(
     for region in ("Head", "Body", "Tail"):
         count = sum(int(_part_analysis(_analysis(event), region).get("present") is True) for event in event_rows)
         feature_sheet.append([f"{region} confidently observed", count, round(count / total * 100, 2) if total else 0.0, "Model 2 part detector"])
-    feature_sheet.append(["HSV colour metrics", total, 100.0 if total else 0.0, "Descriptive proxy; no active grading rule"])
+    measured_color = sum(
+        1 for event in event_rows
+        if any(_color_analysis(_analysis(event), region).get("status") == "measured"
+               for region in ("Whole Fish", "Body", "Head", "Tail"))
+    )
+    feature_sheet.append(["HSV colour metrics (diagnostic only)", measured_color,
+                          round(measured_color / total * 100, 2) if total else 0.0,
+                          "Rectangular ROI proxy; not used for grading"])
     feature_sheet.append(["Trained defect labels", 0, 0.0, "None in supplied Model 1/Model 2 checkpoints"])
     for column, width in {"A": 30, "B": 14, "C": 22, "D": 56}.items():
         feature_sheet.column_dimensions[column].width = width
 
+    configurations = list(session_configurations) if session_configurations is not None else None
     rules = dict(grading_rules or {})
     weights = rules.get("part_weights") if isinstance(rules.get("part_weights"), dict) else {}
     rule_sheet = workbook.create_sheet("Grade Calculation Rules")
     rule_sheet.append(["Rule", "Value", "Status"])
     _style_header(rule_sheet)
-    for region in ("Body", "Head", "Tail"):
-        rule_sheet.append([f"{region} original weight", weights.get(region, ""), "Active"])
-    rule_sheet.append(["Aggregation", "Strongest Model 2 confidence per region/grade per usable frame; mean over observed frames", "Active"])
-    rule_sheet.append(["Unavailable region", "Contribute zero at its original weight; never infer physical absence or renormalize", "Active"])
-    rule_sheet.append(["Body required", rules.get("require_body", True), "Active"])
-    rule_sheet.append(["Grading mode", rules.get("grading_mode", "standard"), "Active"])
-    rule_sheet.append(["Minimum regions", rules.get("minimum_regions_observed", ""), "Active"])
-    rule_sheet.append(["Minimum original coverage", rules.get("minimum_original_weight_coverage", ""), "Active"])
-    rule_sheet.append(["Final verdict threshold", rules.get("active_final_verdict_threshold", rules.get("final_verdict_threshold", "")), "Configurable"])
-    rule_sheet.append(["Minimum valid frames", rules.get("minimum_track_observations", ""), "Active"])
-    rule_sheet.append(["Rejected override threshold", rules.get("rejected_override_threshold", "None"), "Disabled" if rules.get("rejected_override_threshold") is None else "Configured"])
-    rule_sheet.append(["HSV adjustments", rules.get("color_adjustments_enabled", False), "No validated rule configured"])
-    rule_sheet.append(["Defect adjustments", rules.get("defect_adjustments_enabled", False), "No trained defect label or validated rule configured"])
+    if configurations is not None:
+        rule_sheet.append(["Configuration provenance", "Multiple sessions; see Session Configurations and Row Session Mapping.", "Per session"])
+    elif not rules:
+        rule_sheet.append(["Configuration provenance", "The session grading configuration was not recorded.", "Unavailable"])
+    else:
+        for region in ("Body", "Head", "Tail"):
+            rule_sheet.append([f"{region} original weight", weights.get(region, ""), "Recorded" if region in weights else "Not recorded"])
+        rule_keys = (
+            ("Configuration version", "version"), ("Aggregation", "aggregation"), ("Unavailable region", "unavailable_region"),
+            ("Body required", "require_body"), ("Grading mode", "grading_mode"), ("Minimum regions", "minimum_regions_observed"),
+            ("Minimum original coverage", "minimum_original_weight_coverage"), ("Minimum valid frames", "minimum_track_observations"),
+            ("Rejected override threshold", "rejected_override_threshold"), ("HSV adjustments", "color_adjustments_enabled"),
+            ("Defect adjustments", "defect_adjustments_enabled"),
+        )
+        for label, key in rule_keys:
+            value = rules.get(key)
+            rule_sheet.append([label, "" if value is None else value, "Recorded" if key in rules else "Not recorded"])
+        threshold_key = "active_final_verdict_threshold" if "active_final_verdict_threshold" in rules else "final_verdict_threshold"
+        rule_sheet.append(["Final verdict threshold", rules.get(threshold_key, ""), "Recorded" if threshold_key in rules else "Not recorded"])
     rule_sheet.column_dimensions["A"].width, rule_sheet.column_dimensions["B"].width, rule_sheet.column_dimensions["C"].width = 30, 96, 42
 
     review_sheet = workbook.create_sheet("Review Queue")
@@ -403,6 +441,35 @@ def make_xlsx(
         configuration_sheet.column_dimensions["A"].width = 32
         configuration_sheet.column_dimensions["B"].width = 100
         configuration_sheet.freeze_panes = "A2"
+    if configurations is not None:
+        configuration_sheet = workbook.create_sheet("Session Configurations")
+        configuration_sheet.append(["Session ID", "Model 1 SHA256", "Model 2 SHA256", "Grading Config Hash", "Grading Configuration", "Status"])
+        _style_header(configuration_sheet)
+        for configuration in configurations:
+            policy = configuration.get("grading_config")
+            configuration_sheet.append([
+                configuration.get("session_id") or "Not recorded", configuration.get("model1_sha256") or "",
+                configuration.get("model2_sha256") or "", configuration.get("grading_config_hash") or "",
+                json.dumps(policy, ensure_ascii=False, sort_keys=True, default=str) if isinstance(policy, Mapping) else "",
+                "Recorded" if isinstance(policy, Mapping) and policy else "Unavailable",
+            ])
+        for column, width in {"A": 36, "B": 66, "C": 66, "D": 66, "E": 100, "F": 20}.items():
+            configuration_sheet.column_dimensions[column].width = width
+        configuration_sheet.freeze_panes = "A2"
+        mapping_sheet = workbook.create_sheet("Row Session Mapping")
+        mapping_sheet.append(["Fish Inspections row", "Session ID"])
+        _style_header(mapping_sheet)
+        for row_number, event in enumerate(event_rows, start=2):
+            mapping_sheet.append([row_number, event.get("session_id") or "Not recorded"])
+        mapping_sheet.column_dimensions["A"].width, mapping_sheet.column_dimensions["B"].width = 25, 40
+        mapping_sheet.freeze_panes = "A2"
+    # Workbook text originates partly in operator-entered/session data. Force
+    # formula-looking strings to remain literal values in every sheet.
+    for sheet in workbook.worksheets:
+        for row in sheet.iter_rows():
+            for cell in row:
+                if cell.data_type == "f":
+                    cell.data_type = "s"
     output = BytesIO()
     workbook.save(output)
     return output.getvalue()

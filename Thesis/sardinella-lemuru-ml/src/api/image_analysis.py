@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import base64
 from dataclasses import dataclass
+from io import BytesIO
 from typing import Any
+import warnings
 
 import cv2
 import numpy as np
+from PIL import Image, JpegImagePlugin, PngImagePlugin
 
 from src.inference.yolo_fish_detector import FishDetection, YoloFishDetector
 from src.inference.yolo_quality_model import FishQualityObservation, YoloQualityModel
@@ -33,6 +36,21 @@ class ImageUploadError(ValueError):
     """A client-safe upload validation error."""
 
 
+def _webp_dimensions(data: bytes) -> tuple[int, int]:
+    """Read the VP8/VP8L/VP8X canvas size without initializing a decoder."""
+    if len(data) < 25:
+        raise ImageUploadError("The uploaded WEBP header is incomplete.")
+    chunk = data[12:16]
+    if chunk == b"VP8X" and len(data) >= 30:
+        return (1 + int.from_bytes(data[24:27], "little"), 1 + int.from_bytes(data[27:30], "little"))
+    if chunk == b"VP8L" and data[20] == 0x2F:
+        packed = int.from_bytes(data[21:25], "little")
+        return (1 + (packed & 0x3FFF), 1 + ((packed >> 14) & 0x3FFF))
+    if chunk == b"VP8 " and len(data) >= 30 and data[23:26] == b"\x9d\x01\x2a":
+        return (int.from_bytes(data[26:28], "little") & 0x3FFF, int.from_bytes(data[28:30], "little") & 0x3FFF)
+    raise ImageUploadError("The uploaded WEBP header is invalid.")
+
+
 def decode_uploaded_image(
     data: bytes,
     filename: str,
@@ -52,7 +70,39 @@ def decode_uploaded_image(
         raise ImageUploadError("The uploaded image is empty.")
     if len(data) > max_bytes:
         raise ImageUploadError(f"The uploaded image exceeds the {max_bytes} byte limit.")
-    image = cv2.imdecode(np.frombuffer(data, dtype=np.uint8), cv2.IMREAD_COLOR)
+    # Parse supported image headers before asking OpenCV to allocate decoded
+    # pixels. The filename is not evidence of the actual encoded format.
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            # Use the format-specific header readers directly: Ultralytics
+            # monkey-patches Image.open to try installing an unrelated HEIF
+            # plugin when identification fails.
+            if data.startswith(b"\xff\xd8\xff"):
+                header_reader = JpegImagePlugin.JpegImageFile
+            elif data.startswith(b"\x89PNG\r\n\x1a\n"):
+                header_reader = PngImagePlugin.PngImageFile
+            elif data.startswith(b"RIFF") and data[8:12] == b"WEBP":
+                header_reader = None
+            else:
+                raise ImageUploadError("The uploaded file is not a supported, decodable image.")
+            if header_reader is None:
+                width, height = _webp_dimensions(data)
+            else:
+                with header_reader(BytesIO(data)) as header:
+                    width, height = header.size
+            if not width or not height or width > max_dimension or height > max_dimension or width * height > max_pixels:
+                raise ImageUploadError("The uploaded image dimensions exceed the configured limit.")
+    except ImageUploadError:
+        raise
+    except (Image.DecompressionBombError, Image.DecompressionBombWarning) as exc:
+        raise ImageUploadError("The uploaded image dimensions exceed the configured limit.") from exc
+    except (OSError, ValueError, SyntaxError, OverflowError, EOFError) as exc:
+        raise ImageUploadError("The uploaded file is not a supported, decodable image.") from exc
+    try:
+        image = cv2.imdecode(np.frombuffer(data, dtype=np.uint8), cv2.IMREAD_COLOR)
+    except cv2.error as exc:
+        raise ImageUploadError("The uploaded file is not a decodable color image.") from exc
     if image is None:
         raise ImageUploadError("The uploaded file is not a decodable color image.")
     try:

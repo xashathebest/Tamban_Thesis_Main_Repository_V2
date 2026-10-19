@@ -6,6 +6,8 @@ import os
 import json
 import hashlib
 import logging
+from collections import deque
+from copy import deepcopy
 from pathlib import Path
 import subprocess
 from contextlib import asynccontextmanager
@@ -18,6 +20,7 @@ from fastapi.responses import FileResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.api.camera import CameraInspectionService
+from src.api import lan_security
 from src.api.camera_controls import CAMERA_PROPERTIES, CameraControlError
 from src.api.database import InspectionDatabase, InspectionSessionContext, grading_config_hash
 from src.api.image_analysis import ImageUploadError, PartPreviewImageAnalyzer, StillImageAnalyzer, decode_uploaded_image
@@ -86,6 +89,7 @@ else:
         device=FISH_DETECTOR_DEVICE,
         image_size=FISH_DETECTOR_IMAGE_SIZE,
         tracker_config=TRACKING_CONFIG.tracker,
+        require_bytetrack=os.getenv("FISH_REQUIRE_BYTETRACK", "0").strip().lower() in {"1", "true", "yes", "on"},
     )
     quality_model = YoloQualityModel(
         FISH_QUALITY_PATH,
@@ -113,6 +117,18 @@ _database_setting = os.getenv("FISH_INSPECTION_DB_PATH")
 INSPECTION_DATABASE_PATH = (Path(_database_setting) if _database_setting else REPO_ROOT / "results" / "inspection_history.sqlite3").resolve()
 inspection_database = InspectionDatabase(INSPECTION_DATABASE_PATH)
 inspection_sessions = InspectionSessionContext(inspection_database)
+
+
+def _close_worker_session() -> None:
+    """Finalize the durable session only after its camera worker has exited."""
+    if inspection_sessions.active:
+        camera_settings = _camera_settings_snapshot()
+        if camera_settings.get("available"):
+            inspection_database.update_session(inspection_sessions.session_id or "", {"camera_settings": camera_settings})
+        inspection_sessions.close()
+
+
+service.on_worker_exit = _close_worker_session
 
 
 def _checkpoint_sha256(path: object, fallback: object = None) -> str | None:
@@ -212,9 +228,9 @@ def _session_metadata() -> dict[str, object]:
         "started_at": datetime.now().astimezone().isoformat(timespec="seconds"),
         "git_commit": _git_commit(),
         "model1_path": str(model1_path) if model1_path else None,
-        "model1_sha256": _checkpoint_sha256(model1_path, getattr(model, "checkpoint_sha256", None)),
+        "model1_sha256": getattr(model, "checkpoint_sha256_full", None) or _checkpoint_sha256(model1_path, getattr(model, "checkpoint_sha256", None)),
         "model2_path": str(model2_path) if model2_path else None,
-        "model2_sha256": _checkpoint_sha256(model2_path, getattr(quality_model, "checkpoint_sha256", None)),
+        "model2_sha256": getattr(quality_model, "checkpoint_sha256_full", None) or _checkpoint_sha256(model2_path, getattr(quality_model, "checkpoint_sha256", None)),
         "model2_id": getattr(quality_model, "active_model_id", None),
         "model2_name": getattr(quality_model, "active_model_name", None),
         "tracker_backend": getattr(model, "tracker_backend", None),
@@ -231,6 +247,7 @@ def _session_metadata() -> dict[str, object]:
             "camera_index": CAMERA_INDEX,
             "model1": {
                 "image_size": getattr(model, "image_size", FISH_DETECTOR_IMAGE_SIZE),
+                "checkpoint_integrity": getattr(model, "checkpoint_integrity", "unavailable"),
                 "device": getattr(model, "device", FISH_DETECTOR_DEVICE),
                 "detector_confidence_threshold": getattr(model, "confidence_threshold", state.confidence_threshold),
                 "class_names": list(getattr(model, "class_names", ())),
@@ -238,6 +255,7 @@ def _session_metadata() -> dict[str, object]:
             "model2": {
                 "model_id": getattr(quality_model, "active_model_id", None),
                 "model_name": getattr(quality_model, "active_model_name", None),
+                "checkpoint_integrity": getattr(quality_model, "checkpoint_integrity", "unavailable"),
                 "image_size": getattr(quality_model, "image_size", FISH_QUALITY_IMAGE_SIZE) if quality_model is not None else None,
                 "device": getattr(quality_model, "device", FISH_QUALITY_DEVICE) if quality_model is not None else None,
                 "detector_confidence_threshold": getattr(quality_model, "confidence_threshold", None) if quality_model is not None else None,
@@ -256,8 +274,10 @@ def _persist_tracking_event(action: str, event: dict[str, object]) -> None:
     """Persist create, late-grade, best-frame, and review updates without blocking counting."""
 
     try:
-        session_id = inspection_sessions.session_id or inspection_sessions.event_session(_session_metadata())
-        inspection_database.upsert_event(session_id, event)
+        session_id = inspection_sessions.record_event(action, event)
+        if session_id is None:
+            LOGGER.warning("Ignoring %s for Fish #%s without an eligible session", action, event.get("track_id"))
+            return
         camera_settings = _camera_settings_snapshot()
         if camera_settings.get("available"):
             inspection_database.update_session(session_id, {"camera_settings": camera_settings})
@@ -321,12 +341,31 @@ async def lifespan(_: FastAPI):
         yield
     finally:
         service.stop()
-        inspection_sessions.close()
+        if service.has_live_worker():
+            LOGGER.error("Camera worker is still running at shutdown; its durable session remains open.")
+        else:
+            inspection_sessions.close()
 
 
 app = FastAPI(title="Sardinella Lemuru Fish Detection API", version="3.0.0", lifespan=lifespan)
 app.mount("/assets", StaticFiles(directory=FRONTEND_DIR), name="assets")
 app.include_router(expert_library_router)
+app.include_router(lan_security.router)
+
+
+@app.middleware("http")
+async def protect_lan_requests(request: Request, call_next):
+    denied = await lan_security.guard(request)
+    if denied is not None:
+        return denied
+    context = lan_security.request_role.set(getattr(request.state, "lan_role", None))
+    try:
+        response = await call_next(request)
+    finally:
+        lan_security.request_role.reset(context)
+    if lan_security.enabled() and request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 def _feature_counters(events: list[dict[str, object]]) -> dict[str, dict[str, object]]:
@@ -350,52 +389,92 @@ def _feature_counters(events: list[dict[str, object]]) -> dict[str, dict[str, ob
     return counters
 
 
-def _analytics(events: list[dict[str, object]], snapshot: dict[str, object]) -> dict[str, object]:
+class _RunningValues:
+    """Keep the sum and count used by dashboard averages without retaining samples."""
+    def __init__(self) -> None:
+        self.total = 0.0
+        self.count = 0
+
+    def append(self, value: float) -> None:
+        self.total += value
+        self.count += 1
+
+    def __len__(self) -> int:
+        return self.count
+
+    def __iter__(self):
+        yield self.total
+
+
+_ANALYTICS_TREND_LIMIT = 500
+_analytics_cache_lock = RLock()
+_analytics_cache: dict[str, object] = {}
+
+
+def _analytics(events, snapshot: dict[str, object], *, chronological_input: bool = False,
+               previous: dict[str, object] | None = None, return_state: bool = False):
     """Build dashboard analytics from current or historical durable events."""
 
     quality_counters = {name: 0 for name in QUALITY_COUNTER_NAMES}
-    for event in events:
-        quality = event.get("quality")
-        if quality not in quality_counters:
-            analysis = event.get("analysis")
-            quality = analysis.get("final_grade") if isinstance(analysis, dict) else None
-        quality_counters[quality if quality in quality_counters else "Ungraded"] += 1
-    chronological = list(reversed(events))
-    throughput = [
-        {"timestamp": event.get("timestamp"), "total": index}
-        for index, event in enumerate(chronological, start=1)
-    ]
-    grade_confidences = [
-        float(event["quality_confidence"]) * 100
-        for event in chronological
-        if event.get("quality_confidence") is not None
-    ]
-    detection_confidences = [float(event["final_confidence"]) * 100 for event in chronological if event.get("final_confidence") is not None]
-    processing_times = [
-        float(event["processing_time_ms"])
-        for event in chronological
-        if event.get("processing_time_ms") is not None
-    ]
-    part_quality: dict[str, list[float]] = {"Head": [], "Body": [], "Tail": []}
-    color_trend: list[dict[str, object]] = []
-    coverage_values: list[float] = []
-    observed_region_counts: list[int] = []
-    model2_observation_counts: list[int] = []
+    chronological = events if chronological_input else reversed(events)
+    throughput = deque(maxlen=_ANALYTICS_TREND_LIMIT)
+    confidence_over_time = deque(maxlen=_ANALYTICS_TREND_LIMIT)
+    grade_confidences = _RunningValues()
+    detection_confidences = _RunningValues()
+    processing_times = _RunningValues()
+    part_quality = {"Head": _RunningValues(), "Body": _RunningValues(), "Tail": _RunningValues()}
+    color_trend = deque(maxlen=_ANALYTICS_TREND_LIMIT)
+    hue_values = _RunningValues()
+    coverage_values = _RunningValues()
+    observed_region_counts = _RunningValues()
+    model2_observation_counts = _RunningValues()
+    feature_counts = _feature_counters([])
+    event_count = 0
     automatic_count = 0
     needs_review_count = 0
     manual_review_count = 0
     body_only_count = 0
     two_region_count = 0
     complete_region_count = 0
-    final_supports: list[float] = []
-    best_supports: list[float] = []
-    performance_values: dict[str, list[float]] = {
-        "model1_inference_ms": [], "model2_inference_ms": [], "grading_engine_ms": [],
-        "hsv_processing_ms": [], "tracking_ms": [], "total_processing_ms": [],
-    }
+    final_supports = _RunningValues()
+    best_supports = _RunningValues()
+    performance_values = {key: _RunningValues() for key in (
+        "model1_inference_ms", "model2_inference_ms", "grading_engine_ms",
+        "hsv_processing_ms", "tracking_ms", "total_processing_ms",
+    )}
+    if previous is not None:
+        saved = deepcopy(previous)
+        quality_counters = saved["quality_counters"]
+        throughput, confidence_over_time = saved["throughput"], saved["confidence_over_time"]
+        grade_confidences, detection_confidences, processing_times = saved["grade_confidences"], saved["detection_confidences"], saved["processing_times"]
+        part_quality, color_trend, hue_values = saved["part_quality"], saved["color_trend"], saved["hue_values"]
+        coverage_values, observed_region_counts, model2_observation_counts = saved["coverage_values"], saved["observed_region_counts"], saved["model2_observation_counts"]
+        feature_counts, event_count = saved["feature_counts"], saved["event_count"]
+        automatic_count, needs_review_count, manual_review_count = saved["automatic_count"], saved["needs_review_count"], saved["manual_review_count"]
+        body_only_count, two_region_count, complete_region_count = saved["body_only_count"], saved["two_region_count"], saved["complete_region_count"]
+        final_supports, best_supports, performance_values = saved["final_supports"], saved["best_supports"], saved["performance_values"]
     for event in chronological:
+        event_count += 1
+        quality = event.get("quality")
+        if quality not in quality_counters:
+            event_analysis = event.get("analysis")
+            quality = event_analysis.get("final_grade") if isinstance(event_analysis, dict) else None
+        quality_counters[quality if quality in quality_counters else "Ungraded"] += 1
+        throughput.append({"timestamp": event.get("timestamp"), "total": event_count})
+        if event.get("quality_confidence") is not None:
+            confidence = float(event["quality_confidence"]) * 100
+            grade_confidences.append(confidence)
+            confidence_over_time.append({"timestamp": event.get("timestamp"), "confidence": round(confidence, 1)})
+        if event.get("final_confidence") is not None:
+            detection_confidences.append(float(event["final_confidence"]) * 100)
+        if event.get("processing_time_ms") is not None:
+            processing_times.append(float(event["processing_time_ms"]))
         analysis = event.get("analysis")
         part_results = analysis.get("part_results") if isinstance(analysis, dict) and isinstance(analysis.get("part_results"), dict) else {}
+        for region, counter in feature_counts.items():
+            result = part_results.get(region)
+            if isinstance(result, dict) and result.get("present") is True:
+                counter["count"] += 1
         colors = analysis.get("color") if isinstance(analysis, dict) and isinstance(analysis.get("color"), dict) else {}
         if isinstance(analysis, dict):
             status = analysis.get("verdict_status")
@@ -451,21 +530,23 @@ def _analytics(events: list[dict[str, object]], snapshot: dict[str, object]) -> 
                 part_quality[region].append(float(confidence) * 100)
         whole = colors.get("Whole Fish") if isinstance(colors, dict) else None
         if isinstance(whole, dict) and whole.get("mean_hue_deg") is not None:
+            hue_values.append(round(float(whole["mean_hue_deg"]), 2))
             color_trend.append({
                 "timestamp": event.get("timestamp"),
                 "mean_hue_deg": round(float(whole["mean_hue_deg"]), 2),
                 "yellow_ratio_proxy": round(float(whole.get("yellow_ratio_proxy") or 0) * 100, 2),
             })
-    return {
-        "has_data": bool(events),
+    result = {
+        "has_data": bool(event_count),
         "grade_distribution": {name: int(value) for name, value in quality_counters.items()},
-        "feature_counts": _feature_counters(events),
-        "throughput": throughput,
-        "confidence_over_time": [
-            {"timestamp": event.get("timestamp"), "confidence": round(float(event["quality_confidence"]) * 100, 1)}
-            for event in chronological
-            if event.get("quality_confidence") is not None
-        ],
+        "grade_distribution_basis": "original_ai_verdict",
+        "accuracy_available": False,
+        "manual_reviewed_basis": "operator_reviewed_outcomes",
+        "feature_counts": feature_counts,
+        "throughput": list(throughput),
+        "confidence_over_time": list(confidence_over_time),
+        "trend_points_limit": _ANALYTICS_TREND_LIMIT,
+        "trend_events_total": event_count,
         "average_grade_confidence": round(sum(grade_confidences) / len(grade_confidences), 1) if grade_confidences else None,
         "average_detection_confidence": round(sum(detection_confidences) / len(detection_confidences), 1) if detection_confidences else None,
         "average_processing_time_ms": round(sum(processing_times) / len(processing_times), 1) if processing_times else None,
@@ -473,8 +554,8 @@ def _analytics(events: list[dict[str, object]], snapshot: dict[str, object]) -> 
             region: round(sum(values) / len(values), 1) if values else None
             for region, values in part_quality.items()
         },
-        "color_trend": color_trend,
-        "average_whole_fish_hue": round(sum(item["mean_hue_deg"] for item in color_trend) / len(color_trend), 2) if color_trend else None,
+        "color_trend": list(color_trend),
+        "average_whole_fish_hue": round(sum(hue_values) / len(hue_values), 2) if hue_values else None,
         "automatically_graded": automatic_count,
         "needs_review": needs_review_count,
         "manual_reviewed": manual_review_count,
@@ -492,16 +573,74 @@ def _analytics(events: list[dict[str, object]], snapshot: dict[str, object]) -> 
             for key, values in performance_values.items()
         },
     }
+    if not return_state:
+        return result
+    saved = {name: value for name, value in locals().items() if name in {
+        "quality_counters", "throughput", "confidence_over_time", "grade_confidences", "detection_confidences",
+        "processing_times", "part_quality", "color_trend", "hue_values", "coverage_values", "observed_region_counts",
+        "model2_observation_counts", "feature_counts", "event_count", "automatic_count", "needs_review_count",
+        "manual_review_count", "body_only_count", "two_region_count", "complete_region_count", "final_supports",
+        "best_supports", "performance_values",
+    }}
+    return result, saved
 
 
-def _status_payload() -> dict[str, object]:
+def _durable_analytics(range_name: str, session_id: str | None, start_date: str | None,
+                       end_date: str | None, snapshot: dict[str, object]) -> tuple[dict[str, object], int | None]:
+    """Cache a current-session summary until its transactional revision changes."""
+    if range_name == "current_session" and session_id is None:
+        return _analytics(state.tracking.archive_history(), snapshot), None
+    with _analytics_cache_lock:
+        revision = inspection_database.event_revision(session_id) if range_name == "current_session" else None
+        key = (inspection_database, session_id, revision)
+        if range_name == "current_session" and _analytics_cache.get("key") == key:
+            return deepcopy(_analytics_cache["value"]), revision
+        previous = None
+        events = None
+        reviews = None
+        old_key = _analytics_cache.get("key")
+        if range_name == "current_session" and old_key and old_key[:2] == key[:2] and revision > old_key[2]:
+            delta = inspection_database.analytics_insertions_since(session_id, _analytics_cache["marker"], _analytics_cache["last_key"])
+            if delta is not None and len(delta) == revision - old_key[2]:
+                events = delta
+                previous = _analytics_cache["state"]
+            else:
+                changes = inspection_database.analytics_reviews_since(session_id, _analytics_cache["marker"])
+                if changes is not None and len(changes) == revision - old_key[2]:
+                    reviews = changes
+        if reviews is not None:
+            result = deepcopy(_analytics_cache["value"])
+            summary_state = deepcopy(_analytics_cache["state"])
+            summary_state["manual_review_count"] += sum(int(new) - int(old) for old, new in reviews)
+            result["manual_reviewed"] = summary_state["manual_review_count"]
+            result["review_queue_count"] = max(0, result["needs_review"] - result["manual_reviewed"])
+        else:
+            if events is None:
+                events = inspection_database.iter_events_chronological(
+                    session_id=session_id, range_name=range_name, start_date=start_date, end_date=end_date,
+                )
+            result, summary_state = _analytics(events, snapshot, chronological_input=True, previous=previous, return_state=True)
+        if range_name == "current_session" and inspection_database.event_revision(session_id) == revision:
+            marker, last_key = inspection_database.analytics_change_marker(session_id)
+            if inspection_database.event_revision(session_id) != revision:
+                return result, revision
+            _analytics_cache.clear()
+            _analytics_cache.update(key=key, value=deepcopy(result), state=summary_state, marker=marker, last_key=last_key)
+        return result, revision
+
+
+def _status_payload(*, include_analytics: bool = True) -> dict[str, object]:
     snapshot = state.snapshot()
+    snapshot["raw_preview_available"] = bool(getattr(getattr(service, "raw_preview", None), "enabled", False))
+    snapshot["tracker_backend"] = getattr(model, "tracker_backend", None)
+    snapshot["tracker_warning"] = getattr(model, "tracker_warning", None)
     detector_threshold = getattr(model, "confidence_threshold", getattr(model, "confidence", state.confidence_threshold))
     snapshot["detection_confidence_threshold"] = state.confidence_threshold
     snapshot["default_confidence_threshold"] = PART_CONFIDENCE if RUNTIME_MODE == PART_PREVIEW_MODE else FISH_DETECTION_CONFIDENCE
     snapshot["default_quality_confidence_threshold"] = FISH_QUALITY_CONFIDENCE
-    durable_current_events = _durable_events()
-    snapshot["feature_counters"] = _feature_counters(durable_current_events)
+    if include_analytics:
+        current_analytics, _ = _durable_analytics("current_session", inspection_sessions.session_id, None, None, snapshot)
+        snapshot["feature_counters"] = current_analytics["feature_counts"]
     snapshot["upload_analysis_available"] = bool((image_analyzer is not None and model.model is not None) or (upload_test_model is not None and upload_test_model.model is not None))
     snapshot["upload_analysis_mode"] = "whole_fish" if image_analyzer is not None and model.model is not None else "part_preview"
     snapshot["upload_analysis_label"] = (
@@ -513,6 +652,7 @@ def _status_payload() -> dict[str, object]:
             "status": state.model_status,
             "checkpoint_resolved": bool(getattr(model, "weights_path", None)),
             "device": getattr(model, "device", "unresolved"),
+            "image_size": getattr(model, "image_size", None),
             "confidence_threshold": detector_threshold,
         },
         "quality": {
@@ -520,6 +660,7 @@ def _status_payload() -> dict[str, object]:
             "status": state.segmenter_status,
             "checkpoint_resolved": bool(getattr(quality_model, "weights_path", None)),
             "device": getattr(quality_model, "device", "unresolved"),
+            "image_size": getattr(quality_model, "image_size", None),
             "confidence_threshold": getattr(quality_model, "confidence_threshold", None),
             "class_names": list(getattr(quality_model, "class_names", {}).values()),
             "supports_masks": bool(getattr(quality_model, "supports_masks", False)),
@@ -536,8 +677,9 @@ def _status_payload() -> dict[str, object]:
         "roi_padding": service.quality_roi_padding,
         "quality_inference_mode": service.quality_inference_mode,
     })
-    snapshot["device_report"] = _device_report()
-    snapshot["runtime_diagnostics"] = service.runtime_diagnostics()
+    if include_analytics:
+        snapshot["device_report"] = _device_report()
+    snapshot["runtime_diagnostics"] = service.runtime_diagnostics() if lan_security.diagnostics_allowed() else {"enabled": False}
     # Retain the old response member for clients on a prior dashboard build.
     snapshot["model_info"]["segmenter"] = snapshot["model_info"]["quality"]
     quality_diagnostics = snapshot["model_info"]["quality"].get("diagnostics", {})
@@ -548,7 +690,8 @@ def _status_payload() -> dict[str, object]:
     active_m2_entry = registry.get_model(active_m2_id)
     snapshot["active_model2_id"] = active_m2_id
     snapshot["active_model2_name"] = getattr(quality_model, "active_model_name", None) or (active_m2_entry.display_name if active_m2_entry else None)
-    snapshot["available_models"] = [m.to_dict() for m in registry.list_model2_candidates()]
+    if include_analytics:
+        snapshot["available_models"] = [m.to_dict() for m in registry.list_model2_candidates()]
     snapshot["model_info"]["quality"]["model_id"] = active_m2_id
     snapshot["model_info"]["quality"]["model_name"] = snapshot["active_model2_name"]
     snapshot["model_info"]["quality"]["is_loaded"] = bool(
@@ -556,12 +699,15 @@ def _status_payload() -> dict[str, object]:
         or getattr(quality_model, "model", None) is not None
     )
     snapshot["model_info"]["quality"]["model_error"] = getattr(quality_model, "error", None)
-    snapshot["analytics"] = _analytics(durable_current_events, snapshot)
+    if include_analytics:
+        snapshot["analytics"] = current_analytics
     snapshot["durable_session"] = {
         "session_id": inspection_sessions.session_id,
         "active": inspection_sessions.active,
         "database_ready": True,
     }
+    if not include_analytics:
+        snapshot["event_revision"] = inspection_database.event_revision(snapshot["durable_session"]["session_id"])
     return snapshot
 
 
@@ -573,6 +719,12 @@ def dashboard() -> FileResponse:
 @app.get("/api/status")
 def get_status() -> dict[str, object]:
     return _status_payload()
+
+
+@app.get("/api/status/live")
+def get_live_status() -> dict[str, object]:
+    """Small polling response; durable analytics is fetched separately."""
+    return _status_payload(include_analytics=False)
 
 
 @app.get("/api/models")
@@ -647,6 +799,16 @@ async def select_model(request: Request) -> dict[str, object]:
 
 
 def _select_model_locked(model_id: str) -> dict[str, object]:
+    if quality_model.active_model_id == model_id and quality_model.model is not None:
+        return {
+            "success": True,
+            "active_model2_id": quality_model.active_model_id,
+            "active_model2_name": quality_model.name,
+            "checkpoint": str(quality_model.weights_path),
+            **_status_payload(),
+        }
+    if inspection_sessions.active:
+        raise HTTPException(status_code=409, detail="Stop and close the current session before changing the model.")
     try:
         quality_model.switch_model(model_id)
         state.set_segmenter(
@@ -655,15 +817,7 @@ def _select_model_locked(model_id: str) -> dict[str, object]:
             str(quality_model.weights_path),
             f"Quality Model '{quality_model.name}' ready on {quality_model.device}.",
         )
-        if inspection_sessions.active:
-            rotate_durable_session()
     except Exception as exc:
-        state.set_segmenter(
-            "error",
-            quality_model.name,
-            str(quality_model.weights_path) if quality_model.weights_path else None,
-            f"Failed to switch to model '{model_id}': {exc}",
-        )
         raise HTTPException(status_code=500, detail=f"Model switch failed: {exc}") from exc
 
     return {
@@ -676,7 +830,7 @@ def _select_model_locked(model_id: str) -> dict[str, object]:
 
 
 def _require_inspection_stopped_for_model_change() -> None:
-    if state.snapshot()["inspection_status"] in {"starting", "running"}:
+    if state.snapshot()["inspection_status"] in {"starting", "running", "stopping"} or service.has_live_worker():
         raise HTTPException(
             status_code=409,
             detail="Stop inspection before switching the active model; active fish must not mix models.",
@@ -686,21 +840,40 @@ def _require_inspection_stopped_for_model_change() -> None:
 @app.post("/api/inspection/start")
 def start_inspection() -> dict[str, object]:
     with _model_change_lock:
-        started = service.start()
-        if started:
-            inspection_sessions.start(_session_metadata())
+        if service.has_live_worker():
+            return {"started": False, **_status_payload()}
+        # A worker that exited unexpectedly can leave its session open.
+        if inspection_sessions.active:
+            inspection_sessions.close()
+        if not service.prepare_models():
+            return {"started": False, **_status_payload()}
+        inspection_sessions.start(_session_metadata())
+        try:
+            started = service.start()
+        except Exception:
+            if service.has_live_worker():
+                try:
+                    service.stop()
+                except Exception:
+                    LOGGER.exception("Could not stop worker after inspection startup failed")
+            if not service.has_live_worker():
+                inspection_sessions.close()
+            raise
+        if not started and not service.has_live_worker():
+            inspection_sessions.close()
         return {"started": started, **_status_payload()}
 
 
 @app.post("/api/inspection/stop")
 def stop_inspection() -> dict[str, object]:
-    stopped = service.stop()
-    if inspection_sessions.active:
-        camera_settings = _camera_settings_snapshot()
-        if camera_settings.get("available"):
-            inspection_database.update_session(inspection_sessions.session_id or "", {"camera_settings": camera_settings})
-        inspection_sessions.close()
-    return {"stopped": stopped, **_status_payload()}
+    with _model_change_lock:
+        service.stop()
+        if inspection_sessions.active and not service.has_live_worker():
+            camera_settings = _camera_settings_snapshot()
+            if camera_settings.get("available"):
+                inspection_database.update_session(inspection_sessions.session_id or "", {"camera_settings": camera_settings})
+            inspection_sessions.close()
+        return {"stopped": not service.has_live_worker(), **_status_payload()}
 
 
 @app.get("/api/camera/settings")
@@ -731,7 +904,7 @@ def _record_camera_policy_change(result: dict[str, object]) -> str | None:
     """Prevent one fish from spanning physical-camera acquisition settings."""
 
     entries = result.get("results")
-    changed = bool(result.get("success")) or (
+    changed = bool(result["changed"]) if "changed" in result else bool(result.get("success")) or (
         isinstance(entries, dict)
         and any(isinstance(value, dict) and value.get("success") is True for value in entries.values())
     )
@@ -751,10 +924,15 @@ async def update_camera_settings(request: Request) -> dict[str, object]:
         unknown_keys = sorted(str(key) for key in set(payload) - allowed_keys)
         if unknown_keys:
             raise HTTPException(status_code=422, detail=f"Unsupported camera setting(s): {', '.join(unknown_keys)}.")
+        calibration_supplied = "calibration_mode" in payload
         calibration = payload.pop("calibration_mode", None)
+        values = {item.key: payload[item.key] for item in CAMERA_PROPERTIES if item.key in payload}
+        if calibration_supplied and not isinstance(calibration, bool):
+            raise HTTPException(status_code=422, detail="calibration_mode must be true or false.")
+        if calibration_supplied and values:
+            raise HTTPException(status_code=422, detail="Change calibration mode separately from physical camera controls.")
         if calibration is not None:
             service.set_calibration_mode(calibration)
-        values = {item.key: payload[item.key] for item in CAMERA_PROPERTIES if item.key in payload}
         if not values:
             status = service.camera_status()
             return {"success": True, "requested": {}, "actual": status.get("actual", {}), "camera": status}
@@ -844,8 +1022,10 @@ async def lock_camera_settings(request: Request) -> dict[str, object]:
 
 @app.post("/api/session/reset")
 def reset_session() -> dict[str, object]:
-    service.reset_session()
-    rotate_durable_session()
+    # Block frame callbacks until both the durable identity and trackers change.
+    with _model_change_lock, service._processing_lock:
+        rotate_durable_session()
+        service.reset_session()
     return {"reset": True, **_status_payload()}
 
 
@@ -866,6 +1046,25 @@ def get_history(
 
     if page < 1 or not 1 <= page_size <= 100:
         raise HTTPException(status_code=422, detail="page must be positive and page_size must be between 1 and 100.")
+    if min_confidence is not None and not 0 <= min_confidence <= 100:
+        raise HTTPException(status_code=422, detail="min_confidence must be between 0 and 100.")
+    requested_session = session_id or (inspection_sessions.session_id if range_name == "current_session" else None)
+    if range_name != "current_session" or requested_session is not None:
+        try:
+            items, total = inspection_database.events_page(
+                session_id=requested_session, range_name=range_name, start_date=start_date, end_date=end_date,
+                page=page, page_size=page_size, search=search, grade=grade, feature=feature,
+                min_confidence=min_confidence,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        snapshot = state.snapshot()
+        return {
+            "items": items, "total": total, "page": page, "page_size": page_size,
+            "total_pages": max(1, (total + page_size - 1) // page_size),
+            "latest_event": snapshot["latest_event"], "recent_history": snapshot["recent_history"],
+            "range": range_name, "session_id": requested_session, "sessions": inspection_database.sessions(),
+        }
     try:
         events = _durable_events(
             range_name=range_name,
@@ -955,16 +1154,19 @@ def _canonical_manual_grade(value: object) -> str | None:
 
 
 @app.get("/api/reviews")
-def get_review_queue(include_reviewed: bool = False) -> dict[str, object]:
+def get_review_queue(include_reviewed: bool = False, session_id: str | None = None) -> dict[str, object]:
     """List durable AI results that remain Ungraded / Needs Review."""
 
+    if session_id is not None and (not session_id.strip() or inspection_database.session(session_id) is None):
+        raise HTTPException(status_code=404, detail="Inspection session not found.")
     items = []
-    for event in _durable_events():
+    for event in _durable_events(session_id=session_id):
         analysis = event.get("analysis")
         needs_review = isinstance(analysis, dict) and analysis.get("verdict_status") == "NEEDS_REVIEW"
         if needs_review and (include_reviewed or not event.get("manual_override")):
             items.append(event)
-    return {"items": items, "total": len(items), "include_reviewed": include_reviewed}
+    return {"items": items, "total": len(items), "include_reviewed": include_reviewed,
+            "session_id": session_id or inspection_sessions.session_id}
 
 
 @app.post("/api/reviews/{track_id}")
@@ -977,21 +1179,48 @@ async def review_fish(track_id: int, request: Request) -> dict[str, object]:
         raise HTTPException(status_code=400, detail="Review settings must be valid JSON.") from None
     if not isinstance(payload, dict):
         raise HTTPException(status_code=422, detail="Review settings must be a JSON object.")
+    if "manual_grade" not in payload:
+        raise HTTPException(status_code=422, detail="manual_grade is required; use null to clear a review.")
+    requested_session = payload.get("session_id")
+    if "session_id" in payload and (not isinstance(requested_session, str) or not requested_session.strip()):
+        raise HTTPException(status_code=422, detail="session_id must be a non-empty string when supplied.")
+    reviewer = payload.get("reviewer")
+    if reviewer is not None and (not isinstance(reviewer, str) or len(reviewer.strip()) > 120):
+        raise HTTPException(status_code=422, detail="reviewer must be a string of at most 120 characters.")
+    reviewer = reviewer.strip() or None if isinstance(reviewer, str) else None
     try:
         manual_grade = _canonical_manual_grade(payload.get("manual_grade"))
-        try:
-            item = state.tracking.apply_manual_review(track_id, manual_grade)
-        except KeyError:
-            session_id = inspection_sessions.session_id
-            item = inspection_database.apply_manual_review(session_id or "", track_id, manual_grade)
-            if item is None:
-                raise KeyError(track_id)
+        with _model_change_lock, service._processing_lock:
+            current_session = inspection_sessions.session_id
+            session_id = requested_session or current_session
+            if session_id is not None:
+                if inspection_database.session(session_id) is None:
+                    raise HTTPException(status_code=404, detail="Inspection session not found.")
+                item = inspection_database.apply_manual_review(session_id, track_id, manual_grade, reviewer=reviewer)
+                if item is None:
+                    raise KeyError(track_id)
+                if session_id == current_session:
+                    try:
+                        state.tracking.apply_manual_review(track_id, manual_grade, reviewer=reviewer,
+                                                           review_timestamp=item.get("review_timestamp"), notify=False)
+                    except KeyError:
+                        pass
+            else:
+                item = state.tracking.apply_manual_review(track_id, manual_grade, reviewer=reviewer)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except KeyError:
-        raise HTTPException(status_code=404, detail=f"Fish #{track_id} is not in the current durable session.") from None
-    review_queue_count = len(get_review_queue().get("items", []))
+        raise HTTPException(status_code=404, detail=f"Fish #{track_id} is not in the selected session.") from None
+    review_queue_count = len(get_review_queue(session_id=session_id).get("items", []))
     return {"updated": True, "item": item, "review_queue_count": review_queue_count}
+
+
+@app.get("/api/sessions/{session_id}/reviews/{track_id}/audit")
+def get_review_audit(session_id: str, track_id: int) -> dict[str, object]:
+    if inspection_database.session(session_id) is None or not inspection_database.event_exists(session_id, track_id):
+        raise HTTPException(status_code=404, detail="Inspection session or fish not found.")
+    items = inspection_database.review_audit(session_id, track_id)
+    return {"session_id": session_id, "track_id": track_id, "items": items}
 
 
 def _structural_review_event(track_id: int) -> dict[str, object]:
@@ -1025,20 +1254,24 @@ async def add_structural_review(track_id: int, request: Request) -> dict[str, ob
         if value.get("observed_at") is None:
             value["observed_at"] = datetime.now().astimezone().isoformat(timespec="seconds")
         observation = StructuralEvidence.from_mapping(value)
-        event = _structural_review_event(track_id)
-        analysis = dict(event.get("analysis")) if isinstance(event.get("analysis"), dict) else {}
-        existing = analysis.get("structural_evidence")
-        old_records = existing.get("records", []) if isinstance(existing, dict) else []
-        if not isinstance(old_records, list) or not all(isinstance(item, dict) for item in old_records):
-            raise ValueError("Stored structural evidence is invalid; manual review is required.")
-        records = [StructuralEvidence.from_mapping(item) for item in old_records]
-        summary = summarize_structural_evidence([*records, observation])
-        analysis["structural_evidence"] = summary
-        updated = {**event, "analysis": analysis}
-        session_id = inspection_sessions.session_id
-        if session_id:
-            inspection_database.upsert_event(session_id, updated)
-        state.tracking.update_event_analysis(track_id, {"structural_evidence": summary})
+        # Serialize the read-modify-write with live event persistence, manual
+        # review and session rotation. Otherwise an old event snapshot can
+        # overwrite a newer verdict or the structural record can disappear.
+        with _model_change_lock, service._processing_lock:
+            event = _structural_review_event(track_id)
+            analysis = dict(event.get("analysis")) if isinstance(event.get("analysis"), dict) else {}
+            existing = analysis.get("structural_evidence")
+            old_records = existing.get("records", []) if isinstance(existing, dict) else []
+            if not isinstance(old_records, list) or not all(isinstance(item, dict) for item in old_records):
+                raise ValueError("Stored structural evidence is invalid; manual review is required.")
+            records = [StructuralEvidence.from_mapping(item) for item in old_records]
+            summary = summarize_structural_evidence([*records, observation])
+            analysis["structural_evidence"] = summary
+            updated = {**event, "analysis": analysis}
+            session_id = inspection_sessions.session_id
+            if session_id:
+                inspection_database.upsert_event(session_id, updated)
+            state.tracking.update_event_analysis(track_id, {"structural_evidence": summary})
         return {"updated": True, "track_id": track_id, "structural_evidence": summary}
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -1052,19 +1285,18 @@ def get_analytics(
     end_date: str | None = None,
 ) -> dict[str, object]:
     snapshot = state.snapshot()
+    requested_session = session_id or (inspection_sessions.session_id if range_name == "current_session" else None)
     try:
-        events = _durable_events(
-            range_name=range_name,
-            session_id=session_id,
-            start_date=start_date,
-            end_date=end_date,
-        )
+        analytics, revision = _durable_analytics(range_name, requested_session, start_date, end_date, snapshot)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if range_name == "current_session" and session_id is None and inspection_sessions.session_id != requested_session:
+        raise HTTPException(status_code=409, detail="Session changed while analytics was being collected; retry.")
     return {
-        **_analytics(events, snapshot),
+        **analytics,
         "range": range_name,
-        "session_id": session_id or (inspection_sessions.session_id if range_name == "current_session" else None),
+        "session_id": requested_session,
+        "event_revision": revision,
     }
 
 
@@ -1074,7 +1306,7 @@ def get_settings() -> dict[str, object]:
         "detection_confidence_threshold": state.confidence_threshold,
         "quality_confidence_threshold": state.quality_confidence_threshold,
         "display_settings": state.current_display_settings(),
-        "policy_settings_locked": state.snapshot()["inspection_status"] in {"starting", "running"},
+        "policy_settings_locked": state.snapshot()["inspection_status"] in {"starting", "running", "stopping"},
         "policy_settings_lock_reason": "Stop inspection before changing a detector or grading policy setting.",
         "advanced_thresholds_supported": True,
     }
@@ -1146,76 +1378,109 @@ async def update_settings(request: Request) -> dict[str, object]:
 
 
 def _update_settings_locked(payload: dict) -> dict[str, object]:
-    detector_setting = payload.get("detection_confidence_threshold", payload.get("confidence_threshold"))
-    policy_change_requested = detector_setting is not None or "quality_confidence_threshold" in payload
-    if policy_change_requested and state.snapshot()["inspection_status"] in {"starting", "running"}:
-        raise HTTPException(
-            status_code=409,
-            detail="Stop inspection before changing detector or grading-policy settings; active fish must not mix policies.",
-        )
-    if detector_setting is not None:
-        try:
-            threshold = float(detector_setting)
-            state.set_confidence_threshold(threshold)
-        except (TypeError, ValueError):
-            raise HTTPException(status_code=422, detail="detection_confidence_threshold must be a number between 0 and 1.") from None
-        if hasattr(model, "confidence_threshold"):
-            model.confidence_threshold = threshold
-        elif hasattr(model, "confidence"):
-            model.confidence = threshold
-    if "quality_confidence_threshold" in payload:
-        try:
-            threshold = float(payload["quality_confidence_threshold"])
-            state.set_quality_confidence_threshold(threshold)
-        except (TypeError, ValueError):
-            raise HTTPException(status_code=422, detail="quality_confidence_threshold must be a number between 0 and 1.") from None
-        if quality_model is not None:
-            quality_model.confidence_threshold = threshold
+    allowed = {"confidence_threshold", "detection_confidence_threshold", "quality_confidence_threshold", "display_settings", "model2_id", "selected_model2"}
+    unknown = set(payload) - allowed
+    if unknown:
+        raise HTTPException(status_code=422, detail=f"Unsupported setting(s): {', '.join(sorted(unknown))}.")
+    if {"confidence_threshold", "detection_confidence_threshold"} <= payload.keys() or {"model2_id", "selected_model2"} <= payload.keys():
+        raise HTTPException(status_code=422, detail="Use only one name for each setting.")
+
+    detector_key = "detection_confidence_threshold" if "detection_confidence_threshold" in payload else "confidence_threshold"
+    model_key = "model2_id" if "model2_id" in payload else "selected_model2"
+    policy_requested = detector_key in payload or "quality_confidence_threshold" in payload
+    model_requested = model_key in payload
+    if model_requested:
+        _require_inspection_stopped_for_model_change()
+    if policy_requested and (state.snapshot()["inspection_status"] in {"starting", "running", "stopping"} or service.has_live_worker()):
+        raise HTTPException(status_code=409, detail="Stop inspection before changing detector or grading-policy settings; active fish must not mix policies.")
+
+    def threshold_for(key: str) -> float | None:
+        if key not in payload:
+            return None
+        value = payload[key]
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not 0 <= value <= 1:
+            raise HTTPException(status_code=422, detail=f"{key} must be a number between 0 and 1.")
+        return float(value)
+
+    detector_threshold = threshold_for(detector_key)
+    quality_threshold = threshold_for("quality_confidence_threshold")
+    display = None
     if "display_settings" in payload:
-        display = payload["display_settings"]
-        if not isinstance(display, dict):
+        if not isinstance(payload["display_settings"], dict):
             raise HTTPException(status_code=422, detail="display_settings must be an object.")
         try:
-            state.set_display_settings(display)
+            display = state.validate_display_settings(payload["display_settings"])
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
-    model2_request = payload.get("model2_id") or payload.get("selected_model2")
-    if model2_request is not None:
-        if not isinstance(model2_request, str):
-            raise HTTPException(status_code=422, detail="model2_id must be a string.")
-        _require_inspection_stopped_for_model_change()
-        from src.inference.model_registry import get_model_registry
 
+    model2_request = payload.get(model_key) if model_requested else None
+    switching = False
+    if model_requested:
+        if not isinstance(model2_request, str) or not model2_request:
+            raise HTTPException(status_code=422, detail="model2_id must be a non-empty string.")
+        from src.inference.model_registry import get_model_registry
         registry = get_model_registry()
         entry = registry.get_model(model2_request)
         if entry is None:
             raise HTTPException(status_code=404, detail=f"Model ID '{model2_request}' was not found in the registry.")
         compatible, reason = registry.validate_compatibility(model2_request, "model2_grading")
         if not compatible:
-            raise HTTPException(
-                status_code=400,
-                detail=reason or f"Model '{model2_request}' cannot be used for Model 2 quality inspection.",
-            )
+            raise HTTPException(status_code=400, detail=reason or f"Model '{model2_request}' cannot be used for Model 2 quality inspection.")
+        if quality_model is None:
+            raise HTTPException(status_code=500, detail="Model 2 quality model service is not initialized.")
+        switching = quality_model.active_model_id != model2_request or quality_model.model is None
+        if switching:
+            if inspection_sessions.active:
+                raise HTTPException(status_code=409, detail="Stop and close the current session before changing the model.")
+            checkpoint = registry.resolve_checkpoint_path(entry)
+            if not checkpoint.is_file():
+                raise HTTPException(status_code=422, detail=f"Model checkpoint not found: {checkpoint}")
+
+    detector_attr = "confidence_threshold" if hasattr(model, "confidence_threshold") else "confidence" if hasattr(model, "confidence") else None
+    previous_detector = getattr(model, detector_attr) if detector_attr else None
+    previous_quality = getattr(quality_model, "confidence_threshold", None) if quality_model is not None else None
+    previous_state = (state.confidence_threshold, state.quality_confidence_threshold, state.current_display_settings(),
+                      state.segmenter_status, state.segmenter_name, state.segmenter_weights_path, state.segmenter_message)
+    try:
+        if detector_threshold is not None:
+            state.set_confidence_threshold(detector_threshold)
+            if detector_attr:
+                setattr(model, detector_attr, detector_threshold)
+        if quality_threshold is not None:
+            state.set_quality_confidence_threshold(quality_threshold)
+            if quality_model is not None:
+                quality_model.confidence_threshold = quality_threshold
+        if display is not None:
+            state.set_display_settings(display)
+        if switching:
+            state.set_segmenter("ready", entry.display_name, str(checkpoint), f"Quality Model '{entry.display_name}' ready on {quality_model.device}.")
+            # switch_model preserves the old loaded model and persisted selection on load/write failures.
+            quality_model.switch_model(model2_request)
+        elif policy_requested and inspection_sessions.active:
+            rotate_durable_session()
+    except Exception as exc:
+        with state._lock:
+            (state.confidence_threshold, state.quality_confidence_threshold, state.display_settings,
+             state.segmenter_status, state.segmenter_name, state.segmenter_weights_path, state.segmenter_message) = previous_state
+        if detector_attr:
+            setattr(model, detector_attr, previous_detector)
         if quality_model is not None:
-            try:
-                quality_model.switch_model(model2_request)
-                state.set_segmenter(
-                    "ready",
-                    quality_model.name,
-                    str(quality_model.weights_path),
-                    f"Quality Model '{quality_model.name}' ready on {quality_model.device}.",
-                )
-                if inspection_sessions.active:
-                    rotate_durable_session()
-            except Exception as exc:
-                state.set_segmenter(
-                    "error",
-                    quality_model.name,
-                    str(quality_model.weights_path) if quality_model.weights_path else None,
-                    f"Failed to switch to model '{model2_request}': {exc}",
-                )
-                raise HTTPException(status_code=500, detail=f"Model switch failed: {exc}") from exc
-    return {"updated": True, **_status_payload()}
+            quality_model.confidence_threshold = previous_quality
+        raise HTTPException(status_code=500, detail=f"Settings could not be applied: {exc}") from exc
+    try:
+        status = _status_payload()
+    except Exception:
+        # The settings have committed. Do not report a failed update solely
+        # because unrelated optional status details could not be assembled.
+        LOGGER.exception("Settings applied, but full status could not be assembled")
+        status = {
+            "detection_confidence_threshold": state.confidence_threshold,
+            "quality_confidence_threshold": state.quality_confidence_threshold,
+            "display_settings": state.current_display_settings(),
+            "active_model2_id": getattr(quality_model, "active_model_id", None),
+            "status_detail": "Full status is temporarily unavailable.",
+        }
+    return {"updated": True, **status}
 
 
 @app.post("/api/export")
@@ -1231,18 +1496,29 @@ async def export_history(request: Request) -> Response:
     export_format = str(payload.get("format", "csv")).lower()
     if export_format not in {"csv", "xlsx"}:
         raise HTTPException(status_code=422, detail="format must be csv or xlsx.")
-    selected_fields = payload.get("fields", list(DEFAULT_EXPORT_FIELDS))
-    if not isinstance(selected_fields, list) or not selected_fields:
-        raise HTTPException(status_code=422, detail="Choose at least one export field.")
-    fields = tuple(str(field) for field in selected_fields)
-    if payload.get("complete_analysis") is True:
+    full_evidence = payload.get("complete_analysis", False)
+    if not isinstance(full_evidence, bool):
+        raise HTTPException(status_code=422, detail="complete_analysis must be true or false.")
+    selected_fields = payload.get("fields", [])
+    if not isinstance(selected_fields, list) or not all(isinstance(field, str) for field in selected_fields):
+        raise HTTPException(status_code=422, detail="fields must be a list of field names.")
+    if full_evidence:
         fields = DEFAULT_EXPORT_FIELDS
+    else:
+        if not selected_fields:
+            raise HTTPException(status_code=422, detail="Choose at least one export field.")
+        fields = tuple(selected_fields)
+        if len(set(fields)) != len(fields):
+            raise HTTPException(status_code=422, detail="Export fields must not contain duplicates.")
     if any(field not in EXPORT_FIELDS for field in fields):
         raise HTTPException(status_code=422, detail="One or more export fields are unsupported.")
     range_name = str(payload.get("range", "current_session"))
     requested_session = payload.get("session_id")
-    if requested_session is not None and not isinstance(requested_session, str):
-        raise HTTPException(status_code=422, detail="session_id must be a string when supplied.")
+    if requested_session is not None and (not isinstance(requested_session, str) or not requested_session):
+        raise HTTPException(status_code=422, detail="session_id must be a non-empty string when supplied.")
+    requested_metadata = inspection_database.session(requested_session) if requested_session is not None else None
+    if requested_session is not None and requested_metadata is None:
+        raise HTTPException(status_code=404, detail="Inspection session not found.")
     try:
         events = _durable_events(
             range_name=range_name,
@@ -1252,6 +1528,10 @@ async def export_history(request: Request) -> Response:
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    session_ids = list(dict.fromkeys(event.get("session_id") for event in events))
+    multiple_sessions = len(session_ids) > 1
+    if export_format == "csv" and multiple_sessions:
+        raise HTTPException(status_code=422, detail="Use Excel for a multi-session export so each session's grading rules can be included.")
     snapshot = state.snapshot()
     analytics = _analytics(events, snapshot)
     quality = analytics["grade_distribution"]
@@ -1275,7 +1555,7 @@ async def export_history(request: Request) -> Response:
     part_averages = analytics["average_part_quality_scores"]
     assert isinstance(part_averages, dict)
     summary.update({f"Average {region} Evidence": value if value is not None else "" for region, value in part_averages.items()})
-    summary.update({f"{name} Count": value for name, value in quality.items()})
+    summary.update({f"AI {name} Count": value for name, value in quality.items()})
     summary.update({f"{name} Observed": detail["count"] for name, detail in _feature_counters(events).items()})
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     if export_format == "csv":
@@ -1283,14 +1563,26 @@ async def export_history(request: Request) -> Response:
         media_type, extension = "text/csv; charset=utf-8", "csv"
     else:
         try:
-            rules = _status_payload().get("grading_rules")
-            session_metadata = inspection_database.session(requested_session or inspection_sessions.session_id or "")
+            session_metadata = requested_metadata
+            if session_metadata is None and len(session_ids) == 1 and session_ids[0]:
+                session_metadata = inspection_database.session(str(session_ids[0]))
+            elif session_metadata is None and not session_ids and range_name == "current_session" and inspection_sessions.session_id:
+                session_metadata = inspection_database.session(inspection_sessions.session_id)
+            configurations = None
+            if multiple_sessions:
+                configurations = [
+                    (inspection_database.session(str(identifier)) if identifier else None) or {"session_id": identifier}
+                    for identifier in session_ids
+                ]
+                session_metadata = None
+            rules = session_metadata.get("grading_config") if session_metadata is not None else None
             body = make_xlsx(
                 events,
                 fields,
                 summary,
                 rules if isinstance(rules, dict) else None,
                 session_configuration=session_metadata,
+                session_configurations=configurations,
             )
         except RuntimeError as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -1302,9 +1594,23 @@ async def export_history(request: Request) -> Response:
     )
 
 
+async def _read_bounded_upload(request: Request, max_bytes: int) -> bytes:
+    """Stop consuming the ASGI stream as soon as the byte limit is exceeded."""
+    body = bytearray()
+    stream = request.stream()
+    try:
+        async for chunk in stream:
+            if len(chunk) > max_bytes - len(body):
+                raise HTTPException(status_code=413, detail=f"The uploaded image exceeds the {max_bytes} byte limit.")
+            body.extend(chunk)
+    finally:
+        await stream.aclose()
+    return bytes(body)
+
+
 @app.post("/api/analyze-image")
 async def analyze_image(request: Request) -> dict[str, object]:
-    """Analyze one image; an optional model override changes the shared model while stopped."""
+    """Analyze one image using the active model without changing its selection."""
 
     filename = request.headers.get("x-filename", "")
     if not filename:
@@ -1315,39 +1621,42 @@ async def analyze_image(request: Request) -> dict[str, object]:
 
     try:
         frame = decode_uploaded_image(
-            await request.body(),
+            await _read_bounded_upload(request, FISH_UPLOAD_MAX_BYTES),
             filename,
             max_bytes=FISH_UPLOAD_MAX_BYTES,
             max_dimension=FISH_UPLOAD_MAX_DIMENSION,
             max_pixels=FISH_UPLOAD_MAX_PIXELS,
         )
         model_override = request.headers.get("x-model-id") or request.query_params.get("model_id")
-        if model_override:
-            with _model_change_lock:
-                if quality_model is not None and getattr(quality_model, "active_model_id", None) != model_override:
-                    _require_inspection_stopped_for_model_change()
+        with _model_change_lock:
+            if model_override:
+                if quality_model is None:
+                    raise HTTPException(status_code=400, detail="A Model 2 override is unavailable in this analysis mode.")
+                if getattr(quality_model, "active_model_id", None) != model_override:
                     from src.inference.model_registry import get_model_registry
 
                     registry = get_model_registry()
                     compatible, reason = registry.validate_compatibility(model_override, "model2_grading")
                     if not compatible:
                         raise HTTPException(status_code=400, detail=reason or f"Model '{model_override}' is not compatible for image analysis.")
-                    quality_model.switch_model(model_override)
-                    state.set_segmenter(
-                        "ready",
-                        quality_model.name,
-                        str(quality_model.weights_path),
-                        f"Quality Model '{quality_model.name}' ready on {quality_model.device}.",
-                    )
-                    if inspection_sessions.active:
-                        rotate_durable_session()
+                    raise HTTPException(status_code=409, detail="Upload analysis uses the active Model 2. Select another model explicitly before uploading.")
 
-        if image_analyzer is not None and model.model is not None:
-            return image_analyzer.analyze(frame)
-        if upload_test_model is not None and upload_test_model.model is not None and upload_test_analyzer is not None:
-            return upload_test_analyzer.analyze(frame)
-        detail = (upload_test_model.error if upload_test_model is not None else None) or model.error or "No local upload-analysis model is available."
-        raise HTTPException(status_code=503, detail=detail)
+            # Do not interleave still-image inference with a live frame's
+            # inference, grading, and per-frame diagnostic measurements.
+            with service._processing_lock:
+                strict_integrity = os.getenv("FISH_STRICT_MODEL_INTEGRITY", "0").strip().lower() in {"1", "true", "yes", "on"}
+                if strict_integrity and image_analyzer is not None and (
+                    getattr(model, "checkpoint_integrity", None) != "verified"
+                    or getattr(quality_model, "checkpoint_integrity", None) != "verified"
+                    or getattr(quality_model, "model", None) is None
+                ):
+                    raise HTTPException(status_code=503, detail="Strict model integrity requires both registered checkpoints to be verified before image analysis.")
+                if image_analyzer is not None and model.model is not None:
+                    return image_analyzer.analyze(frame)
+                if upload_test_model is not None and upload_test_model.model is not None and upload_test_analyzer is not None:
+                    return upload_test_analyzer.analyze(frame)
+                detail = (upload_test_model.error if upload_test_model is not None else None) or model.error or "No local upload-analysis model is available."
+                raise HTTPException(status_code=503, detail=detail)
     except ImageUploadError as exc:
         status = 413 if "byte limit" in str(exc) else 400
         raise HTTPException(status_code=status, detail=str(exc)) from exc
@@ -1355,9 +1664,11 @@ async def analyze_image(request: Request) -> dict[str, object]:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
-def _mjpeg_frames():
+def _mjpeg_frames(request: Request):
     last_version = -1
     while True:
+        if not lan_security.stream_authorized(request):
+            break
         frame, version = state.frame()
         if frame is not None and version != last_version:
             last_version = version
@@ -1370,5 +1681,27 @@ def _mjpeg_frames():
 
 
 @app.get("/api/video-feed")
-def video_feed() -> StreamingResponse:
-    return StreamingResponse(_mjpeg_frames(), media_type="multipart/x-mixed-replace; boundary=frame")
+def video_feed(request: Request) -> StreamingResponse:
+    return StreamingResponse(_mjpeg_frames(request), media_type="multipart/x-mixed-replace; boundary=frame")
+
+
+def _raw_mjpeg_frames(request: Request):
+    preview = service.raw_preview
+    preview.subscribe()
+    try:
+        last_version = -1
+        while lan_security.stream_authorized(request):
+            frame, version = preview.frame()
+            if frame is not None and version != last_version:
+                last_version = version
+                yield b"--frame\r\nContent-Type: image/jpeg\r\nCache-Control: no-cache\r\n\r\n" + frame + b"\r\n"
+            sleep(0.025 if state.inspection_status == "running" else 0.2)
+    finally:
+        preview.unsubscribe()
+
+
+@app.get("/api/video-feed/raw")
+def raw_video_feed(request: Request) -> StreamingResponse:
+    if not service.raw_preview.enabled:
+        raise HTTPException(status_code=404, detail="Raw preview is disabled.")
+    return StreamingResponse(_raw_mjpeg_frames(request), media_type="multipart/x-mixed-replace; boundary=frame")

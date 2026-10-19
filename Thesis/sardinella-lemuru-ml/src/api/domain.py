@@ -243,6 +243,8 @@ class InspectionEvent:
     manual_override: bool = False
     manual_grade: str | None = None
     review_timestamp: str | None = None
+    reviewer: str | None = None
+    review_source: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -262,6 +264,8 @@ class InspectionEvent:
             "manual_override": self.manual_override,
             "manual_grade": self.manual_grade,
             "review_timestamp": self.review_timestamp,
+            "reviewer": self.reviewer,
+            "review_source": self.review_source,
         }
 
 
@@ -524,6 +528,16 @@ class TrackingManager:
         with self._lock:
             return [event.to_dict() for event in self._archive]
 
+    def archive_counts(self) -> tuple[int, int]:
+        """Count archive and unreviewed entries without serializing events."""
+        with self._lock:
+            return len(self._archive), sum(
+                1 for event in self._archive
+                if isinstance(event.analysis, dict)
+                and event.analysis.get("verdict_status") == "NEEDS_REVIEW"
+                and not event.manual_override
+            )
+
     def review_queue(self, *, include_reviewed: bool = False) -> list[dict[str, object]]:
         """Return fish whose original AI verdict needs operator review."""
 
@@ -536,14 +550,15 @@ class TrackingManager:
                     values.append(event.to_dict())
             return values
 
-    def apply_manual_review(self, track_id: int, manual_grade: str | None) -> dict[str, object]:
+    def apply_manual_review(self, track_id: int, manual_grade: str | None, *, reviewer: str | None = None,
+                            review_timestamp: str | None = None, notify: bool = True) -> dict[str, object]:
         """Store an operator's final grade without changing the AI verdict."""
 
         if manual_grade is not None and manual_grade not in MANUAL_GRADE_NAMES:
             raise ValueError(f"manual_grade must be one of: {', '.join(MANUAL_GRADE_NAMES)}.")
         with self._lock:
             found = False
-            review_time = datetime.now().astimezone().isoformat(timespec="seconds") if manual_grade is not None else None
+            review_time = (review_timestamp or datetime.now().astimezone().isoformat(timespec="seconds")) if manual_grade is not None else None
             def reviewed(event: InspectionEvent) -> InspectionEvent:
                 nonlocal found
                 if event.track_id != track_id:
@@ -554,6 +569,8 @@ class TrackingManager:
                     manual_override=manual_grade is not None,
                     manual_grade=manual_grade,
                     review_timestamp=review_time,
+                    reviewer=reviewer if manual_grade is not None else None,
+                    review_source="operator" if manual_grade is not None else None,
                 )
 
             self._history = deque((reviewed(event) for event in self._history), maxlen=self.config.history_limit)
@@ -569,7 +586,8 @@ class TrackingManager:
             # Defensive fallback for a very small archive limit.
             if reviewed_event is None:
                 raise KeyError(track_id)
-        self._notify_event_listeners("reviewed", reviewed_event)
+        if notify:
+            self._notify_event_listeners("reviewed", reviewed_event)
         return reviewed_event.to_dict()
 
     def update_event_analysis(self, track_id: int, updates: dict[str, object]) -> dict[str, object] | None:
@@ -677,7 +695,7 @@ class InspectionState:
 
     def begin_start(self) -> bool:
         with self._lock:
-            if self.inspection_status in {"starting", "running"}:
+            if self.inspection_status in {"starting", "running", "stopping"}:
                 return False
             self.inspection_status = "starting"
             self.camera_status = "connecting"
@@ -694,6 +712,8 @@ class InspectionState:
 
     def mark_running(self) -> None:
         with self._lock:
+            if self.inspection_status == "stopping":
+                return
             self.inspection_status = "running"
             self.camera_status = "connected"
             self.tracker_status = "disabled" if self.runtime_mode == PART_PREVIEW_MODE else "ready"
@@ -702,6 +722,12 @@ class InspectionState:
                 if self.runtime_mode == PART_PREVIEW_MODE
                 else "Inspection is running."
             )
+
+    def mark_stopping(self) -> None:
+        with self._lock:
+            if self.inspection_status != "errored":
+                self.inspection_status = "stopping"
+                self.message = "Stop requested; waiting for the camera and inference worker to finish."
 
     def mark_stopped(self, message: str = "Inspection is stopped.") -> None:
         with self._lock:
@@ -782,7 +808,7 @@ class InspectionState:
         with self._lock:
             self.quality_confidence_threshold = value
 
-    def set_display_settings(self, updates: dict[str, bool]) -> None:
+    def validate_display_settings(self, updates: dict[str, bool]) -> dict[str, bool]:
         updates = dict(updates)
         # Let a browser with a cached pre-overlay UI update safely while the
         # server exposes the clearer ``part_overlays`` setting going forward.
@@ -796,6 +822,10 @@ class InspectionState:
             raise ValueError(f"Unsupported display setting(s): {', '.join(sorted(invalid))}.")
         if not all(isinstance(value, bool) for value in updates.values()):
             raise ValueError("Display settings must be boolean values.")
+        return updates
+
+    def set_display_settings(self, updates: dict[str, bool]) -> None:
+        updates = self.validate_display_settings(updates)
         with self._lock:
             self.display_settings.update(updates)
 
@@ -845,6 +875,7 @@ class InspectionState:
             except ValueError:
                 elapsed_seconds = 0.0
             fish_per_minute = counters["total"] / elapsed_seconds * 60.0 if elapsed_seconds else 0.0
+            archive_size, review_queue_count = self.tracking.archive_counts()
             return {
                 "runtime_mode": self.runtime_mode,
                 "model_task": self.model_task,
@@ -874,8 +905,8 @@ class InspectionState:
                 "counters": counters,
                 "quality_counters": self.tracking.quality_counters(),
                 "recent_history": self.tracking.history(),
-                "archive_size": len(self.tracking.archive_history()),
-                "review_queue_count": len(self.tracking.review_queue()),
+                "archive_size": archive_size,
+                "review_queue_count": review_queue_count,
                 "system_performance": {
                     "fps": round(self.fps, 2),
                     "frames_published": self.frame_version,

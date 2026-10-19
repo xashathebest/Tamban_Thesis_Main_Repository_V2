@@ -1,0 +1,5 @@
+# Phase 21 — optional expert consultation library
+
+Decision: retain the existing read-only, default-disabled scaffold; do not add media, quotations, identities or new implementation without research-team consent and approved material. The supplied manifest template is empty. The existing `docs/expert_validation_library.md` specifies the metadata schema, timestamps, local-only access and limitations. Qualitative consultation does not establish the numerical weights or independent accuracy.
+
+`tests/test_expert_library.py`: 5 passed, one warning (`21_expert_library_tests.log`). It exercises disabled and unauthorized access, temporary synthetic manifest metadata, missing media, path restrictions and local-only access. `navigation_qa_smoke.py` exercises keyboard navigation into Expert and back to Live in a stopped simulated session. It does not establish correct playback, original deep links, real consent, researcher identity, timestamp authenticity or a panelist's approval. Source timestamps are text references; original-recording streaming is not implemented. These acceptance checks remain BLOCKED until appropriate authorized material and access decisions exist.

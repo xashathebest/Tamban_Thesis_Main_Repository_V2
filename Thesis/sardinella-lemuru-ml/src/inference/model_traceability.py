@@ -47,9 +47,8 @@ def full_sha256(path: Path | None) -> str | None:
 def assert_checkpoint_sha256(path: Path | None, expected_sha256: str) -> None:
     """Raise ``RuntimeError`` if the checkpoint does not match ``expected_sha256``.
 
-    Call this from a validation study entry point to guarantee that no
-    checkpoint swap can silently change a locked result.  Never call it in the
-    live production path — computing a SHA-256 per-frame would break inference.
+    Call this before loading a checkpoint to check a locked study identity.
+    Do not calculate a SHA-256 on every frame.
 
     Args:
         path: Absolute path to the checkpoint file.

@@ -211,6 +211,42 @@ class GradingEngineTests(unittest.TestCase):
                 live.discard_except(set())
                 self.assertIsNone(live.evaluate(7, crop(), evidence, stabilize=True, frame_id=5).final_grade)
 
+    def test_clipped_frame_diagnostic_clears_after_recovery_but_history_remains(self) -> None:
+        live = self.engine(minimum_track_observations=2)
+        clipped = live.evaluate(7, crop(), [], stabilize=True, frame_id=1,
+                                frame_quality={"usable": False, "reasons": ["frame_clipped"]})
+        self.assertTrue(clipped.frame_quality["out_of_frame"])
+        empty = live.evaluate(7, crop(), [], stabilize=True, frame_id=2)
+        self.assertFalse(empty.frame_quality["out_of_frame"])
+        self.assertNotEqual(empty.part_results["Body"]["status"], "frame_clipped")
+        self.assertIsNone(empty.final_grade)
+        evidence = [part("Body", "Class A", .9), part("Head", "Class A", .9)]
+        self.assertIsNone(live.evaluate(7, crop(), evidence, stabilize=True, frame_id=3).final_grade)
+        recovered = live.evaluate(7, crop(), evidence, stabilize=True, frame_id=4)
+        self.assertEqual(recovered.final_grade, "Class A")
+        self.assertFalse(recovered.frame_quality["out_of_frame"])
+        self.assertEqual(recovered.frame_quality["rejected_reason_counts"]["frame_clipped"], 1)
+
+    def test_unavailable_model_requires_new_evidence_after_recovery(self) -> None:
+        live = self.engine(minimum_track_observations=2)
+        evidence = [part("Body", "Class A", .9), part("Head", "Class A", .9)]
+        live.evaluate(7, crop(), evidence, stabilize=True, frame_id=1)
+        unavailable = live.evaluate(7, crop(), [], stabilize=True, frame_id=2, model2_available=False)
+        self.assertIsNone(unavailable.final_grade)
+        self.assertIn("UG_MODEL2_UNAVAILABLE", unavailable.reason_codes)
+        self.assertIsNone(live.evaluate(7, crop(), evidence, stabilize=True, frame_id=3).final_grade)
+        recovered = live.evaluate(7, crop(), evidence, stabilize=True, frame_id=4)
+        self.assertEqual(recovered.final_grade, "Class A")
+        self.assertEqual(recovered.temporal_stability["historical_uncertainty_counts"]["model2_unavailable"], 1)
+
+    def test_contradictory_evidence_respects_configured_margin(self) -> None:
+        live = self.engine(minimum_track_observations=2, final_verdict_threshold=.3, minimum_grade_margin=.05)
+        live.evaluate(7, crop(), [part("Body", "Class A", .9), part("Head", "Class A", .9)], stabilize=True, frame_id=1)
+        conflict = live.evaluate(7, crop(), [part("Body", "Class B", .9), part("Head", "Class B", .9)], stabilize=True, frame_id=2)
+        self.assertTrue(conflict.temporal_stability["ready"])
+        self.assertIsNone(conflict.final_grade)
+        self.assertIn("UG_LOW_MARGIN", conflict.reason_codes)
+
     def test_low_confidence_and_strict_partial_frames_do_not_supply_temporal_evidence(self) -> None:
         live = self.engine(minimum_track_observations=2, final_verdict_threshold=.25)
         weak = [part("Body", "Class A", .20), part("Head", "Class A", .95)]

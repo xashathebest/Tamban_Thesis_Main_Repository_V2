@@ -1,0 +1,9 @@
+fish,endpoint,samples,p50_ms,p95_ms,response_bytes,selects_per_request
+0,/api/status,12,5.336,5.907,19108,1.0
+0,/api/status/live,12,4.758,4.946,12330,1.0
+100,/api/status,12,5.681,6.246,24399,1.0
+100,/api/status/live,12,4.029,4.696,12332,1.0
+1000,/api/status,12,17.521,23.468,73001,1.0
+1000,/api/status/live,12,5.121,5.931,12333,1.0
+10000,/api/status,12,139.675,226.91,568003,1.0
+10000,/api/status/live,12,4.544,5.299,12334,1.0

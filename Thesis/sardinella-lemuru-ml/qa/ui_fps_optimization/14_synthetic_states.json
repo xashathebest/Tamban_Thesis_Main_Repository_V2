@@ -1,0 +1,37 @@
+{
+  "stopped": {
+    "state": "Stopped",
+    "start": false,
+    "stop": true,
+    "description": "Start inspection to connect the camera and view live evidence.",
+    "visibleStarts": 1
+  },
+  "starting": {
+    "state": "Starting",
+    "start": true,
+    "stop": false,
+    "description": "Opening the local camera and preparing inference.",
+    "visibleStarts": 1
+  },
+  "running": {
+    "state": "Running",
+    "start": true,
+    "stop": false,
+    "description": "Waiting for the first processed camera frame.",
+    "visibleStarts": 1
+  },
+  "stopping": {
+    "state": "Stopping",
+    "start": true,
+    "stop": true,
+    "description": "Waiting for the camera and inference worker to finish.",
+    "visibleStarts": 1
+  },
+  "errored": {
+    "state": "Errored",
+    "start": false,
+    "stop": true,
+    "description": "Synthetic tracker error",
+    "visibleStarts": 1
+  }
+}

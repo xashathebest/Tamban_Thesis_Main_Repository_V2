@@ -322,7 +322,7 @@ class GradingConfig:
         return {"Head": self.head_weight, "Body": self.body_weight, "Tail": self.tail_weight}[region]
 
     def active_minimum_regions(self) -> int:
-        return self.strict_minimum_regions_observed if self.grading_mode == "strict" else self.minimum_regions_observed
+        return self.to_policy().active_minimum_regions()
 
     def active_minimum_coverage(self) -> float:
         return self.strict_minimum_original_weight_coverage if self.grading_mode == "strict" else self.minimum_original_weight_coverage
@@ -481,6 +481,17 @@ class FishVerdict:
     grading_config: dict[str, object]
 
     def to_dict(self) -> dict[str, object]:
+        tail = self.part_results.get("Tail", {})
+        tail_status = "evaluated" if tail.get("present") else tail.get("status", "unavailable")
+        if tail_status not in {"evaluated", "not_detected", "below_threshold"}:
+            tail_status = "unavailable"
+        if self.grading_config.get("grading_mode") == "tail_optional_v1":
+            if {"Body", "Head"}.issubset(self.observed_regions):
+                weighting_method = "three_part" if tail_status == "evaluated" else "head_body_only"
+            else:
+                weighting_method = "incomplete"
+        else:
+            weighting_method = "fixed_original"
         return {
             "fish_id": self.fish_id,
             "provisional_grade": self.provisional_grade,
@@ -501,6 +512,9 @@ class FishVerdict:
             "original_weight_coverage": self.original_weight_coverage,
             "coverage_percentage": self.original_weight_coverage * 100,
             "effective_weights": dict(self.effective_weights),
+            "weights_used": dict(self.effective_weights),
+            "weighting_method": weighting_method,
+            "tail_status": tail_status,
             "evidence_completeness": self.evidence_completeness,
             "observation_count": self.observation_count,
             "candidate_frame_count": self.candidate_frame_count,
@@ -630,7 +644,7 @@ class WeightedGradingEngine:
     def _is_evidence_bearing(self, frame: FrameEvidence) -> bool:
         """Require the active policy's regional gates in each accepted frame."""
         observed = {region for region in PART_NAMES if frame.presence_confidence[region] > 0 and frame.presence_confidence[region] >= self.config.minimum_part_confidence}
-        required = set(PART_NAMES) if self.config.grading_mode == "strict" else ({"Body"} if self.config.require_body or self.config.grading_mode == "two_part_v1" else set())
+        required = set(self.config.to_policy().required_regions())
         return (
             required.issubset(observed)
             and (self.config.grading_mode != "two_part_v1" or bool({"Head", "Tail"} & observed))
@@ -689,7 +703,7 @@ class WeightedGradingEngine:
         messages = {
             UG_PARENT_UNCERTAIN: "The Model 1 parent-fish evidence is uncertain, so no verdict was issued.",
             UG_ASSOCIATION_AMBIGUOUS: "Model 2 part-to-parent association is ambiguous, so no verdict was issued.",
-            UG_MISSING_PART_EVIDENCE: "Required Body evidence was not reliably observed; this is not a physical missing-part claim.",
+            UG_MISSING_PART_EVIDENCE: "Required " + " and ".join(self.config.to_policy().required_regions()) + " evidence was not reliably observed; this is not a physical missing-part claim.",
             UG_MODEL2_UNAVAILABLE: "Model 2 produced no reliable Head, Body, or Tail evidence.",
             UG_OUT_OF_FRAME: "Reliable part evidence may have been lost because a crop touched a frame boundary.",
             UG_FRAME_QUALITY: "No candidate crop passed the configured frame-quality gate.",
@@ -770,8 +784,12 @@ class WeightedGradingEngine:
             "texture": {"status": "unavailable", "missing_value_reason": "no_validated_fish_mask_in_runtime"},
         }
 
-        rejected_keys = {str(reason).lower() for reason in rejected_reason_counts}
-        inferred_out_of_frame = out_of_frame or any("clipp" in reason or "out_of_frame" in reason for reason in rejected_keys)
+        latest_quality = dict(latest_frame_quality or {})
+        latest_reasons = latest_quality.get("reasons", ())
+        current_rejected_reasons = Counter(
+            str(reason).lower() for reason in latest_reasons
+        ) if not latest_quality.get("usable", True) and isinstance(latest_reasons, (list, tuple, set)) else Counter()
+        inferred_out_of_frame = out_of_frame or any("clipp" in reason or "out_of_frame" in reason for reason in current_rejected_reasons)
         policy = self.config.to_policy()
         decision = grade_fish(
             FishGradingInput(
@@ -790,15 +808,13 @@ class WeightedGradingEngine:
         available = list(decision.observed_regions)
         available_set = set(available)
         original_weight_coverage = decision.evidence_coverage
-        # Retained legacy field names now contain fixed original weights. They
-        # are deliberately never renormalized across the observed regions.
+        # Legacy field names contain the shared policy's effective weights.
         normalized_weights_all = dict(decision.effective_weights)
         effective_weights = dict(decision.effective_weights)
         weighted = dict(decision.weighted_scores)
         provisional = decision.top_grade
         provisional_score = decision.top_support
 
-        latest_quality = dict(latest_frame_quality or {})
         parent_frame_clipped = bool(
             latest_quality.get("parent_frame_clipped", latest_quality.get("frame_clipped", False))
         )
@@ -813,7 +829,9 @@ class WeightedGradingEngine:
                 return "PARENT_FRAME_CLIPPED"
             if parent_crop_clipped or status == "frame_clipped":
                 return "PARENT_CROP_CLIPPED"
-            if status in {"below_threshold", "not_detected"}:
+            if status == "below_threshold":
+                return "BELOW_THRESHOLD"
+            if status == "not_detected":
                 return "NOT_DETECTED"
             return "UNKNOWN"
 
@@ -829,10 +847,10 @@ class WeightedGradingEngine:
             status = self._region_status(
                 region,
                 available=available_set,
-                raw_presence=presence[region],
+                raw_presence=max((frame.presence_confidence[region] for frame in evidence), default=0.0),
                 usable_count=usable_count,
                 candidate_count=candidate_frame_count,
-                rejected_reasons=rejected_reason_counts,
+                rejected_reasons=current_rejected_reasons,
                 temporal_ready=temporal_ready,
             )
             part_results[region] = {
@@ -942,15 +960,17 @@ class WeightedGradingEngine:
             explanations.append(
                 "Observed regions: " + ", ".join(available) + f"; original evidence coverage {original_weight_coverage * 100:.2f}%."
             )
-            if len(available) < len(PART_NAMES):
-                explanations.append("Unobserved region contributions are zero; original part weights are never renormalized.")
+            if self.config.grading_mode == "tail_optional_v1" and {"Body", "Head"}.issubset(available_set) and "Tail" not in available_set:
+                explanations.append("Tail is unavailable; its weight is redistributed proportionally between observed Body and Head. This does not establish physical tail absence.")
+            elif len(available) < len(PART_NAMES):
+                explanations.append("Unobserved region contributions are zero; original part weights are not redistributed for this result.")
             if provisional is not None:
                 for region in available:
                     contributions = part_results[region].get("contributions")
                     contribution = contributions.get(provisional) if isinstance(contributions, dict) else 0.0
                     explanations.append(
                         f"{region}: {provisional} evidence {aggregate_scores[region][provisional] * 100:.2f}% × "
-                        f"original weight {normalized_weights_all[region] * 100:.2f}% = {float(contribution) * 100:.2f}% contribution."
+                        f"effective weight {normalized_weights_all[region] * 100:.2f}% = {float(contribution) * 100:.2f}% contribution."
                     )
                 explanations.append(f"Best weighted evidence: {provisional} {provisional_score * 100:.2f}%.")
         else:

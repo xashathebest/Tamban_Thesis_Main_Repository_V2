@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import wraps
 import logging
 import os
 from pathlib import Path
@@ -16,7 +17,7 @@ from src.api.domain import QualitySummary
 from src.inference.association import ParentAnchor, associate_parts_to_parents, association_summary
 from src.inference.frame_quality import BestFrameSelection, BestFrameSelector, FrameQualityAssessment, FrameQualityConfig, assess_frame_quality
 from src.inference.grading_engine import FishVerdict, WeightedGradingEngine
-from src.inference.model_traceability import shortened_sha256
+from src.inference.model_traceability import full_sha256
 from src.inference.part_types import PartDetection
 from src.inference.preprocessing import CropBounds, clamp_bbox, crop_fish, validate_image
 from src.preprocessing.audit_v7_exports import SOURCE_CLASSES
@@ -27,6 +28,15 @@ SUPPORTED_CHECKPOINT_SUFFIXES = (".pt", ".pth", ".ckpt")
 QUALITY_INFERENCE_MODES = ("crop", "full_frame")
 MAX_QUALITY_ROI_PADDING = 4096  # operational bound, not a selected scientific value
 LOGGER = logging.getLogger(__name__)
+
+
+def _locked_model_operation(method):
+    """Keep inference and its temporal grading under the model-switch lock."""
+    @wraps(method)
+    def wrapped(self, *args, **kwargs):
+        with self._lock:
+            return method(self, *args, **kwargs)
+    return wrapped
 
 
 class YoloQualityModelError(RuntimeError):
@@ -154,6 +164,7 @@ class YoloQualityModel:
             raise ValueError(f"quality_inference_mode must be one of: {', '.join(QUALITY_INFERENCE_MODES)}.")
         if isinstance(roi_padding, bool) or not isinstance(roi_padding, int) or not 0 <= roi_padding <= MAX_QUALITY_ROI_PADDING:
             raise ValueError(f"roi_padding must be an integer between 0 and {MAX_QUALITY_ROI_PADDING}.")
+        self._explicit_model_id = bool(model_id)
         if not model_id:
             try:
                 from src.inference.model_registry import get_model_registry
@@ -217,10 +228,14 @@ class YoloQualityModel:
         self.last_inference_seconds: float | None = None
         self.last_grading_seconds: float | None = None
         self.last_association_seconds: float | None = None
+        self.last_part_assignment_seconds: float | None = None
+        self.last_full_frame_roi_seconds: float | None = None
         self.last_raw_parts: tuple[PartDetection, ...] = ()
         self.last_selected_parts: tuple[PartDetection, ...] = ()
         self.debug_raw_output = os.getenv("LEMURU_RUNTIME_DIAGNOSTICS", "false").strip().lower() in {"1", "true", "yes", "on"}
         self.checkpoint_sha256: str | None = None
+        self.checkpoint_sha256_full: str | None = None
+        self.checkpoint_integrity = "unresolved"
         self._lock = RLock()
 
     @property
@@ -275,19 +290,27 @@ class YoloQualityModel:
 
             self.device = self._resolve_device()
             registry = get_model_registry()
+            selected = registry.get_model(self.active_model_id) if self.active_model_id else None
             entry = None
-            if self.active_model_id:
-                entry = registry.get_model(self.active_model_id)
-            if entry is None:
-                for candidate in registry.list_models():
-                    try:
-                        if registry.resolve_checkpoint_path(candidate) == self.model_path.resolve():
-                            entry = candidate
-                            break
-                    except Exception:
-                        continue
+            for candidate in registry.list_models():
+                try:
+                    if registry.resolve_checkpoint_path(candidate) == self.model_path.resolve():
+                        entry = candidate
+                        break
+                except (OSError, ValueError):
+                    continue
+            if self._explicit_model_id and (selected is None or entry is None or selected.id != entry.id):
+                raise YoloQualityModelLoadError(f"Model ID {self.active_model_id!r} does not match checkpoint path {self.model_path}.")
+            if entry is not None:
+                compatible, reason = registry.validate_compatibility(entry.id, "model2_grading")
+                if not compatible:
+                    raise YoloQualityModelLoadError(reason or f"Model {entry.id!r} is not compatible with grading.")
+                if selected is not None and selected.id != entry.id:
+                    LOGGER.warning("[MODEL 2] Checkpoint path selects %s instead of persisted model %s.", entry.id, selected.id)
             if entry is None:
                 from src.inference.model_registry import ModelEntry
+                if self.model_path.suffix.lower() != ".pt":
+                    raise YoloQualityModelLoadError("An unregistered Model 2 checkpoint must be a YOLO .pt file.")
                 entry = ModelEntry(
                     id="custom_model2",
                     role="model2_part_quality",
@@ -304,7 +327,7 @@ class YoloQualityModel:
                     class_names=dict(SOURCE_CLASSES),
                     adapter="yolo_detection",
                 )
-
+            checksum, integrity = self._verify_checkpoint(entry, self.model_path)
             adapter = create_part_adapter(entry, self.model_path, model_factory=self._model_factory)
             if not adapter.load(device=self.device):
                 self.error = adapter.error
@@ -316,7 +339,9 @@ class YoloQualityModel:
             self.active_model_name = entry.display_name
             self.class_names = dict(SOURCE_CLASSES)
             self.error = None
-            self.checkpoint_sha256 = shortened_sha256(self.model_path)
+            self.checkpoint_sha256_full = checksum
+            self.checkpoint_sha256 = checksum[:12]
+            self.checkpoint_integrity = integrity
             LOGGER.info(
                 "[MODEL 2] active_model_id=%s requested_device=%s resolved_device=%s class_mapping=%s",
                 self.active_model_id,
@@ -332,11 +357,38 @@ class YoloQualityModel:
             self.error = f"Unable to load Model 2 as a local quality detector. Details: {exc}"
             return False
 
+    @staticmethod
+    def _verify_checkpoint(entry: Any, path: Path) -> tuple[str, str]:
+        """Hash once before loading; registered identities must match their bytes."""
+        registered_classes = getattr(entry, "class_names", None)
+        if registered_classes is not None:
+            try:
+                mapped_classes = {int(index): str(name) for index, name in registered_classes.items()}
+            except (AttributeError, TypeError, ValueError) as exc:
+                raise YoloQualityModelLoadError("Invalid Model 2 registry class mapping.") from exc
+            if mapped_classes != SOURCE_CLASSES:
+                raise YoloQualityModelLoadError("Model 2 registry class mapping differs from the supported grading classes.")
+        strict = os.getenv("FISH_STRICT_MODEL_INTEGRITY", "0").strip().lower() in {"1", "true", "yes", "on"}
+        expected = getattr(entry, "sha256", None)
+        if not expected:
+            if strict:
+                raise YoloQualityModelLoadError("Strict model integrity requires a registered checkpoint with a known SHA-256; unregistered or unhashed models are not allowed.")
+            LOGGER.warning("[MODEL 2] Checkpoint %s has no registered SHA-256 and is unverified.", path)
+        checksum = full_sha256(path)
+        if checksum is None:
+            raise YoloQualityModelLoadError(f"Cannot hash Model 2 checkpoint: {path}")
+        if expected and (not isinstance(expected, str) or len(expected.strip()) != 64 or checksum != expected.strip().lower()):
+            raise YoloQualityModelLoadError(f"Model 2 SHA-256 mismatch for {path.name}; registry identity cannot be verified.")
+        return checksum, "verified" if expected else ("unverified_custom" if entry.id == "custom_model2" else "unverified_registry")
+
     def switch_model(self, model_id: str) -> None:
         """Switch active Model 2 to another validated compatible model checkpoint."""
         from src.inference.model_registry import get_model_registry
         from src.inference.model_adapters import create_part_adapter
 
+        with self._lock:
+            if model_id == self.active_model_id and self.model is not None:
+                return
         registry = get_model_registry()
         compatible, reason = registry.validate_compatibility(model_id, "model2_grading")
         if not compatible:
@@ -351,31 +403,47 @@ class YoloQualityModel:
             raise FileNotFoundError(f"Model checkpoint not found: {new_path}")
 
         with self._lock:
+            if model_id == self.active_model_id and self.model is not None:
+                return
             old_adapter = self.adapter
             device = self.device if self.device != "unresolved" else self._resolve_device()
             new_adapter = create_part_adapter(entry, new_path, model_factory=self._model_factory)
-            if not new_adapter.load(device=device):
-                raise RuntimeError(new_adapter.error or f"Failed to load model {model_id}")
+            previous_evidence = (dict(self._grading_engine._tracks), dict(self._best_frame_selector._best_by_track),
+                                 dict(self._best_crop_data), dict(self._finalized_best_frames))
+            try:
+                checksum, integrity = self._verify_checkpoint(entry, new_path)
+                if not new_adapter.load(device=device):
+                    raise RuntimeError(new_adapter.error or f"Failed to load model {model_id}")
+                replacement_model = getattr(new_adapter, "model", new_adapter)
+                replacement_id, replacement_name, replacement_size = entry.id, entry.display_name, entry.input_size
+                self.reset_tracks()
+                registry.persist_model2_selection(model_id)
+            except Exception:
+                (self._grading_engine._tracks, self._best_frame_selector._best_by_track,
+                 self._best_crop_data, self._finalized_best_frames) = previous_evidence
+                try:
+                    new_adapter.unload()
+                except Exception as exc:
+                    LOGGER.warning("Could not cleanly unload rejected model adapter: %s", exc)
+                raise
 
+            self.adapter = new_adapter
+            self.model = replacement_model
+            self.model_path = new_path
+            self.active_model_id = replacement_id
+            self.active_model_name = replacement_name
+            self.image_size = replacement_size
+            self.checkpoint_sha256_full = checksum
+            self.checkpoint_sha256 = checksum[:12]
+            self.checkpoint_integrity = integrity
+            self.error = None
+            self.last_raw_parts = ()
+            self.last_selected_parts = ()
             if old_adapter is not None:
                 try:
                     old_adapter.unload()
                 except Exception as exc:
                     LOGGER.warning("Could not cleanly unload previous model adapter: %s", exc)
-
-            self.adapter = new_adapter
-            self.model = getattr(new_adapter, "model", new_adapter)
-            self.model_path = new_path
-            self.active_model_id = entry.id
-            self.active_model_name = entry.display_name
-            self.image_size = entry.input_size
-            self.checkpoint_sha256 = shortened_sha256(new_path)
-            self.error = None
-            self.last_raw_parts = ()
-            self.last_selected_parts = ()
-            self._best_crop_data.clear()
-            self._finalized_best_frames.clear()
-            registry.persist_model2_selection(model_id)
             LOGGER.info("[MODEL 2] Switched active model to: %s (%s)", entry.id, entry.display_name)
 
     def infer_crop(self, image: np.ndarray) -> list[PartDetection]:
@@ -434,7 +502,7 @@ class YoloQualityModel:
             else:
                 raise YoloQualityModelInferenceError(self.error or "Model 2 is not loaded.")
 
-        self.last_raw_parts, self.last_selected_parts = tuple(raw), tuple(selected)
+            self.last_raw_parts, self.last_selected_parts = tuple(raw), tuple(selected)
         return selected, raw
 
     def _grade_parts(
@@ -513,6 +581,8 @@ class YoloQualityModel:
             "model_name": self.active_model_name or self.name,
             "checkpoint_name": self.model_path.name if self.model_path else None,
             "checkpoint_sha256": self.checkpoint_sha256,
+            "checkpoint_sha256_full": self.checkpoint_sha256_full,
+            "checkpoint_integrity": self.checkpoint_integrity,
             "available": model2_available,
             "detector_threshold": self.confidence_threshold,
             "part_evidence_threshold": self._grading_engine.config.minimum_part_confidence,
@@ -575,6 +645,7 @@ class YoloQualityModel:
                 ]
         return FishQualityObservation(track_id, verdict.final_grade, verdict.final_score, tuple(parts), votes, analysis)
 
+    @_locked_model_operation
     def predict(
         self,
         crop_bgr: Any,
@@ -618,6 +689,7 @@ class YoloQualityModel:
         except Exception as exc:
             raise YoloQualityModelInferenceError(f"Model 2 YOLO quality inference failed: {exc}") from exc
 
+    @_locked_model_operation
     def unavailable_observation(
         self,
         crop_bgr: Any,
@@ -628,6 +700,7 @@ class YoloQualityModel:
         detection_confidence: float | None = None,
         parent_bbox: tuple[float, float, float, float] | None = None,
         frame_shape: tuple[int, ...] | None = None,
+        error: str | None = None,
     ) -> FishQualityObservation:
         """Record an explicit abstention when the local Model 2 is unavailable.
 
@@ -644,7 +717,7 @@ class YoloQualityModel:
                 (),
                 stabilize=stabilize,
                 frame_id=frame_id,
-                frame_quality={"model2_unavailable": True, "model2_error": self.error},
+                frame_quality={"model2_unavailable": True, "model2_error": error or self.error},
                 detection_confidence=detection_confidence,
                 parent_bbox=parent_bbox,
                 frame_shape=frame_shape,
@@ -669,6 +742,7 @@ class YoloQualityModel:
             return None
         return PartDetection.from_source_class(part.source_class_id, part.confidence, bounded)
 
+    @_locked_model_operation
     def predict_full_frame(
         self,
         frame_bgr: Any,
@@ -700,10 +774,15 @@ class YoloQualityModel:
             associations = associate_parts_to_parents(frame_parts, parents)
             self.last_association_seconds = perf_counter() - association_started
             results: dict[int, tuple[FishQualityObservation, CropBounds]] = {}
+            roi_seconds = 0.0
+            assignment_seconds = 0.0
             for parent in parents:
                 if parent.track_id not in selected_ids:
                     continue
+                roi_started = perf_counter()
                 crop, bounds = crop_fish(frame, parent.bbox, padding=self.roi_padding)
+                roi_seconds += perf_counter() - roi_started
+                assignment_started = perf_counter()
                 raw_crop_parts = [
                     translated
                     for part in raw_parts
@@ -722,6 +801,7 @@ class YoloQualityModel:
                     if (translated := self._part_to_crop(item.part, bounds.origin, crop.shape)) is not None
                 ]
                 summary = association_summary(associations, parent.track_id)
+                assignment_seconds += perf_counter() - assignment_started
                 quality_payload: dict[str, object] = {"association": summary}
                 if summary["ambiguous"]:
                     quality_payload["association_ambiguous"] = True
@@ -749,6 +829,8 @@ class YoloQualityModel:
                     },
                 )
                 results[parent.track_id] = (observation, bounds)
+            self.last_full_frame_roi_seconds = roi_seconds
+            self.last_part_assignment_seconds = assignment_seconds
             return results
         except YoloQualityModelInferenceError:
             raise
@@ -810,12 +892,23 @@ class YoloQualityModel:
         self._grading_engine.set_best_frame(track_id, payload)
         return dict(payload)
 
+    @_locked_model_operation
     def reset_tracks(self) -> None:
         self._grading_engine.reset()
         self._best_frame_selector.reset()
         self._best_crop_data.clear()
         self._finalized_best_frames.clear()
 
+    @_locked_model_operation
+    def discard_tracks(self, track_ids: set[int]) -> None:
+        """Discard only affected transient evidence after a failed inference."""
+        for track_id in track_ids:
+            self._grading_engine._tracks.pop(track_id, None)
+            self._best_frame_selector._best_by_track.pop(track_id, None)
+            self._best_crop_data.pop(track_id, None)
+            self._finalized_best_frames.pop(track_id, None)
+
+    @_locked_model_operation
     def prune_tracks(self, active_track_ids: set[int]) -> None:
         self._grading_engine.discard_except(active_track_ids)
         self._best_frame_selector.discard_except(active_track_ids)
@@ -839,6 +932,8 @@ class YoloQualityModel:
             ),
             "checkpoint_name": self.model_path.name if self.model_path else None,
             "checkpoint_sha256": self.checkpoint_sha256,
+            "checkpoint_sha256_full": self.checkpoint_sha256_full,
+            "checkpoint_integrity": self.checkpoint_integrity,
             "quality_inference_mode": self.quality_inference_mode,
             "roi_padding": self.roi_padding,
             "requested_device": self.requested_device,

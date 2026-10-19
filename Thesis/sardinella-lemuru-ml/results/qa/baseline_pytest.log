@@ -1,0 +1,64 @@
+........................................................................ [ 16%]
+................................................FF.F.................... [ 33%]
+......s................ss............................... [ 46%]
+........s........................................................... [ 62%]
+................................................s... [ 74%]
+.................................... [ 83%]
+.................................................................... [ 99%]
+...                                                                      [100%]
+================================== FAILURES ===================================
+__________ test_list_detail_missing_media_and_authenticated_download __________
+
+library = (<starlette.testclient.TestClient object at 0x000001D97858DD10>, WindowsPath('C:/Users/User/Downloads/Tamban_Thesis_Ma...ing_media0/private_media'), {'id': 'dummy', 'rule_id': 'R0', 'title': 'DUMMY TEST', 'category': 'body_weighting', ...})
+
+>   ???
+E   assert (404 == 200)
+E    +  where 404 = <Response [404 Not Found]>.status_code
+
+C:\Users\User\Downloads\Thesis\sardinella-lemuru-ml\tests\test_expert_library.py:49: AssertionError
+___________________ test_bad_manifest_and_paths_fail_closed ___________________
+
+library = (<starlette.testclient.TestClient object at 0x000001D97861D950>, WindowsPath('C:/Users/User/Downloads/Tamban_Thesis_Ma..._paths_fa0/private_media'), {'id': 'dummy', 'rule_id': 'R0', 'title': 'DUMMY TEST', 'category': 'body_weighting', ...})
+
+>   ???
+E   assert (404 == 503)
+E    +  where 404 = <Response [404 Not Found]>.status_code
+
+C:\Users\User\Downloads\Thesis\sardinella-lemuru-ml\tests\test_expert_library.py:67: AssertionError
+_______________ test_empty_manifest_has_no_fabricated_examples ________________
+
+library = (<starlette.testclient.TestClient object at 0x000001D97851F770>, WindowsPath('C:/Users/User/Downloads/Tamban_Thesis_Ma...as_no_fab0/private_media'), {'id': 'dummy', 'rule_id': 'R0', 'title': 'DUMMY TEST', 'category': 'body_weighting', ...})
+
+>   ???
+E   AssertionError: assert {'detail': 'E...cess denied.'} == {'clips': []}
+E     
+E     Left contains 1 more item:
+E     {'detail': 'Expert library unavailable or access denied.'}
+E     Right contains 1 more item:
+E     {'clips': []}
+E     Use -v to get more diff
+
+C:\Users\User\Downloads\Thesis\sardinella-lemuru-ml\tests\test_expert_library.py:85: AssertionError
+============================== warnings summary ===============================
+..\..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\fastapi\testclient.py:1
+  C:\Users\User\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+tests/test_evaluate_feature_model.py::FeatureEvaluationTests::test_group_bootstrap_returns_intervals
+tests/test_evaluate_feature_model.py::FeatureEvaluationTests::test_group_bootstrap_returns_intervals
+tests/test_evaluate_feature_model.py::FeatureEvaluationTests::test_group_bootstrap_returns_intervals
+tests/test_evaluate_feature_model.py::FeatureEvaluationTests::test_group_bootstrap_returns_intervals
+tests/test_evaluate_feature_model.py::FeatureEvaluationTests::test_group_bootstrap_returns_intervals
+  C:\Users\User\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\sklearn\metrics\_classification.py:614: UserWarning: A single label was found in 'y_true' and 'y_pred'. For the confusion matrix to have the correct shape, use the 'labels' parameter to pass all known labels.
+    warnings.warn(
+
+tests/test_evaluate_feature_model.py::FeatureEvaluationTests::test_rejected_false_accept_is_complement_of_recall
+  C:\Users\User\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\sklearn\metrics\_classification.py:2939: UserWarning: y_pred contains classes not in y_true
+    warnings.warn("y_pred contains classes not in y_true")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_expert_library.py::test_list_detail_missing_media_and_authenticated_download
+FAILED tests/test_expert_library.py::test_bad_manifest_and_paths_fail_closed
+FAILED tests/test_expert_library.py::test_empty_manifest_has_no_fabricated_examples
+3 failed, 419 passed, 5 skipped, 7 warnings, 80 subtests passed in 10.50s

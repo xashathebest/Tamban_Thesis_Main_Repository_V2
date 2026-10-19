@@ -1,0 +1,7 @@
+scenario,condition,capture_fps,preview_fps,ai_fps,frame_age_ms,count_accuracy,grade_macro_f1,status
+empty,baseline,,,,,,,not_measured
+empty,optimized,,,,,,,not_measured
+one_fish,baseline,,,,,,,not_measured
+one_fish,optimized,,,,,,,not_measured
+overlap,baseline,,,,,,,not_measured
+overlap,optimized,,,,,,,not_measured

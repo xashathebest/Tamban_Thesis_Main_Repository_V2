@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import importlib
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -21,6 +22,57 @@ from src.inference.structural_evidence import StructuralEvidence, summarize_stru
 
 
 class StructuralEvidenceTests(unittest.TestCase):
+    def test_structural_review_waits_for_live_event_update(self) -> None:
+        app = importlib.import_module("src.api.app")
+        with tempfile.TemporaryDirectory() as directory:
+            database = InspectionDatabase(Path(directory) / "test.sqlite")
+            session = database.create_session({})
+            original = {"track_id": 7, "timestamp": "2026-10-17T10:00:00-04:00", "quality": "Class A", "analysis": {"final_grade": "Class A"}}
+            database.upsert_event(session, original)
+            processing_lock = threading.RLock()
+            entered, release, request_started, finished = (threading.Event() for _ in range(4))
+            errors = []
+
+            def update_live_event():
+                with processing_lock:
+                    entered.set()
+                    if not release.wait(5):
+                        errors.append("live update was not released")
+                        return
+                    database.upsert_event(session, {**original, "quality": "Class B", "analysis": {"final_grade": "Class B"}})
+
+            async def payload():
+                request_started.set()
+                return {"region": "Head", "state": "confirmed_absent", "source": "expert_review", "reviewer": "reviewer-1", "provenance": "image 12"}
+
+            def review():
+                try:
+                    asyncio.run(app.add_structural_review(7, SimpleNamespace(json=payload)))
+                except Exception as exc:
+                    errors.append(repr(exc))
+                finally:
+                    finished.set()
+
+            with patch.object(app, "inspection_database", database), patch.object(app, "inspection_sessions", SimpleNamespace(session_id=session)), patch.object(app, "state", InspectionState()), patch.object(app, "service", SimpleNamespace(_processing_lock=processing_lock)):
+                worker = threading.Thread(target=update_live_event)
+                worker.start()
+                self.assertTrue(entered.wait(5))
+                reviewer = threading.Thread(target=review)
+                reviewer.start()
+                self.assertTrue(request_started.wait(5))
+                completed_while_processing = finished.wait(.25)
+                release.set()
+                worker.join(5)
+                reviewer.join(5)
+            self.assertFalse(worker.is_alive())
+            self.assertFalse(reviewer.is_alive())
+            self.assertFalse(completed_while_processing, "structural review bypassed the live processing lock")
+            self.assertEqual(errors, [])
+            stored = database.events(session_id=session, range_name="current_session")[0]
+            self.assertEqual(stored["quality"], "Class B")
+            self.assertEqual(stored["analysis"]["final_grade"], "Class B")
+            self.assertEqual(stored["analysis"]["structural_evidence"]["regions"]["Head"]["state"], "confirmed_absent")
+
     def test_unknown_conflict_and_confirmed_claims_remain_separate(self) -> None:
         empty = summarize_structural_evidence([])
         self.assertEqual(empty["regions"]["Head"]["state"], "unknown_or_occluded")

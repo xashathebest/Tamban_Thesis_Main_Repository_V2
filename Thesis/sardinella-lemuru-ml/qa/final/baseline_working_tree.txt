@@ -1,0 +1,1958 @@
+ D ../../Documentation/Sequential1.md
+ D ../../Documentation/Tamban_Defense_Quick_Reference_2026-10-06.pdf
+ D ../../Documentation/Tamban_Model2_R03_Three_Model_Experiment_Documentation.pdf
+ D ../../Documentation/Tamban_Next_Steps_Checklist.md
+ D ../../Documentation/Tamban_Repository_Investigation_Next_Steps.docx
+ D ../../Documentation/Tamban_Repository_Investigation_Next_Steps.pdf
+ D ../../Documentation/Tamban_Thesis_Claim_Audit_2026-10-06.pdf
+ D ../../Documentation/Tamban_Thesis_Defense_Survival_Pack_2026-10-06.pdf
+ D ../../Documentation/Tamban_Thesis_Sequential_Development_Prompts/Tamban_Thesis_Step_by_Step_Prompts_2026-10-13/01_Audit_Existing_Pipeline.md
+ D ../../Documentation/Tamban_Thesis_Sequential_Development_Prompts/Tamban_Thesis_Step_by_Step_Prompts_2026-10-13/02_Fix_Temporal_Grading_Evidence.md
+ D ../../Documentation/Tamban_Thesis_Sequential_Development_Prompts/Tamban_Thesis_Step_by_Step_Prompts_2026-10-13/03_Fix_Parent_Part_Association.md
+ D ../../Documentation/Tamban_Thesis_Sequential_Development_Prompts/Tamban_Thesis_Step_by_Step_Prompts_2026-10-13/04_Proposed_Two_Part_Grading_Policy.md
+ D ../../Documentation/Tamban_Thesis_Sequential_Development_Prompts/Tamban_Thesis_Step_by_Step_Prompts_2026-10-13/05_Separate_Physical_Anatomy_From_Nondetection.md
+ D ../../Documentation/Tamban_Thesis_Sequential_Development_Prompts/Tamban_Thesis_Step_by_Step_Prompts_2026-10-13/06_Audit_Masked_Handcrafted_Features.md
+ D ../../Documentation/Tamban_Thesis_Sequential_Development_Prompts/Tamban_Thesis_Step_by_Step_Prompts_2026-10-13/07_Expose_Live_Features_Diagnostics_Only.md
+ D ../../Documentation/Tamban_Thesis_Sequential_Development_Prompts/Tamban_Thesis_Step_by_Step_Prompts_2026-10-13/08_Experiment_Color_Brightness_Reflectance_BC.md
+ D ../../Documentation/Tamban_Thesis_Sequential_Development_Prompts/Tamban_Thesis_Step_by_Step_Prompts_2026-10-13/09_Experiment_Texture_And_Edge_Features.md
+ D ../../Documentation/Tamban_Thesis_Sequential_Development_Prompts/Tamban_Thesis_Step_by_Step_Prompts_2026-10-13/10_Create_Belly_Defect_Expert_Rubric.md
+ D ../../Documentation/Tamban_Thesis_Sequential_Development_Prompts/Tamban_Thesis_Step_by_Step_Prompts_2026-10-13/11_Build_Specimen_Aware_Defect_Annotation_Pipeline.md
+ D ../../Documentation/Tamban_Thesis_Sequential_Development_Prompts/Tamban_Thesis_Step_by_Step_Prompts_2026-10-13/12_Prototype_Belly_Hole_Detection.md
+ D ../../Documentation/Tamban_Thesis_Sequential_Development_Prompts/Tamban_Thesis_Step_by_Step_Prompts_2026-10-13/13_Validate_Feature_Fusion_Without_Silent_Overrides.md
+ D ../../Documentation/Tamban_Thesis_Sequential_Development_Prompts/Tamban_Thesis_Step_by_Step_Prompts_2026-10-13/14_Run_Independent_End_to_End_Validation.md
+ D ../../Documentation/Tamban_Thesis_Sequential_Development_Prompts/Tamban_Thesis_Step_by_Step_Prompts_2026-10-13/15_Optional_Expert_Evidence_Library_UI.md
+ D ../../Documentation/Tamban_Thesis_Sequential_Development_Prompts/Tamban_Thesis_Step_by_Step_Prompts_2026-10-13/16_Final_QA_Documentation_And_Release.md
+ D ../../Documentation/Tamban_Thesis_Sequential_Development_Prompts/Tamban_Thesis_Step_by_Step_Prompts_2026-10-13/README.md
+ D ../../Documentation/Tamban_Thesis_UI_and_FPS_Optimization_Prompts_2026-10-14/Tamban_UI_FPS_Prompts/01_Measure_Real_FPS_And_Hardware.md
+ D ../../Documentation/Tamban_Thesis_UI_and_FPS_Optimization_Prompts_2026-10-14/Tamban_UI_FPS_Prompts/02_Make_Runtime_Telemetry_Accurate.md
+ D ../../Documentation/Tamban_Thesis_UI_and_FPS_Optimization_Prompts_2026-10-14/Tamban_UI_FPS_Prompts/03_Lightweight_Status_API_And_Analytics.md
+ D ../../Documentation/Tamban_Thesis_UI_and_FPS_Optimization_Prompts_2026-10-14/Tamban_UI_FPS_Prompts/04_Skip_Hidden_Frontend_Renders.md
+ D ../../Documentation/Tamban_Thesis_UI_and_FPS_Optimization_Prompts_2026-10-14/Tamban_UI_FPS_Prompts/05_Compare_Model2_FullFrame_Vs_Crop.md
+ D ../../Documentation/Tamban_Thesis_UI_and_FPS_Optimization_Prompts_2026-10-14/Tamban_UI_FPS_Prompts/06_Check_CPU_GPU_And_Safe_Precision.md
+ D ../../Documentation/Tamban_Thesis_UI_and_FPS_Optimization_Prompts_2026-10-14/Tamban_UI_FPS_Prompts/07_Test_Model_Input_Sizes.md
+ D ../../Documentation/Tamban_Thesis_UI_and_FPS_Optimization_Prompts_2026-10-14/Tamban_UI_FPS_Prompts/08_Camera_Acquisition_And_JPEG.md
+ D ../../Documentation/Tamban_Thesis_UI_and_FPS_Optimization_Prompts_2026-10-14/Tamban_UI_FPS_Prompts/09_Decouple_Preview_From_Inference.md
+ D ../../Documentation/Tamban_Thesis_UI_and_FPS_Optimization_Prompts_2026-10-14/Tamban_UI_FPS_Prompts/10_Optional_Model1_Frame_Gating.md
+ D ../../Documentation/Tamban_Thesis_UI_and_FPS_Optimization_Prompts_2026-10-14/Tamban_UI_FPS_Prompts/11_Simplify_Sidebar_And_Navigation.md
+ D ../../Documentation/Tamban_Thesis_UI_and_FPS_Optimization_Prompts_2026-10-14/Tamban_UI_FPS_Prompts/12_Operator_First_Live_Inspection_UI.md
+ D ../../Documentation/Tamban_Thesis_UI_and_FPS_Optimization_Prompts_2026-10-14/Tamban_UI_FPS_Prompts/13_Consolidate_Display_Settings_And_Models.md
+ D ../../Documentation/Tamban_Thesis_UI_and_FPS_Optimization_Prompts_2026-10-14/Tamban_UI_FPS_Prompts/14_History_Review_Analytics_UX.md
+ D ../../Documentation/Tamban_Thesis_UI_and_FPS_Optimization_Prompts_2026-10-14/Tamban_UI_FPS_Prompts/15_Responsive_Accessible_UI_States.md
+ D ../../Documentation/Tamban_Thesis_UI_and_FPS_Optimization_Prompts_2026-10-14/Tamban_UI_FPS_Prompts/16_Run_Full_Speed_And_Accuracy_Regression.md
+ D ../../Documentation/Tamban_Thesis_UI_and_FPS_Optimization_Prompts_2026-10-14/Tamban_UI_FPS_Prompts/17_Cleanup_Documentation_And_HandOff.md
+ D ../../Documentation/Tamban_Thesis_UI_and_FPS_Optimization_Prompts_2026-10-14/Tamban_UI_FPS_Prompts/18_Optional_Validated_Performance_Presets.md
+ D ../../Documentation/Tamban_Thesis_UI_and_FPS_Optimization_Prompts_2026-10-14/Tamban_UI_FPS_Prompts/AUDIT_FINDINGS.md
+ D ../../Documentation/Tamban_Thesis_UI_and_FPS_Optimization_Prompts_2026-10-14/Tamban_UI_FPS_Prompts/README.md
+ D ../../Documentation/UIfix.md
+ D ../../Documentation/UIprompts.md
+ D ../../Documentation/analyze.md
+ D ../../Documentation/clear.md
+ D ../../Documentation/diagnose.md
+ D ../../Documentation/error.md
+ D ../../Documentation/fix.md
+ D ../../Documentation/fix2.md
+ D ../../Documentation/pushfix.md
+ M ../../Documentation/run.md
+ M "../../Other Files/README.md"
+ D "../../Other Files/READ_ME.txt"
+ D "../../Other Files/body_features_per_photo.csv"
+ D "../../Other Files/class_counts.csv"
+ D "../../Other Files/dashboard.stderr.log"
+ D "../../Other Files/dashboard.stdout.log"
+ D "../../Other Files/detect_tamban.py"
+ D "../../Other Files/feature_regions_skipped.csv"
+ D "../../Other Files/feature_statistics.csv"
+ D "../../Other Files/fixxx.md"
+ D "../../Other Files/glcm_contrast.png"
+ D "../../Other Files/highlight_candidate_ratio.png"
+ D "../../Other Files/lab_b_mean.png"
+ D "../../Other Files/last.pt"
+ D "../../Other Files/model1_fish_parent_detector.pt"
+ D "../../Other Files/part_features.csv"
+ D "../../Other Files/prompt1.md"
+ D "../../Other Files/prompt22.md"
+ D "../../Other Files/requirements-comparison.txt"
+ D "../../Other Files/requirements-legacy-research.txt"
+ D "../../Other Files/requirements.txt"
+ D "../../Other Files/requirements_actual.txt"
+ D "../../Other Files/run.md"
+ D "../../Other Files/run_configuration.json"
+ D "../../Other Files/run_status.json"
+ D "../../Other Files/stabilize.md"
+ D "../../Other Files/systemfixes.md"
+ D "../../Other Files/training_history.csv"
+ D "../../Other Files/training_loss.png"
+ D "../../Other Files/training_manifest.csv"
+ D "../../Other Files/training_only.yaml"
+ D "../../Other Files/value_p95.png"
+ M .github/workflows/model-free-tests.yml
+ D .pytest_cache/.gitignore
+ D .pytest_cache/CACHEDIR.TAG
+ D .pytest_cache/README.md
+ D .pytest_cache/v/cache/lastfailed
+ D .pytest_cache/v/cache/nodeids
+ M README.md
+ M configs/grading_engine.yaml
+ M docs/bc_color_experiment.md
+ M docs/belly_defect_detector_proposal.md
+ M docs/feature_fusion_experiment.md
+ M docs/release_readiness.md
+ M docs/research_architecture.md
+ M frontend/app.js
+ M frontend/index.html
+ M frontend/styles.css
+ M results/inspection_history.sqlite3
+ M src/api/__main__.py
+ M src/api/__pycache__/__main__.cpython-314.pyc
+ M src/api/__pycache__/app.cpython-314.pyc
+ M src/api/__pycache__/camera.cpython-314.pyc
+ M src/api/__pycache__/camera_controls.cpython-314.pyc
+ M src/api/__pycache__/database.cpython-314.pyc
+ M src/api/__pycache__/domain.cpython-314.pyc
+ M src/api/__pycache__/export.cpython-314.pyc
+ M src/api/__pycache__/image_analysis.cpython-314.pyc
+ M src/api/__pycache__/runtime_diagnostics.cpython-314.pyc
+ M src/api/app.py
+ M src/api/camera.py
+ M src/api/camera_controls.py
+ M src/api/database.py
+ M src/api/domain.py
+ M src/api/export.py
+ M src/api/image_analysis.py
+ M src/api/runtime_diagnostics.py
+ M src/evaluation/runtime_benchmark.py
+ M src/inference/__pycache__/grading_engine.cpython-314.pyc
+ M src/inference/__pycache__/grading_policy.cpython-314.pyc
+ M src/inference/__pycache__/model_adapters.cpython-314.pyc
+ M src/inference/__pycache__/model_registry.cpython-314.pyc
+ M src/inference/__pycache__/model_traceability.cpython-314.pyc
+ M src/inference/__pycache__/yolo_fish_detector.cpython-314.pyc
+ M src/inference/__pycache__/yolo_quality_model.cpython-314.pyc
+ M src/inference/grading_engine.py
+ M src/inference/grading_policy.py
+ M src/inference/model_adapters.py
+ M src/inference/model_registry.py
+ M src/inference/model_traceability.py
+ M src/inference/yolo_fish_detector.py
+ M src/inference/yolo_quality_model.py
+ M tests/README.md
+ M tests/__pycache__/test_runtime_diagnostics.cpython-314-pytest-9.1.1.pyc
+ M tests/__pycache__/test_runtime_diagnostics.cpython-314.pyc
+ M tests/test_association.py
+ M tests/test_grading_engine.py
+ M tests/test_model_switch_safety.py
+ M tests/test_multi_model_selection.py
+ M tests/test_runtime_benchmark.py
+ M tests/test_runtime_diagnostics.py
+ M tests/test_structural_evidence.py
+ D ../tmp/quant_deps/bin/f2py.exe
+ D ../tmp/quant_deps/bin/numpy-config.exe
+ D ../tmp/quant_deps/cv2/Error/__init__.pyi
+ D ../tmp/quant_deps/cv2/LICENSE-3RD-PARTY.txt
+ D ../tmp/quant_deps/cv2/LICENSE.txt
+ D ../tmp/quant_deps/cv2/__init__.py
+ D ../tmp/quant_deps/cv2/__init__.pyi
+ D ../tmp/quant_deps/cv2/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/cv2/__pycache__/config-3.cpython-314.pyc
+ D ../tmp/quant_deps/cv2/__pycache__/config.cpython-314.pyc
+ D ../tmp/quant_deps/cv2/__pycache__/load_config_py2.cpython-314.pyc
+ D ../tmp/quant_deps/cv2/__pycache__/load_config_py3.cpython-314.pyc
+ D ../tmp/quant_deps/cv2/__pycache__/version.cpython-314.pyc
+ D ../tmp/quant_deps/cv2/aruco/__init__.pyi
+ D ../tmp/quant_deps/cv2/barcode/__init__.pyi
+ D ../tmp/quant_deps/cv2/ccm/__init__.pyi
+ D ../tmp/quant_deps/cv2/config-3.py
+ D ../tmp/quant_deps/cv2/config.py
+ D ../tmp/quant_deps/cv2/cuda/__init__.pyi
+ D ../tmp/quant_deps/cv2/cv2.pyd
+ D ../tmp/quant_deps/cv2/data/__init__.py
+ D ../tmp/quant_deps/cv2/data/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/cv2/detail/__init__.pyi
+ D ../tmp/quant_deps/cv2/dnn/__init__.pyi
+ D ../tmp/quant_deps/cv2/fisheye/__init__.pyi
+ D ../tmp/quant_deps/cv2/flann/__init__.pyi
+ D ../tmp/quant_deps/cv2/instr/__init__.pyi
+ D ../tmp/quant_deps/cv2/ipp/__init__.pyi
+ D ../tmp/quant_deps/cv2/load_config_py2.py
+ D ../tmp/quant_deps/cv2/load_config_py3.py
+ D ../tmp/quant_deps/cv2/mat_wrapper/__init__.py
+ D ../tmp/quant_deps/cv2/mat_wrapper/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/cv2/mcc/__init__.pyi
+ D ../tmp/quant_deps/cv2/misc/__init__.py
+ D ../tmp/quant_deps/cv2/misc/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/cv2/misc/__pycache__/version.cpython-314.pyc
+ D ../tmp/quant_deps/cv2/misc/version.py
+ D ../tmp/quant_deps/cv2/ocl/__init__.pyi
+ D ../tmp/quant_deps/cv2/ogl/__init__.pyi
+ D ../tmp/quant_deps/cv2/opencv_videoio_ffmpeg500_64.dll
+ D ../tmp/quant_deps/cv2/parallel/__init__.pyi
+ D ../tmp/quant_deps/cv2/py.typed
+ D ../tmp/quant_deps/cv2/samples/__init__.pyi
+ D ../tmp/quant_deps/cv2/segmentation/__init__.pyi
+ D ../tmp/quant_deps/cv2/typing/__init__.py
+ D ../tmp/quant_deps/cv2/typing/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/cv2/utils/__init__.py
+ D ../tmp/quant_deps/cv2/utils/__init__.pyi
+ D ../tmp/quant_deps/cv2/utils/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/cv2/utils/fs/__init__.pyi
+ D ../tmp/quant_deps/cv2/utils/logging/__init__.pyi
+ D ../tmp/quant_deps/cv2/utils/nested/__init__.pyi
+ D ../tmp/quant_deps/cv2/version.py
+ D ../tmp/quant_deps/cv2/videoio_registry/__init__.pyi
+ D ../tmp/quant_deps/numpy-2.5.2.dist-info/DELVEWHEEL
+ D ../tmp/quant_deps/numpy-2.5.2.dist-info/INSTALLER
+ D ../tmp/quant_deps/numpy-2.5.2.dist-info/METADATA
+ D ../tmp/quant_deps/numpy-2.5.2.dist-info/RECORD
+ D ../tmp/quant_deps/numpy-2.5.2.dist-info/WHEEL
+ D ../tmp/quant_deps/numpy-2.5.2.dist-info/entry_points.txt
+ D ../tmp/quant_deps/numpy-2.5.2.dist-info/licenses/LICENSE.txt
+ D ../tmp/quant_deps/numpy-2.5.2.dist-info/licenses/numpy/_core/include/numpy/libdivide/LICENSE.txt
+ D ../tmp/quant_deps/numpy-2.5.2.dist-info/licenses/numpy/_core/src/common/pythoncapi-compat/COPYING
+ D ../tmp/quant_deps/numpy-2.5.2.dist-info/licenses/numpy/_core/src/highway/LICENSE
+ D ../tmp/quant_deps/numpy-2.5.2.dist-info/licenses/numpy/_core/src/multiarray/dragon4_LICENSE.txt
+ D ../tmp/quant_deps/numpy-2.5.2.dist-info/licenses/numpy/_core/src/npysort/x86-simd-sort/LICENSE.md
+ D ../tmp/quant_deps/numpy-2.5.2.dist-info/licenses/numpy/_core/src/umath/svml/LICENSE
+ D ../tmp/quant_deps/numpy-2.5.2.dist-info/licenses/numpy/fft/pocketfft/LICENSE.md
+ D ../tmp/quant_deps/numpy-2.5.2.dist-info/licenses/numpy/linalg/lapack_lite/LICENSE.txt
+ D ../tmp/quant_deps/numpy-2.5.2.dist-info/licenses/numpy/ma/LICENSE
+ D ../tmp/quant_deps/numpy-2.5.2.dist-info/licenses/numpy/random/LICENSE.md
+ D ../tmp/quant_deps/numpy-2.5.2.dist-info/licenses/numpy/random/src/distributions/LICENSE.md
+ D ../tmp/quant_deps/numpy-2.5.2.dist-info/licenses/numpy/random/src/mt19937/LICENSE.md
+ D ../tmp/quant_deps/numpy-2.5.2.dist-info/licenses/numpy/random/src/pcg64/LICENSE.md
+ D ../tmp/quant_deps/numpy-2.5.2.dist-info/licenses/numpy/random/src/philox/LICENSE.md
+ D ../tmp/quant_deps/numpy-2.5.2.dist-info/licenses/numpy/random/src/sfc64/LICENSE.md
+ D ../tmp/quant_deps/numpy-2.5.2.dist-info/licenses/numpy/random/src/splitmix64/LICENSE.md
+ D ../tmp/quant_deps/numpy.libs/libscipy_openblas64_-327b2e0bcffce2882e0dc04cdeb4eaa6.dll
+ D ../tmp/quant_deps/numpy.libs/msvcp140-a4c2229bdc2a2a630acdc095b4d86008.dll
+ D ../tmp/quant_deps/numpy/__config__.py
+ D ../tmp/quant_deps/numpy/__config__.pyi
+ D ../tmp/quant_deps/numpy/__init__.cython-30.pxd
+ D ../tmp/quant_deps/numpy/__init__.pxd
+ D ../tmp/quant_deps/numpy/__init__.py
+ D ../tmp/quant_deps/numpy/__init__.pyi
+ D ../tmp/quant_deps/numpy/__pycache__/__config__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/__pycache__/_array_api_info.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/__pycache__/_configtool.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/__pycache__/_distributor_init.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/__pycache__/_expired_attrs_2_0.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/__pycache__/_globals.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/__pycache__/_pytesttester.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/__pycache__/conftest.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/__pycache__/dtypes.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/__pycache__/exceptions.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/__pycache__/matlib.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/__pycache__/version.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_array_api_info.py
+ D ../tmp/quant_deps/numpy/_array_api_info.pyi
+ D ../tmp/quant_deps/numpy/_configtool.py
+ D ../tmp/quant_deps/numpy/_configtool.pyi
+ D ../tmp/quant_deps/numpy/_core/__init__.py
+ D ../tmp/quant_deps/numpy/_core/__init__.pyi
+ D ../tmp/quant_deps/numpy/_core/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/__pycache__/_add_newdocs.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/__pycache__/_add_newdocs_scalars.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/__pycache__/_asarray.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/__pycache__/_dtype.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/__pycache__/_dtype_ctypes.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/__pycache__/_exceptions.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/__pycache__/_internal.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/__pycache__/_methods.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/__pycache__/_string_helpers.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/__pycache__/_type_aliases.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/__pycache__/_ufunc_config.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/__pycache__/arrayprint.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/__pycache__/cversions.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/__pycache__/defchararray.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/__pycache__/einsumfunc.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/__pycache__/fromnumeric.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/__pycache__/function_base.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/__pycache__/getlimits.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/__pycache__/memmap.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/__pycache__/multiarray.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/__pycache__/numeric.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/__pycache__/numerictypes.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/__pycache__/overrides.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/__pycache__/printoptions.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/__pycache__/records.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/__pycache__/shape_base.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/__pycache__/strings.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/__pycache__/umath.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/_add_newdocs.py
+ D ../tmp/quant_deps/numpy/_core/_add_newdocs.pyi
+ D ../tmp/quant_deps/numpy/_core/_add_newdocs_scalars.py
+ D ../tmp/quant_deps/numpy/_core/_add_newdocs_scalars.pyi
+ D ../tmp/quant_deps/numpy/_core/_asarray.py
+ D ../tmp/quant_deps/numpy/_core/_asarray.pyi
+ D ../tmp/quant_deps/numpy/_core/_dtype.py
+ D ../tmp/quant_deps/numpy/_core/_dtype.pyi
+ D ../tmp/quant_deps/numpy/_core/_dtype_ctypes.py
+ D ../tmp/quant_deps/numpy/_core/_dtype_ctypes.pyi
+ D ../tmp/quant_deps/numpy/_core/_exceptions.py
+ D ../tmp/quant_deps/numpy/_core/_exceptions.pyi
+ D ../tmp/quant_deps/numpy/_core/_internal.py
+ D ../tmp/quant_deps/numpy/_core/_internal.pyi
+ D ../tmp/quant_deps/numpy/_core/_methods.py
+ D ../tmp/quant_deps/numpy/_core/_methods.pyi
+ D ../tmp/quant_deps/numpy/_core/_multiarray_tests.cp314-win_amd64.lib
+ D ../tmp/quant_deps/numpy/_core/_multiarray_tests.cp314-win_amd64.pyd
+ D ../tmp/quant_deps/numpy/_core/_multiarray_umath.cp314-win_amd64.lib
+ D ../tmp/quant_deps/numpy/_core/_multiarray_umath.cp314-win_amd64.pyd
+ D ../tmp/quant_deps/numpy/_core/_operand_flag_tests.cp314-win_amd64.lib
+ D ../tmp/quant_deps/numpy/_core/_operand_flag_tests.cp314-win_amd64.pyd
+ D ../tmp/quant_deps/numpy/_core/_rational_tests.cp314-win_amd64.lib
+ D ../tmp/quant_deps/numpy/_core/_rational_tests.cp314-win_amd64.pyd
+ D ../tmp/quant_deps/numpy/_core/_simd.cp314-win_amd64.lib
+ D ../tmp/quant_deps/numpy/_core/_simd.cp314-win_amd64.pyd
+ D ../tmp/quant_deps/numpy/_core/_simd.pyi
+ D ../tmp/quant_deps/numpy/_core/_string_helpers.py
+ D ../tmp/quant_deps/numpy/_core/_string_helpers.pyi
+ D ../tmp/quant_deps/numpy/_core/_struct_ufunc_tests.cp314-win_amd64.lib
+ D ../tmp/quant_deps/numpy/_core/_struct_ufunc_tests.cp314-win_amd64.pyd
+ D ../tmp/quant_deps/numpy/_core/_type_aliases.py
+ D ../tmp/quant_deps/numpy/_core/_type_aliases.pyi
+ D ../tmp/quant_deps/numpy/_core/_ufunc_config.py
+ D ../tmp/quant_deps/numpy/_core/_ufunc_config.pyi
+ D ../tmp/quant_deps/numpy/_core/_umath_tests.cp314-win_amd64.lib
+ D ../tmp/quant_deps/numpy/_core/_umath_tests.cp314-win_amd64.pyd
+ D ../tmp/quant_deps/numpy/_core/_umath_tests.pyi
+ D ../tmp/quant_deps/numpy/_core/arrayprint.py
+ D ../tmp/quant_deps/numpy/_core/arrayprint.pyi
+ D ../tmp/quant_deps/numpy/_core/cversions.py
+ D ../tmp/quant_deps/numpy/_core/defchararray.py
+ D ../tmp/quant_deps/numpy/_core/defchararray.pyi
+ D ../tmp/quant_deps/numpy/_core/einsumfunc.py
+ D ../tmp/quant_deps/numpy/_core/einsumfunc.pyi
+ D ../tmp/quant_deps/numpy/_core/fromnumeric.py
+ D ../tmp/quant_deps/numpy/_core/fromnumeric.pyi
+ D ../tmp/quant_deps/numpy/_core/function_base.py
+ D ../tmp/quant_deps/numpy/_core/function_base.pyi
+ D ../tmp/quant_deps/numpy/_core/getlimits.py
+ D ../tmp/quant_deps/numpy/_core/getlimits.pyi
+ D ../tmp/quant_deps/numpy/_core/include/numpy/__multiarray_api.c
+ D ../tmp/quant_deps/numpy/_core/include/numpy/__multiarray_api.h
+ D ../tmp/quant_deps/numpy/_core/include/numpy/__ufunc_api.c
+ D ../tmp/quant_deps/numpy/_core/include/numpy/__ufunc_api.h
+ D ../tmp/quant_deps/numpy/_core/include/numpy/_neighborhood_iterator_imp.h
+ D ../tmp/quant_deps/numpy/_core/include/numpy/_numpyconfig.h
+ D ../tmp/quant_deps/numpy/_core/include/numpy/_public_dtype_api_table.h
+ D ../tmp/quant_deps/numpy/_core/include/numpy/arrayobject.h
+ D ../tmp/quant_deps/numpy/_core/include/numpy/arrayscalars.h
+ D ../tmp/quant_deps/numpy/_core/include/numpy/dtype_api.h
+ D ../tmp/quant_deps/numpy/_core/include/numpy/halffloat.h
+ D ../tmp/quant_deps/numpy/_core/include/numpy/ndarrayobject.h
+ D ../tmp/quant_deps/numpy/_core/include/numpy/ndarraytypes.h
+ D ../tmp/quant_deps/numpy/_core/include/numpy/npy_2_compat.h
+ D ../tmp/quant_deps/numpy/_core/include/numpy/npy_2_complexcompat.h
+ D ../tmp/quant_deps/numpy/_core/include/numpy/npy_3kcompat.h
+ D ../tmp/quant_deps/numpy/_core/include/numpy/npy_common.h
+ D ../tmp/quant_deps/numpy/_core/include/numpy/npy_cpu.h
+ D ../tmp/quant_deps/numpy/_core/include/numpy/npy_endian.h
+ D ../tmp/quant_deps/numpy/_core/include/numpy/npy_math.h
+ D ../tmp/quant_deps/numpy/_core/include/numpy/npy_no_deprecated_api.h
+ D ../tmp/quant_deps/numpy/_core/include/numpy/npy_os.h
+ D ../tmp/quant_deps/numpy/_core/include/numpy/numpyconfig.h
+ D ../tmp/quant_deps/numpy/_core/include/numpy/random/LICENSE.txt
+ D ../tmp/quant_deps/numpy/_core/include/numpy/random/bitgen.h
+ D ../tmp/quant_deps/numpy/_core/include/numpy/random/distributions.h
+ D ../tmp/quant_deps/numpy/_core/include/numpy/random/libdivide.h
+ D ../tmp/quant_deps/numpy/_core/include/numpy/ufuncobject.h
+ D ../tmp/quant_deps/numpy/_core/include/numpy/utils.h
+ D ../tmp/quant_deps/numpy/_core/lib/npymath.lib
+ D ../tmp/quant_deps/numpy/_core/lib/pkgconfig/numpy.pc
+ D ../tmp/quant_deps/numpy/_core/memmap.py
+ D ../tmp/quant_deps/numpy/_core/memmap.pyi
+ D ../tmp/quant_deps/numpy/_core/multiarray.py
+ D ../tmp/quant_deps/numpy/_core/multiarray.pyi
+ D ../tmp/quant_deps/numpy/_core/numeric.py
+ D ../tmp/quant_deps/numpy/_core/numeric.pyi
+ D ../tmp/quant_deps/numpy/_core/numerictypes.py
+ D ../tmp/quant_deps/numpy/_core/numerictypes.pyi
+ D ../tmp/quant_deps/numpy/_core/overrides.py
+ D ../tmp/quant_deps/numpy/_core/overrides.pyi
+ D ../tmp/quant_deps/numpy/_core/printoptions.py
+ D ../tmp/quant_deps/numpy/_core/printoptions.pyi
+ D ../tmp/quant_deps/numpy/_core/records.py
+ D ../tmp/quant_deps/numpy/_core/records.pyi
+ D ../tmp/quant_deps/numpy/_core/shape_base.py
+ D ../tmp/quant_deps/numpy/_core/shape_base.pyi
+ D ../tmp/quant_deps/numpy/_core/strings.py
+ D ../tmp/quant_deps/numpy/_core/strings.pyi
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/_locales.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/_natype.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test__exceptions.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_abc.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_api.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_argparse.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_array_api_info.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_array_coercion.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_array_interface.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_arraymethod.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_arrayobject.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_arrayprint.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_casting_floatingpoint_errors.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_casting_unittests.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_conversion_utils.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_cpu_dispatcher.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_cpu_features.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_custom_dtypes.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_cython.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_datetime.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_defchararray.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_deprecations.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_dlpack.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_dtype.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_einsum.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_errstate.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_extint128.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_finfo.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_function_base.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_getlimits.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_half.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_hashtable.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_indexerrors.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_indexing.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_item_selection.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_limited_api.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_longdouble.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_mem_overlap.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_mem_policy.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_memmap.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_multiarray.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_multiprocessing.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_multithreading.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_nditer.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_nep50_promotions.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_numeric.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_numerictypes.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_overrides.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_print.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_protocols.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_records.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_regression.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_scalar_ctors.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_scalar_methods.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_scalarbuffer.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_scalarinherit.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_scalarmath.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_scalarprint.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_shape_base.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_simd.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_simd_module.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_stringdtype.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_strings.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_ufunc.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_umath.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_umath_accuracy.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_umath_complex.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/__pycache__/test_unicode.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/_locales.py
+ D ../tmp/quant_deps/numpy/_core/tests/_natype.py
+ D ../tmp/quant_deps/numpy/_core/tests/data/astype_copy.pkl
+ D ../tmp/quant_deps/numpy/_core/tests/data/generate_umath_validation_data.cpp
+ D ../tmp/quant_deps/numpy/_core/tests/data/recarray_from_file.fits
+ D ../tmp/quant_deps/numpy/_core/tests/data/umath-validation-set-README.txt
+ D ../tmp/quant_deps/numpy/_core/tests/data/umath-validation-set-arccos.csv
+ D ../tmp/quant_deps/numpy/_core/tests/data/umath-validation-set-arccosh.csv
+ D ../tmp/quant_deps/numpy/_core/tests/data/umath-validation-set-arcsin.csv
+ D ../tmp/quant_deps/numpy/_core/tests/data/umath-validation-set-arcsinh.csv
+ D ../tmp/quant_deps/numpy/_core/tests/data/umath-validation-set-arctan.csv
+ D ../tmp/quant_deps/numpy/_core/tests/data/umath-validation-set-arctanh.csv
+ D ../tmp/quant_deps/numpy/_core/tests/data/umath-validation-set-cbrt.csv
+ D ../tmp/quant_deps/numpy/_core/tests/data/umath-validation-set-cos.csv
+ D ../tmp/quant_deps/numpy/_core/tests/data/umath-validation-set-cosh.csv
+ D ../tmp/quant_deps/numpy/_core/tests/data/umath-validation-set-exp.csv
+ D ../tmp/quant_deps/numpy/_core/tests/data/umath-validation-set-exp2.csv
+ D ../tmp/quant_deps/numpy/_core/tests/data/umath-validation-set-expm1.csv
+ D ../tmp/quant_deps/numpy/_core/tests/data/umath-validation-set-log.csv
+ D ../tmp/quant_deps/numpy/_core/tests/data/umath-validation-set-log10.csv
+ D ../tmp/quant_deps/numpy/_core/tests/data/umath-validation-set-log1p.csv
+ D ../tmp/quant_deps/numpy/_core/tests/data/umath-validation-set-log2.csv
+ D ../tmp/quant_deps/numpy/_core/tests/data/umath-validation-set-sin.csv
+ D ../tmp/quant_deps/numpy/_core/tests/data/umath-validation-set-sinh.csv
+ D ../tmp/quant_deps/numpy/_core/tests/data/umath-validation-set-tan.csv
+ D ../tmp/quant_deps/numpy/_core/tests/data/umath-validation-set-tanh.csv
+ D ../tmp/quant_deps/numpy/_core/tests/examples/cython/__pycache__/setup.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/examples/cython/checks.pyx
+ D ../tmp/quant_deps/numpy/_core/tests/examples/cython/meson.build
+ D ../tmp/quant_deps/numpy/_core/tests/examples/cython/setup.py
+ D ../tmp/quant_deps/numpy/_core/tests/examples/limited_api/__pycache__/setup.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_core/tests/examples/limited_api/limited_api.c
+ D ../tmp/quant_deps/numpy/_core/tests/examples/limited_api/limited_api_cython.pyx
+ D ../tmp/quant_deps/numpy/_core/tests/examples/limited_api/meson.build
+ D ../tmp/quant_deps/numpy/_core/tests/examples/limited_api/setup.py
+ D ../tmp/quant_deps/numpy/_core/tests/test__exceptions.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_abc.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_api.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_argparse.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_array_api_info.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_array_coercion.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_array_interface.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_arraymethod.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_arrayobject.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_arrayprint.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_casting_floatingpoint_errors.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_casting_unittests.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_conversion_utils.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_cpu_dispatcher.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_cpu_features.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_custom_dtypes.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_cython.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_datetime.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_defchararray.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_deprecations.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_dlpack.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_dtype.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_einsum.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_errstate.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_extint128.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_finfo.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_function_base.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_getlimits.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_half.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_hashtable.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_indexerrors.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_indexing.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_item_selection.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_limited_api.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_longdouble.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_mem_overlap.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_mem_policy.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_memmap.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_multiarray.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_multiprocessing.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_multithreading.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_nditer.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_nep50_promotions.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_numeric.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_numerictypes.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_overrides.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_print.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_protocols.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_records.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_regression.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_scalar_ctors.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_scalar_methods.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_scalarbuffer.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_scalarinherit.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_scalarmath.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_scalarprint.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_shape_base.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_simd.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_simd_module.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_stringdtype.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_strings.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_ufunc.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_umath.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_umath_accuracy.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_umath_complex.py
+ D ../tmp/quant_deps/numpy/_core/tests/test_unicode.py
+ D ../tmp/quant_deps/numpy/_core/umath.py
+ D ../tmp/quant_deps/numpy/_core/umath.pyi
+ D ../tmp/quant_deps/numpy/_distributor_init.py
+ D ../tmp/quant_deps/numpy/_distributor_init.pyi
+ D ../tmp/quant_deps/numpy/_expired_attrs_2_0.py
+ D ../tmp/quant_deps/numpy/_expired_attrs_2_0.pyi
+ D ../tmp/quant_deps/numpy/_globals.py
+ D ../tmp/quant_deps/numpy/_globals.pyi
+ D ../tmp/quant_deps/numpy/_pyinstaller/__init__.py
+ D ../tmp/quant_deps/numpy/_pyinstaller/__init__.pyi
+ D ../tmp/quant_deps/numpy/_pyinstaller/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_pyinstaller/__pycache__/hook-numpy.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_pyinstaller/hook-numpy.py
+ D ../tmp/quant_deps/numpy/_pyinstaller/hook-numpy.pyi
+ D ../tmp/quant_deps/numpy/_pyinstaller/tests/__init__.py
+ D ../tmp/quant_deps/numpy/_pyinstaller/tests/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_pyinstaller/tests/__pycache__/pyinstaller-smoke.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_pyinstaller/tests/__pycache__/test_pyinstaller.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_pyinstaller/tests/pyinstaller-smoke.py
+ D ../tmp/quant_deps/numpy/_pyinstaller/tests/test_pyinstaller.py
+ D ../tmp/quant_deps/numpy/_pytesttester.py
+ D ../tmp/quant_deps/numpy/_pytesttester.pyi
+ D ../tmp/quant_deps/numpy/_typing/__init__.py
+ D ../tmp/quant_deps/numpy/_typing/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_typing/__pycache__/_add_docstring.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_typing/__pycache__/_array_like.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_typing/__pycache__/_char_codes.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_typing/__pycache__/_dtype_like.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_typing/__pycache__/_extended_precision.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_typing/__pycache__/_nbit.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_typing/__pycache__/_nbit_base.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_typing/__pycache__/_nested_sequence.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_typing/__pycache__/_scalars.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_typing/__pycache__/_shape.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_typing/__pycache__/_ufunc.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_typing/_add_docstring.py
+ D ../tmp/quant_deps/numpy/_typing/_array_like.py
+ D ../tmp/quant_deps/numpy/_typing/_char_codes.py
+ D ../tmp/quant_deps/numpy/_typing/_dtype_like.py
+ D ../tmp/quant_deps/numpy/_typing/_extended_precision.py
+ D ../tmp/quant_deps/numpy/_typing/_nbit.py
+ D ../tmp/quant_deps/numpy/_typing/_nbit_base.py
+ D ../tmp/quant_deps/numpy/_typing/_nbit_base.pyi
+ D ../tmp/quant_deps/numpy/_typing/_nested_sequence.py
+ D ../tmp/quant_deps/numpy/_typing/_scalars.py
+ D ../tmp/quant_deps/numpy/_typing/_shape.py
+ D ../tmp/quant_deps/numpy/_typing/_ufunc.py
+ D ../tmp/quant_deps/numpy/_typing/_ufunc.pyi
+ D ../tmp/quant_deps/numpy/_utils/__init__.py
+ D ../tmp/quant_deps/numpy/_utils/__init__.pyi
+ D ../tmp/quant_deps/numpy/_utils/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_utils/__pycache__/_conversions.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_utils/__pycache__/_inspect.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_utils/__pycache__/_pep440.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/_utils/_conversions.py
+ D ../tmp/quant_deps/numpy/_utils/_conversions.pyi
+ D ../tmp/quant_deps/numpy/_utils/_inspect.py
+ D ../tmp/quant_deps/numpy/_utils/_inspect.pyi
+ D ../tmp/quant_deps/numpy/_utils/_pep440.py
+ D ../tmp/quant_deps/numpy/_utils/_pep440.pyi
+ D ../tmp/quant_deps/numpy/char/__init__.py
+ D ../tmp/quant_deps/numpy/char/__init__.pyi
+ D ../tmp/quant_deps/numpy/char/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/conftest.py
+ D ../tmp/quant_deps/numpy/core/__init__.py
+ D ../tmp/quant_deps/numpy/core/__init__.pyi
+ D ../tmp/quant_deps/numpy/core/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/core/__pycache__/_dtype.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/core/__pycache__/_dtype_ctypes.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/core/__pycache__/_internal.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/core/__pycache__/_multiarray_umath.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/core/__pycache__/_utils.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/core/__pycache__/arrayprint.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/core/__pycache__/defchararray.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/core/__pycache__/einsumfunc.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/core/__pycache__/fromnumeric.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/core/__pycache__/function_base.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/core/__pycache__/getlimits.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/core/__pycache__/multiarray.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/core/__pycache__/numeric.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/core/__pycache__/numerictypes.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/core/__pycache__/overrides.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/core/__pycache__/records.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/core/__pycache__/shape_base.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/core/__pycache__/umath.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/core/_dtype.py
+ D ../tmp/quant_deps/numpy/core/_dtype.pyi
+ D ../tmp/quant_deps/numpy/core/_dtype_ctypes.py
+ D ../tmp/quant_deps/numpy/core/_dtype_ctypes.pyi
+ D ../tmp/quant_deps/numpy/core/_internal.py
+ D ../tmp/quant_deps/numpy/core/_internal.pyi
+ D ../tmp/quant_deps/numpy/core/_multiarray_umath.py
+ D ../tmp/quant_deps/numpy/core/_utils.py
+ D ../tmp/quant_deps/numpy/core/arrayprint.py
+ D ../tmp/quant_deps/numpy/core/arrayprint.pyi
+ D ../tmp/quant_deps/numpy/core/defchararray.py
+ D ../tmp/quant_deps/numpy/core/defchararray.pyi
+ D ../tmp/quant_deps/numpy/core/einsumfunc.py
+ D ../tmp/quant_deps/numpy/core/einsumfunc.pyi
+ D ../tmp/quant_deps/numpy/core/fromnumeric.py
+ D ../tmp/quant_deps/numpy/core/fromnumeric.pyi
+ D ../tmp/quant_deps/numpy/core/function_base.py
+ D ../tmp/quant_deps/numpy/core/function_base.pyi
+ D ../tmp/quant_deps/numpy/core/getlimits.py
+ D ../tmp/quant_deps/numpy/core/getlimits.pyi
+ D ../tmp/quant_deps/numpy/core/multiarray.py
+ D ../tmp/quant_deps/numpy/core/multiarray.pyi
+ D ../tmp/quant_deps/numpy/core/numeric.py
+ D ../tmp/quant_deps/numpy/core/numeric.pyi
+ D ../tmp/quant_deps/numpy/core/numerictypes.py
+ D ../tmp/quant_deps/numpy/core/numerictypes.pyi
+ D ../tmp/quant_deps/numpy/core/overrides.py
+ D ../tmp/quant_deps/numpy/core/overrides.pyi
+ D ../tmp/quant_deps/numpy/core/records.py
+ D ../tmp/quant_deps/numpy/core/records.pyi
+ D ../tmp/quant_deps/numpy/core/shape_base.py
+ D ../tmp/quant_deps/numpy/core/shape_base.pyi
+ D ../tmp/quant_deps/numpy/core/umath.py
+ D ../tmp/quant_deps/numpy/core/umath.pyi
+ D ../tmp/quant_deps/numpy/ctypeslib/__init__.py
+ D ../tmp/quant_deps/numpy/ctypeslib/__init__.pyi
+ D ../tmp/quant_deps/numpy/ctypeslib/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/ctypeslib/__pycache__/_ctypeslib.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/ctypeslib/_ctypeslib.py
+ D ../tmp/quant_deps/numpy/ctypeslib/_ctypeslib.pyi
+ D ../tmp/quant_deps/numpy/doc/__pycache__/ufuncs.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/doc/ufuncs.py
+ D ../tmp/quant_deps/numpy/dtypes.py
+ D ../tmp/quant_deps/numpy/dtypes.pyi
+ D ../tmp/quant_deps/numpy/exceptions.py
+ D ../tmp/quant_deps/numpy/exceptions.pyi
+ D ../tmp/quant_deps/numpy/f2py/__init__.py
+ D ../tmp/quant_deps/numpy/f2py/__init__.pyi
+ D ../tmp/quant_deps/numpy/f2py/__main__.py
+ D ../tmp/quant_deps/numpy/f2py/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/__pycache__/__main__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/__pycache__/__version__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/__pycache__/_isocbind.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/__pycache__/_src_pyf.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/__pycache__/auxfuncs.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/__pycache__/capi_maps.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/__pycache__/cb_rules.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/__pycache__/cfuncs.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/__pycache__/common_rules.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/__pycache__/crackfortran.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/__pycache__/diagnose.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/__pycache__/f2py2e.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/__pycache__/f90mod_rules.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/__pycache__/func2subr.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/__pycache__/rules.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/__pycache__/symbolic.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/__pycache__/use_rules.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/__version__.py
+ D ../tmp/quant_deps/numpy/f2py/__version__.pyi
+ D ../tmp/quant_deps/numpy/f2py/_backends/__init__.py
+ D ../tmp/quant_deps/numpy/f2py/_backends/__init__.pyi
+ D ../tmp/quant_deps/numpy/f2py/_backends/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/_backends/__pycache__/_backend.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/_backends/__pycache__/_meson.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/_backends/_backend.py
+ D ../tmp/quant_deps/numpy/f2py/_backends/_backend.pyi
+ D ../tmp/quant_deps/numpy/f2py/_backends/_meson.py
+ D ../tmp/quant_deps/numpy/f2py/_backends/_meson.pyi
+ D ../tmp/quant_deps/numpy/f2py/_backends/meson.build.template
+ D ../tmp/quant_deps/numpy/f2py/_isocbind.py
+ D ../tmp/quant_deps/numpy/f2py/_isocbind.pyi
+ D ../tmp/quant_deps/numpy/f2py/_src_pyf.py
+ D ../tmp/quant_deps/numpy/f2py/_src_pyf.pyi
+ D ../tmp/quant_deps/numpy/f2py/auxfuncs.py
+ D ../tmp/quant_deps/numpy/f2py/auxfuncs.pyi
+ D ../tmp/quant_deps/numpy/f2py/capi_maps.py
+ D ../tmp/quant_deps/numpy/f2py/capi_maps.pyi
+ D ../tmp/quant_deps/numpy/f2py/cb_rules.py
+ D ../tmp/quant_deps/numpy/f2py/cb_rules.pyi
+ D ../tmp/quant_deps/numpy/f2py/cfuncs.py
+ D ../tmp/quant_deps/numpy/f2py/cfuncs.pyi
+ D ../tmp/quant_deps/numpy/f2py/common_rules.py
+ D ../tmp/quant_deps/numpy/f2py/common_rules.pyi
+ D ../tmp/quant_deps/numpy/f2py/crackfortran.py
+ D ../tmp/quant_deps/numpy/f2py/crackfortran.pyi
+ D ../tmp/quant_deps/numpy/f2py/diagnose.py
+ D ../tmp/quant_deps/numpy/f2py/diagnose.pyi
+ D ../tmp/quant_deps/numpy/f2py/f2py2e.py
+ D ../tmp/quant_deps/numpy/f2py/f2py2e.pyi
+ D ../tmp/quant_deps/numpy/f2py/f90mod_rules.py
+ D ../tmp/quant_deps/numpy/f2py/f90mod_rules.pyi
+ D ../tmp/quant_deps/numpy/f2py/func2subr.py
+ D ../tmp/quant_deps/numpy/f2py/func2subr.pyi
+ D ../tmp/quant_deps/numpy/f2py/rules.py
+ D ../tmp/quant_deps/numpy/f2py/rules.pyi
+ D ../tmp/quant_deps/numpy/f2py/setup.cfg
+ D ../tmp/quant_deps/numpy/f2py/src/fortranobject.c
+ D ../tmp/quant_deps/numpy/f2py/src/fortranobject.h
+ D ../tmp/quant_deps/numpy/f2py/symbolic.py
+ D ../tmp/quant_deps/numpy/f2py/symbolic.pyi
+ D ../tmp/quant_deps/numpy/f2py/tests/__init__.py
+ D ../tmp/quant_deps/numpy/f2py/tests/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/tests/__pycache__/test_abstract_interface.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/tests/__pycache__/test_array_from_pyobj.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/tests/__pycache__/test_assumed_shape.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/tests/__pycache__/test_block_docstring.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/tests/__pycache__/test_callback.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/tests/__pycache__/test_capi_maps.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/tests/__pycache__/test_character.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/tests/__pycache__/test_common.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/tests/__pycache__/test_crackfortran.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/tests/__pycache__/test_data.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/tests/__pycache__/test_docs.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/tests/__pycache__/test_f2cmap.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/tests/__pycache__/test_f2py2e.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/tests/__pycache__/test_inplace.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/tests/__pycache__/test_isoc.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/tests/__pycache__/test_kind.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/tests/__pycache__/test_mixed.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/tests/__pycache__/test_modules.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/tests/__pycache__/test_parameter.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/tests/__pycache__/test_pyf_src.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/tests/__pycache__/test_quoted_character.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/tests/__pycache__/test_regression.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/tests/__pycache__/test_return_character.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/tests/__pycache__/test_return_complex.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/tests/__pycache__/test_return_integer.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/tests/__pycache__/test_return_logical.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/tests/__pycache__/test_return_real.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/tests/__pycache__/test_routines.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/tests/__pycache__/test_semicolon_split.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/tests/__pycache__/test_size.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/tests/__pycache__/test_string.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/tests/__pycache__/test_symbolic.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/tests/__pycache__/test_value_attrspec.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/tests/__pycache__/util.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/f2py/tests/src/abstract_interface/foo.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/abstract_interface/gh18403_mod.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/array_from_pyobj/wrapmodule.c
+ D ../tmp/quant_deps/numpy/f2py/tests/src/assumed_shape/.f2py_f2cmap
+ D ../tmp/quant_deps/numpy/f2py/tests/src/assumed_shape/foo_free.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/assumed_shape/foo_mod.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/assumed_shape/foo_use.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/assumed_shape/precision.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/block_docstring/foo.f
+ D ../tmp/quant_deps/numpy/f2py/tests/src/callback/foo.f
+ D ../tmp/quant_deps/numpy/f2py/tests/src/callback/gh17797.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/callback/gh18335.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/callback/gh25211.f
+ D ../tmp/quant_deps/numpy/f2py/tests/src/callback/gh25211.pyf
+ D ../tmp/quant_deps/numpy/f2py/tests/src/callback/gh26681.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/cli/gh_22819.pyf
+ D ../tmp/quant_deps/numpy/f2py/tests/src/cli/hi77.f
+ D ../tmp/quant_deps/numpy/f2py/tests/src/cli/hiworld.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/common/block.f
+ D ../tmp/quant_deps/numpy/f2py/tests/src/common/gh19161.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/crackfortran/accesstype.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/crackfortran/common_with_division.f
+ D ../tmp/quant_deps/numpy/f2py/tests/src/crackfortran/data_common.f
+ D ../tmp/quant_deps/numpy/f2py/tests/src/crackfortran/data_multiplier.f
+ D ../tmp/quant_deps/numpy/f2py/tests/src/crackfortran/data_stmts.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/crackfortran/data_with_comments.f
+ D ../tmp/quant_deps/numpy/f2py/tests/src/crackfortran/foo_deps.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/crackfortran/gh15035.f
+ D ../tmp/quant_deps/numpy/f2py/tests/src/crackfortran/gh17859.f
+ D ../tmp/quant_deps/numpy/f2py/tests/src/crackfortran/gh22648.pyf
+ D ../tmp/quant_deps/numpy/f2py/tests/src/crackfortran/gh23533.f
+ D ../tmp/quant_deps/numpy/f2py/tests/src/crackfortran/gh23598.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/crackfortran/gh23598Warn.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/crackfortran/gh23879.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/crackfortran/gh27697.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/crackfortran/gh2848.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/crackfortran/operators.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/crackfortran/privatemod.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/crackfortran/publicmod.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/crackfortran/pubprivmod.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/crackfortran/unicode_comment.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/f2cmap/.f2py_f2cmap
+ D ../tmp/quant_deps/numpy/f2py/tests/src/f2cmap/isoFortranEnvMap.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/inplace/foo.f
+ D ../tmp/quant_deps/numpy/f2py/tests/src/isocintrin/isoCtests.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/kind/foo.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/mixed/foo.f
+ D ../tmp/quant_deps/numpy/f2py/tests/src/mixed/foo_fixed.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/mixed/foo_free.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/modules/gh25337/data.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/modules/gh25337/use_data.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/modules/gh26920/two_mods_with_no_public_entities.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/modules/gh26920/two_mods_with_one_public_routine.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/modules/module_data_docstring.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/modules/use_modules.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/negative_bounds/issue_20853.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/parameter/constant_array.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/parameter/constant_both.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/parameter/constant_compound.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/parameter/constant_integer.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/parameter/constant_non_compound.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/parameter/constant_real.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/quoted_character/foo.f
+ D ../tmp/quant_deps/numpy/f2py/tests/src/regression/AB.inc
+ D ../tmp/quant_deps/numpy/f2py/tests/src/regression/assignOnlyModule.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/regression/complex_struct_compat.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/regression/complex_struct_compat.pyf
+ D ../tmp/quant_deps/numpy/f2py/tests/src/regression/datonly.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/regression/f77comments.f
+ D ../tmp/quant_deps/numpy/f2py/tests/src/regression/f77fixedform.f95
+ D ../tmp/quant_deps/numpy/f2py/tests/src/regression/f90continuation.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/regression/incfile.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/regression/inout.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/regression/lower_f2py_fortran.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/regression/mod_derived_types.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/return_character/foo77.f
+ D ../tmp/quant_deps/numpy/f2py/tests/src/return_character/foo90.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/return_complex/foo77.f
+ D ../tmp/quant_deps/numpy/f2py/tests/src/return_complex/foo90.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/return_integer/foo77.f
+ D ../tmp/quant_deps/numpy/f2py/tests/src/return_integer/foo90.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/return_logical/foo77.f
+ D ../tmp/quant_deps/numpy/f2py/tests/src/return_logical/foo90.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/return_real/foo77.f
+ D ../tmp/quant_deps/numpy/f2py/tests/src/return_real/foo90.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/routines/funcfortranname.f
+ D ../tmp/quant_deps/numpy/f2py/tests/src/routines/funcfortranname.pyf
+ D ../tmp/quant_deps/numpy/f2py/tests/src/routines/subrout.f
+ D ../tmp/quant_deps/numpy/f2py/tests/src/routines/subrout.pyf
+ D ../tmp/quant_deps/numpy/f2py/tests/src/size/foo.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/string/char.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/string/fixed_string.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/string/gh24008.f
+ D ../tmp/quant_deps/numpy/f2py/tests/src/string/gh24662.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/string/gh25286.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/string/gh25286.pyf
+ D ../tmp/quant_deps/numpy/f2py/tests/src/string/gh25286_bc.pyf
+ D ../tmp/quant_deps/numpy/f2py/tests/src/string/scalar_string.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/src/string/string.f
+ D ../tmp/quant_deps/numpy/f2py/tests/src/value_attrspec/gh21665.f90
+ D ../tmp/quant_deps/numpy/f2py/tests/test_abstract_interface.py
+ D ../tmp/quant_deps/numpy/f2py/tests/test_array_from_pyobj.py
+ D ../tmp/quant_deps/numpy/f2py/tests/test_assumed_shape.py
+ D ../tmp/quant_deps/numpy/f2py/tests/test_block_docstring.py
+ D ../tmp/quant_deps/numpy/f2py/tests/test_callback.py
+ D ../tmp/quant_deps/numpy/f2py/tests/test_capi_maps.py
+ D ../tmp/quant_deps/numpy/f2py/tests/test_character.py
+ D ../tmp/quant_deps/numpy/f2py/tests/test_common.py
+ D ../tmp/quant_deps/numpy/f2py/tests/test_crackfortran.py
+ D ../tmp/quant_deps/numpy/f2py/tests/test_data.py
+ D ../tmp/quant_deps/numpy/f2py/tests/test_docs.py
+ D ../tmp/quant_deps/numpy/f2py/tests/test_f2cmap.py
+ D ../tmp/quant_deps/numpy/f2py/tests/test_f2py2e.py
+ D ../tmp/quant_deps/numpy/f2py/tests/test_inplace.py
+ D ../tmp/quant_deps/numpy/f2py/tests/test_isoc.py
+ D ../tmp/quant_deps/numpy/f2py/tests/test_kind.py
+ D ../tmp/quant_deps/numpy/f2py/tests/test_mixed.py
+ D ../tmp/quant_deps/numpy/f2py/tests/test_modules.py
+ D ../tmp/quant_deps/numpy/f2py/tests/test_parameter.py
+ D ../tmp/quant_deps/numpy/f2py/tests/test_pyf_src.py
+ D ../tmp/quant_deps/numpy/f2py/tests/test_quoted_character.py
+ D ../tmp/quant_deps/numpy/f2py/tests/test_regression.py
+ D ../tmp/quant_deps/numpy/f2py/tests/test_return_character.py
+ D ../tmp/quant_deps/numpy/f2py/tests/test_return_complex.py
+ D ../tmp/quant_deps/numpy/f2py/tests/test_return_integer.py
+ D ../tmp/quant_deps/numpy/f2py/tests/test_return_logical.py
+ D ../tmp/quant_deps/numpy/f2py/tests/test_return_real.py
+ D ../tmp/quant_deps/numpy/f2py/tests/test_routines.py
+ D ../tmp/quant_deps/numpy/f2py/tests/test_semicolon_split.py
+ D ../tmp/quant_deps/numpy/f2py/tests/test_size.py
+ D ../tmp/quant_deps/numpy/f2py/tests/test_string.py
+ D ../tmp/quant_deps/numpy/f2py/tests/test_symbolic.py
+ D ../tmp/quant_deps/numpy/f2py/tests/test_value_attrspec.py
+ D ../tmp/quant_deps/numpy/f2py/tests/util.py
+ D ../tmp/quant_deps/numpy/f2py/use_rules.py
+ D ../tmp/quant_deps/numpy/f2py/use_rules.pyi
+ D ../tmp/quant_deps/numpy/fft/__init__.py
+ D ../tmp/quant_deps/numpy/fft/__init__.pyi
+ D ../tmp/quant_deps/numpy/fft/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/fft/__pycache__/_helper.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/fft/__pycache__/_pocketfft.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/fft/_helper.py
+ D ../tmp/quant_deps/numpy/fft/_helper.pyi
+ D ../tmp/quant_deps/numpy/fft/_pocketfft.py
+ D ../tmp/quant_deps/numpy/fft/_pocketfft.pyi
+ D ../tmp/quant_deps/numpy/fft/_pocketfft_umath.cp314-win_amd64.lib
+ D ../tmp/quant_deps/numpy/fft/_pocketfft_umath.cp314-win_amd64.pyd
+ D ../tmp/quant_deps/numpy/fft/tests/__init__.py
+ D ../tmp/quant_deps/numpy/fft/tests/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/fft/tests/__pycache__/test_helper.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/fft/tests/__pycache__/test_pocketfft.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/fft/tests/test_helper.py
+ D ../tmp/quant_deps/numpy/fft/tests/test_pocketfft.py
+ D ../tmp/quant_deps/numpy/lib/__init__.py
+ D ../tmp/quant_deps/numpy/lib/__init__.pyi
+ D ../tmp/quant_deps/numpy/lib/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/__pycache__/_array_utils_impl.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/__pycache__/_arraypad_impl.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/__pycache__/_arraysetops_impl.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/__pycache__/_arrayterator_impl.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/__pycache__/_datasource.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/__pycache__/_format_impl.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/__pycache__/_function_base_impl.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/__pycache__/_histograms_impl.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/__pycache__/_index_tricks_impl.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/__pycache__/_iotools.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/__pycache__/_nanfunctions_impl.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/__pycache__/_npyio_impl.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/__pycache__/_polynomial_impl.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/__pycache__/_scimath_impl.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/__pycache__/_shape_base_impl.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/__pycache__/_stride_tricks_impl.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/__pycache__/_twodim_base_impl.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/__pycache__/_type_check_impl.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/__pycache__/_ufunclike_impl.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/__pycache__/_user_array_impl.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/__pycache__/_utils_impl.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/__pycache__/_version.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/__pycache__/array_utils.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/__pycache__/format.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/__pycache__/introspect.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/__pycache__/mixins.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/__pycache__/npyio.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/__pycache__/recfunctions.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/__pycache__/scimath.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/__pycache__/stride_tricks.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/__pycache__/user_array.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/_array_utils_impl.py
+ D ../tmp/quant_deps/numpy/lib/_array_utils_impl.pyi
+ D ../tmp/quant_deps/numpy/lib/_arraypad_impl.py
+ D ../tmp/quant_deps/numpy/lib/_arraypad_impl.pyi
+ D ../tmp/quant_deps/numpy/lib/_arraysetops_impl.py
+ D ../tmp/quant_deps/numpy/lib/_arraysetops_impl.pyi
+ D ../tmp/quant_deps/numpy/lib/_arrayterator_impl.py
+ D ../tmp/quant_deps/numpy/lib/_arrayterator_impl.pyi
+ D ../tmp/quant_deps/numpy/lib/_datasource.py
+ D ../tmp/quant_deps/numpy/lib/_datasource.pyi
+ D ../tmp/quant_deps/numpy/lib/_format_impl.py
+ D ../tmp/quant_deps/numpy/lib/_format_impl.pyi
+ D ../tmp/quant_deps/numpy/lib/_function_base_impl.py
+ D ../tmp/quant_deps/numpy/lib/_function_base_impl.pyi
+ D ../tmp/quant_deps/numpy/lib/_histograms_impl.py
+ D ../tmp/quant_deps/numpy/lib/_histograms_impl.pyi
+ D ../tmp/quant_deps/numpy/lib/_index_tricks_impl.py
+ D ../tmp/quant_deps/numpy/lib/_index_tricks_impl.pyi
+ D ../tmp/quant_deps/numpy/lib/_iotools.py
+ D ../tmp/quant_deps/numpy/lib/_iotools.pyi
+ D ../tmp/quant_deps/numpy/lib/_nanfunctions_impl.py
+ D ../tmp/quant_deps/numpy/lib/_nanfunctions_impl.pyi
+ D ../tmp/quant_deps/numpy/lib/_npyio_impl.py
+ D ../tmp/quant_deps/numpy/lib/_npyio_impl.pyi
+ D ../tmp/quant_deps/numpy/lib/_polynomial_impl.py
+ D ../tmp/quant_deps/numpy/lib/_polynomial_impl.pyi
+ D ../tmp/quant_deps/numpy/lib/_scimath_impl.py
+ D ../tmp/quant_deps/numpy/lib/_scimath_impl.pyi
+ D ../tmp/quant_deps/numpy/lib/_shape_base_impl.py
+ D ../tmp/quant_deps/numpy/lib/_shape_base_impl.pyi
+ D ../tmp/quant_deps/numpy/lib/_stride_tricks_impl.py
+ D ../tmp/quant_deps/numpy/lib/_stride_tricks_impl.pyi
+ D ../tmp/quant_deps/numpy/lib/_twodim_base_impl.py
+ D ../tmp/quant_deps/numpy/lib/_twodim_base_impl.pyi
+ D ../tmp/quant_deps/numpy/lib/_type_check_impl.py
+ D ../tmp/quant_deps/numpy/lib/_type_check_impl.pyi
+ D ../tmp/quant_deps/numpy/lib/_ufunclike_impl.py
+ D ../tmp/quant_deps/numpy/lib/_ufunclike_impl.pyi
+ D ../tmp/quant_deps/numpy/lib/_user_array_impl.py
+ D ../tmp/quant_deps/numpy/lib/_user_array_impl.pyi
+ D ../tmp/quant_deps/numpy/lib/_utils_impl.py
+ D ../tmp/quant_deps/numpy/lib/_utils_impl.pyi
+ D ../tmp/quant_deps/numpy/lib/_version.py
+ D ../tmp/quant_deps/numpy/lib/_version.pyi
+ D ../tmp/quant_deps/numpy/lib/array_utils.py
+ D ../tmp/quant_deps/numpy/lib/array_utils.pyi
+ D ../tmp/quant_deps/numpy/lib/format.py
+ D ../tmp/quant_deps/numpy/lib/format.pyi
+ D ../tmp/quant_deps/numpy/lib/introspect.py
+ D ../tmp/quant_deps/numpy/lib/introspect.pyi
+ D ../tmp/quant_deps/numpy/lib/mixins.py
+ D ../tmp/quant_deps/numpy/lib/mixins.pyi
+ D ../tmp/quant_deps/numpy/lib/npyio.py
+ D ../tmp/quant_deps/numpy/lib/npyio.pyi
+ D ../tmp/quant_deps/numpy/lib/recfunctions.py
+ D ../tmp/quant_deps/numpy/lib/recfunctions.pyi
+ D ../tmp/quant_deps/numpy/lib/scimath.py
+ D ../tmp/quant_deps/numpy/lib/scimath.pyi
+ D ../tmp/quant_deps/numpy/lib/stride_tricks.py
+ D ../tmp/quant_deps/numpy/lib/stride_tricks.pyi
+ D ../tmp/quant_deps/numpy/lib/tests/__init__.py
+ D ../tmp/quant_deps/numpy/lib/tests/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/tests/__pycache__/test__datasource.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/tests/__pycache__/test__iotools.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/tests/__pycache__/test__version.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/tests/__pycache__/test_array_utils.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/tests/__pycache__/test_arraypad.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/tests/__pycache__/test_arraysetops.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/tests/__pycache__/test_arrayterator.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/tests/__pycache__/test_format.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/tests/__pycache__/test_function_base.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/tests/__pycache__/test_histograms.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/tests/__pycache__/test_index_tricks.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/tests/__pycache__/test_io.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/tests/__pycache__/test_loadtxt.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/tests/__pycache__/test_mixins.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/tests/__pycache__/test_nanfunctions.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/tests/__pycache__/test_packbits.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/tests/__pycache__/test_polynomial.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/tests/__pycache__/test_recfunctions.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/tests/__pycache__/test_regression.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/tests/__pycache__/test_shape_base.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/tests/__pycache__/test_stride_tricks.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/tests/__pycache__/test_twodim_base.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/tests/__pycache__/test_type_check.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/tests/__pycache__/test_ufunclike.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/tests/__pycache__/test_utils.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/lib/tests/data/py2-np0-objarr.npy
+ D ../tmp/quant_deps/numpy/lib/tests/data/py2-objarr.npy
+ D ../tmp/quant_deps/numpy/lib/tests/data/py2-objarr.npz
+ D ../tmp/quant_deps/numpy/lib/tests/data/py3-objarr.npy
+ D ../tmp/quant_deps/numpy/lib/tests/data/py3-objarr.npz
+ D ../tmp/quant_deps/numpy/lib/tests/data/python3.npy
+ D ../tmp/quant_deps/numpy/lib/tests/data/win64python2.npy
+ D ../tmp/quant_deps/numpy/lib/tests/test__datasource.py
+ D ../tmp/quant_deps/numpy/lib/tests/test__iotools.py
+ D ../tmp/quant_deps/numpy/lib/tests/test__version.py
+ D ../tmp/quant_deps/numpy/lib/tests/test_array_utils.py
+ D ../tmp/quant_deps/numpy/lib/tests/test_arraypad.py
+ D ../tmp/quant_deps/numpy/lib/tests/test_arraysetops.py
+ D ../tmp/quant_deps/numpy/lib/tests/test_arrayterator.py
+ D ../tmp/quant_deps/numpy/lib/tests/test_format.py
+ D ../tmp/quant_deps/numpy/lib/tests/test_function_base.py
+ D ../tmp/quant_deps/numpy/lib/tests/test_histograms.py
+ D ../tmp/quant_deps/numpy/lib/tests/test_index_tricks.py
+ D ../tmp/quant_deps/numpy/lib/tests/test_io.py
+ D ../tmp/quant_deps/numpy/lib/tests/test_loadtxt.py
+ D ../tmp/quant_deps/numpy/lib/tests/test_mixins.py
+ D ../tmp/quant_deps/numpy/lib/tests/test_nanfunctions.py
+ D ../tmp/quant_deps/numpy/lib/tests/test_packbits.py
+ D ../tmp/quant_deps/numpy/lib/tests/test_polynomial.py
+ D ../tmp/quant_deps/numpy/lib/tests/test_recfunctions.py
+ D ../tmp/quant_deps/numpy/lib/tests/test_regression.py
+ D ../tmp/quant_deps/numpy/lib/tests/test_shape_base.py
+ D ../tmp/quant_deps/numpy/lib/tests/test_stride_tricks.py
+ D ../tmp/quant_deps/numpy/lib/tests/test_twodim_base.py
+ D ../tmp/quant_deps/numpy/lib/tests/test_type_check.py
+ D ../tmp/quant_deps/numpy/lib/tests/test_ufunclike.py
+ D ../tmp/quant_deps/numpy/lib/tests/test_utils.py
+ D ../tmp/quant_deps/numpy/lib/user_array.py
+ D ../tmp/quant_deps/numpy/lib/user_array.pyi
+ D ../tmp/quant_deps/numpy/linalg/__init__.py
+ D ../tmp/quant_deps/numpy/linalg/__init__.pyi
+ D ../tmp/quant_deps/numpy/linalg/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/linalg/__pycache__/_linalg.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/linalg/_linalg.py
+ D ../tmp/quant_deps/numpy/linalg/_linalg.pyi
+ D ../tmp/quant_deps/numpy/linalg/_umath_linalg.cp314-win_amd64.lib
+ D ../tmp/quant_deps/numpy/linalg/_umath_linalg.cp314-win_amd64.pyd
+ D ../tmp/quant_deps/numpy/linalg/_umath_linalg.pyi
+ D ../tmp/quant_deps/numpy/linalg/lapack_lite.cp314-win_amd64.lib
+ D ../tmp/quant_deps/numpy/linalg/lapack_lite.cp314-win_amd64.pyd
+ D ../tmp/quant_deps/numpy/linalg/lapack_lite.pyi
+ D ../tmp/quant_deps/numpy/linalg/tests/__init__.py
+ D ../tmp/quant_deps/numpy/linalg/tests/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/linalg/tests/__pycache__/test_deprecations.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/linalg/tests/__pycache__/test_linalg.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/linalg/tests/__pycache__/test_regression.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/linalg/tests/test_deprecations.py
+ D ../tmp/quant_deps/numpy/linalg/tests/test_linalg.py
+ D ../tmp/quant_deps/numpy/linalg/tests/test_regression.py
+ D ../tmp/quant_deps/numpy/ma/API_CHANGES.txt
+ D ../tmp/quant_deps/numpy/ma/LICENSE
+ D ../tmp/quant_deps/numpy/ma/README.rst
+ D ../tmp/quant_deps/numpy/ma/__init__.py
+ D ../tmp/quant_deps/numpy/ma/__init__.pyi
+ D ../tmp/quant_deps/numpy/ma/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/ma/__pycache__/core.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/ma/__pycache__/extras.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/ma/__pycache__/mrecords.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/ma/__pycache__/testutils.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/ma/core.py
+ D ../tmp/quant_deps/numpy/ma/core.pyi
+ D ../tmp/quant_deps/numpy/ma/extras.py
+ D ../tmp/quant_deps/numpy/ma/extras.pyi
+ D ../tmp/quant_deps/numpy/ma/mrecords.py
+ D ../tmp/quant_deps/numpy/ma/mrecords.pyi
+ D ../tmp/quant_deps/numpy/ma/tests/__init__.py
+ D ../tmp/quant_deps/numpy/ma/tests/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/ma/tests/__pycache__/test_arrayobject.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/ma/tests/__pycache__/test_core.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/ma/tests/__pycache__/test_deprecations.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/ma/tests/__pycache__/test_extras.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/ma/tests/__pycache__/test_mrecords.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/ma/tests/__pycache__/test_old_ma.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/ma/tests/__pycache__/test_regression.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/ma/tests/__pycache__/test_subclassing.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/ma/tests/test_arrayobject.py
+ D ../tmp/quant_deps/numpy/ma/tests/test_core.py
+ D ../tmp/quant_deps/numpy/ma/tests/test_deprecations.py
+ D ../tmp/quant_deps/numpy/ma/tests/test_extras.py
+ D ../tmp/quant_deps/numpy/ma/tests/test_mrecords.py
+ D ../tmp/quant_deps/numpy/ma/tests/test_old_ma.py
+ D ../tmp/quant_deps/numpy/ma/tests/test_regression.py
+ D ../tmp/quant_deps/numpy/ma/tests/test_subclassing.py
+ D ../tmp/quant_deps/numpy/ma/testutils.py
+ D ../tmp/quant_deps/numpy/ma/testutils.pyi
+ D ../tmp/quant_deps/numpy/matlib.py
+ D ../tmp/quant_deps/numpy/matlib.pyi
+ D ../tmp/quant_deps/numpy/matrixlib/__init__.py
+ D ../tmp/quant_deps/numpy/matrixlib/__init__.pyi
+ D ../tmp/quant_deps/numpy/matrixlib/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/matrixlib/__pycache__/defmatrix.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/matrixlib/defmatrix.py
+ D ../tmp/quant_deps/numpy/matrixlib/defmatrix.pyi
+ D ../tmp/quant_deps/numpy/matrixlib/tests/__init__.py
+ D ../tmp/quant_deps/numpy/matrixlib/tests/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/matrixlib/tests/__pycache__/test_defmatrix.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/matrixlib/tests/__pycache__/test_interaction.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/matrixlib/tests/__pycache__/test_masked_matrix.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/matrixlib/tests/__pycache__/test_matrix_linalg.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/matrixlib/tests/__pycache__/test_multiarray.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/matrixlib/tests/__pycache__/test_numeric.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/matrixlib/tests/__pycache__/test_regression.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/matrixlib/tests/test_defmatrix.py
+ D ../tmp/quant_deps/numpy/matrixlib/tests/test_interaction.py
+ D ../tmp/quant_deps/numpy/matrixlib/tests/test_masked_matrix.py
+ D ../tmp/quant_deps/numpy/matrixlib/tests/test_matrix_linalg.py
+ D ../tmp/quant_deps/numpy/matrixlib/tests/test_multiarray.py
+ D ../tmp/quant_deps/numpy/matrixlib/tests/test_numeric.py
+ D ../tmp/quant_deps/numpy/matrixlib/tests/test_regression.py
+ D ../tmp/quant_deps/numpy/polynomial/__init__.py
+ D ../tmp/quant_deps/numpy/polynomial/__init__.pyi
+ D ../tmp/quant_deps/numpy/polynomial/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/polynomial/__pycache__/_polybase.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/polynomial/__pycache__/chebyshev.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/polynomial/__pycache__/hermite.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/polynomial/__pycache__/hermite_e.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/polynomial/__pycache__/laguerre.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/polynomial/__pycache__/legendre.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/polynomial/__pycache__/polynomial.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/polynomial/__pycache__/polyutils.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/polynomial/_polybase.py
+ D ../tmp/quant_deps/numpy/polynomial/_polybase.pyi
+ D ../tmp/quant_deps/numpy/polynomial/_polytypes.pyi
+ D ../tmp/quant_deps/numpy/polynomial/chebyshev.py
+ D ../tmp/quant_deps/numpy/polynomial/chebyshev.pyi
+ D ../tmp/quant_deps/numpy/polynomial/hermite.py
+ D ../tmp/quant_deps/numpy/polynomial/hermite.pyi
+ D ../tmp/quant_deps/numpy/polynomial/hermite_e.py
+ D ../tmp/quant_deps/numpy/polynomial/hermite_e.pyi
+ D ../tmp/quant_deps/numpy/polynomial/laguerre.py
+ D ../tmp/quant_deps/numpy/polynomial/laguerre.pyi
+ D ../tmp/quant_deps/numpy/polynomial/legendre.py
+ D ../tmp/quant_deps/numpy/polynomial/legendre.pyi
+ D ../tmp/quant_deps/numpy/polynomial/polynomial.py
+ D ../tmp/quant_deps/numpy/polynomial/polynomial.pyi
+ D ../tmp/quant_deps/numpy/polynomial/polyutils.py
+ D ../tmp/quant_deps/numpy/polynomial/polyutils.pyi
+ D ../tmp/quant_deps/numpy/polynomial/tests/__init__.py
+ D ../tmp/quant_deps/numpy/polynomial/tests/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/polynomial/tests/__pycache__/test_chebyshev.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/polynomial/tests/__pycache__/test_classes.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/polynomial/tests/__pycache__/test_hermite.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/polynomial/tests/__pycache__/test_hermite_e.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/polynomial/tests/__pycache__/test_laguerre.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/polynomial/tests/__pycache__/test_legendre.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/polynomial/tests/__pycache__/test_polynomial.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/polynomial/tests/__pycache__/test_polyutils.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/polynomial/tests/__pycache__/test_printing.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/polynomial/tests/__pycache__/test_symbol.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/polynomial/tests/test_chebyshev.py
+ D ../tmp/quant_deps/numpy/polynomial/tests/test_classes.py
+ D ../tmp/quant_deps/numpy/polynomial/tests/test_hermite.py
+ D ../tmp/quant_deps/numpy/polynomial/tests/test_hermite_e.py
+ D ../tmp/quant_deps/numpy/polynomial/tests/test_laguerre.py
+ D ../tmp/quant_deps/numpy/polynomial/tests/test_legendre.py
+ D ../tmp/quant_deps/numpy/polynomial/tests/test_polynomial.py
+ D ../tmp/quant_deps/numpy/polynomial/tests/test_polyutils.py
+ D ../tmp/quant_deps/numpy/polynomial/tests/test_printing.py
+ D ../tmp/quant_deps/numpy/polynomial/tests/test_symbol.py
+ D ../tmp/quant_deps/numpy/py.typed
+ D ../tmp/quant_deps/numpy/random/LICENSE.md
+ D ../tmp/quant_deps/numpy/random/__init__.pxd
+ D ../tmp/quant_deps/numpy/random/__init__.py
+ D ../tmp/quant_deps/numpy/random/__init__.pyi
+ D ../tmp/quant_deps/numpy/random/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/random/__pycache__/_pickle.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/random/_bounded_integers.cp314-win_amd64.lib
+ D ../tmp/quant_deps/numpy/random/_bounded_integers.cp314-win_amd64.pyd
+ D ../tmp/quant_deps/numpy/random/_bounded_integers.pxd
+ D ../tmp/quant_deps/numpy/random/_bounded_integers.pyi
+ D ../tmp/quant_deps/numpy/random/_common.cp314-win_amd64.lib
+ D ../tmp/quant_deps/numpy/random/_common.cp314-win_amd64.pyd
+ D ../tmp/quant_deps/numpy/random/_common.pxd
+ D ../tmp/quant_deps/numpy/random/_common.pyi
+ D ../tmp/quant_deps/numpy/random/_examples/cffi/__pycache__/extending.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/random/_examples/cffi/__pycache__/parse.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/random/_examples/cffi/extending.py
+ D ../tmp/quant_deps/numpy/random/_examples/cffi/parse.py
+ D ../tmp/quant_deps/numpy/random/_examples/cython/extending.pyx
+ D ../tmp/quant_deps/numpy/random/_examples/cython/extending_distributions.pyx
+ D ../tmp/quant_deps/numpy/random/_examples/cython/meson.build
+ D ../tmp/quant_deps/numpy/random/_examples/numba/__pycache__/extending.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/random/_examples/numba/__pycache__/extending_distributions.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/random/_examples/numba/extending.py
+ D ../tmp/quant_deps/numpy/random/_examples/numba/extending_distributions.py
+ D ../tmp/quant_deps/numpy/random/_generator.cp314-win_amd64.lib
+ D ../tmp/quant_deps/numpy/random/_generator.cp314-win_amd64.pyd
+ D ../tmp/quant_deps/numpy/random/_generator.pyi
+ D ../tmp/quant_deps/numpy/random/_mt19937.cp314-win_amd64.lib
+ D ../tmp/quant_deps/numpy/random/_mt19937.cp314-win_amd64.pyd
+ D ../tmp/quant_deps/numpy/random/_mt19937.pyi
+ D ../tmp/quant_deps/numpy/random/_pcg64.cp314-win_amd64.lib
+ D ../tmp/quant_deps/numpy/random/_pcg64.cp314-win_amd64.pyd
+ D ../tmp/quant_deps/numpy/random/_pcg64.pyi
+ D ../tmp/quant_deps/numpy/random/_philox.cp314-win_amd64.lib
+ D ../tmp/quant_deps/numpy/random/_philox.cp314-win_amd64.pyd
+ D ../tmp/quant_deps/numpy/random/_philox.pyi
+ D ../tmp/quant_deps/numpy/random/_pickle.py
+ D ../tmp/quant_deps/numpy/random/_pickle.pyi
+ D ../tmp/quant_deps/numpy/random/_sfc64.cp314-win_amd64.lib
+ D ../tmp/quant_deps/numpy/random/_sfc64.cp314-win_amd64.pyd
+ D ../tmp/quant_deps/numpy/random/_sfc64.pyi
+ D ../tmp/quant_deps/numpy/random/bit_generator.cp314-win_amd64.lib
+ D ../tmp/quant_deps/numpy/random/bit_generator.cp314-win_amd64.pyd
+ D ../tmp/quant_deps/numpy/random/bit_generator.pxd
+ D ../tmp/quant_deps/numpy/random/bit_generator.pyi
+ D ../tmp/quant_deps/numpy/random/c_distributions.pxd
+ D ../tmp/quant_deps/numpy/random/lib/npyrandom.lib
+ D ../tmp/quant_deps/numpy/random/mtrand.cp314-win_amd64.lib
+ D ../tmp/quant_deps/numpy/random/mtrand.cp314-win_amd64.pyd
+ D ../tmp/quant_deps/numpy/random/mtrand.pyi
+ D ../tmp/quant_deps/numpy/random/tests/__init__.py
+ D ../tmp/quant_deps/numpy/random/tests/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/random/tests/__pycache__/test_direct.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/random/tests/__pycache__/test_extending.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/random/tests/__pycache__/test_generator_mt19937.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/random/tests/__pycache__/test_generator_mt19937_regressions.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/random/tests/__pycache__/test_random.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/random/tests/__pycache__/test_randomstate.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/random/tests/__pycache__/test_randomstate_regression.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/random/tests/__pycache__/test_regression.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/random/tests/__pycache__/test_seed_sequence.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/random/tests/__pycache__/test_smoke.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/random/tests/data/__init__.py
+ D ../tmp/quant_deps/numpy/random/tests/data/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/random/tests/data/generator_pcg64_np121.pkl.gz
+ D ../tmp/quant_deps/numpy/random/tests/data/generator_pcg64_np126.pkl.gz
+ D ../tmp/quant_deps/numpy/random/tests/data/mt19937-testset-1.csv
+ D ../tmp/quant_deps/numpy/random/tests/data/mt19937-testset-2.csv
+ D ../tmp/quant_deps/numpy/random/tests/data/pcg64-testset-1.csv
+ D ../tmp/quant_deps/numpy/random/tests/data/pcg64-testset-2.csv
+ D ../tmp/quant_deps/numpy/random/tests/data/pcg64dxsm-testset-1.csv
+ D ../tmp/quant_deps/numpy/random/tests/data/pcg64dxsm-testset-2.csv
+ D ../tmp/quant_deps/numpy/random/tests/data/philox-testset-1.csv
+ D ../tmp/quant_deps/numpy/random/tests/data/philox-testset-2.csv
+ D ../tmp/quant_deps/numpy/random/tests/data/sfc64-testset-1.csv
+ D ../tmp/quant_deps/numpy/random/tests/data/sfc64-testset-2.csv
+ D ../tmp/quant_deps/numpy/random/tests/data/sfc64_np126.pkl.gz
+ D ../tmp/quant_deps/numpy/random/tests/test_direct.py
+ D ../tmp/quant_deps/numpy/random/tests/test_extending.py
+ D ../tmp/quant_deps/numpy/random/tests/test_generator_mt19937.py
+ D ../tmp/quant_deps/numpy/random/tests/test_generator_mt19937_regressions.py
+ D ../tmp/quant_deps/numpy/random/tests/test_random.py
+ D ../tmp/quant_deps/numpy/random/tests/test_randomstate.py
+ D ../tmp/quant_deps/numpy/random/tests/test_randomstate_regression.py
+ D ../tmp/quant_deps/numpy/random/tests/test_regression.py
+ D ../tmp/quant_deps/numpy/random/tests/test_seed_sequence.py
+ D ../tmp/quant_deps/numpy/random/tests/test_smoke.py
+ D ../tmp/quant_deps/numpy/rec/__init__.py
+ D ../tmp/quant_deps/numpy/rec/__init__.pyi
+ D ../tmp/quant_deps/numpy/rec/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/strings/__init__.py
+ D ../tmp/quant_deps/numpy/strings/__init__.pyi
+ D ../tmp/quant_deps/numpy/strings/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/testing/__init__.py
+ D ../tmp/quant_deps/numpy/testing/__init__.pyi
+ D ../tmp/quant_deps/numpy/testing/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/testing/__pycache__/overrides.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/testing/__pycache__/print_coercion_tables.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/testing/_private/__init__.py
+ D ../tmp/quant_deps/numpy/testing/_private/__init__.pyi
+ D ../tmp/quant_deps/numpy/testing/_private/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/testing/_private/__pycache__/extbuild.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/testing/_private/__pycache__/utils.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/testing/_private/extbuild.py
+ D ../tmp/quant_deps/numpy/testing/_private/extbuild.pyi
+ D ../tmp/quant_deps/numpy/testing/_private/utils.py
+ D ../tmp/quant_deps/numpy/testing/_private/utils.pyi
+ D ../tmp/quant_deps/numpy/testing/overrides.py
+ D ../tmp/quant_deps/numpy/testing/overrides.pyi
+ D ../tmp/quant_deps/numpy/testing/print_coercion_tables.py
+ D ../tmp/quant_deps/numpy/testing/print_coercion_tables.pyi
+ D ../tmp/quant_deps/numpy/testing/tests/__init__.py
+ D ../tmp/quant_deps/numpy/testing/tests/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/testing/tests/__pycache__/test_utils.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/testing/tests/test_utils.py
+ D ../tmp/quant_deps/numpy/tests/__init__.py
+ D ../tmp/quant_deps/numpy/tests/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/tests/__pycache__/test__all__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/tests/__pycache__/test_configtool.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/tests/__pycache__/test_ctypeslib.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/tests/__pycache__/test_lazyloading.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/tests/__pycache__/test_matlib.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/tests/__pycache__/test_numpy_config.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/tests/__pycache__/test_numpy_version.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/tests/__pycache__/test_public_api.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/tests/__pycache__/test_reloading.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/tests/__pycache__/test_scripts.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/tests/__pycache__/test_warnings.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/tests/test__all__.py
+ D ../tmp/quant_deps/numpy/tests/test_configtool.py
+ D ../tmp/quant_deps/numpy/tests/test_ctypeslib.py
+ D ../tmp/quant_deps/numpy/tests/test_lazyloading.py
+ D ../tmp/quant_deps/numpy/tests/test_matlib.py
+ D ../tmp/quant_deps/numpy/tests/test_numpy_config.py
+ D ../tmp/quant_deps/numpy/tests/test_numpy_version.py
+ D ../tmp/quant_deps/numpy/tests/test_public_api.py
+ D ../tmp/quant_deps/numpy/tests/test_reloading.py
+ D ../tmp/quant_deps/numpy/tests/test_scripts.py
+ D ../tmp/quant_deps/numpy/tests/test_warnings.py
+ D ../tmp/quant_deps/numpy/typing/__init__.py
+ D ../tmp/quant_deps/numpy/typing/__init__.pyi
+ D ../tmp/quant_deps/numpy/typing/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/__pycache__/mypy_plugin.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/mypy_plugin.py
+ D ../tmp/quant_deps/numpy/typing/tests/__init__.py
+ D ../tmp/quant_deps/numpy/typing/tests/__pycache__/__init__.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/__pycache__/test_isfile.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/__pycache__/test_runtime.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/__pycache__/test_typing.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/arithmetic.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/array_constructors.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/array_like.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/array_pad.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/arrayprint.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/arrayterator.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/bitwise_ops.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/char.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/chararray.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/comparisons.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/constants.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/datasource.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/dtype.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/einsumfunc.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/flatiter.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/fromnumeric.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/histograms.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/index_tricks.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/lib_function_base.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/lib_polynomial.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/lib_utils.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/lib_version.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/linalg.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/ma.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/memmap.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/modules.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/multiarray.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/ndarray.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/ndarray_misc.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/nditer.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/nested_sequence.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/npyio.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/numerictypes.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/random.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/rec.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/scalars.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/shape.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/shape_base.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/stride_tricks.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/strings.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/testing.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/twodim_base.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/type_check.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/ufunc_config.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/ufunclike.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/ufuncs.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/fail/warnings_and_errors.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/misc/extended_precision.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/mypy.ini
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/__pycache__/arithmetic.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/__pycache__/array_constructors.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/__pycache__/array_like.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/__pycache__/arrayprint.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/__pycache__/arrayterator.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/__pycache__/bitwise_ops.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/__pycache__/comparisons.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/__pycache__/dtype.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/__pycache__/einsumfunc.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/__pycache__/flatiter.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/__pycache__/fromnumeric.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/__pycache__/index_tricks.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/__pycache__/lib_user_array.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/__pycache__/lib_utils.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/__pycache__/lib_version.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/__pycache__/literal.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/__pycache__/ma.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/__pycache__/mod.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/__pycache__/modules.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/__pycache__/multiarray.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/__pycache__/ndarray_conversion.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/__pycache__/ndarray_misc.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/__pycache__/ndarray_shape_manipulation.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/__pycache__/nditer.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/__pycache__/numeric.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/__pycache__/numerictypes.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/__pycache__/random.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/__pycache__/recfunctions.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/__pycache__/scalars.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/__pycache__/shape.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/__pycache__/simple.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/__pycache__/ufunc_config.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/__pycache__/ufunclike.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/__pycache__/ufuncs.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/__pycache__/warnings_and_errors.cpython-314.pyc
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/arithmetic.py
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/array_constructors.py
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/array_like.py
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/arrayprint.py
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/arrayterator.py
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/bitwise_ops.py
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/comparisons.py
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/dtype.py
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/einsumfunc.py
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/flatiter.py
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/fromnumeric.py
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/index_tricks.py
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/lib_user_array.py
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/lib_utils.py
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/lib_version.py
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/literal.py
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/ma.py
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/mod.py
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/modules.py
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/multiarray.py
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/ndarray_conversion.py
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/ndarray_misc.py
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/ndarray_shape_manipulation.py
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/nditer.py
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/numeric.py
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/numerictypes.py
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/random.py
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/recfunctions.py
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/scalars.py
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/shape.py
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/simple.py
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/ufunc_config.py
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/ufunclike.py
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/ufuncs.py
+ D ../tmp/quant_deps/numpy/typing/tests/data/pass/warnings_and_errors.py
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/arithmetic.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/array_api_info.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/array_constructors.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/arraypad.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/arrayprint.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/arraysetops.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/arrayterator.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/bitwise_ops.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/char.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/chararray.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/comparisons.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/constants.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/ctypeslib.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/datasource.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/dtype.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/einsumfunc.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/emath.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/fft.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/flatiter.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/fromnumeric.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/getlimits.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/histograms.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/index_tricks.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/lib_function_base.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/lib_polynomial.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/lib_utils.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/lib_version.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/linalg.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/ma.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/matrix.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/memmap.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/mod.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/modules.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/multiarray.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/nbit_base_example.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/ndarray_assignability.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/ndarray_conversion.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/ndarray_misc.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/ndarray_shape_manipulation.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/nditer.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/nested_sequence.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/npyio.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/numeric.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/numerictypes.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/polynomial_polybase.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/polynomial_polyutils.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/polynomial_series.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/random.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/rec.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/scalars.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/shape.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/shape_base.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/stride_tricks.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/strings.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/testing.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/twodim_base.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/type_check.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/ufunc_config.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/ufunclike.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/ufuncs.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/data/reveal/warnings_and_errors.pyi
+ D ../tmp/quant_deps/numpy/typing/tests/test_isfile.py
+ D ../tmp/quant_deps/numpy/typing/tests/test_runtime.py
+ D ../tmp/quant_deps/numpy/typing/tests/test_typing.py
+ D ../tmp/quant_deps/numpy/version.py
+ D ../tmp/quant_deps/numpy/version.pyi
+ D ../tmp/quant_deps/opencv_python_headless-5.0.0.93.dist-info/INSTALLER
+ D ../tmp/quant_deps/opencv_python_headless-5.0.0.93.dist-info/LICENSE-3RD-PARTY.txt
+ D ../tmp/quant_deps/opencv_python_headless-5.0.0.93.dist-info/LICENSE.txt
+ D ../tmp/quant_deps/opencv_python_headless-5.0.0.93.dist-info/METADATA
+ D ../tmp/quant_deps/opencv_python_headless-5.0.0.93.dist-info/RECORD
+ D ../tmp/quant_deps/opencv_python_headless-5.0.0.93.dist-info/REQUESTED
+ D ../tmp/quant_deps/opencv_python_headless-5.0.0.93.dist-info/WHEEL
+ D ../tmp/quant_deps/opencv_python_headless-5.0.0.93.dist-info/top_level.txt
+?? ../../.github/workflows/model-free-tests.yml
+?? ../../Documentation/CODEQUALITY.MD
+?? ../../Documentation/Inpect.md
+?? ../../Documentation/PDFs/Tamban_Defense_Quick_Reference_2026-10-06.pdf
+?? ../../Documentation/PDFs/Tamban_Model2_R03_Three_Model_Experiment_Documentation.pdf
+?? ../../Documentation/PDFs/Tamban_Repository_Investigation_Next_Steps.docx
+?? ../../Documentation/PDFs/Tamban_Repository_Investigation_Next_Steps.pdf
+?? ../../Documentation/PDFs/Tamban_Thesis_Claim_Audit_2026-10-06.pdf
+?? ../../Documentation/PDFs/Tamban_Thesis_Defense_Survival_Pack_2026-10-06.pdf
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Deep_Code_QA_Prompts_2026-10-14/01_Baseline_Reproducible_Test_Audit.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Deep_Code_QA_Prompts_2026-10-14/02_Block_Live_Model_Switching_All_Paths.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Deep_Code_QA_Prompts_2026-10-14/03_Isolate_Upload_Model_Choice_From_Live_Model.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Deep_Code_QA_Prompts_2026-10-14/04_Repair_Durable_Session_Start_Race.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Deep_Code_QA_Prompts_2026-10-14/05_Truthful_Stop_Timeout_And_Restart.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Deep_Code_QA_Prompts_2026-10-14/06_Validate_Settings_Before_Any_Change.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Deep_Code_QA_Prompts_2026-10-14/07_Respect_Export_Column_Checkboxes.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Deep_Code_QA_Prompts_2026-10-14/08_Export_Historical_Session_Rules_Accurately.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Deep_Code_QA_Prompts_2026-10-14/09_Ensure_Tracker_Backend_Is_Explicit.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Deep_Code_QA_Prompts_2026-10-14/10_Fix_FullFrame_Parent_Part_Ownership.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Deep_Code_QA_Prompts_2026-10-14/11_Preserve_Track_Evidence_Through_Short_Dropouts.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Deep_Code_QA_Prompts_2026-10-14/12_Fix_Temporal_Evidence_Counting_And_Recovery.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Deep_Code_QA_Prompts_2026-10-14/13_Safe_Model2_Error_Handling_And_Abstention.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Deep_Code_QA_Prompts_2026-10-14/14_Check_Model_Checksum_And_Registry_Identity.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Deep_Code_QA_Prompts_2026-10-14/15_Limit_Upload_Size_Before_Decoding.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Deep_Code_QA_Prompts_2026-10-14/16_Bound_History_Queries_And_Status_Analytics.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Deep_Code_QA_Prompts_2026-10-14/17_Review_Past_Sessions_Without_Losing_AI_Truth.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Deep_Code_QA_Prompts_2026-10-14/18_Make_Model_Free_CI_Truly_Model_Free.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Deep_Code_QA_Prompts_2026-10-14/19_Guard_LAN_Exposed_Operator_Actions.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Deep_Code_QA_Prompts_2026-10-14/20_Label_Feature_Diagnostics_Honestly.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Deep_Code_QA_Prompts_2026-10-14/21_Stage_Expert_Approved_Grading_Policy_Updates.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Deep_Code_QA_Prompts_2026-10-14/22_Repair_Independent_Test_Readiness_Gates.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Deep_Code_QA_Prompts_2026-10-14/23_Final_End_To_End_Regression_And_Release.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Deep_Code_QA_Prompts_2026-10-14/AUDIT_FINDINGS.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Deep_Code_QA_Prompts_2026-10-14/README.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Deep_Code_QA_Prompts_2026-10-14/REPRODUCTION_NOTES.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Sequential_Development_Prompts/Tamban_Thesis_Step_by_Step_Prompts_2026-10-13/01_Audit_Existing_Pipeline.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Sequential_Development_Prompts/Tamban_Thesis_Step_by_Step_Prompts_2026-10-13/02_Fix_Temporal_Grading_Evidence.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Sequential_Development_Prompts/Tamban_Thesis_Step_by_Step_Prompts_2026-10-13/03_Fix_Parent_Part_Association.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Sequential_Development_Prompts/Tamban_Thesis_Step_by_Step_Prompts_2026-10-13/04_Proposed_Two_Part_Grading_Policy.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Sequential_Development_Prompts/Tamban_Thesis_Step_by_Step_Prompts_2026-10-13/05_Separate_Physical_Anatomy_From_Nondetection.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Sequential_Development_Prompts/Tamban_Thesis_Step_by_Step_Prompts_2026-10-13/06_Audit_Masked_Handcrafted_Features.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Sequential_Development_Prompts/Tamban_Thesis_Step_by_Step_Prompts_2026-10-13/07_Expose_Live_Features_Diagnostics_Only.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Sequential_Development_Prompts/Tamban_Thesis_Step_by_Step_Prompts_2026-10-13/08_Experiment_Color_Brightness_Reflectance_BC.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Sequential_Development_Prompts/Tamban_Thesis_Step_by_Step_Prompts_2026-10-13/09_Experiment_Texture_And_Edge_Features.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Sequential_Development_Prompts/Tamban_Thesis_Step_by_Step_Prompts_2026-10-13/10_Create_Belly_Defect_Expert_Rubric.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Sequential_Development_Prompts/Tamban_Thesis_Step_by_Step_Prompts_2026-10-13/11_Build_Specimen_Aware_Defect_Annotation_Pipeline.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Sequential_Development_Prompts/Tamban_Thesis_Step_by_Step_Prompts_2026-10-13/12_Prototype_Belly_Hole_Detection.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Sequential_Development_Prompts/Tamban_Thesis_Step_by_Step_Prompts_2026-10-13/13_Validate_Feature_Fusion_Without_Silent_Overrides.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Sequential_Development_Prompts/Tamban_Thesis_Step_by_Step_Prompts_2026-10-13/14_Run_Independent_End_to_End_Validation.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Sequential_Development_Prompts/Tamban_Thesis_Step_by_Step_Prompts_2026-10-13/15_Optional_Expert_Evidence_Library_UI.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Sequential_Development_Prompts/Tamban_Thesis_Step_by_Step_Prompts_2026-10-13/16_Final_QA_Documentation_And_Release.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_Thesis_Sequential_Development_Prompts/Tamban_Thesis_Step_by_Step_Prompts_2026-10-13/README.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_UI_FPS_Prompts/01_Measure_Real_FPS_And_Hardware.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_UI_FPS_Prompts/02_Make_Runtime_Telemetry_Accurate.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_UI_FPS_Prompts/03_Lightweight_Status_API_And_Analytics.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_UI_FPS_Prompts/04_Skip_Hidden_Frontend_Renders.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_UI_FPS_Prompts/05_Compare_Model2_FullFrame_Vs_Crop.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_UI_FPS_Prompts/06_Check_CPU_GPU_And_Safe_Precision.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_UI_FPS_Prompts/07_Test_Model_Input_Sizes.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_UI_FPS_Prompts/08_Camera_Acquisition_And_JPEG.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_UI_FPS_Prompts/09_Decouple_Preview_From_Inference.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_UI_FPS_Prompts/10_Optional_Model1_Frame_Gating.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_UI_FPS_Prompts/11_Simplify_Sidebar_And_Navigation.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_UI_FPS_Prompts/12_Operator_First_Live_Inspection_UI.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_UI_FPS_Prompts/13_Consolidate_Display_Settings_And_Models.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_UI_FPS_Prompts/14_History_Review_Analytics_UX.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_UI_FPS_Prompts/15_Responsive_Accessible_UI_States.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_UI_FPS_Prompts/16_Run_Full_Speed_And_Accuracy_Regression.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_UI_FPS_Prompts/17_Cleanup_Documentation_And_HandOff.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_UI_FPS_Prompts/18_Optional_Validated_Performance_Presets.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_UI_FPS_Prompts/AUDIT_FINDINGS.md
+?? ../../Documentation/Prompts_Folder_Done/Tamban_UI_FPS_Prompts/README.md
+?? ../../Documentation/Prompts_Manual/Sequential1.md
+?? ../../Documentation/Prompts_Manual/Tamban_Next_Steps_Checklist.md
+?? ../../Documentation/Prompts_Manual/UIfix.md
+?? ../../Documentation/Prompts_Manual/UIprompts.md
+?? ../../Documentation/Prompts_Manual/analyze.md
+?? ../../Documentation/Prompts_Manual/clear.md
+?? ../../Documentation/Prompts_Manual/diagnose.md
+?? ../../Documentation/Prompts_Manual/error.md
+?? ../../Documentation/Prompts_Manual/fix.md
+?? ../../Documentation/Prompts_Manual/fix2.md
+?? ../../Documentation/Prompts_Manual/pushfix.md
+?? ../../Documentation/QA.md
+?? ../../Documentation/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/QA_EVIDENCE_TEMPLATE.md
+?? ../../Documentation/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/QA_PROGRESS_CHECKLIST.md
+?? ../../Documentation/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/README.md
+?? ../../Documentation/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/prompts/01_Audit_Current_Code_And_Baseline.md
+?? ../../Documentation/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/prompts/02_Freeze_Model_Selection_And_Isolate_Uploads.md
+?? ../../Documentation/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/prompts/03_Session_Start_Stop_Restart_Reliability.md
+?? ../../Documentation/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/prompts/04_Atomic_Settings_Checkpoint_Integrity.md
+?? ../../Documentation/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/prompts/05_Tracker_And_Parent_Part_Association.md
+?? ../../Documentation/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/prompts/06_Temporal_Grading_Uncertainty_And_Dropouts.md
+?? ../../Documentation/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/prompts/07_Expert_Rules_And_Feature_Claims.md
+?? ../../Documentation/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/prompts/08_Historical_Records_Review_And_Exports.md
+?? ../../Documentation/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/prompts/09_Input_Validation_Error_Recovery_And_LAN_Safety.md
+?? ../../Documentation/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/prompts/10_Measure_Actual_FPS_And_Timing.md
+?? ../../Documentation/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/prompts/11_Safely_Optimize_Model_Inference.md
+?? ../../Documentation/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/prompts/12_Decouple_Preview_From_Heavy_AI.md
+?? ../../Documentation/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/prompts/13_Simplify_Sidebar_And_Dashboard.md
+?? ../../Documentation/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/prompts/14_Polish_Live_Inspection_Interactions.md
+?? ../../Documentation/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/prompts/15_Polish_History_Settings_Exports_UX.md
+?? ../../Documentation/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/prompts/16_Responsive_Visual_And_Accessibility_Finishing.md
+?? ../../Documentation/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/prompts/17_Code_Cleanup_Resource_And_Long_Run_QA.md
+?? ../../Documentation/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/prompts/18_Comprehensive_Automated_Manual_QA.md
+?? ../../Documentation/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/prompts/19_Independent_Science_Validation_And_Demo_Rehearsal.md
+?? ../../Documentation/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/prompts/20_Final_Release_Review_And_Documentation.md
+?? ../../Documentation/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/Tamban_Thesis_Final_Polish_and_QA_Prompts_2026-10-15/prompts/21_Optional_Expert_Evidence_Library.md
+?? ../../Documentation/continue.md
+?? ../../Documentation/read.md
+?? ../../Documentation/tail_optional.md
+?? "../../Other Files/config/run_configuration.json"
+?? "../../Other Files/config/run_status.json"
+?? "../../Other Files/config/training_only.yaml"
+?? "../../Other Files/data/body_features_per_photo.csv"
+?? "../../Other Files/data/class_counts.csv"
+?? "../../Other Files/data/feature_regions_skipped.csv"
+?? "../../Other Files/data/feature_statistics.csv"
+?? "../../Other Files/data/part_features.csv"
+?? "../../Other Files/data/training_history.csv"
+?? "../../Other Files/data/training_manifest.csv"
+?? "../../Other Files/environment/requirements-comparison.txt"
+?? "../../Other Files/environment/requirements-legacy-research.txt"
+?? "../../Other Files/environment/requirements.txt"
+?? "../../Other Files/environment/requirements_actual.txt"
+?? "../../Other Files/logs/dashboard.stderr.log"
+?? "../../Other Files/logs/dashboard.stdout.log"
+?? "../../Other Files/models/last.pt"
+?? "../../Other Files/models/model1_fish_parent_detector.pt"
+?? "../../Other Files/notes/ATTACHMENT_CHECKLIST.md"
+?? "../../Other Files/notes/PRESENTATION_SUMMARY.md"
+?? "../../Other Files/notes/Professor_Consultation_Guide (1).docx"
+?? "../../Other Files/notes/Professor_Consultation_Guide.docx"
+?? "../../Other Files/notes/QUICK_BRIEF.md"
+?? "../../Other Files/notes/READ_ME.txt"
+?? "../../Other Files/notes/Tamban_Consultation_Evidence.ipynb"
+?? "../../Other Files/notes/fixxx.md"
+?? "../../Other Files/notes/prompt1.md"
+?? "../../Other Files/notes/prompt22.md"
+?? "../../Other Files/notes/run.md"
+?? "../../Other Files/notes/stabilize.md"
+?? "../../Other Files/notes/systemfixes.md"
+?? "../../Other Files/results/glcm_contrast.png"
+?? "../../Other Files/results/highlight_candidate_ratio.png"
+?? "../../Other Files/results/lab_b_mean.png"
+?? "../../Other Files/results/training_loss.png"
+?? "../../Other Files/results/value_p95.png"
+?? "../../Other Files/scripts/detect_tamban.py"
+?? TAMBAN_DEEP_CODE_QA_PROGRESS.md
+?? TAMBAN_STEP_BY_STEP_DEVELOPMENT_PROGRESS.md
+?? TAMBAN_UI_FPS_DEVELOPMENT_PROGRESS.md
+?? docs/adaptive_tail_policy.md
+?? docs/deep_code_qa_baseline.md
+?? docs/feature_claims_audit.md
+?? docs/model2_schedule_benchmark.md
+?? docs/policy_21_expert_review_brief.md
+?? docs/runtime_baseline.md
+?? docs/step01_current_baseline.md
+?? qa/final/baseline_revision.txt
+?? requirements-bytetrack.txt
+?? requirements-test.txt
+?? results/performance/baseline.md
+?? results/performance/baseline_20261018_005322_empty.json
+?? results/performance/baseline_20261018_005322_empty.md
+?? results/performance/browser_render_after.json
+?? results/performance/browser_render_before.json
+?? results/performance/browser_render_profile.md
+?? results/performance/model2_replay_smoke/clip_000_crop_3.jsonl
+?? results/performance/model2_replay_smoke/clip_000_full_frame_3.jsonl
+?? results/performance/model2_replay_smoke/report.json
+?? results/performance/model2_smoke_manifest.json
+?? results/performance/status_polling_fixtures.csv
+?? results/performance/status_polling_fixtures.md
+?? results/qa/baseline_pytest.log
+?? results/qa/baseline_pytest_elevated.log
+?? results/qa/baseline_pytest_systemtemp.log
+?? results/qa/baseline_pytest_tests.log
+?? results/qa/baseline_unittest.log
+?? results/qa/prompt02_pytest.log
+?? results/qa/prompt02_unittest.log
+?? results/qa/prompt03_pytest.log
+?? results/qa/prompt03_unittest.log
+?? results/qa/prompt04_pytest.log
+?? results/qa/prompt04_unittest.log
+?? results/qa/prompt05_pytest.log
+?? results/qa/prompt05_unittest.log
+?? results/qa/prompt06_pytest.log
+?? results/qa/prompt06_pytest_final.log
+?? results/qa/prompt06_unittest.log
+?? results/qa/prompt07_pytest.log
+?? results/qa/prompt07_unittest.log
+?? results/qa/prompt08_pytest.log
+?? results/qa/prompt08_unittest.log
+?? results/qa/prompt09_pytest.log
+?? results/qa/prompt09_unittest.log
+?? results/qa/prompt10_pytest.log
+?? results/qa/prompt10_unittest.log
+?? results/qa/prompt11_pytest.log
+?? results/qa/prompt11_unittest.log
+?? results/qa/prompt12_pytest.log
+?? results/qa/prompt12_unittest.log
+?? results/qa/prompt13_pytest.log
+?? results/qa/prompt13_unittest.log
+?? results/qa/prompt14_pytest.log
+?? results/qa/prompt14_unittest.log
+?? results/qa/prompt15_pytest.log
+?? results/qa/prompt15_unittest.log
+?? results/qa/prompt16_history_after.json
+?? results/qa/prompt16_history_before.json
+?? results/qa/prompt16_pytest.log
+?? results/qa/prompt16_unittest.log
+?? results/qa/prompt17_dashboard_smoke.log
+?? results/qa/prompt17_pytest.log
+?? results/qa/prompt17_unittest.log
+?? results/qa/prompt18_model_free_before.log
+?? results/qa/prompt18_model_free_focus.log
+?? results/qa/prompt18_model_free_isolated.log
+?? results/qa/prompt18_unittest.log
+?? results/qa/prompt19_lan_smoke.log
+?? results/qa/prompt19_local_dashboard_smoke.log
+?? results/qa/prompt19_pytest.log
+?? results/qa/prompt19_unittest.log
+?? results/qa/prompt20_pytest.log
+?? results/qa/prompt20_unittest.log
+?? results/qa/pytest_baseline/test_bad_manifest_and_paths_fa0/private_manifest.json
+?? results/qa/pytest_baseline/test_bad_records_are_rejected_0/source0.png
+?? results/qa/pytest_baseline/test_bad_records_are_rejected_0/source1.png
+?? results/qa/pytest_baseline/test_bad_records_are_rejected_0/source2.png
+?? results/qa/pytest_baseline/test_bad_records_are_rejected_0/source3.png
+?? results/qa/pytest_baseline/test_bad_records_are_rejected_1/source0.png
+?? results/qa/pytest_baseline/test_bad_records_are_rejected_1/source1.png
+?? results/qa/pytest_baseline/test_bad_records_are_rejected_1/source2.png
+?? results/qa/pytest_baseline/test_bad_records_are_rejected_1/source3.png
+?? results/qa/pytest_baseline/test_bad_records_are_rejected_2/source0.png
+?? results/qa/pytest_baseline/test_bad_records_are_rejected_2/source1.png
+?? results/qa/pytest_baseline/test_bad_records_are_rejected_2/source2.png
+?? results/qa/pytest_baseline/test_bad_records_are_rejected_2/source3.png
+?? results/qa/pytest_baseline/test_bad_records_are_rejected_3/source0.png
+?? results/qa/pytest_baseline/test_bad_records_are_rejected_3/source1.png
+?? results/qa/pytest_baseline/test_bad_records_are_rejected_3/source2.png
+?? results/qa/pytest_baseline/test_bad_records_are_rejected_3/source3.png
+?? results/qa/pytest_baseline/test_bad_records_are_rejected_4/source0.png
+?? results/qa/pytest_baseline/test_bad_records_are_rejected_4/source1.png
+?? results/qa/pytest_baseline/test_bad_records_are_rejected_4/source2.png
+?? results/qa/pytest_baseline/test_bad_records_are_rejected_4/source3.png
+?? results/qa/pytest_baseline/test_bad_records_are_rejected_5/source0.png
+?? results/qa/pytest_baseline/test_bad_records_are_rejected_5/source1.png
+?? results/qa/pytest_baseline/test_bad_records_are_rejected_5/source2.png
+?? results/qa/pytest_baseline/test_bad_records_are_rejected_5/source3.png
+?? results/qa/pytest_baseline/test_bad_records_are_rejected_6/source0.png
+?? results/qa/pytest_baseline/test_bad_records_are_rejected_6/source1.png
+?? results/qa/pytest_baseline/test_bad_records_are_rejected_6/source2.png
+?? results/qa/pytest_baseline/test_bad_records_are_rejected_6/source3.png
+?? results/qa/pytest_baseline/test_bad_records_are_rejected_7/source0.png
+?? results/qa/pytest_baseline/test_bad_records_are_rejected_7/source1.png
+?? results/qa/pytest_baseline/test_bad_records_are_rejected_7/source2.png
+?? results/qa/pytest_baseline/test_bad_records_are_rejected_7/source3.png
+?? results/qa/pytest_baseline/test_capture_session_leakage_i0/fish.csv
+?? results/qa/pytest_baseline/test_capture_session_leakage_i0/test_B.png
+?? results/qa/pytest_baseline/test_capture_session_leakage_i0/test_B_mask.png
+?? results/qa/pytest_baseline/test_capture_session_leakage_i0/test_C.png
+?? results/qa/pytest_baseline/test_capture_session_leakage_i0/test_C_mask.png
+?? results/qa/pytest_baseline/test_capture_session_leakage_i0/train_B.png
+?? results/qa/pytest_baseline/test_capture_session_leakage_i0/train_B_mask.png
+?? results/qa/pytest_baseline/test_capture_session_leakage_i0/train_C.png
+?? results/qa/pytest_baseline/test_capture_session_leakage_i0/train_C_mask.png
+?? results/qa/pytest_baseline/test_capture_session_leakage_i0/validation_B.png
+?? results/qa/pytest_baseline/test_capture_session_leakage_i0/validation_B_mask.png
+?? results/qa/pytest_baseline/test_capture_session_leakage_i0/validation_C.png
+?? results/qa/pytest_baseline/test_capture_session_leakage_i0/validation_C_mask.png
+?? results/qa/pytest_baseline/test_default_off_and_unauthori0/private_manifest.json
+?? results/qa/pytest_baseline/test_disagreement_requires_rec0/source0.png
+?? results/qa/pytest_baseline/test_disagreement_requires_rec0/source1.png
+?? results/qa/pytest_baseline/test_disagreement_requires_rec0/source2.png
+?? results/qa/pytest_baseline/test_disagreement_requires_rec0/source3.png
+?? results/qa/pytest_baseline/test_empty_manifest_has_no_fab0/private_manifest.json
+?? results/qa/pytest_baseline/test_exports_are_separate_and_0/export/observations.json
+?? results/qa/pytest_baseline/test_exports_are_separate_and_0/manifest.json
+?? results/qa/pytest_baseline/test_exports_are_separate_and_0/private/audit.json
+?? results/qa/pytest_baseline/test_exports_are_separate_and_0/private/overlays/07d7d43fe9dd151e40f0.png
+?? results/qa/pytest_baseline/test_exports_are_separate_and_0/private/overlays/5bb21ac469b5e7df4e17.png
+?? results/qa/pytest_baseline/test_exports_are_separate_and_0/private/overlays/b0542da3f90bad69318e.png
+?? results/qa/pytest_baseline/test_exports_are_separate_and_0/private/overlays/cc292b92ce7f10f2e4f7.png
+?? results/qa/pytest_baseline/test_exports_are_separate_and_0/source0.png
+?? results/qa/pytest_baseline/test_exports_are_separate_and_0/source1.png
+?? results/qa/pytest_baseline/test_exports_are_separate_and_0/source2.png
+?? results/qa/pytest_baseline/test_exports_are_separate_and_0/source3.png
+?? results/qa/pytest_baseline/test_grouping_is_deterministic0/source0.png
+?? results/qa/pytest_baseline/test_grouping_is_deterministic0/source1.png
+?? results/qa/pytest_baseline/test_grouping_is_deterministic0/source2.png
+?? results/qa/pytest_baseline/test_grouping_is_deterministic0/source3.png
+?? results/qa/pytest_baseline/test_list_detail_missing_media0/private_manifest.json
+?? results/qa/pytest_baseline/test_manifest_rejects_duplicat0/clip.mp4
+?? results/qa/pytest_baseline/test_manifest_rejects_duplicat0/manifest.json
+?? results/qa/pytest_baseline/test_manifest_requires_blind_p0/clip.mp4
+?? results/qa/pytest_baseline/test_manifest_requires_blind_p0/manifest.json
+?? results/qa/pytest_baseline/test_manifest_resolves_and_has0/clip.mp4
+?? results/qa/pytest_baseline/test_manifest_resolves_and_has0/manifest.json
+?? results/qa/pytest_baseline/test_remote_proxy_and_nonlocal0/private_manifest.json
+?? results/qa/pytest_baseline/test_scaffold_evaluates_valida0/config.json
+?? results/qa/pytest_baseline/test_scaffold_evaluates_valida0/fish.csv
+?? results/qa/pytest_baseline/test_scaffold_evaluates_valida0/held_out/experiment.json
+?? results/qa/pytest_baseline/test_scaffold_evaluates_valida0/held_out/false_predictions.csv
+?? results/qa/pytest_baseline/test_scaffold_evaluates_valida0/held_out/report.md
+?? results/qa/pytest_baseline/test_scaffold_evaluates_valida0/held_out/test_distributions.png
+?? results/qa/pytest_baseline/test_scaffold_evaluates_valida0/held_out/validation_distributions.png
+?? results/qa/pytest_baseline/test_scaffold_evaluates_valida0/result/experiment.json
+?? results/qa/pytest_baseline/test_scaffold_evaluates_valida0/result/false_predictions.csv
+?? results/qa/pytest_baseline/test_scaffold_evaluates_valida0/result/report.md
+?? results/qa/pytest_baseline/test_scaffold_evaluates_valida0/result/validation_distributions.png
+?? results/qa/pytest_baseline/test_scaffold_evaluates_valida0/test_B.png
+?? results/qa/pytest_baseline/test_scaffold_evaluates_valida0/test_B_mask.png
+?? results/qa/pytest_baseline/test_scaffold_evaluates_valida0/test_C.png
+?? results/qa/pytest_baseline/test_scaffold_evaluates_valida0/test_C_mask.png
+?? results/qa/pytest_baseline/test_scaffold_evaluates_valida0/train_B.png
+?? results/qa/pytest_baseline/test_scaffold_evaluates_valida0/train_B_mask.png
+?? results/qa/pytest_baseline/test_scaffold_evaluates_valida0/train_C.png
+?? results/qa/pytest_baseline/test_scaffold_evaluates_valida0/train_C_mask.png
+?? results/qa/pytest_baseline/test_scaffold_evaluates_valida0/validation_B.png
+?? results/qa/pytest_baseline/test_scaffold_evaluates_valida0/validation_B_mask.png
+?? results/qa/pytest_baseline/test_scaffold_evaluates_valida0/validation_C.png
+?? results/qa/pytest_baseline/test_scaffold_evaluates_valida0/validation_C_mask.png
+?? results/qa/pytest_baseline/test_texture_scaffold_ablation0/config.json
+?? results/qa/pytest_baseline/test_texture_scaffold_ablation0/fish.csv
+?? results/qa/pytest_baseline/test_texture_scaffold_ablation0/out/experiment.json
+?? results/qa/pytest_baseline/test_texture_scaffold_ablation0/out/false_predictions.csv
+?? results/qa/pytest_baseline/test_texture_scaffold_ablation0/out/report.md
+?? results/qa/pytest_baseline/test_texture_scaffold_ablation0/test_B.png
+?? results/qa/pytest_baseline/test_texture_scaffold_ablation0/test_B_mask.png
+?? results/qa/pytest_baseline/test_texture_scaffold_ablation0/test_C.png
+?? results/qa/pytest_baseline/test_texture_scaffold_ablation0/test_C_mask.png
+?? results/qa/pytest_baseline/test_texture_scaffold_ablation0/train_B.png
+?? results/qa/pytest_baseline/test_texture_scaffold_ablation0/train_B_mask.png
+?? results/qa/pytest_baseline/test_texture_scaffold_ablation0/train_C.png
+?? results/qa/pytest_baseline/test_texture_scaffold_ablation0/train_C_mask.png
+?? results/qa/pytest_baseline/test_texture_scaffold_ablation0/validation_B.png
+?? results/qa/pytest_baseline/test_texture_scaffold_ablation0/validation_B_mask.png
+?? results/qa/pytest_baseline/test_texture_scaffold_ablation0/validation_C.png
+?? results/qa/pytest_baseline/test_texture_scaffold_ablation0/validation_C_mask.png
+?? results/qa/pytest_baseline/test_undefined_thin_mask_is_li0/fish.csv
+?? results/qa/pytest_baseline/test_undefined_thin_mask_is_li0/test_B.png
+?? results/qa/pytest_baseline/test_undefined_thin_mask_is_li0/test_B_mask.png
+?? results/qa/pytest_baseline/test_undefined_thin_mask_is_li0/test_C.png
+?? results/qa/pytest_baseline/test_undefined_thin_mask_is_li0/test_C_mask.png
+?? results/qa/pytest_baseline/test_undefined_thin_mask_is_li0/train_B.png
+?? results/qa/pytest_baseline/test_undefined_thin_mask_is_li0/train_B_mask.png
+?? results/qa/pytest_baseline/test_undefined_thin_mask_is_li0/train_C.png
+?? results/qa/pytest_baseline/test_undefined_thin_mask_is_li0/train_C_mask.png
+?? results/qa/pytest_baseline/test_undefined_thin_mask_is_li0/validation_B.png
+?? results/qa/pytest_baseline/test_undefined_thin_mask_is_li0/validation_B_mask.png
+?? results/qa/pytest_baseline/test_undefined_thin_mask_is_li0/validation_C.png
+?? results/qa/pytest_baseline/test_undefined_thin_mask_is_li0/validation_C_mask.png
+?? results/qa/pytest_baseline/test_unknown_specimen_or_unrev0/fish.csv
+?? results/qa/pytest_baseline/test_unknown_specimen_or_unrev0/test_B.png
+?? results/qa/pytest_baseline/test_unknown_specimen_or_unrev0/test_B_mask.png
+?? results/qa/pytest_baseline/test_unknown_specimen_or_unrev0/test_C.png
+?? results/qa/pytest_baseline/test_unknown_specimen_or_unrev0/test_C_mask.png
+?? results/qa/pytest_baseline/test_unknown_specimen_or_unrev0/train_B.png
+?? results/qa/pytest_baseline/test_unknown_specimen_or_unrev0/train_B_mask.png
+?? results/qa/pytest_baseline/test_unknown_specimen_or_unrev0/train_C.png
+?? results/qa/pytest_baseline/test_unknown_specimen_or_unrev0/train_C_mask.png
+?? results/qa/pytest_baseline/test_unknown_specimen_or_unrev0/validation_B.png
+?? results/qa/pytest_baseline/test_unknown_specimen_or_unrev0/validation_B_mask.png
+?? results/qa/pytest_baseline/test_unknown_specimen_or_unrev0/validation_C.png
+?? results/qa/pytest_baseline/test_unknown_specimen_or_unrev0/validation_C_mask.png
+?? results/qa/pytest_collect.log
+?? results/qa/step01_model_free.log
+?? results/qa/step05_model_free.log
+?? results/qa/step07_diagnostics_synthetic.json
+?? results/qa/tail_optional_pytest.log
+?? src/api/lan_security.py
+?? src/evaluation/history_qa_benchmark.py
+?? src/evaluation/model2_schedule_benchmark.py
+?? src/evaluation/status_polling_benchmark.py
+?? tests/dashboard_status_smoke.py
+?? tests/export_form_smoke.py
+?? tests/historical_review_smoke.py
+?? tests/lan_security_smoke.py
+?? tests/run_model_free_isolated.py
+?? tests/test_camera_settings_atomic_qa.py
+?? tests/test_checkpoint_smoke.py
+?? tests/test_export_selection_qa.py
+?? tests/test_feature_claims_qa.py
+?? tests/test_historical_export_qa.py
+?? tests/test_historical_review_qa.py
+?? tests/test_history_performance_qa.py
+?? tests/test_lan_security_qa.py
+?? tests/test_model2_schedule_benchmark.py
+?? tests/test_model_integrity_qa.py
+?? tests/test_session_lifecycle_qa.py
+?? tests/test_settings_atomic_qa.py
+?? tests/test_status_polling.py
+?? tests/test_stop_timeout_qa.py
+?? tests/test_tail_optional_policy.py
+?? tests/test_tracker_backend_qa.py
+?? tests/test_upload_limits_qa.py

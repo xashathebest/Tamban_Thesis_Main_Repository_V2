@@ -1,6 +1,6 @@
 # Offline feature fusion — no integration recommendation
 
-The production path remains Model 1 parent detection followed by the canonical Model 2 weighted grading policy: Body 0.50, Head 0.30, Tail 0.20, with missing-region weights contributing zero. The support scores are not calibrated grade probabilities. The separate `two_part_v1` policy is not assumed approved. No live feature-fusion flag, weights, thresholds or trained fusion artifact are shipped.
+The production path remains Model 1 parent detection followed by the canonical Model 2 weighted grading policy. The configured `tail_optional_v1` uses Body 0.50, Head 0.30, Tail 0.20 when all are observed and proportionally redistributes unavailable Tail weight to required Body and Head. Earlier fixed-weight policies remain available for replay. The support scores are not calibrated grade probabilities. The separate `two_part_v1` policy is not assumed approved. No live feature-fusion flag, thresholds or trained fusion artifact are shipped.
 
 `src/evaluation/feature_fusion_experiment.py` provides a pure offline replay for these variants:
 

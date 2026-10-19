@@ -1,0 +1,3 @@
+# Optional ByteTrack assignment dependency; install after requirements.txt.
+# Match Python and platform to an available wheel: https://pypi.org/project/lap/0.5.13/
+lap==0.5.13

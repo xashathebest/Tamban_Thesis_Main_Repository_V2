@@ -6,7 +6,7 @@ Prompt 12 explicitly permits detector development only after expert-approved def
 
 - The drafted rubric `tamban-belly-draft-v0.1` is marked **PENDING EXPERT VERIFICATION**. No signed or recorded approval was found in the inspected project artifacts.
 - The local `Dried Fish Quality Grading.v7i.coco-segmentation` COCO export has 861 train, 32 validation and 17 test images, with 9,099, 399 and 225 annotations respectively. Its listed categories are A/B/C/Rejected Body, Head and Tail (plus a parent category); **none is a belly-hole, tear, exposed-tissue, or acceptable-processed-opening class**. These numbers are part annotations, not expert-reviewed belly-defect counts.
-- The inspected `Other Files/training_manifest.csv` has 846 image rows and all `physical_fish_id` values are `UNKNOWN`. Its internal Model 2 development split groups by source name; that does not establish independent physical specimens, localized belly-defect truth, or checkpoint non-exposure.
+- The inspected `Other Files/data/training_manifest.csv` has 846 image rows and all `physical_fish_id` values are `UNKNOWN`. Its internal Model 2 development split groups by source name; that does not establish independent physical specimens, localized belly-defect truth, or checkpoint non-exposure.
 - Prompt 11 added a **dummy** example and review-only tooling, not actual expert-reviewed labels. No verified positive/control counts or independent localized belly validation set were established. An exact count across all possible sources is unknown. Filename searches of the available workspace had access-denied errors under `Thesis/tmp/quant_deps2`; this limits the completeness of that search.
 
 ## Candidate approach after prerequisites are met

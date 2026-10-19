@@ -22,17 +22,15 @@ Covers all 16 verification requirements from fix.md §11:
 from __future__ import annotations
 
 import json
-import os
+import hashlib
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import src.inference.model_registry as _model_registry_module
-
 import numpy as np
 
-from src.inference.model_registry import ModelRegistry, ModelEntry, get_model_registry
+from src.inference.model_registry import ModelRegistry, ModelEntry
 from src.inference.model_adapters import (
     YoloDetectionAdapter,
     YoloSegmentationAdapter,
@@ -50,12 +48,30 @@ from src.preprocessing.audit_v7_exports import SOURCE_CLASSES
 from src.preprocessing.dataset_utils import project_root
 
 
+def fake_registry(test: unittest.TestCase) -> tuple[Path, ModelRegistry]:
+    """Use real registry metadata with tiny, independently hashed fake files."""
+    temporary = tempfile.TemporaryDirectory(prefix="tamban-model-fixture-")
+    test.addCleanup(temporary.cleanup)
+    root = Path(temporary.name)
+    registry_file = root / "models" / "MODEL_REGISTRY.json"
+    registry_file.parent.mkdir(parents=True)
+    payload = json.loads((project_root() / "models" / "MODEL_REGISTRY.json").read_text(encoding="utf-8"))
+    for entry in payload["models"]:
+        checkpoint = root / entry["path"]
+        checkpoint.parent.mkdir(parents=True, exist_ok=True)
+        contents = ("fake checkpoint for " + entry["id"]).encode("utf-8")
+        checkpoint.write_bytes(contents)
+        entry["sha256"] = hashlib.sha256(contents).hexdigest()
+        entry["size_bytes"] = len(contents)
+    registry_file.write_text(json.dumps(payload), encoding="utf-8")
+    return root, ModelRegistry(root)
+
+
 class ModelRegistryDiscoveryTests(unittest.TestCase):
     """Criteria 1, 2, 3, 4, 5, 9: Registry validation and path resolution."""
 
     def setUp(self) -> None:
-        self.repo_root = project_root()
-        self.registry = ModelRegistry(self.repo_root)
+        self.repo_root, self.registry = fake_registry(self)
 
     def test_01_registry_discovery_and_validation(self) -> None:
         """Requirement 1: Registry discovers all 6 models and validates structure."""
@@ -148,33 +164,13 @@ class ModelRegistryDiscoveryTests(unittest.TestCase):
 
 
 class ModelSwitchingAndInferenceTests(unittest.TestCase):
-    """Criteria 6, 7, 8, 11, 12, 15: Adapters, model switching, and real inference."""
+    """Criteria 6, 7, 8, 11, 12, 15: Adapters and model switching with fakes."""
 
     def setUp(self) -> None:
-        self.repo_root = project_root()
-        self.registry = ModelRegistry(self.repo_root)
-        # Save active_model.json so switch_model() calls in tests do not
-        # permanently corrupt the real persisted selection, which would cause
-        # subsequent test classes to resolve the wrong checkpoint.
-        self._settings_path = self.repo_root / "configs" / "active_model.json"
-        self._saved_settings: str | None = None
-        if self._settings_path.is_file():
-            self._saved_settings = self._settings_path.read_text(encoding="utf-8")
-
-    def tearDown(self) -> None:
-        # Restore the original settings file.
-        if self._saved_settings is not None:
-            try:
-                self._settings_path.write_text(self._saved_settings, encoding="utf-8")
-            except OSError:
-                pass
-        elif self._settings_path.is_file():
-            try:
-                self._settings_path.unlink()
-            except OSError:
-                pass
-        # Reset the singleton so the restored file is read fresh by the next test.
-        _model_registry_module._REGISTRY_INSTANCE = None
+        self.repo_root, self.registry = fake_registry(self)
+        patcher = patch("src.inference.model_registry.get_model_registry", return_value=self.registry)
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def test_06_model_loading_failure_reporting(self) -> None:
         """Requirement 6: Model loading errors are captured accurately."""

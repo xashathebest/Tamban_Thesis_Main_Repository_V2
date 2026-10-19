@@ -32,6 +32,9 @@ Inspection event (Class A/B/C/Rejected/Ungraded)
 - Model 2 emits independent detection confidences, not calibrated whole-fish probabilities.
 - Ungraded is not the same as Rejected. A fish is Rejected only when Model 2 emits
   trained Rejected_* evidence above the configured threshold.
+- A Model 2 inference failure leaves affected, unfinished fish Ungraded with
+  `UG_MODEL2_UNAVAILABLE`; counting continues and finalized results are retained.
+  Automatic retries begin after 0.25 seconds and back off to at most 5 seconds.
 
 ---
 
@@ -77,6 +80,9 @@ py -m src.api
 
 Key environment variables:
 
+For the operator workflow, performance terminology, measurement procedure and
+remaining validation gates, see [the UI/FPS handoff](docs/ui_fps_handoff.md).
+
 | Variable | Default | Description |
 |----------|---------|-------------|
 | FISH_DETECTOR_MODEL_PATH | auto | Override Model 1 checkpoint path |
@@ -85,11 +91,47 @@ Key environment variables:
 | FISH_QUALITY_CONFIDENCE | 0.25 | Model 2 part evidence threshold |
 | FISH_QUALITY_INTERVAL | 3 | Run Model 2 every N processed frames |
 | FISH_QUALITY_INFERENCE_MODE | full_frame | `full_frame` or `crop` |
+| FISH_REQUIRE_BYTETRACK | 0 | Set to `1` to refuse startup if ByteTrack is unavailable |
+| FISH_STRICT_MODEL_INTEGRITY | 0 | Set to `1` to require verified registry checkpoints for Model 1 and Model 2 |
+| FISH_UPLOAD_MAX_BYTES | 10485760 | Maximum encoded image upload size in bytes |
+| FISH_UPLOAD_MAX_DIMENSION | 4096 | Maximum image width or height in pixels |
+| FISH_UPLOAD_MAX_PIXELS | 16777216 | Maximum decoded image pixel count |
 | LEMURU_CAMERA_INDEX | 0 | OpenCV camera index |
 | LEMURU_MODE | (runtime) | part_preview enables upload-test segmentation |
+| FISH_RAW_PREVIEW_ENABLED | 0 | Set to 1 before startup to offer a separate raw camera preview. It has no AI overlays and is capped at 15 frames per second; browser display FPS and latency have not been measured. The processed feed remains the default. |
 | LEMURU_RUNTIME_DIAGNOSTICS | ? | Set to `true` for verbose inference logging |
 
 Grading policy: [configs/grading_engine.yaml](configs/grading_engine.yaml)
+
+Registered Model 2 checkpoints must match their registry SHA-256 before loading.
+An unregistered YOLO `.pt` override is identified as custom and warned as
+unverified; strict integrity mode rejects custom or unhashed checkpoints and
+blocks inspection and whole-fish upload analysis unless both models match the
+registry. Checkpoint fingerprints are calculated at load time and recorded in
+session metadata, not recomputed for each frame.
+
+Image uploads accept JPEG, PNG, and WebP. Their encoded stream is bounded while
+reading, and image dimensions are checked before pixel decoding. Oversized
+encoded bodies return HTTP 413; invalid formats and dimensions return HTTP 400.
+
+Model 1 uses ByteTrack when its `lap` assignment dependency is available.
+Otherwise, the application uses an IoU tracker and displays a warning; the
+actual backend is recorded with the inspection session. The fallback can behave
+differently during overlap and has not been validated as equivalent to ByteTrack.
+To require ByteTrack, install the optional dependency and start the application
+with `FISH_REQUIRE_BYTETRACK=1`; if initialization fails, inspection will not
+start. For example, in PowerShell:
+
+```powershell
+py -m pip install --only-binary=:all: -r requirements-bytetrack.txt
+$env:FISH_REQUIRE_BYTETRACK = '1'
+```
+
+The [lap 0.5.13 package](https://pypi.org/project/lap/0.5.13/) lists wheels for
+supported Python versions on Windows x86-64, Linux x86-64/ARM64, and macOS
+x86-64/ARM64; Windows ARM64 is marked experimental. Choose a wheel matching the
+actual Python and platform, and check the resulting runtime status. Installing
+the package or running a benchmark is not performed automatically.
 
 ---
 
@@ -119,14 +161,26 @@ The weighted grading engine is fully documented in
 [src/inference/grading_engine.py](src/inference/grading_engine.py) and
 [src/inference/grading_policy.py](src/inference/grading_policy.py).
 
+### Adaptive Part-Weighted Fish Grading with Optional Tail Evaluation
+
+The full design, assumptions and independent evaluation plan are documented in [adaptive_tail_policy.md](docs/adaptive_tail_policy.md).
+
+The configured `tail_optional_v1` policy is a proposed design for cases where
+the tail cannot be reliably evaluated. It has not been validated against an
+independent expert-labeled study and is not evidence of improved accuracy.
+
 Key rules:
-- **Body evidence is required.** A fish without Body evidence stays Ungraded.
-- **Missing regions contribute zero** — their original weight is never redistributed.
+- **Body and Head evidence are required.** Without either, the fish stays Ungraded.
+- **Tail evaluated:** use the original Body 50%, Head 30%, Tail 20% weights.
+- **Tail unavailable:** redistribute its weight proportionally: Body 62.5%,
+  Head 37.5%, Tail 0%. This does not establish physical absence or an intact tail.
+  A reliable Tail prediction, including a trained Rejected-class prediction,
+  remains in the calculation; it is not discarded as a missing tail.
 - **Minimum coverage gate.** The sum of original weights for observed regions must
   meet minimum_original_weight_coverage (default 50 %).
 - **Temporal aggregation.** A live verdict requires `minimum_valid_frames`
   (default 2) distinct, quality-usable observations that each meet the active
-  Body, region-count, and coverage gates. Evidence expires as the configured
+  Body/Head, region-count, and coverage gates. Evidence expires as the configured
   candidate-frame window advances. Uncertain ownership clears active evidence;
   subsequent qualifying frames can recover, with warning counts retained.
   Callers should provide a unique frame ID; when none is supplied the engine
@@ -135,18 +189,22 @@ Key rules:
 - **Ungraded ≠ Rejected.** Use UG_* reason codes for low evidence;
   RJ_GRADE_EVIDENCE for trained Rejected-class evidence.
 
-An experimental policy can be selected by setting `grading.grading_mode` to
-`two_part_v1` in `configs/grading_engine.yaml`. It requires reliable Body and
-either Head or Tail in each qualifying live frame. The default remains
-`standard`; activation requires research-team and annotator approval. When only
-Body and Tail are observed, the output notes that head integrity is unverified;
-nondetection does not establish physical absence. All other support, ownership,
-and temporal gates continue to apply.
+Each result records `weighting_method`, `tail_status`, `weights_used` and the
+original coverage. `below_threshold` means a low-confidence Tail detection was
+received by the grading engine; detections filtered earlier are indistinguishable
+from no detection. Ungraded records with incomplete mandatory evidence retain
+partial support for review but do not claim a complete 100% weighting.
 
-| Example Class A evidence | Fixed-weight support | Incorrect renormalized support |
+Set `grading.grading_mode` to `standard` to reproduce the previous fixed-weight
+baseline. The separate `two_part_v1` candidate requires Body and either Head or
+Tail, retains fixed original weights and remains a research option; it is not
+an approved structural integrity rule. `strict` continues to require all parts.
+Historical session snapshots should be replayed with their recorded policy.
+
+| Example Class A evidence | Previous standard support | Tail-optional support |
 |---|---:|---:|
 | Body .87, Head .79, Tail unobserved | .672 | .840 |
-| Body .87, Tail .79, Head unobserved | .593 | .8471 |
+| Body .87, Tail .79, Head unobserved | .593 (subject to gates) | Ungraded: Head required |
 
 Structural review is separate from Model 2's trained `Rejected_*` grade labels.
 For a counted fish in the current session, `GET /api/reviews/{track_id}/structure`
@@ -212,6 +270,59 @@ To reproduce a grading session:
 1. Record the model SHA-256 hashes from MODEL_REGISTRY.json.
 2. Record configs/grading_engine.yaml (version-tracked by config_version).
 3. Export inspection history via the dashboard (CSV or XLSX).
+
+History requests are paginated in the database. Date ranges use the calendar date
+recorded in each event's timestamp, including its original timezone offset.
+Dashboard totals and averages include every matching event, while each trend is
+limited to its latest 500 observations; the throughput caption identifies this
+limit. Current-session summaries are cached and updated for chronological new
+events and review-only changes. A changed older event, an out-of-order insertion,
+or several updates to the same fish between reads requires a fresh streamed
+summary; large sessions can therefore take longer on the first request after
+such a change. Exports still include the full selection.
+
+To review a past fish, choose its session in Inspection History, open the fish,
+and record or clear its manual grade. The selector lists the 1,000 most recent
+sessions; older session IDs can be supplied through the API. The review request
+accepts `session_id`, `manual_grade` (or `null` to clear), and an optional
+`reviewer`. If `session_id` is omitted, it uses the current session for older
+clients. Reviewer names are self-reported; the application does not authenticate
+them. Each durable review or clearing is recorded in the session/fish audit log,
+available at `/api/sessions/{session_id}/reviews/{track_id}/audit`. The original
+AI grade and evidence remain separate from manual grades. Dashboard grade
+distribution is an AI prediction count, not a measured accuracy statistic.
+
+### Optional protected LAN access
+
+The default `python -m src.api` binds to `127.0.0.1` and uses the ordinary local
+interface. Remote API requests are rejected when LAN authentication is off.
+For a direct LAN bind, set `FISH_LAN_AUTH=1`, `LEMURU_HOST=0.0.0.0`, and
+`FISH_LAN_OPERATOR_TOKEN` to a randomly generated, secret token of at least 32
+non-whitespace ASCII characters. Set `LEMURU_TLS_CERTFILE` and
+`LEMURU_TLS_KEYFILE` to existing PEM files for a certificate trusted by the
+clients; the launcher refuses a non-loopback bind without authentication and
+TLS and logs a warning. Generate role tokens independently, for example with
+`python -c "import secrets; print(secrets.token_urlsafe(32))"`; share them
+through a secure channel and never commit them. Optionally configure distinct
+`FISH_LAN_VIEWER_TOKEN` and `FISH_LAN_ADMIN_TOKEN` values. All users must sign in
+to read API data, including camera streams, history and exports. Viewers can
+read and export; operators can also change controls and reviews; administrators
+can access debug endpoints only when `FISH_LAN_DEBUG=1`. Debug details are
+hidden from other roles. Browser sessions use Secure, HttpOnly, SameSite=Strict
+cookies and same-origin CSRF tokens; API clients can use an HTTPS
+`Authorization: Bearer <token>` header. A session expires after eight hours,
+and token rotation or sign-out revokes it, including active camera streams.
+
+If using a TLS reverse proxy, enable the same LAN profile and bind the app to
+localhost; configure the trusted proxy to terminate HTTPS and overwrite forwarded
+headers. Do not expose an unauthenticated localhost app through a proxy, because
+the app cannot distinguish proxy users if the proxy hides their addresses. Run a
+single application worker: sessions and login throttling are process-local.
+These role tokens are shared credentials, not individual authenticated reviewer
+identities. The independent expert library retains its separate localhost-only
+security gate and is unavailable through the LAN token profile. Real network,
+certificate-trust, firewall and proxy configurations must be verified in the
+target deployment.
    - Export fields can include grading configuration, part weights, reason codes,
      detector thresholds and weighted scores, depending on the selected format.
 
@@ -236,8 +347,29 @@ See [release readiness](docs/release_readiness.md), [feature inventory](docs/fea
 [independent validation protocol](docs/independent_validation_protocol.md), and
 [research notes and architecture](docs/research_architecture.md).
 
-Model selection through `POST /api/models/select`, `POST /api/settings`, or an
-`X-Model-Id` upload override is blocked while an inspection is starting or running.
-An upload override changes the shared active Model 2 while stopped; invalid images
-are rejected before the switch. Start and model changes are serialized within one
-API process. Avoid running multiple independent API workers against one camera.
+Model selection through `POST /api/models/select` and `POST /api/settings` is
+blocked while an inspection is starting, running, stopping, or its worker remains
+alive. If a durable session is still open, stop the inspection to close it before
+changing models. Software settings in a request are validated together, and a
+failed update restores the previous settings. Camera controls report individual
+readbacks and best-effort rollback results, since drivers may reject restoration;
+change calibration mode separately from physical controls. Uploaded images always
+use the active Model 2: an `X-Model-Id` matching
+that model is accepted, while a different compatible model returns HTTP 409 and
+an unsupported model returns HTTP 400. Select a different model explicitly
+before uploading. Upload inference waits for the current live frame and does not
+change the selected model or rotate the session; live processing pauses while the
+upload uses the shared models, so preview frames may be dropped. Start, stop, and
+model changes are serialized within one API process; avoid multiple API workers
+for one camera.
+
+Inspection exports use the checked columns in the order shown. Select **Export
+all evidence columns** to include every evidence field. API clients must supply
+a nonempty `fields` list or explicitly set `complete_analysis` to `true`.
+Excel exports also contain separately named summary, review, and rules sheets.
+Exports spanning multiple sessions require Excel, which includes each session's
+recorded policy and a mapping from inspection rows to sessions. Missing historical
+configuration is marked unavailable.
+To keep operator-entered text from being interpreted as a spreadsheet formula,
+CSV values with formula-like prefixes receive a leading apostrophe. Excel exports
+store formula-like text as literal strings; saved inspection records are unchanged.

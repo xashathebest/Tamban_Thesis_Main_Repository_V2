@@ -8,7 +8,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from threading import Event, Lock, RLock, Thread
+from threading import Event, Lock, RLock, Thread, Thread as FinalizerThread, current_thread
 from time import monotonic
 from typing import Any, Mapping
 
@@ -16,6 +16,7 @@ from src.api.camera_controls import CameraControlError, CameraHardwareController
 from src.api.domain import InspectionState, QualitySummary
 from src.api.runtime import PART_PREVIEW_MODE, WHOLE_FISH_MODE
 from src.api.runtime_diagnostics import LatestFrameQueue, RuntimeDiagnostics
+from src.api.raw_preview import RawPreview
 from src.inference.association import ParentAnchor
 from src.inference.yolo_fish_detector import YoloFishDetector
 from src.inference.yolo_quality_model import MAX_QUALITY_ROI_PADDING, QUALITY_INFERENCE_MODES, FishQualityObservation, YoloQualityModel
@@ -85,8 +86,11 @@ class CameraInspectionService:
         self._debug_root = Path(__file__).resolve().parents[2] / "results" / "debug" / "model2" / self._debug_session
         self._hard_negative_root = Path(__file__).resolve().parents[2] / "results" / "hard_negatives" / self._debug_session
         self._hard_negative_records: dict[str, dict[str, object]] = {}
-        self._runtime_metrics = RuntimeDiagnostics()
+        # Startup-only experiment switch; does not change debug capture or inference.
+        telemetry_recording = os.getenv("FISH_RUNTIME_TELEMETRY", "1").strip().lower() not in {"0", "false", "no", "off"}
+        self._runtime_metrics = RuntimeDiagnostics(enabled=telemetry_recording)
         self._latest_frames = LatestFrameQueue()
+        self.raw_preview = RawPreview(os.getenv("FISH_RAW_PREVIEW_ENABLED", "0").strip().lower() in {"1", "true", "yes", "on"})
         self._capture_thread: Thread | None = None
         self._latest_part_overlays: dict[int, tuple[FishQualityObservation, CropBounds, int]] = {}
         self._skipped_model2_reasons: dict[str, int] = {}
@@ -94,11 +98,18 @@ class CameraInspectionService:
         self._frame_index = 0
         self._last_segmented_frame: dict[int, int] = {}
         self._track_grades: dict[int, QualitySummary] = {}
+        self._model2_failure_count = 0
+        self._model2_retry_after = 0.0
         self._lifecycle_lock = Lock()
-        self._processing_lock = Lock()
+        self._processing_lock = RLock()
         self._camera_state_lock = RLock()
         self._stop_event = Event()
         self._thread: Thread | None = None
+        self._finalizer_for: Thread | None = None
+        self._models_prepared = False
+        self._finalized = Event()
+        self._finalized.set()
+        self.on_worker_exit = None
         profile_path = camera_profile_path or Path(__file__).resolve().parents[2] / "configs" / "camera_settings.yaml"
         self.camera_controls = CameraHardwareController(camera_index, profile_path)
         self._calibration_mode = False
@@ -127,6 +138,8 @@ class CameraInspectionService:
                 reset_tracker()
             self.state.tracking.reset_active_tracks()
             self._frame_index = 0
+            self._model2_failure_count = 0
+            self._model2_retry_after = 0.0
             self._last_segmented_frame.clear()
             self._track_grades.clear()
             self._latest_part_overlays.clear()
@@ -372,6 +385,21 @@ class CameraInspectionService:
             "model2_unassigned_candidates": unassigned_count,
             "model1_detections": list(self._last_model1_debug),
             "active_tracks": len(self.state.tracking.active_tracks()),
+            "quality_inference_mode": self.quality_inference_mode,
+            "timing_provenance": {
+                "model1_inference": "Host-observed model call duration; GPU work may be asynchronous.",
+                "model2_inference": "Host-observed duration per successful Model 2 call; GPU work may be asynchronous.",
+                "tracker": "Model 1 tracker update; separate from event_tracking.",
+                "event_tracking": "Inspection state and counting update; excludes later event enrichment.",
+                "roi_extraction": "Crop mode: per-fish extraction; full-frame mode: summed extraction per Model 2 invocation.",
+                "part_assignment": "Summed full-frame per-fish part translation and association-summary preparation, excluding association and grading.",
+                "hsv": "Per-fish evidence preparation including part scoring and optional image diagnostics; included in grading_engine.",
+                "grading_engine": "Per-fish grading; includes hsv evidence preparation.",
+                "total_processing": "Frame processing including stages and overlays, excluding JPEG and publication.",
+                "mjpeg_dispatch": "Generator yield-to-resume time, including consumer pacing; not browser paint or network latency.",
+                "frontend_render": "Browser DOM render samples only while debug capture is enabled.",
+                "note": "Stage windows overlap and do not sum to total processing. Counts and percentiles use bounded rolling samples.",
+            },
             "skipped_model2_reasons": dict(self._skipped_model2_reasons),
             "frame_queue": self._latest_frames.snapshot(),
             "performance": self._runtime_metrics.snapshot(),
@@ -521,22 +549,24 @@ class CameraInspectionService:
         except Exception as exc:
             LOGGER.warning("[DEBUG] Could not save hard-negative candidate: %s", exc)
 
+    def has_live_worker(self) -> bool:
+        """Treat a worker as busy until its exit cleanup has completed."""
+        with self._lifecycle_lock:
+            return self._thread is not None
+
     def start(self) -> bool:
         with self._lifecycle_lock:
-            if self._thread is not None and self._thread.is_alive():
+            if self._thread is not None:
                 return False
-            if self.model.model is None and not self.model.load():
-                self.state.mark_error(self.model.error or "Model is unavailable.")
+            if not self._models_prepared and not self._prepare_models_locked():
                 return False
-            if self.quality_model is not None and self.quality_model.model is None:
-                if self.quality_model.load():
-                    self.state.set_segmenter("ready", self.quality_model.name, str(self.quality_model.weights_path), f"Quality Model ready on {self.quality_model.device}.")
-                else:
-                    self.state.set_segmenter("unavailable", None, str(self.quality_model.weights_path) if self.quality_model.weights_path else None, self.quality_model.error or "Quality Model is unavailable.")
+            self._models_prepared = False
             self.model.reset_tracker()
             if self.quality_model is not None and hasattr(self.quality_model, "reset_tracks"):
                 self.quality_model.reset_tracks()
             self._frame_index = 0
+            self._model2_failure_count = 0
+            self._model2_retry_after = 0.0
             self._last_segmented_frame.clear()
             self._track_grades.clear()
             self._latest_part_overlays.clear()
@@ -544,26 +574,84 @@ class CameraInspectionService:
             if not self.state.begin_start():
                 return False
             self._stop_event.clear()
+            self._finalized.clear()
             self._thread = Thread(target=self._run, name="camera-inference", daemon=True)
-            self._thread.start()
+            try:
+                self._thread.start()
+            except Exception as exc:
+                self._thread = None
+                self._finalized.set()
+                self.state.mark_error(f"Could not start inspection worker: {exc}")
+                raise
             return True
 
+    def prepare_models(self) -> bool:
+        """Resolve the real tracker before the durable startup snapshot."""
+        with self._lifecycle_lock:
+            self._models_prepared = self._thread is None and self._prepare_models_locked()
+            return self._models_prepared
+
+    def _prepare_models_locked(self) -> bool:
+        if self.model.model is None:
+            if not self.model.load():
+                self.state.mark_error(self.model.error or "Model is unavailable.")
+                return False
+            self.state.set_model("ready", self.model.name, str(self.model.weights_path), f"Model ready on {self.model.device}.")
+        if self.quality_model is not None and self.quality_model.model is None:
+            if self.quality_model.load():
+                self.state.set_segmenter("ready", self.quality_model.name, str(self.quality_model.weights_path), f"Quality Model ready on {self.quality_model.device}.")
+            else:
+                self.state.set_segmenter("unavailable", None, str(self.quality_model.weights_path) if self.quality_model.weights_path else None, self.quality_model.error or "Quality Model is unavailable.")
+        strict_integrity = os.getenv("FISH_STRICT_MODEL_INTEGRITY", "0").strip().lower() in {"1", "true", "yes", "on"}
+        if strict_integrity and getattr(self.model, "checkpoint_integrity", None) != "verified":
+            self.state.mark_error("Strict model integrity requires a verified Model 1 checkpoint before inspection.")
+            return False
+        if strict_integrity and (self.quality_model is None or self.quality_model.model is None or getattr(self.quality_model, "checkpoint_integrity", None) != "verified"):
+            self.state.mark_error("Strict model integrity requires a verified Model 2 checkpoint before inspection.")
+            return False
+        return True
+
     def stop(self, timeout: float = 3.0) -> bool:
+        deadline = monotonic() + max(0.0, timeout)
         with self._lifecycle_lock:
             thread = self._thread
-            if thread is None or not thread.is_alive():
+            if thread is None:
                 self.state.mark_stopped()
-                self._thread = None
-                self._clear_transient_state()
                 return False
             self._stop_event.set()
-        thread.join(timeout=timeout)
+            self.state.mark_stopping()
+        thread.join(timeout=max(0.0, deadline - monotonic()))
+        self._schedule_finalizer(thread)
+        return self._finalized.wait(max(0.0, deadline - monotonic()))
+
+    def _schedule_finalizer(self, thread: Thread) -> None:
+        """At most one daemon waits for a worker; API requests never wait on it."""
         with self._lifecycle_lock:
-            if not thread.is_alive():
-                self._thread = None
+            if self._thread is not thread or self._finalizer_for is thread:
+                return
+            self._finalizer_for = thread
+            FinalizerThread(target=self._wait_for_worker, args=(thread,), name="camera-finalizer", daemon=True).start()
+
+    def _wait_for_worker(self, thread: Thread) -> None:
+        thread.join()
+        self._finalize_worker(thread)
+
+    def _finalize_worker(self, thread: Thread) -> None:
+        try:
+            self._clear_transient_state()
+            if callable(self.on_worker_exit):
+                self.on_worker_exit()
+            if self.state.snapshot()["inspection_status"] != "errored":
                 self.state.mark_stopped()
-                self._clear_transient_state()
-        return True
+        except Exception as exc:
+            LOGGER.exception("Could not finalize the inspection after worker exit")
+            self.state.mark_error(f"Inspection cleanup failed: {exc}")
+        finally:
+            with self._lifecycle_lock:
+                if self._thread is thread:
+                    self._thread = None
+                    self._finalizer_for = None
+                    self._finalized.set()
 
     def _clear_transient_state(self) -> None:
         """Reset live-only state after Stop without clearing production totals."""
@@ -573,6 +661,8 @@ class CameraInspectionService:
             if callable(reset_tracker):
                 reset_tracker()
             self._frame_index = 0
+            self._model2_failure_count = 0
+            self._model2_retry_after = 0.0
             self._last_segmented_frame.clear()
             self._track_grades.clear()
             self._latest_part_overlays.clear()
@@ -587,6 +677,8 @@ class CameraInspectionService:
         with self._processing_lock:
             self.model.reset_tracker()
             self._frame_index = 0
+            self._model2_failure_count = 0
+            self._model2_retry_after = 0.0
             self._last_segmented_frame.clear()
             self._track_grades.clear()
             self._latest_part_overlays.clear()
@@ -961,12 +1053,56 @@ class CameraInspectionService:
                 region = item.get("region")
                 if isinstance(confidence, (float, int)) and isinstance(region, str):
                     self._runtime_metrics.record_confidence(region, float(confidence))
-        self._runtime_metrics.record_latency("model2_inference", getattr(self.quality_model, "last_inference_seconds", None))
-        self._runtime_metrics.record_latency("grading_engine", getattr(self.quality_model, "last_grading_seconds", None))
-        self._runtime_metrics.record_latency("hsv", getattr(getattr(self.quality_model, "_grading_engine", None), "last_hsv_processing_seconds", None))
+        # Full-frame inference grades several fish before returning; read each
+        # observation's own timing rather than the model's last fish timing.
+        for stage, key in (("grading_engine", "grading_engine_ms"), ("hsv", "hsv_processing_ms")):
+            milliseconds = performance.get(key)
+            if isinstance(milliseconds, (int, float)) and not isinstance(milliseconds, bool):
+                self._runtime_metrics.record_latency(stage, milliseconds / 1000.0)
         self._runtime_metrics.record_call("model2_roi")
         if frame is not None and crop is not None:
             self._save_debug_artifacts(frame, crop, detection, crop_bounds, overlay_observation)
+
+    def _prune_track_evidence(self, retained_ids: set[int]) -> None:
+        """Keep Model 2 state only while the domain tracker retains its identity."""
+        self._track_grades = {track_id: grade for track_id, grade in self._track_grades.items() if track_id in retained_ids}
+        self._last_segmented_frame = {track_id: seen for track_id, seen in self._last_segmented_frame.items() if track_id in retained_ids}
+        self._latest_part_overlays = {track_id: overlay for track_id, overlay in self._latest_part_overlays.items() if track_id in retained_ids}
+        if self.quality_model is not None and hasattr(self.quality_model, "prune_tracks"):
+            self.quality_model.prune_tracks(retained_ids)
+
+    def _record_model2_failures(self, frame: Any, detections: list[Any], message: str) -> None:
+        """Replace affected live results with explicit, non-fabricated abstentions."""
+        ids = {int(item.track_id) for item in detections}
+        if isinstance(self.quality_model, YoloQualityModel):
+            self.quality_model.discard_tracks(ids)
+        for detection in detections:
+            track_id = int(detection.track_id)
+            self._latest_part_overlays.pop(track_id, None)
+            self._last_segmented_frame.pop(track_id, None)
+            try:
+                if not isinstance(self.quality_model, YoloQualityModel):
+                    raise RuntimeError("Canonical Model 2 unavailable-observation adapter is unavailable")
+                crop, bounds = crop_fish(frame, detection.bbox, padding=self.quality_roi_padding)
+                result = self.quality_model.unavailable_observation(
+                    crop, track_id, frame_id=self._frame_index,
+                    detection_confidence=detection.confidence, parent_bbox=detection.bbox,
+                    frame_shape=frame.shape, error=message,
+                )
+                self._record_quality_observation(detection, result, bounds, crop.shape, [])
+                self._latest_part_overlays.pop(track_id, None)
+                self._last_segmented_frame.pop(track_id, None)
+            except Exception:
+                LOGGER.exception("Could not build Model 2 abstention for Fish #%s; recording a minimal failure result.", track_id)
+                if isinstance(self.quality_model, YoloQualityModel):
+                    self.quality_model.discard_tracks({track_id})
+                self._track_grades[track_id] = QualitySummary(track_id, None, None, analysis={
+                    "final_grade": "Ungraded", "final_score": None,
+                    "verdict_status": "NEEDS_REVIEW", "verdict_reason_code": "UG_MODEL2_UNAVAILABLE",
+                    "reason_codes": ["UG_MODEL2_UNAVAILABLE"],
+                    "verdict_reason_text": "Model 2 inference failed; no quality grade was issued.",
+                    "model2_available": False, "model2_error": message,
+                })
 
     def process_frame(self, frame: Any, cv2: Any) -> Any:
         """Run the active mode for one frame; exposed for webcam-free tests."""
@@ -1009,7 +1145,17 @@ class CameraInspectionService:
         fresh: list[tuple[FishQualityObservation, CropBounds]] = []
         eligible: list[Any] = []
         scheduled_track_ids: set[int] = set()
-        existing_tracks = {int(item["track_id"]): item for item in self.state.tracking.active_tracks() if item.get("track_id") is not None}
+        # Use the same monotonic instant for expiry and the later domain
+        # update. Clear expired identities before inference, including when a
+        # detector immediately reuses an ID after a long gap.
+        frame_timestamp = monotonic()
+        existing_tracks = {
+            int(item["track_id"]): item
+            for item in self.state.tracking.active_tracks()
+            if item.get("track_id") is not None
+            and frame_timestamp - float(item.get("last_seen_monotonic", frame_timestamp)) <= self.state.tracking.config.track_timeout
+        }
+        self._prune_track_evidence(set(existing_tracks))
         for detection in detections:
             if detection.track_id is None:
                 self._record_model2_skip("untracked_detection")
@@ -1030,7 +1176,11 @@ class CameraInspectionService:
                 continue
             scheduled_track_ids.add(track_id)
             eligible.append(detection)
-        if self.quality_model is not None and eligible:
+        if self.quality_model is not None and eligible and frame_timestamp < self._model2_retry_after:
+            affected = [item for item in eligible if not bool(existing_tracks.get(int(item.track_id), {}).get("counted"))]
+            self._record_model2_failures(frame, affected, "Model 2 retry is temporarily delayed after an inference failure.")
+        elif self.quality_model is not None and eligible:
+            completed_ids: set[int] = set()
             try:
                 if isinstance(self.quality_model, YoloQualityModel) and self.quality_model.model is None:
                     # Keep the counted fish explicit: a missing local Model 2
@@ -1049,24 +1199,24 @@ class CameraInspectionService:
                             frame_shape=frame.shape,
                         )
                         self._record_quality_observation(detection, result, bounds, crop.shape, fresh, frame=frame, crop=crop)
+                        completed_ids.add(int(detection.track_id))
                 elif self.quality_model.model is not None and isinstance(self.quality_model, YoloQualityModel) and self.quality_inference_mode == "full_frame":
                     # Ownership must consider every visible fish, even if it
                     # is finalized, not scheduled, or temporarily untracked.
-                    # Untracked parents get frame-local IDs and are never graded.
+                    # Untracked and duplicate-ID detections get frame-local IDs
+                    # and compete for ownership without being graded twice.
                     tracked_ids = {int(item.track_id) for item in detections if item.track_id is not None}
                     parents = []
                     seen_ids: set[int] = set()
                     transient_id = -1
                     for item in detections:
-                        if item.track_id is None:
+                        if item.track_id is None or int(item.track_id) in seen_ids:
                             while transient_id in tracked_ids:
                                 transient_id -= 1
                             parent_id = transient_id
                             transient_id -= 1
                         else:
                             parent_id = int(item.track_id)
-                            if parent_id in seen_ids:
-                                continue
                         seen_ids.add(parent_id)
                         parents.append(ParentAnchor(parent_id, item.bbox, item.confidence))
                     full_frame_results = self.quality_model.predict_full_frame(
@@ -1076,9 +1226,12 @@ class CameraInspectionService:
                     self._runtime_metrics.record_call("model2")
                     self._runtime_metrics.record_latency("model2_inference", self.quality_model.last_inference_seconds)
                     self._runtime_metrics.record_latency("association", self.quality_model.last_association_seconds)
+                    self._runtime_metrics.record_latency("roi_extraction", self.quality_model.last_full_frame_roi_seconds)
+                    self._runtime_metrics.record_latency("part_assignment", self.quality_model.last_part_assignment_seconds)
                     for detection in eligible:
                         result, bounds = full_frame_results[int(detection.track_id)]
                         self._record_quality_observation(detection, result, bounds, (bounds.height, bounds.width, frame.shape[2]), fresh)
+                        completed_ids.add(int(detection.track_id))
                 elif self.quality_model.model is not None:
                     for detection in eligible:
                         roi_started = monotonic()
@@ -1108,16 +1261,22 @@ class CameraInspectionService:
                             # Compatibility adapter path; production uses
                             # YoloQualityModel and the canonical policy.
                             result = self.quality_model.predict(crop, int(detection.track_id))
+                            self._runtime_metrics.record_call("model2")
+                        self._runtime_metrics.record_latency("model2_inference", getattr(self.quality_model, "last_inference_seconds", None))
                         self._record_quality_observation(detection, result, bounds, crop.shape, fresh, frame=frame, crop=crop)
+                        completed_ids.add(int(detection.track_id))
+                if self._model2_failure_count and self.quality_model.model is not None:
+                    self._model2_failure_count = 0
+                    self._model2_retry_after = 0.0
+                    self.state.set_segmenter("ready", getattr(self.quality_model, "name", None), str(getattr(self.quality_model, "weights_path", None)), "Quality Model inference recovered.")
             except Exception as exc:
                 LOGGER.exception("Model 2 %s processing failed.", self.quality_inference_mode)
-                self.state.set_segmenter("error", self.quality_model.name, str(self.quality_model.weights_path), f"Quality Model inference failed: {exc}")
-        active_ids = {detection.track_id for detection in detections if detection.track_id is not None}
-        self._track_grades = {track_id: grade for track_id, grade in self._track_grades.items() if track_id in active_ids}
-        self._last_segmented_frame = {track_id: seen for track_id, seen in self._last_segmented_frame.items() if track_id in active_ids}
-        self._latest_part_overlays = {track_id: overlay for track_id, overlay in self._latest_part_overlays.items() if track_id in active_ids}
-        if self.quality_model is not None and hasattr(self.quality_model, "prune_tracks"):
-            self.quality_model.prune_tracks(active_ids)
+                message = f"Quality Model inference failed: {exc}"
+                self._model2_failure_count = min(self._model2_failure_count + 1, 6)
+                self._model2_retry_after = monotonic() + min(5.0, .25 * (2 ** (self._model2_failure_count - 1)))
+                self.state.set_segmenter("error", getattr(self.quality_model, "name", None), str(getattr(self.quality_model, "weights_path", None)), message)
+                affected = [item for item in eligible if int(item.track_id) not in completed_ids and not bool(existing_tracks.get(int(item.track_id), {}).get("counted"))]
+                self._record_model2_failures(frame, affected, message)
         for detection in detections:
             overlay = self._latest_part_overlays.get(int(detection.track_id)) if detection.track_id is not None else None
             compatible = bool(overlay and overlay[0].parts)
@@ -1144,10 +1303,15 @@ class CameraInspectionService:
         events = self.state.process_detections(
             detections,
             frame_size,
-            grades=self._track_grades,
+            timestamp=frame_timestamp,
+            grades={
+                track_id: grade for track_id, grade in self._track_grades.items()
+                if not (isinstance(self.quality_model, YoloQualityModel) and bool(existing_tracks.get(track_id, {}).get("counted")))
+            },
             processing_time_ms=processing_time_ms,
         )
         tracking_ms = (monotonic() - tracking_started) * 1000
+        self._runtime_metrics.record_latency("event_tracking", tracking_ms / 1000.0)
         for event in events:
             event_performance = event.analysis.get("performance") if isinstance(event.analysis.get("performance"), dict) else {}
             self.state.tracking.update_event_analysis(
@@ -1168,7 +1332,8 @@ class CameraInspectionService:
         # Preserve the last real Model 2 boxes for each still-active track
         # between scheduled Model 2 frames. Previously ``fresh`` made boxes
         # vanish for the interval gap even when the UI control was enabled.
-        overlays = [(observation, bounds) for observation, bounds, _frame_id in self._latest_part_overlays.values()]
+        visible_ids = {int(item.track_id) for item in detections if item.track_id is not None}
+        overlays = [(observation, bounds) for track_id, (observation, bounds, _frame_id) in self._latest_part_overlays.items() if track_id in visible_ids]
         annotated = self._annotate_quality(self._annotate(frame, detections, cv2), overlays, cv2)
         self._runtime_metrics.record_latency("overlay_rendering", monotonic() - overlay_started)
         self._runtime_metrics.record_latency("total_processing", monotonic() - processing_started)
@@ -1214,7 +1379,12 @@ class CameraInspectionService:
                 self.state.mark_error(f"Camera {self.camera_index} stopped returning frames.")
                 self._stop_event.set()
                 return
-            self._latest_frames.offer(frame, captured_at=monotonic())
+            captured_at = monotonic()
+            try:
+                self.raw_preview.offer(frame, captured_at)
+            except Exception:
+                LOGGER.exception("Raw preview frame could not be copied")
+            self._latest_frames.offer(frame, captured_at=captured_at)
             self._runtime_metrics.record_call("camera_capture")
 
     def _run(self) -> None:
@@ -1241,7 +1411,10 @@ class CameraInspectionService:
                 # A missing profile is normal on a new installation. A profile
                 # error must never block raw acquisition or grading.
                 LOGGER.info("[CAMERA] Inspection profile was not applied: %s", exc)
+            if self._stop_event.is_set():
+                return
             self.state.mark_running()
+            self.raw_preview.start(self._stop_event, cv2)
             self._capture_thread = Thread(target=self._capture_frames, args=(capture,), name="camera-capture", daemon=True)
             self._capture_thread.start()
             previous_time = monotonic()
@@ -1286,6 +1459,7 @@ class CameraInspectionService:
             self.state.mark_error(f"Inspection failed: {exc}")
         finally:
             self._stop_event.set()
+            self.raw_preview.finish()
             capture_thread = self._capture_thread
             if capture_thread is not None:
                 capture_thread.join(timeout=.5)
@@ -1294,5 +1468,6 @@ class CameraInspectionService:
                 self.camera_controls.detach(capture)
                 with self.camera_controls.lock:
                     capture.release()
-            if self.state.snapshot()["inspection_status"] != "errored":
-                self.state.mark_stopped()
+            # A separate, bounded-count daemon joins this worker before closing
+            # the durable session or permitting a new worker.
+            self._schedule_finalizer(current_thread())

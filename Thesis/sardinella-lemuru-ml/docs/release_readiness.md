@@ -1,5 +1,7 @@
 # Release readiness and thesis-defense checklist
 
+This dated audit predates the subsequent `tail_optional_v1` policy change. Its historical test counts and fixed-weight policy observations are not a validation of that change; see `adaptive_tail_policy.md` for the current design and remaining study requirements.
+
 Audit date: 2026-10-17. **Overall: BLOCKED for a validated release.** The
 software checks and one checkpoint-backed compatibility smoke passed in this
 environment. No independent fish-level performance or real-camera performance

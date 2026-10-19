@@ -15,6 +15,22 @@ The repository is deliberately fail-closed. Commands that could produce a mislea
 experiment stop when reviewed annotations, physical-specimen grouping, duplicate
 review, class coverage, or split provenance are missing.
 
+## Other Files archive layout
+
+This folder keeps retained research artifacts separate from the canonical
+application under `Thesis/sardinella-lemuru-ml/`:
+
+```text
+data/         CSV exports, manifests, and training history
+models/       retained model checkpoints
+results/      generated plots and figures
+logs/         dashboard output and error logs
+scripts/      standalone utility scripts
+config/       run configuration and training YAML
+environment/  dependency requirement files
+notes/        prompts, run notes, and troubleshooting notes
+```
+
 ## Where to put the raw images
 
 Place the original camera files in exactly these four folders:
@@ -114,7 +130,7 @@ validation data only.
 From the repository root:
 
 ```bash
-python -m pip install -r requirements.txt
+python -m pip install -r environment/requirements.txt
 ```
 
 Run commands from this directory so configuration-relative paths resolve correctly.
@@ -186,13 +202,13 @@ tests/                          model-free unit/integration coverage and opt-in 
 Open PowerShell in the `Thesis` repository directory:
 
 ```powershell
-py -m pip install -r requirements.txt
+py -m pip install -r "Other Files\environment\requirements.txt"
 py -m src.api
 ```
 
-`requirements.txt` is the canonical runtime/model-free-test dependency set.
-`requirements-legacy-research.txt` and `requirements-comparison.txt` are optional
-research-only extras; `requirements_actual.txt` is an environment inventory, not a
+`Other Files\environment\requirements.txt` is the canonical runtime/model-free-test
+dependency set. The other files in `Other Files\environment\` are optional
+research-only extras or environment inventories; `requirements_actual.txt` is not a
 deployable dependency specification.
 
 Then open `http://127.0.0.1:8000`. Click **Start Inspection** to open the camera
@@ -602,7 +618,7 @@ scan is a review aid only and never moves or deletes data.
 ```powershell
 python -m src.evaluation.dataset_independence `
   --manifest datasets\future_study_manifest.csv `
-  --model-training-manifest training_manifest.csv `
+  --model-training-manifest "Other Files\data\training_manifest.csv" `
   --near-duplicates `
   --output results\future_study\dataset_independence_audit.json `
   --proposed-split-manifest results\future_study\proposed_group_aware_split.csv

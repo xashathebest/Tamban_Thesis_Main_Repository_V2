@@ -9,7 +9,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import json
 import logging
+import os
 from pathlib import Path
+import tempfile
 from typing import Any, Mapping
 
 from src.preprocessing.audit_v7_exports import SOURCE_CLASSES
@@ -170,17 +172,20 @@ class ModelRegistry:
         return self.get_default_model2_id()
 
     def persist_model2_selection(self, model_id: str) -> None:
-        """Persist the operator's Model 2 selection."""
+        """Atomically persist the selection, reporting failures to the caller."""
         if model_id not in self._entries:
             raise ModelRegistryError(f"Cannot persist unknown model ID: {model_id}")
+        temporary_path: Path | None = None
         try:
             self.settings_path.parent.mkdir(parents=True, exist_ok=True)
-            self.settings_path.write_text(
-                json.dumps({"selected_model2": model_id}, indent=2),
-                encoding="utf-8",
-            )
-        except OSError as exc:
-            LOGGER.warning("Could not persist model selection: %s", exc)
+            with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=self.settings_path.parent,
+                                             prefix=".active_model_", suffix=".tmp", delete=False) as handle:
+                temporary_path = Path(handle.name)
+                json.dump({"selected_model2": model_id}, handle, indent=2)
+            os.replace(temporary_path, self.settings_path)
+        finally:
+            if temporary_path is not None:
+                temporary_path.unlink(missing_ok=True)
 
     def resolve_checkpoint_path(self, model_id_or_entry: str | ModelEntry) -> Path:
         """Resolve checkpoint path relative to project root with boundary check."""

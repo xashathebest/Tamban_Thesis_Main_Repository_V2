@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import platform
 import time
 from datetime import datetime, timezone
@@ -44,20 +45,26 @@ def _reason(status: dict, runtime: dict) -> str | None:
         return 'Inspection is not running; camera and processing FPS are not measured.'
     if status.get('camera_status') != 'connected':
         return 'Camera is not connected; live FPS is not measured.'
+    if status.get('runtime_mode') != 'whole_fish':
+        return 'Whole-fish inspection mode is not active; the two-model baseline is not measured.'
+    models = status.get('model_info') or {}
+    if any((models.get(name) or {}).get('status') != 'ready' for name in ('detector', 'quality')):
+        return 'A required model is not ready; the two-model baseline is not measured.'
     return None
 
 
 def _safe_metadata(status: dict, camera: dict) -> dict:
     # Do not persist event histories, debug artifacts, frames, or review data.
     model_info = status.get('model_info') or {}
-    return {key: status.get(key) for key in ('inspection_status', 'camera_status', 'runtime_mode', 'resolution',
+    return {key: status.get(key) for key in ('inspection_status', 'camera_status', 'runtime_mode', 'frame_size',
                                                'active_model2_id', 'device_report', 'durable_session')} | {
         'model_info': {name: model_info.get(name) for name in ('detector', 'quality')}, 'camera': camera}
 
 
 def _counter_delta(start: dict, end: dict, key: str) -> int | None:
     before, after = start.get(key), end.get(key)
-    if not isinstance(before, int) or isinstance(before, bool) or not isinstance(after, int) or after < before:
+    if (not isinstance(before, int) or isinstance(before, bool) or not isinstance(after, int)
+            or isinstance(after, bool) or after < before):
         return None
     return after - before
 
@@ -67,13 +74,15 @@ def collect(base: str, scenario: str, duration: int = 60, warmup: int = 15, inte
     parsed = urlparse(base)
     if parsed.scheme != 'http' or parsed.hostname not in {'localhost', '127.0.0.1', '::1'} or parsed.username or parsed.password:
         raise ValueError('Benchmark URL must be a local HTTP server.')
-    if scenario not in {'empty', 'one_fish', 'overlap'} or not 60 <= duration <= 120 or warmup < 0 or interval <= 0:
-        raise ValueError('Choose a supported scenario, duration 60-120 s, nonnegative warmup, and positive interval.')
+    if (scenario not in {'empty', 'one_fish', 'overlap'} or not 60 <= duration <= 120
+            or warmup < 0 or not math.isfinite(interval) or interval < 0.25):
+        raise ValueError('Choose a supported scenario, duration 60-120 s, nonnegative warmup, and interval >= 0.25 s.')
     result = {'schema': 'runtime-benchmark-v1', 'recorded_at': datetime.now(timezone.utc).isoformat(),
               'scenario_operator_declared': scenario, 'duration_requested_seconds': duration, 'warmup_seconds': warmup,
               'hardware_collector': _hardware(), 'status': 'NOT_MEASURED', 'samples': [],
               'limitations': ['Rolling server percentile windows can contain frames from before this scenario.',
                               'Timing stages may overlap; do not add them or assume the largest is exclusive.',
+                              'GPU stage timings are host-observed and may not represent completed asynchronous GPU work.',
                               'MJPEG dispatch is server pacing, not browser-visible preview FPS.',
                               'Frame-rate evidence is not fish accuracy or throughput ground truth.']}
     try:
@@ -90,6 +99,7 @@ def collect(base: str, scenario: str, duration: int = 60, warmup: int = 15, inte
         if reason:
             result['reason'] = 'After warmup: ' + reason
             return result
+        warmed_metadata = _safe_metadata(status, fetch(base, '/api/camera/settings'))
         started = clock()
         while True:
             runtime = fetch(base, '/api/debug/runtime')
@@ -109,6 +119,27 @@ def collect(base: str, scenario: str, duration: int = 60, warmup: int = 15, inte
         if reason:
             result['reason'] = 'At end of run: ' + reason
             return result
+        # A changed session/configuration invalidates a same-conditions run.
+        for key in ('runtime_mode', 'active_model2_id', 'durable_session', 'frame_size'):
+            if warmed_metadata.get(key) != result['final_metadata'].get(key):
+                result['reason'] = f'{key} changed during the measurement.'
+                return result
+        for name in ('detector', 'quality'):
+            before = warmed_metadata['model_info'].get(name) or {}
+            after = result['final_metadata']['model_info'].get(name) or {}
+            for key in ('name', 'status', 'device', 'image_size', 'confidence_threshold', 'quality_interval', 'quality_inference_mode', 'roi_padding'):
+                if before.get(key) != after.get(key):
+                    result['reason'] = f'{name} {key} changed during the measurement.'
+                    return result
+            if (before.get('diagnostics') or {}).get('checkpoint_sha256') != (after.get('diagnostics') or {}).get('checkpoint_sha256'):
+                result['reason'] = f'{name} checkpoint changed during the measurement.'
+                return result
+        camera_before = (warmed_metadata['camera'].get('camera') or {})
+        camera_after = (result['final_metadata']['camera'].get('camera') or {})
+        for key in ('device_index', 'backend', 'capture_resolution', 'fps'):
+            if camera_before.get(key) != camera_after.get(key):
+                result['reason'] = f'Camera {key} changed during the measurement.'
+                return result
         first, last = result['samples'][0], result['samples'][-1]
         elapsed = last['elapsed_seconds'] - first['elapsed_seconds']
         initial_queue, final_queue = first['frame_queue'], last['frame_queue']
@@ -124,6 +155,9 @@ def collect(base: str, scenario: str, duration: int = 60, warmup: int = 15, inte
             change = _counter_delta(calls_before, calls_after, key)
             rates[key + '_calls'] = change
             rates[key + '_per_second'] = round(change / elapsed, 3) if change is not None and elapsed > 0 else None
+        if not rates['captured_frames_delta'] or not rates['processed_frame_calls'] or not rates['model1_calls']:
+            result['reason'] = 'Capture, published frames, or Model 1 activity was absent or its counter reset.'
+            return result
         result.update(status='MEASURED', duration_observed_seconds=round(elapsed, 3), rates=rates,
                       final_rolling_timings=last['performance'].get('timings', {}))
     except (OSError, URLError, ValueError, TimeoutError) as exc:
@@ -139,6 +173,12 @@ def markdown(report: dict) -> str:
                   '## Final rolling timing window (milliseconds)', '', '| Stage | Samples | p50 | p95 |', '|---|---:|---:|---:|']
         for name, values in sorted(report.get('final_rolling_timings', {}).items()):
             lines.append(f"| {name} | {values.get('count')} | {values.get('p50')} | {values.get('p95')} |")
+        lines += ['', 'Timing windows are bounded, potentially overlapping, and are not a causal bottleneck ranking.']
+    lines += ['', '## Conditions', '', '```json', json.dumps({
+        'hardware_collector': report.get('hardware_collector'),
+        'initial_metadata': report.get('initial_metadata'),
+        'final_metadata': report.get('final_metadata'),
+    }, indent=2), '```']
     lines += ['', '## Limitations', ''] + [f'- {item}' for item in report['limitations']]
     lines += ['', 'Processed FPS, camera capture FPS, and browser preview FPS are different quantities.',
               'Do not enable bounded debug capture for this procedure. The tool never controls the camera.', '']

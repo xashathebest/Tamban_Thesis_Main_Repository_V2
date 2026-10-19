@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections import Counter, deque
 from dataclasses import dataclass
+from math import isfinite
 from threading import Condition, Lock
 from time import monotonic
 from typing import Any
@@ -86,8 +87,9 @@ class RuntimeDiagnostics:
     accumulating a second, hidden frame/event history.
     """
 
-    def __init__(self, *, sample_limit: int = 300) -> None:
+    def __init__(self, *, sample_limit: int = 300, enabled: bool = True) -> None:
         self._lock = Lock()
+        self.enabled = enabled
         self._sample_limit = max(10, int(sample_limit))
         self._latencies: dict[str, deque[float]] = {}
         self._calls: dict[str, deque[float]] = {}
@@ -95,22 +97,26 @@ class RuntimeDiagnostics:
         self._confidence: dict[str, deque[float]] = {}
 
     def record_latency(self, name: str, seconds: float | None) -> None:
-        if seconds is None or seconds < 0:
+        if not self.enabled or seconds is None or not isfinite(seconds) or seconds < 0:
             return
         with self._lock:
             self._latencies.setdefault(name, deque(maxlen=self._sample_limit)).append(float(seconds) * 1000.0)
 
     def record_call(self, name: str, *, when: float | None = None) -> None:
+        if not self.enabled:
+            return
         with self._lock:
             self._calls.setdefault(name, deque(maxlen=self._sample_limit)).append(when if when is not None else monotonic())
             self._counts[name] += 1
 
     def increment(self, name: str, count: int = 1) -> None:
+        if not self.enabled:
+            return
         with self._lock:
             self._counts[name] += int(count)
 
     def record_confidence(self, region: str, confidence: float) -> None:
-        if not 0.0 <= confidence <= 1.0:
+        if not self.enabled or not 0.0 <= confidence <= 1.0:
             return
         with self._lock:
             self._confidence.setdefault(region, deque(maxlen=self._sample_limit)).append(float(confidence))
@@ -132,18 +138,21 @@ class RuntimeDiagnostics:
     def snapshot(self) -> dict[str, object]:
         now = monotonic()
         with self._lock:
-            timings = {name: self._summary(list(samples)) for name, samples in self._latencies.items()}
-            confidence = {
+            latency_samples = {name: list(samples) for name, samples in self._latencies.items()}
+            confidence_samples = {name: list(samples) for name, samples in self._confidence.items()}
+            call_samples = {name: list(samples) for name, samples in self._calls.items()}
+            counters = dict(self._counts)
+        # Percentile sorting must not hold the recorder lock used by capture.
+        return {
+            "recording_enabled": self.enabled,
+            "timings": {name: self._summary(samples) for name, samples in latency_samples.items()},
+            "confidence_distributions": {
                 region: self._summary([value * 100.0 for value in samples], unit="percent")
-                for region, samples in self._confidence.items()
-            }
-            call_rates = {
-                name: round(sum(timestamp >= now - 1.0 for timestamp in samples), 2)
-                for name, samples in self._calls.items()
-            }
-            return {
-                "timings": timings,
-                "confidence_distributions": confidence,
-                "calls_per_second": call_rates,
-                "counters": dict(self._counts),
-            }
+                for region, samples in confidence_samples.items()
+            },
+            "calls_per_second": {
+                name: round(sum(now - 1.0 <= timestamp <= now for timestamp in samples), 2)
+                for name, samples in call_samples.items()
+            },
+            "counters": counters,
+        }

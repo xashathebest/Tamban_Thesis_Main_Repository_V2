@@ -1,6 +1,6 @@
 # Research architecture and methods status
 
-This describes the checked repository state on 2026-10-17. It is not a claim of
+Updated for the adaptive tail policy after the 2026-10-17 audit. It is not a claim of
 fish-level accuracy or proof that the part weights are optimal.
 
 ```mermaid
@@ -11,7 +11,7 @@ flowchart TD
   Q --> A
   A --> T[Live: eligible distinct frames in temporal window]
   A --> S[Still image: single-frame evidence]
-  T --> W[Fixed Body 50%, Head 30%, Tail 20% support and gates]
+  T --> W[Body and Head required; optional Tail weights and gates]
   S --> W
   W --> V[Class A / B / C / Rejected / Ungraded]
   A --> D[Rectangular ROI image measurements: diagnostics only]
@@ -21,9 +21,10 @@ flowchart TD
 
 Live evidence requires sufficient reliable observations; ambiguity clears the
 active history and eligible later frames can recover. Unobserved anatomy does
-not prove physical absence. Missing regions contribute zero without changing
-the original weights. The shipped `standard` policy requires Body and original
-coverage; the stricter `two_part_v1` is opt-in and awaits expert approval.
+not prove physical absence. The shipped `tail_optional_v1` policy requires Body
+and Head: it uses 50/30/20 with Tail, or 62.5/37.5/0 without Tail. The earlier
+`standard` and `two_part_v1` fixed-weight policies remain available for replay.
+The adaptive policy is a design proposal, not an independently validated result.
 Rejected uses Model 2 trained `Rejected_*` labels; Ungraded means the evidence
 or acceptance gates did not justify a verdict.
 

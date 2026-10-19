@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from importlib.util import find_spec
 import logging
+import os
 from pathlib import Path
 from threading import RLock
 from time import perf_counter
@@ -19,7 +20,7 @@ import numpy as np
 
 from src.api.domain import Detection
 from src.inference.fish_detector import FISH_CLASS_ID, FISH_CLASS_NAME, _ByteTrackInput, _default_tracker_factory
-from src.inference.model_traceability import shortened_sha256
+from src.inference.model_traceability import full_sha256
 from src.inference.preprocessing import clamp_bbox, validate_image
 
 
@@ -155,6 +156,7 @@ class YoloFishDetector:
         device: str = "auto",
         image_size: int = 640,
         tracker_config: str = "bytetrack.yaml",
+        require_bytetrack: bool = False,
         model_factory: Callable[[str], Any] | None = None,
         tracker_factory: Callable[[str], Any] | None = None,
     ) -> None:
@@ -167,6 +169,7 @@ class YoloFishDetector:
         self.requested_device = device
         self.image_size = image_size
         self.tracker_config = tracker_config
+        self.require_bytetrack = require_bytetrack
         self._model_factory = model_factory
         self._tracker_factory = tracker_factory or _default_tracker_factory
         self.model: Any | None = None
@@ -175,9 +178,12 @@ class YoloFishDetector:
         self.error: str | None = None
         self.class_names: tuple[str, ...] = ()
         self.tracker_backend = "unresolved"
+        self.tracker_warning: str | None = None
         self.last_inference_seconds: float | None = None
         self.last_tracking_seconds: float | None = None
         self.checkpoint_sha256: str | None = None
+        self.checkpoint_sha256_full: str | None = None
+        self.checkpoint_integrity = "unresolved"
         self._lock = RLock()
 
     @property
@@ -225,6 +231,21 @@ class YoloFishDetector:
             self.error = f"Model 1 checkpoint was not found: {self.model_path}. Set FISH_DETECTOR_MODEL_PATH to an existing local checkpoint."
             return False
         try:
+            checksum = full_sha256(self.model_path)
+            if checksum is None:
+                raise YoloFishDetectorLoadError("Cannot hash Model 1 checkpoint.")
+            strict_integrity = os.getenv("FISH_STRICT_MODEL_INTEGRITY", "0").strip().lower() in {"1", "true", "yes", "on"}
+            integrity = "not_checked"
+            if strict_integrity:
+                from src.inference.model_registry import get_model_registry
+                registry = get_model_registry()
+                entry = registry.get_model(registry.get_default_model1_id())
+                if entry is None or registry.resolve_checkpoint_path(entry) != self.model_path.resolve():
+                    raise YoloFishDetectorLoadError("Strict model integrity requires the registered Model 1 checkpoint path.")
+                expected = getattr(entry, "sha256", None)
+                if not isinstance(expected, str) or len(expected.strip()) != 64 or checksum != expected.strip().lower():
+                    raise YoloFishDetectorLoadError("Model 1 SHA-256 mismatch or missing registry hash.")
+                integrity = "verified"
             factory = self._model_factory
             if factory is None:
                 from ultralytics import YOLO
@@ -236,14 +257,21 @@ class YoloFishDetector:
                 raise YoloFishDetectorLoadError(f"Model 1 must be a YOLO detection checkpoint, got task={getattr(model, 'task', None)!r}.")
             labels = validate_yolo_fish_detector_class_mapping(getattr(model, "names", {}))
             if self._tracker_factory is not _default_tracker_factory:
+                if self.require_bytetrack:
+                    raise YoloFishDetectorLoadError("Strict ByteTrack mode does not permit a custom tracker.")
                 tracker = self._tracker_factory(self.tracker_config)
                 tracker_backend = "custom tracker"
+                tracker_warning = "A custom tracker is active; ByteTrack has not been verified."
             elif find_spec("lap") is None:
+                if self.require_bytetrack:
+                    raise YoloFishDetectorLoadError("ByteTrack is required, but the lap dependency is unavailable. Install the optional ByteTrack requirements.")
                 tracker = _IoUTracker()
                 tracker_backend = "IoU fallback (optional ByteTrack lap dependency unavailable)"
+                tracker_warning = "ByteTrack is unavailable because lap is missing. IoU fallback is active; tracking results may differ."
             else:
                 tracker = self._tracker_factory(self.tracker_config)
                 tracker_backend = "ByteTrack"
+                tracker_warning = None
         except YoloFishDetectorLoadError as exc:
             self.error = str(exc)
             return False
@@ -251,8 +279,13 @@ class YoloFishDetector:
             self.error = f"Unable to load Model 1 as a local YOLO detector. Verify the checkpoint and Ultralytics/PyTorch installation. Details: {exc}"
             return False
         self.model, self._tracker, self.class_names, self.tracker_backend, self.error = model, tracker, labels, tracker_backend, None
+        self.tracker_warning = tracker_warning
+        if tracker_warning:
+            LOGGER.warning("[TRACKER] %s", tracker_warning)
         # Calculated once at successful startup, never once per camera frame.
-        self.checkpoint_sha256 = shortened_sha256(self.model_path)
+        self.checkpoint_sha256_full = checksum
+        self.checkpoint_sha256 = checksum[:12]
+        self.checkpoint_integrity = integrity
         LOGGER.info(
             "[MODEL 1] requested_device=%s resolved_device=%s class_mapping=%s tracker=%s",
             self.requested_device,
@@ -301,7 +334,7 @@ class YoloFishDetector:
 
     def predict(self, frame_bgr: Any) -> list[Detection]:
         if self._tracker is None:
-            raise YoloFishDetectorInferenceError(self.error or "Model 1 ByteTrack is not initialized.")
+            raise YoloFishDetectorInferenceError(self.error or "Model 1 tracker is not initialized.")
         raw = self.detect(frame_bgr)
         try:
             with self._lock:
@@ -309,7 +342,7 @@ class YoloFishDetector:
                 tracks = self._tracker.update(_ByteTrackInput(raw), frame_bgr)
                 self.last_tracking_seconds = perf_counter() - started
         except Exception as exc:
-            raise YoloFishDetectorInferenceError(f"Model 1 ByteTrack update failed: {exc}") from exc
+            raise YoloFishDetectorInferenceError(f"Model 1 {self.tracker_backend} update failed: {exc}") from exc
         detections: list[Detection] = []
         for track in np.asarray(tracks, dtype=np.float64).reshape((-1, 8)) if len(tracks) else ():
             source_index = int(track[7])
@@ -328,6 +361,8 @@ class YoloFishDetector:
         return {
             "device": self.device,
             "tracker": self.tracker_backend,
+            "tracker_warning": self.tracker_warning,
+            "bytetrack_required": self.require_bytetrack,
             "last_inference_ms": round(self.last_inference_seconds * 1000, 2) if self.last_inference_seconds is not None else None,
             "last_tracking_ms": round(self.last_tracking_seconds * 1000, 2) if self.last_tracking_seconds is not None else None,
             "checkpoint_name": self.model_path.name if self.model_path else None,

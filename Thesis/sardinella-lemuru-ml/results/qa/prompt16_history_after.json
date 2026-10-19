@@ -1,0 +1,84 @@
+{
+  "method": "Synthetic SQLite rows; single call per measurement; tracemalloc Python allocation peak, not process RSS; no camera or FPS measurement.",
+  "results": [
+    {
+      "records": 100,
+      "history_first_page": {
+        "milliseconds": 4.37,
+        "python_peak_bytes": 79254,
+        "result_size": 25
+      },
+      "analytics_first": {
+        "milliseconds": 15.39,
+        "python_peak_bytes": 136580,
+        "result_size": 100
+      },
+      "analytics_repeat": {
+        "milliseconds": 3.29,
+        "python_peak_bytes": 59974,
+        "result_size": 100
+      },
+      "live_status": {
+        "milliseconds": 2.34,
+        "python_peak_bytes": 12732,
+        "result_size": 0
+      }
+    },
+    {
+      "records": 10000,
+      "history_first_page": {
+        "milliseconds": 5.4,
+        "python_peak_bytes": 67248,
+        "result_size": 25
+      },
+      "analytics_first": {
+        "milliseconds": 511.96,
+        "python_peak_bytes": 725544,
+        "result_size": 500
+      },
+      "analytics_repeat": {
+        "milliseconds": 5.6,
+        "python_peak_bytes": 273958,
+        "result_size": 500
+      },
+      "live_status": {
+        "milliseconds": 1.95,
+        "python_peak_bytes": 9903,
+        "result_size": 0
+      }
+    },
+    {
+      "records": 100000,
+      "history_first_page": {
+        "milliseconds": 12.32,
+        "python_peak_bytes": 65065,
+        "result_size": 25
+      },
+      "analytics_first": {
+        "milliseconds": 4985.12,
+        "python_peak_bytes": 714306,
+        "result_size": 500
+      },
+      "analytics_repeat": {
+        "milliseconds": 5.39,
+        "python_peak_bytes": 273908,
+        "result_size": 500
+      },
+      "live_status": {
+        "milliseconds": 1.81,
+        "python_peak_bytes": 9903,
+        "result_size": 0
+      },
+      "analytics_after_append": {
+        "milliseconds": 16.8,
+        "python_peak_bytes": 460520,
+        "result_size": 500
+      },
+      "analytics_after_review": {
+        "milliseconds": 22.75,
+        "python_peak_bytes": 642626,
+        "result_size": 500
+      }
+    }
+  ]
+}

@@ -335,27 +335,72 @@ class CameraHardwareController:
     def set_autofocus(self, enabled: bool) -> dict[str, object]:
         return self._set_auto_property("autofocus", enabled)
 
-    def apply_settings(self, values: dict[str, object]) -> dict[str, object]:
-        """Apply supported controls sequentially and preserve every readback."""
+    def validate_settings(self, values: dict[str, object]) -> dict[str, str]:
+        """Check the entire request without writing to the camera."""
+        errors: dict[str, str] = {}
+        with self.lock:
+            for key, value in values.items():
+                try:
+                    item = self._require_supported(key)
+                    if item.automatic:
+                        if not isinstance(value, bool):
+                            raise CameraControlError(f"{item.label} must be true or false.")
+                    else:
+                        if isinstance(value, bool):
+                            raise CameraControlError(f"{item.label} must be a finite number.")
+                        try:
+                            number = float(value)
+                        except (TypeError, ValueError):
+                            raise CameraControlError(f"{item.label} must be a finite number.") from None
+                        if not isfinite(number):
+                            raise CameraControlError(f"{item.label} must be a finite number.")
+                except CameraControlError as exc:
+                    errors[key] = str(exc)
+        return errors
 
-        requested: dict[str, object] = {}
-        results: dict[str, dict[str, object]] = {}
-        for key, value in values.items():
-            if key not in PROPERTY_BY_KEY:
-                continue
-            requested[key] = value
-            try:
-                result = self._set_auto_property(key, value) if PROPERTY_BY_KEY[key].automatic else self.set_camera_property(key, value)
-            except CameraControlError as exc:
-                result = {"success": False, "property": key, "requested": value, "actual": self._read_value(PROPERTY_BY_KEY[key]), "reason": str(exc)}
-            results[key] = result
-        actual = self.settings()["actual"]
-        return {
-            "success": bool(results) and all(bool(result["success"]) for result in results.values()),
-            "requested": requested,
-            "actual": actual,
-            "results": results,
-        }
+    def apply_settings(self, values: dict[str, object]) -> dict[str, object]:
+        """Preflight all controls and report best-effort rollback of rejected writes."""
+        with self.lock:
+            requested = dict(values)
+            before = self.settings()["actual"]
+            errors = self.validate_settings(values)
+            results: dict[str, dict[str, object]] = {}
+            rollback: dict[str, dict[str, object]] = {}
+            if errors:
+                for key, value in values.items():
+                    results[key] = {"success": False, "property": key, "requested": value,
+                                    "actual": before.get(key), "reason": errors.get(key, "Not applied because another setting is invalid.")}
+            else:
+                attempted: list[str] = []
+                for key, value in values.items():
+                    item = PROPERTY_BY_KEY[key]
+                    attempted.append(key)
+                    try:
+                        result = self._set_auto_property(key, value) if item.automatic else self.set_camera_property(key, value)
+                    except Exception as exc:
+                        result = {"success": False, "property": key, "requested": value, "actual": self._read_value(item), "reason": str(exc)}
+                    results[key] = result
+                    if not result["success"]:
+                        for prior in reversed(attempted):
+                            previous = before.get(prior)
+                            if previous is None:
+                                rollback[prior] = {"success": False, "reason": "Previous readback unavailable."}
+                                continue
+                            try:
+                                item = PROPERTY_BY_KEY[prior]
+                                rollback[prior] = self._set_auto_property(prior, previous) if item.automatic else self.set_camera_property(prior, previous)
+                            except Exception as exc:
+                                rollback[prior] = {"success": False, "reason": str(exc)}
+                        for pending, pending_value in values.items():
+                            if pending not in results:
+                                results[pending] = {"success": False, "property": pending, "requested": pending_value,
+                                                    "actual": before.get(pending), "reason": "Not applied after another setting failed."}
+                        break
+            actual = self.settings()["actual"]
+            changed = any(before.get(key) != actual.get(key) for key in values)
+            return {"success": bool(results) and all(bool(result["success"]) for result in results.values()),
+                    "requested": requested, "before": before, "actual": actual, "results": results,
+                    "rollback": rollback, "changed": changed}
 
     def reset_camera_settings(self) -> dict[str, object]:
         """Restore the values reported when this camera was opened, never defaults."""

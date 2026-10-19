@@ -1,0 +1,25 @@
+{
+  "schema": "runtime-benchmark-v1",
+  "recorded_at": "2026-10-18T04:53:19.061522+00:00",
+  "scenario_operator_declared": "empty",
+  "duration_requested_seconds": 60,
+  "warmup_seconds": 15,
+  "hardware_collector": {
+    "os": "Windows-11-10.0.26200-SP0",
+    "cpu": "AMD64 Family 25 Model 68 Stepping 1, AuthenticAMD",
+    "python": "3.14.6",
+    "torch_version": "2.14.0+cpu",
+    "torch_cuda_version": null,
+    "torch_cuda_available": false,
+    "cuda_devices": []
+  },
+  "status": "NOT_MEASURED",
+  "samples": [],
+  "limitations": [
+    "Rolling server percentile windows can contain frames from before this scenario.",
+    "Timing stages may overlap; do not add them or assume the largest is exclusive.",
+    "MJPEG dispatch is server pacing, not browser-visible preview FPS.",
+    "Frame-rate evidence is not fish accuracy or throughput ground truth."
+  ],
+  "reason": "Server or measurement unavailable: <urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>"
+}

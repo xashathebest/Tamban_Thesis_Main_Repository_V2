@@ -1,0 +1,9 @@
+# 02 — Model selection and upload contract
+
+The API serializes inspection start, selection and settings with `_model_change_lock`. Starting, running, stopping or a live worker prevent selection changes; threshold changes are also rejected while a worker can process fish. An active durable session must be closed before switching. Model selection checks registry compatibility, and the adapter validates checkpoint identity/hash before replacing the loaded model. A failed load or persistence operation keeps the previous loaded selection.
+
+Uploads are decoded and bounded before shared state is touched. A supplied model ID must match the active Model 2; a different ID is rejected with 409 rather than switching it. Upload inference shares `service._processing_lock` with camera processing, so an upload and camera inference do not concurrently mutate grading state. Session metadata and per-event analysis derive ID, checkpoint and hash from loaded model state. Frontend controls reflect the active policy lock.
+
+Evidence: `src/api/app.py` selection, settings and upload routes; `src/inference/yolo_quality_model.py` loading/switching and trace; `src/inference/model_registry.py`; `tests/test_model_switch_safety.py`, `tests/test_multi_model_selection.py`, `tests/test_model_integrity_qa.py`. Focused command: `python -B -m pytest -q -p no:cacheprovider tests/test_model_switch_safety.py tests/test_multi_model_selection.py tests/test_model_integrity_qa.py --tb=short`: 58 passed, 1 warning; output in `02_model_selection.log`.
+
+No new defect was reproduced in these model-free checks; no application code changed. Guarantees are process-local, and independent camera processes, real multi-user deployment, model inference under real hardware and any file-replacement race between hashing and loading remain outside this test evidence.

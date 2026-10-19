@@ -27,7 +27,8 @@
 
 /* Foundations and accessible controls */
 * { box-sizing: border-box; }
-body { margin: 0; min-width: 320px; }
+html, body { width: 100%; min-height: 100%; }
+body { margin: 0; min-width: 0; background: var(--surface); }
 body.panel-open { overflow: hidden; }
 button, input, select, output { font: inherit; }
 button { cursor: pointer; touch-action: manipulation; }
@@ -69,8 +70,8 @@ summary { min-height: 44px; padding: 10px 0; cursor: pointer; font-size: 13px; f
 summary::marker { color: var(--ocean-500); }
 
 /* Mobile shell: status remains visible; navigation always has labels. */
-.app-shell { max-width: 1600px; margin: 0 auto; background: var(--surface); }
-.app-main { min-width: 0; max-width: 1480px; margin: 0 auto; padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
+.app-shell { width: 100%; min-height: 100dvh; margin: 0; background: var(--surface); }
+.app-main { min-width: 0; width: 100%; margin: 0; padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
 .sidebar { position: fixed; inset: auto 0 0; z-index: 7; padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); color: var(--text-primary); background: var(--surface); border: 0; border-top: 1px solid var(--border); border-radius: 0; }
 .brand-row, .sidebar-bottom { display: none; }
 .navigation { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
@@ -387,10 +388,12 @@ html, body { overflow-x: hidden; }
   .manual-review-controls { grid-template-columns: minmax(0, 1fr) auto; align-items: end; }
 }
 @media (min-width: 1024px) {
-  body { padding: 24px; background: var(--canvas); }
-  .app-shell { display: grid; grid-template-columns: 208px minmax(0, 1fr); min-height: calc(100dvh - 48px); border: 1px solid var(--border-strong); box-shadow: 0 12px 36px rgb(24 37 31 / 4%); }
+  /* The desktop sidebar is the single visible Settings and Export entry point. */
+  .header-tools { display: none; }
+  body { padding: 0; background: var(--surface); }
+  .app-shell { display: grid; grid-template-columns: 208px minmax(0, 1fr); max-width: none; min-height: 100dvh; border: 0; box-shadow: none; }
   .app-main { width: 100%; padding-bottom: 0; }
-  .sidebar { position: sticky; inset: auto; top: 0; display: flex; flex-direction: column; justify-content: space-between; align-self: start; height: calc(100dvh - 26px); padding: 22px 12px; border-top: 0; border-right: 1px solid var(--border); }
+  .sidebar { position: sticky; inset: auto; top: 0; display: flex; flex-direction: column; justify-content: space-between; align-self: start; height: 100dvh; padding: 22px 12px; border-top: 0; border-right: 1px solid var(--border); }
   .brand-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 0 2px; }
   .brand-mark { display: grid; place-items: center; width: 30px; height: 34px; color: var(--accent-text); background: var(--accent); border-radius: 9px; }
   .brand-mark .icon { width: 24px; height: 24px; }
@@ -443,11 +446,11 @@ html, body { overflow-x: hidden; }
   .runtime-diagnostics .settings-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; }
 }
 @media (min-width: 1280px) {
-  body { padding: 40px; }
-  .app-shell { grid-template-columns: 220px minmax(0, 1fr); min-height: calc(100dvh - 80px); }
-  .sidebar { height: calc(100dvh - 42px); padding-inline: 16px; }
+  body { padding: 0; }
+  .app-shell { grid-template-columns: 220px minmax(0, 1fr); min-height: 100dvh; }
+  .sidebar { height: 100dvh; padding-inline: 16px; }
   .app-header { margin-inline: 40px; }
-  .content { max-width: 1240px; margin-inline: auto; padding: 32px 40px; }
+  .content { max-width: none; margin-inline: 0; padding: 32px 40px; }
   .inspection-grid { grid-template-columns: minmax(0, 1fr) 300px; }
   .camera-readout { width: auto; order: 0; }
   .camera-actions .machine-controls { grid-template-columns: repeat(4, auto); }
