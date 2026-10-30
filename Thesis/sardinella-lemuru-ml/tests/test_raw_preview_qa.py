@@ -152,6 +152,7 @@ def test_repeated_preview_start_stop_joins_worker():
 
 
 def test_closed_stream_unsubscribes_and_revocation_stops(monkeypatch):
+    import asyncio
     import src.api.app as api
 
     preview = RawPreview(True)
@@ -160,23 +161,48 @@ def test_closed_stream_unsubscribes_and_revocation_stops(monkeypatch):
     monkeypatch.setattr(api, "service", SimpleNamespace(raw_preview=preview))
     authorized = [True]
     monkeypatch.setattr(api.lan_security, "stream_authorized", lambda request: authorized[0])
-    stream = api._raw_mjpeg_frames(None)
-    try:
+    async def exercise():
+        stream = api._raw_mjpeg_frames(None)
         # Generator subscribes when first iterated; publish from its polling callback.
-        def publish(_delay):
+        original_sleep = asyncio.sleep
+        async def publish(_delay):
             preview.offer(np.zeros((4, 4, 3), dtype=np.uint8), monotonic())
-            sleep(.02)
-        monkeypatch.setattr(api, "sleep", publish)
-        assert next(stream).startswith(b"--frame\r\n")
-        assert preview._subscribers == 1
-        authorized[0] = False
-        with pytest.raises(StopIteration):
-            next(stream)
-        assert preview._subscribers == 0
+            await original_sleep(.02)
+        with monkeypatch.context() as patch:
+            patch.setattr(api.asyncio, "sleep", publish)
+            try:
+                assert (await anext(stream)).startswith(b"--frame\r\n")
+                assert preview._subscribers == 1
+                authorized[0] = False
+                with pytest.raises(StopAsyncIteration):
+                    await anext(stream)
+                assert preview._subscribers == 0
+            finally:
+                await stream.aclose()
+    try:
+        asyncio.run(exercise())
     finally:
-        stream.close()
         stop.set()
         preview.finish()
+
+
+def test_idle_stream_can_be_cancelled_without_waiting_for_a_frame(monkeypatch):
+    import asyncio
+    import src.api.app as api
+
+    monkeypatch.setattr(api.lan_security, "stream_authorized", lambda request: True)
+    monkeypatch.setattr(api, "state", SimpleNamespace(frame=lambda: (None, 0), inspection_status="running"))
+
+    async def exercise():
+        stream = api._mjpeg_frames(None)
+        pending = asyncio.create_task(anext(stream))
+        await asyncio.sleep(.05)
+        pending.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await asyncio.wait_for(pending, timeout=1)
+        await stream.aclose()
+
+    asyncio.run(exercise())
 
 
 def test_disabled_route_returns_404(monkeypatch):

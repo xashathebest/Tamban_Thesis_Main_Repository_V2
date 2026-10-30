@@ -8,6 +8,7 @@ from pathlib import Path
 WHOLE_FISH_MODE = "whole_fish"
 PART_PREVIEW_MODE = "part_preview"
 RUNTIME_MODES = (WHOLE_FISH_MODE, PART_PREVIEW_MODE)
+QUALITY_INFERENCE_MODES = ("full_frame", "crop")
 
 
 def resolve_runtime_mode(value: str | None = None) -> str:
@@ -17,6 +18,27 @@ def resolve_runtime_mode(value: str | None = None) -> str:
     if mode not in RUNTIME_MODES:
         supported = ", ".join(RUNTIME_MODES)
         raise ValueError(f"Unsupported LEMURU_MODE {value!r}; expected one of: {supported}.")
+    return mode
+
+
+def resolve_quality_inference_mode(value: str | None, runtime_mode: str) -> str:
+    """Resolve a safe Model 2 inference mode for the selected application mode.
+
+    Crop-local part detection cannot establish parent ownership when more than
+    one fish is visible.  The whole-fish operator workflow therefore always
+    uses full-frame association, even if a stale environment setting requests
+    the legacy crop mode.  Crop mode remains available to isolated tooling and
+    the part-preview path where fish grading/counting is disabled.
+    """
+
+    mode = (value or "full_frame").strip().lower()
+    if mode not in QUALITY_INFERENCE_MODES:
+        supported = ", ".join(QUALITY_INFERENCE_MODES)
+        raise ValueError(
+            f"Unsupported FISH_QUALITY_INFERENCE_MODE {value!r}; expected one of: {supported}."
+        )
+    if runtime_mode == WHOLE_FISH_MODE and mode == "crop":
+        return "full_frame"
     return mode
 
 

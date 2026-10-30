@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 import tempfile
+import threading
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from src.api.database import InspectionDatabase, InspectionSessionContext, grading_config_hash
 from src.api.domain import Detection, QualitySummary, TrackingConfig, TrackingManager
@@ -110,13 +112,22 @@ class InspectionDatabaseTests(unittest.TestCase):
     def test_tracking_listener_persists_created_late_grade_and_review(self) -> None:
         session_id = self.database.create_session(self.metadata())
         tracking = TrackingManager(
-            TrackingConfig(line_orientation="vertical", line_position=0.5, conveyor_direction="left_to_right")
+            TrackingConfig(
+                line_orientation="vertical",
+                line_position=0.5,
+                conveyor_direction="left_to_right",
+                decision_deadline_seconds=0.5,
+            )
         )
         tracking.add_event_listener(lambda _action, payload: self.database.upsert_event(session_id, payload))
         left = Detection(0, "Fish", 0.9, (5, 10, 25, 35), track_id=13)
         right = Detection(0, "Fish", 0.9, (65, 10, 85, 35), track_id=13)
         tracking.update([left], (100, 60), timestamp=0.0)
         tracking.update([right], (100, 60), timestamp=1.0, event_timestamp="2026-01-01T12:00:00+00:00")
+        original_timing = tracking.archive_history()[0]["analysis"]["conveyor_timing"]
+        self.assertEqual(original_timing["first_detection_to_decision_ms"], 1000.0)
+        self.assertEqual(original_timing["decision_deadline_seconds"], 0.5)
+        self.assertEqual(original_timing["deadline_status"], "missed")
         grade = QualitySummary(
             13,
             "Class A",
@@ -130,6 +141,7 @@ class InspectionDatabaseTests(unittest.TestCase):
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0]["quality"], "Class A")
         self.assertEqual(records[0]["manual_grade"], "Class A")
+        self.assertEqual(records[0]["analysis"]["conveyor_timing"], original_timing)
 
     def test_session_context_closes_old_session_when_rotated(self) -> None:
         context = InspectionSessionContext(self.database)
@@ -141,6 +153,90 @@ class InspectionDatabaseTests(unittest.TestCase):
         assert first_session is not None
         self.assertIsNotNone(first_session["ended_at"])
         self.assertEqual(context.event_session(self.metadata()), second)
+
+    def test_captured_target_keeps_late_update_with_original_session_after_rotation(self) -> None:
+        context = InspectionSessionContext(self.database)
+        first = context.start(self.metadata())
+        context.record_event("created", event(21, quality="Ungraded"))
+        target = context.capture_event_target("updated", event(21, quality="Class A"))
+        self.assertEqual(target, first)
+
+        second = context.rotate(self.metadata())
+        self.assertNotEqual(first, second)
+        self.assertEqual(context.record_event_for(target, "updated", event(21, quality="Class A")), first)
+        self.assertEqual(self.database.events(session_id=first)[0]["quality"], "Class A")
+        self.assertEqual(self.database.events(session_id=second), [])
+
+    def test_captured_created_event_is_rejected_after_its_session_rotates(self) -> None:
+        context = InspectionSessionContext(self.database)
+        first = context.start(self.metadata())
+        target = context.capture_event_target("created", event(22))
+        self.assertEqual(target, first)
+
+        context.rotate(self.metadata())
+        self.assertIsNone(context.record_event_for(target, "created", event(22)))
+        self.assertEqual(self.database.events(session_id=first), [])
+
+    def test_target_write_releases_identity_lock_before_database_io(self) -> None:
+        context = InspectionSessionContext(self.database)
+        session_id = context.start(self.metadata())
+        target = context.capture_event_target("created", event(23))
+        self.assertEqual(target, session_id)
+
+        write_started = threading.Event()
+        release_write = threading.Event()
+        capture_completed = threading.Event()
+        write_result: dict[str, object] = {}
+        capture_result: dict[str, object] = {}
+        errors: list[Exception] = []
+        original_upsert = self.database.upsert_event
+
+        def blocked_upsert(target_session_id: str, payload: dict[str, object]) -> None:
+            write_started.set()
+            if not release_write.wait(timeout=5):
+                raise TimeoutError("test writer was not released")
+            original_upsert(target_session_id, payload)
+
+        def write_target() -> None:
+            try:
+                write_result["session_id"] = context.record_event_for(target, "created", event(23))
+            except Exception as exc:  # pragma: no cover - assertion below reports worker failures.
+                errors.append(exc)
+
+        def capture_target() -> None:
+            try:
+                capture_result["session_id"] = context.capture_event_target("created", event(24))
+            except Exception as exc:  # pragma: no cover - assertion below reports worker failures.
+                errors.append(exc)
+            finally:
+                capture_completed.set()
+
+        with patch.object(self.database, "upsert_event", side_effect=blocked_upsert):
+            writer = threading.Thread(target=write_target, daemon=True)
+            writer.start()
+            capture: threading.Thread | None = None
+            try:
+                self.assertTrue(write_started.wait(timeout=2), "target write did not reach database I/O")
+                capture = threading.Thread(target=capture_target, daemon=True)
+                capture.start()
+                self.assertTrue(
+                    capture_completed.wait(timeout=1),
+                    "capture_event_target waited behind the blocked database write",
+                )
+                self.assertFalse(release_write.is_set())
+            finally:
+                release_write.set()
+                writer.join(timeout=2)
+                if capture is not None:
+                    capture.join(timeout=2)
+
+        self.assertFalse(writer.is_alive())
+        assert capture is not None
+        self.assertFalse(capture.is_alive())
+        self.assertEqual(errors, [])
+        self.assertEqual(write_result.get("session_id"), session_id)
+        self.assertEqual(capture_result.get("session_id"), session_id)
+        self.assertEqual(self.database.events(session_id=session_id)[0]["track_id"], 23)
 
     def test_csv_and_xlsx_use_the_same_durable_event_and_session_snapshot(self) -> None:
         session_id = self.database.create_session(self.metadata())

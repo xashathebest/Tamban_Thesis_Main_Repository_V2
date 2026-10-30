@@ -92,6 +92,91 @@ def test_cached_analytics_append_review_and_rotation(system, monkeypatch):
     assert app.get_analytics()["trend_events_total"] == 0
 
 
+def test_cached_analytics_append_preserves_conveyor_decision_timing(system, monkeypatch):
+    app, database, _, current = system
+    first = event(1, "2026-10-01T00:00:00+00:00")
+    first["analysis"]["conveyor_timing"] = {
+        "first_detection_to_decision_ms": 250.0,
+        "decision_deadline_seconds": 0.5,
+        "deadline_status": "met",
+        "measurement_scope": "First persistent Model 1 detection to virtual count-line decision.",
+    }
+    database.upsert_event(current, first)
+    original_iterator = database.iter_events_chronological
+    calls = []
+
+    def counted(**kwargs):
+        calls.append(True)
+        return original_iterator(**kwargs)
+
+    monkeypatch.setattr(database, "iter_events_chronological", counted)
+    initial = app.get_analytics()
+    assert initial["average_first_detection_to_decision_ms"] == 250.0
+    assert initial["decision_deadline_status_counts"] == {"not_configured": 0, "met": 1, "missed": 0}
+    assert len(calls) == 1
+
+    second = event(2, "2026-10-02T00:00:00+00:00", "Class B")
+    second["analysis"]["conveyor_timing"] = {
+        "first_detection_to_decision_ms": 750.0,
+        "decision_deadline_seconds": 0.5,
+        "deadline_status": "missed",
+        "measurement_scope": "First persistent Model 1 detection to virtual count-line decision.",
+    }
+    database.upsert_event(current, second)
+    appended = app.get_analytics()
+    assert len(calls) == 1
+    assert appended["trend_events_total"] == 2
+    assert appended["average_first_detection_to_decision_ms"] == 500.0
+    assert appended["decision_deadline_status_counts"] == {"not_configured": 0, "met": 1, "missed": 1}
+    assert "not physical entry" in appended["decision_timing_scope"]
+
+
+def test_review_queue_counts_only_unreviewed_needs_review_events(system, monkeypatch):
+    app, database, _, current = system
+    pending = event(1, "2026-10-01T00:00:00+00:00", grade="Ungraded")
+    automatic = event(2, "2026-10-02T00:00:00+00:00")
+    automatic["analysis"]["verdict_status"] = "AUTO_GRADED"
+    database.upsert_event(current, pending)
+    database.upsert_event(current, automatic)
+    assert app.get_analytics()["review_queue_count"] == app.get_review_queue()["total"] == 1
+
+    # A manual correction of an automatic grade is not a resolved queue item.
+    monkeypatch.setattr(database, "iter_events_chronological", lambda **kwargs: pytest.fail("review should not rescan"))
+    database.apply_manual_review(current, 2, "Class B")
+    summary = app.get_analytics()
+    assert summary["manual_reviewed"] == 1
+    assert summary["review_queue_count"] == app.get_review_queue()["total"] == 1
+
+    database.apply_manual_review(current, 1, "Class C")
+    assert app.get_analytics()["review_queue_count"] == app.get_review_queue()["total"] == 0
+    database.apply_manual_review(current, 1, None)
+    assert app.get_analytics()["review_queue_count"] == app.get_review_queue()["total"] == 1
+
+
+def test_body_only_analytics_uses_part_results_when_region_list_missing():
+    app = importlib.import_module("src.api.app")
+    result = app._analytics([event(1, "2026-10-01", region="Body")], {})
+    assert result["body_only_count"] == 1
+
+
+def test_ungraded_reason_counts_include_all_recorded_reasons_once_per_fish(system):
+    app, database, _, current = system
+    first = event(1, "2026-10-01", grade="Ungraded")
+    first["analysis"]["reason_codes"] = ["UG_LOW_MARGIN", "UG_LOW_MARGIN", "UG_TEMPORAL_EVIDENCE"]
+    second = event(2, "2026-10-02", grade="Ungraded")
+    second["analysis"]["verdict_reason_code"] = "UG_LOW_MARGIN"
+    database.upsert_event(current, first)
+    assert app.get_analytics()["ungraded_reasons"] == {"UG_LOW_MARGIN": 1, "UG_TEMPORAL_EVIDENCE": 1}
+    database.upsert_event(current, second)
+    database.upsert_event(current, event(3, "2026-10-03", grade="Ungraded"))
+    graded = event(4, "2026-10-04", grade="Class A")
+    graded["analysis"]["reason_codes"] = ["GR_CONFIDENT"]
+    database.upsert_event(current, graded)
+    assert app.get_analytics()["ungraded_reasons"] == {
+        "UG_LOW_MARGIN": 2, "UG_TEMPORAL_EVIDENCE": 1, "Not recorded": 1,
+    }
+
+
 def test_trends_are_bounded_but_summaries_cover_all_events():
     app = importlib.import_module("src.api.app")
     events = [event(number, f"2026-10-01T00:00:{number:02d}+00:00") for number in range(600)]

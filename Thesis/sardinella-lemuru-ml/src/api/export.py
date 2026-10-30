@@ -72,6 +72,10 @@ EXPORT_FIELDS = {
     "grading_mode": "Grading Mode", "quality_inference_mode": "Model 2 Inference Mode", "roi_padding": "Model 2 ROI Padding (px)",
     "tracker_backend": "Tracker Backend", "camera_settings_session_reference": "Camera Settings Session Reference",
     "final_explanation": "Calculation / Explanation", "processing_time": "Processing Time (ms)",
+    "decision_latency_ms": "First Detection to Count-line Decision (ms)",
+    "decision_deadline_seconds": "Configured Decision Deadline (s)",
+    "decision_deadline_status": "Decision Deadline Status",
+    "decision_timing_scope": "Decision Timing Scope",
     # Retain every aggregated Model 2 region/grade support value so a CSV/XLSX
     # export can later be replayed with different weights or acceptance rules.
     # These are evidence/support scores, not calibrated class probabilities.
@@ -164,20 +168,25 @@ def inspection_row(event: dict[str, object]) -> dict[str, object]:
     else:
         reason_codes_text = str(analysis.get("verdict_reason_code") or "")
     model1 = analysis.get("model1_detection") if isinstance(analysis.get("model1_detection"), dict) else {}
+    detection_confidence = model1.get("confidence")
+    if detection_confidence is None:
+        detection_confidence = event.get("final_confidence")
+    model2_available = analysis.get("model2_available")
     trace = _traceability(analysis)
     temporal_stability = analysis.get("temporal_stability") if isinstance(analysis.get("temporal_stability"), dict) else {}
     track_stability = analysis.get("track_stability") if isinstance(analysis.get("track_stability"), dict) else {}
     frame_quality = analysis.get("frame_quality") if isinstance(analysis.get("frame_quality"), dict) else {}
     latest_quality = frame_quality.get("latest") if isinstance(frame_quality.get("latest"), dict) else {}
     best_frame = analysis.get("best_frame") if isinstance(analysis.get("best_frame"), dict) else {}
+    conveyor_timing = analysis.get("conveyor_timing") if isinstance(analysis.get("conveyor_timing"), dict) else {}
     row: dict[str, object] = {
         "fish_id": event.get("fish_label", f"Fish #{event.get('track_id', '')}"),
         "session_id": event.get("session_id", ""),
         "timestamp": event.get("timestamp", ""),
         "grade": final_grade,
-        # Support remains visible for ungraded results as "best evidence";
-        # it is not mislabeled as an accepted grade confidence.
-        "final_weighted_score": _number(final_score if final_score is not None else best_score, scale=100),
+        # Provisional evidence has its own column and must not be reported as
+        # accepted final support when the fish was left Ungraded.
+        "final_weighted_score": _number(final_score, scale=100),
         "best_evidence_class": best_grade or "",
         "best_evidence_score": _number(best_score, scale=100),
         "verdict_status": analysis.get("verdict_status", ""),
@@ -192,7 +201,7 @@ def inspection_row(event: dict[str, object]) -> dict[str, object]:
         "review_timestamp": event.get("review_timestamp") or "",
         "reviewer": event.get("reviewer") or "",
         "review_source": event.get("review_source") or "",
-        "detection_confidence": _number(model1.get("confidence") if isinstance(model1, dict) else event.get("final_confidence"), scale=100),
+        "detection_confidence": _number(detection_confidence, scale=100),
         "grade_confidence": _number(event.get("quality_confidence"), scale=100),
         "observed_region_count": len(analysis.get("observed_regions", ())) if isinstance(analysis.get("observed_regions"), list) else "",
         "observed_regions": ", ".join(str(region) for region in analysis.get("observed_regions", ()) if region),
@@ -202,7 +211,7 @@ def inspection_row(event: dict[str, object]) -> dict[str, object]:
         "model2_candidate_grading_frames": analysis.get("candidate_frame_count", temporal_stability.get("candidate_frame_count", "")),
         "model2_inference_interval_frames": trace.get("model2_inference_interval_frames", ""),
         "track_lifetime_detection_frames": track_stability.get("track_lifetime_detection_frames", track_stability.get("number_of_frames", "")),
-        "model2_available": "Yes" if analysis.get("model2_available", True) else "No",
+        "model2_available": "Yes" if model2_available is True else "No" if model2_available is False else "",
         "sharpness_score": _number(latest_quality.get("sharpness_score") if isinstance(latest_quality, dict) else None),
         "best_frame_score": _number(best_frame.get("best_frame_score") if isinstance(best_frame, dict) else None),
         "best_frame_id": best_frame.get("best_frame_id", "") if isinstance(best_frame, dict) else "",
@@ -238,6 +247,10 @@ def inspection_row(event: dict[str, object]) -> dict[str, object]:
         "camera_settings_session_reference": event.get("session_id", ""),
         "final_explanation": " ".join(str(item) for item in analysis.get("explanation", ()) if item),
         "processing_time": event.get("processing_time_ms") if event.get("processing_time_ms") is not None else "",
+        "decision_latency_ms": _number(conveyor_timing.get("first_detection_to_decision_ms")),
+        "decision_deadline_seconds": _number(conveyor_timing.get("decision_deadline_seconds")),
+        "decision_deadline_status": conveyor_timing.get("deadline_status") if isinstance(conveyor_timing.get("deadline_status"), str) else "",
+        "decision_timing_scope": conveyor_timing.get("measurement_scope") if isinstance(conveyor_timing.get("measurement_scope"), str) else "",
         "supporting_image_measurements": json.dumps(analysis.get("supporting_image_measurements"), ensure_ascii=False, sort_keys=True, allow_nan=False) if isinstance(analysis.get("supporting_image_measurements"), dict) else "",
     }
     winning_grade = str(final_grade if final_grade != "Ungraded" else (best_grade or ""))
@@ -245,7 +258,8 @@ def inspection_row(event: dict[str, object]) -> dict[str, object]:
         part, color, stats = _part_analysis(analysis, region), _color_analysis(analysis, region), _top_statistics(_part_analysis(analysis, region))
         contributions = part.get("contributions") if isinstance(part.get("contributions"), dict) else {}
         grade_evidence = part.get("grade_evidence") if isinstance(part.get("grade_evidence"), dict) else {}
-        row[f"{prefix}_observed"] = "Yes" if part.get("present") is True else "No"
+        present = part.get("present")
+        row[f"{prefix}_observed"] = "Yes" if present is True else "No" if present is False else ""
         row[f"{prefix}_presence"] = part.get("visibility_state", part.get("status", part.get("observation_status", part.get("missing_status", "unknown"))))
         row[f"{prefix}_presence_confidence"] = _number(part.get("presence_confidence"), scale=100)
         row[f"{prefix}_class_a_evidence"] = _number(grade_evidence.get("Class A"), scale=100)
@@ -417,7 +431,7 @@ def make_xlsx(
     _style_header(review_sheet)
     for event in event_rows:
         analysis = _analysis(event)
-        if analysis.get("verdict_status") != "NEEDS_REVIEW":
+        if analysis.get("verdict_status") != "NEEDS_REVIEW" or event.get("manual_override"):
             continue
         row = inspection_row(event)
         review_sheet.append([

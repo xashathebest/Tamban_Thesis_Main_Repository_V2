@@ -11,6 +11,7 @@ import time
 
 from websockets.sync.client import connect
 from dashboard_status_smoke import free_port, wait_json
+from src.api.database import InspectionDatabase
 
 
 def main() -> None:
@@ -19,7 +20,12 @@ def main() -> None:
         raise RuntimeError("Chrome executable not found")
     api_port, cdp_port = free_port(), free_port()
     with tempfile.TemporaryDirectory(prefix="tamban_export_smoke_") as tmp:
-        env = dict(os.environ, FISH_INSPECTION_DB_PATH=str(Path(tmp) / "history.sqlite3"), PYTHONDONTWRITEBYTECODE="1")
+        database_path = Path(tmp) / "history.sqlite3"
+        database = InspectionDatabase(database_path)
+        historical_session = database.create_session({"started_at": "2020-01-01T00:00:00+00:00"})
+        database.upsert_event(historical_session, {"track_id": 1, "timestamp": "2020-01-01T00:00:00+00:00", "quality": "Class A", "analysis": {}})
+        database.create_session({"started_at": "2021-01-01T00:00:00+00:00"})
+        env = dict(os.environ, FISH_INSPECTION_DB_PATH=str(database_path), PYTHONDONTWRITEBYTECODE="1")
         hidden = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
         code = ("import importlib, uvicorn; m=importlib.import_module('src.api.app'); "
                 f"uvicorn.run(m.app, host='127.0.0.1', port={api_port}, lifespan='off')")
@@ -27,9 +33,15 @@ def main() -> None:
         browser = None
         try:
             wait_json(f"http://127.0.0.1:{api_port}/api/status/live", server)
-            browser = subprocess.Popen([str(chrome), "--headless=new", "--disable-gpu", "--no-first-run",
-                                        f"--user-data-dir={Path(tmp) / 'chrome'}", f"--remote-debugging-port={cdp_port}",
-                                        "--remote-allow-origins=*", f"http://127.0.0.1:{api_port}/"],
+            chrome_args = ["--headless=new", "--disable-gpu", "--no-first-run",
+                           f"--user-data-dir={Path(tmp) / 'chrome'}", f"--remote-debugging-port={cdp_port}",
+                           "--remote-allow-origins=*"]
+            # Keep this reduced-sandbox setting explicit and test-only; it is
+            # needed only in constrained Windows QA environments.
+            if os.getenv("TAMBAN_CHROME_NO_SANDBOX", "").strip().lower() in {"1", "true", "yes", "on"}:
+                chrome_args.append("--no-sandbox")
+            chrome_args.append(f"http://127.0.0.1:{api_port}/")
+            browser = subprocess.Popen([str(chrome), *chrome_args],
                                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=hidden)
             page = next(item for item in wait_json(f"http://127.0.0.1:{cdp_port}/json", browser) if item.get("type") == "page")
             with connect(page["webSocketDebuggerUrl"], open_timeout=5) as ws:
@@ -50,11 +62,32 @@ def main() -> None:
                     time.sleep(.1)
                 else:
                     raise AssertionError("Export form did not load")
+                evaluate("openExport(); true")
+                for _ in range(100):
+                    if evaluate(f"[...document.querySelector('#export-session').options].some(x => x.value === {json.dumps(historical_session)})"):
+                        break
+                    time.sleep(.1)
+                else:
+                    raise AssertionError("Historical inspection run did not load into the export selector")
                 evaluate("""window.__exports = []; window.__originalFetch = window.fetch;
                   window.fetch = function(url, options) {
                     if (url === '/api/export') { window.__exports.push(JSON.parse(options.body)); return Promise.reject(new Error('Test interception')); }
                     return window.__originalFetch.apply(this, arguments);
                   }; true""")
+                default_run = json.loads(evaluate("""(() => {
+                  document.querySelector('input[name=export-range][value=current_session]').click();
+                  document.querySelector('#export-form').requestSubmit(); return JSON.stringify(window.__exports[0]);
+                })()"""))
+                assert default_run["range"] == "current_session" and "session_id" not in default_run
+                time.sleep(.1)
+                historical_run = json.loads(evaluate("""(() => {
+                  document.querySelector('input[name=export-range][value=specific_session]').click();
+                  const select = document.querySelector('#export-session'); select.value = PAST; select.dispatchEvent(new Event('change', {bubbles:true}));
+                  document.querySelector('#export-form').requestSubmit(); return JSON.stringify(window.__exports[1]);
+                })()""".replace("PAST", json.dumps(historical_session))))
+                assert historical_run["range"] == "current_session" and historical_run["session_id"] == historical_session
+                time.sleep(.1)
+                evaluate("document.querySelector('input[name=export-range][value=current_session]').click(); window.__exports = []; true")
                 selected = json.loads(evaluate("""(() => {
                   document.querySelectorAll('.export-fields input').forEach(x => x.checked = ['fish_id', 'grade'].includes(x.value));
                   document.querySelector('#export-all-evidence').checked = false;
@@ -115,7 +148,7 @@ def main() -> None:
                 })()"""))
                 assert pending == {"calls": 1, "disabled": True}
                 evaluate("window.__finishExport(new Response(JSON.stringify({detail:'test'}), {status:400,headers:{'Content-Type':'application/json'}})); true")
-                print("Export choices, validation, in-dialog failure and tracker warning passed")
+                print("Selected-run export, export choices, validation, in-dialog failure and tracker warning passed")
         finally:
             if browser is not None:
                 browser.terminate()

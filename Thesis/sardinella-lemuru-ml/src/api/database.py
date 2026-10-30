@@ -544,7 +544,7 @@ class InspectionDatabase:
             return None
         return [self._event_from_row(row) for row in rows]
 
-    def analytics_reviews_since(self, session_id: str, marker: int) -> list[tuple[bool, bool]] | None:
+    def analytics_reviews_since(self, session_id: str, marker: int) -> list[tuple[bool, bool, bool]] | None:
         """Recognize changes limited to manual-review metadata."""
         with self._connection() as connection:
             rows = connection.execute(
@@ -562,12 +562,14 @@ class InspectionDatabase:
             if row["kind"] != "update" or not isinstance(old, dict) or not isinstance(new, dict):
                 return None
             old_reviewed, new_reviewed = bool(old.get("manual_override")), bool(new.get("manual_override"))
+            analysis = old.get("analysis")
+            needs_review = isinstance(analysis, dict) and analysis.get("verdict_status") == "NEEDS_REVIEW"
             for key in ("manual_override", "manual_grade", "review_timestamp", "reviewer", "review_source", "session_id"):
                 old.pop(key, None)
                 new.pop(key, None)
             if old != new:
                 return None
-            changes.append((old_reviewed, new_reviewed))
+            changes.append((old_reviewed, new_reviewed, needs_review))
         return changes
 
     def sessions(self, *, limit: int = 100) -> list[dict[str, object]]:
@@ -680,20 +682,82 @@ class InspectionSessionContext:
             self._active = True
             return self._session_id
 
-    def record_event(self, action: str, event: Mapping[str, object]) -> str | None:
-        """Serialize event writes with close/rotate; closed sessions accept only existing updates."""
+    @staticmethod
+    def _is_late_update(action: str) -> bool:
+        return action in {"updated", "reviewed"}
+
+    def _record_event_for_locked(self, session_id: str | None, action: str, event: Mapping[str, object]) -> str | None:
+        """Immediate-write path, deliberately serialized with rotation."""
+
+        if not session_id:
+            return None
+        current_active = self._active and session_id == self._session_id
+        # A closed or superseded session is deliberately write-once except for
+        # a late enrichment/review of an event already committed to that exact
+        # session. This is also the rule used by queued persistence workers.
+        if not current_active and (
+            not self._is_late_update(action)
+            or not self.database.event_exists(session_id, event.get("track_id"))
+        ):
+            return None
+        self.database.upsert_event(session_id, event)
+        return session_id
+
+    def _captured_target_is_eligible(
+        self,
+        session_id: str | None,
+        action: str,
+        event: Mapping[str, object],
+    ) -> bool:
+        """Check a queued target without retaining the identity lock for SQLite I/O."""
+
+        if not session_id:
+            return False
+        with self._lock:
+            target_is_active = self._active and session_id == self._session_id
+        if target_is_active:
+            return True
+        return self._is_late_update(action) and self.database.event_exists(session_id, event.get("track_id"))
+
+    def capture_event_target(self, action: str, event: Mapping[str, object]) -> str | None:
+        """Capture the currently eligible durable session for a later write.
+
+        The returned ID is suitable for an ordered persistence worker. Callers
+        must drain queued work before rotating or closing an active session so a
+        newly-created event cannot become a stale write after its session ends.
+        """
 
         with self._lock:
             session_id = self._session_id
-            if not session_id:
-                return None
-            if not self._active and (
-                action not in {"updated", "reviewed"}
-                or not self.database.event_exists(session_id, event.get("track_id"))
-            ):
-                return None
-            self.database.upsert_event(session_id, event)
+            target_is_active = self._active and bool(session_id)
+        if not session_id:
+            return None
+        if target_is_active:
             return session_id
+        if self._is_late_update(action) and self.database.event_exists(session_id, event.get("track_id")):
+            return session_id
+        return None
+
+    def record_event_for(self, session_id: str | None, action: str, event: Mapping[str, object]) -> str | None:
+        """Persist to a captured session ID without resolving a newer session.
+
+        This intentionally releases the session identity/rotation lock before
+        database I/O.  A queued caller must therefore drain writes before a
+        close or rotate operation; that barrier makes the eligibility snapshot
+        and the subsequent upsert one durable-session operation.
+        """
+
+        if not self._captured_target_is_eligible(session_id, action, event):
+            return None
+        assert session_id is not None
+        self.database.upsert_event(session_id, event)
+        return session_id
+
+    def record_event(self, action: str, event: Mapping[str, object]) -> str | None:
+        """Serialize an immediate event write with close/rotate semantics."""
+
+        with self._lock:
+            return self._record_event_for_locked(self._session_id, action, event)
 
     def event_session(self, metadata: Mapping[str, object]) -> str:
         """Use the last session for late updates; create one only when necessary."""

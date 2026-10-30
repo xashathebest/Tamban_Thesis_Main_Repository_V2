@@ -27,7 +27,11 @@ def main():
         browser = None
         try:
             wait_json(f"http://127.0.0.1:{api_port}/api/status/live", api)
-            browser = subprocess.Popen([str(chrome), "--headless=new", "--disable-gpu", "--no-first-run", f"--user-data-dir={Path(tmp) / 'chrome'}", f"--remote-debugging-port={cdp_port}", "--remote-allow-origins=*", f"http://127.0.0.1:{api_port}/"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=hidden)
+            chrome_args = ["--headless=new", "--disable-gpu", "--no-first-run", f"--user-data-dir={Path(tmp) / 'chrome'}", f"--remote-debugging-port={cdp_port}", "--remote-allow-origins=*"]
+            if os.getenv("TAMBAN_CHROME_NO_SANDBOX", "").strip().lower() in {"1", "true", "yes", "on"}:
+                chrome_args.append("--no-sandbox")
+            chrome_args.append(f"http://127.0.0.1:{api_port}/")
+            browser = subprocess.Popen([str(chrome), *chrome_args], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=hidden)
             page = next(target for target in wait_json(f"http://127.0.0.1:{cdp_port}/json", browser) if target.get("type") == "page")
             with connect(page["webSocketDebuggerUrl"], open_timeout=5) as ws:
                 counter = 0

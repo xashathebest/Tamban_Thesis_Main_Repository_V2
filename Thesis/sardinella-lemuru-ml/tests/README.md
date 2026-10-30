@@ -46,3 +46,29 @@ tests have their own `FISH_DETECTOR_SMOKE_IMAGE` and
 research-only independent-study safeguards: lineage leakage, camera confirmation,
 locked manifests, blind truth, retained Ungraded outcomes, and performance-label
 gating. They do not run a checkpoint or certify a model.
+
+## Browser smoke checks
+
+The temporary browser checks exercise the real dashboard against a temporary
+local API and SQLite database; they do not open a physical camera or modify the
+normal inspection history. They require Chrome at the path used by the scripts.
+
+```powershell
+python -B tests\dashboard_status_smoke.py
+python -B tests\export_form_smoke.py
+python -B tests\historical_review_smoke.py
+```
+
+Some constrained Windows QA environments cannot launch headless Chrome with its
+normal sandbox. Only in such an environment, opt in for the smoke process:
+
+```powershell
+$env:TAMBAN_CHROME_NO_SANDBOX = '1'
+python -B tests\dashboard_status_smoke.py
+Remove-Item Env:TAMBAN_CHROME_NO_SANDBOX
+```
+
+This flag is test-only and is not an application startup setting. The responsive
+navigation smoke writes screenshots by default, so set
+`TAMBAN_NAV_SMOKE_OUTPUT` to a temporary directory before running
+`tests\navigation_qa_smoke.py`.

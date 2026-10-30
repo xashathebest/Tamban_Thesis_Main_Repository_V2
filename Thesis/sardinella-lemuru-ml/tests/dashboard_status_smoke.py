@@ -52,9 +52,16 @@ def main() -> None:
         try:
             initial_status = wait_json(f"http://127.0.0.1:{api_port}/api/status/live", api)
             session_id = initial_status["durable_session"]["session_id"]
-            browser = subprocess.Popen([str(chrome), "--headless=new", "--disable-gpu", "--no-first-run",
-                                        f"--user-data-dir={Path(tmp) / 'chrome'}", f"--remote-debugging-port={cdp_port}",
-                                        "--remote-allow-origins=*", f"http://127.0.0.1:{api_port}/"],
+            chrome_args = ["--headless=new", "--disable-gpu", "--no-first-run",
+                           f"--user-data-dir={Path(tmp) / 'chrome'}", f"--remote-debugging-port={cdp_port}",
+                           "--remote-allow-origins=*"]
+            # Some sandboxed Windows QA environments cannot launch headless
+            # Chrome with its normal sandbox. Keep the less-isolated mode an
+            # explicit, test-only opt-in rather than changing ordinary runs.
+            if os.getenv("TAMBAN_CHROME_NO_SANDBOX", "").strip().lower() in {"1", "true", "yes", "on"}:
+                chrome_args.append("--no-sandbox")
+            chrome_args.append(f"http://127.0.0.1:{api_port}/")
+            browser = subprocess.Popen([str(chrome), *chrome_args],
                                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=hidden)
             targets = wait_json(f"http://127.0.0.1:{cdp_port}/json", browser)
             page = next(target for target in targets if target.get("type") == "page")
@@ -87,6 +94,44 @@ def main() -> None:
                 result = read_page(1)
                 if result["status"] != "stopped" or not result["analytics"] or result["live"] < 2 or result["analyticsRequests"] != 1:
                     raise AssertionError(result)
+                queue_diagnostic = json.loads(evaluate("""(() => {
+                  const disclosure = document.querySelector('#advanced-diagnostics');
+                  disclosure.open = true; renderRuntimeDiagnostics(latestStatus);
+                  const row = [...elements.runtimeDiagnosticsValues.querySelectorAll('div')]
+                    .find(item => item.querySelector('dt')?.textContent === 'Event write queue (pending / capacity)');
+                  return JSON.stringify({label: row?.querySelector('dt')?.textContent || null,
+                    value: row?.querySelector('dd')?.textContent || null});
+                })()"""))
+                if queue_diagnostic["label"] != "Event write queue (pending / capacity)" or queue_diagnostic["value"] != "0 / 256":
+                    raise AssertionError(queue_diagnostic)
+                preview_diagnostic = json.loads(evaluate("""(() => {
+                  const originalStatus = latestStatus; latestStatus = {...latestStatus, inspection_status: 'running'};
+                  streamAttached = true; streamReady = false; resetBrowserPreviewImageLoads(); elements.video.dispatchEvent(new Event('load'));
+                  const eventRecorded = previewImageLoadTimes.length === 1 && streamReady;
+                  latestStatus = originalStatus;
+                  const now = performance.now(); resetBrowserPreviewImageLoads();
+                  recordBrowserPreviewImageLoad(now - 200); recordBrowserPreviewImageLoad(now - 100); recordBrowserPreviewImageLoad(now);
+                  renderRuntimeDiagnostics(latestStatus);
+                  const row = [...elements.runtimeDiagnosticsValues.querySelectorAll('div')]
+                    .find(item => item.querySelector('dt')?.textContent === "This browser's MJPEG image-load FPS");
+                  const value = row?.querySelector('dd')?.textContent || null;
+                  detachStream();
+                  return JSON.stringify({label: row?.querySelector('dt')?.textContent || null, value,
+                    eventRecorded, reset: browserPreviewImageLoadFps() === null && !streamAttached && !streamReady});
+                })()"""))
+                if preview_diagnostic != {"label": "This browser's MJPEG image-load FPS", "value": "10.0 FPS (recent load events)", "eventRecorded": True, "reset": True}:
+                    raise AssertionError(preview_diagnostic)
+                device_badges = json.loads(evaluate("""(() => {
+                  const base = {...latestStatus, inspection_status: 'stopped', model_status: 'ready', segmenter_status: 'ready'};
+                  const result = {};
+                  for (const device of [0, 'cuda:0', 'cpu', 'unresolved']) {
+                    renderCamera({...base, model_info: {...base.model_info, detector: {...base.model_info?.detector, device}}});
+                    result[String(device)] = elements.devicePill.classList.contains('healthy');
+                  }
+                  renderCamera(latestStatus); return JSON.stringify(result);
+                })()"""))
+                if device_badges != {"0": True, "cuda:0": True, "cpu": True, "unresolved": False}:
+                    raise AssertionError(device_badges)
                 if args.profile_file:
                     instrument = """(() => {
                       window.__pollProfile = {samples: [], analyticsCalls: 0, mutations: 0};
@@ -164,7 +209,9 @@ def main() -> None:
                     raise AssertionError((hidden_before, hidden_after, resumed))
                 print(json.dumps({"history_page_one": page_one, "history_page_two": page_two, "rapid_views": rapid,
                                   "review": saved, "hidden_polls": [hidden_before, hidden_after], "resumed_polls": resumed}, indent=2))
-            print(json.dumps({"initial": result, "after_insert": inserted, "after_review": reviewed}, indent=2))
+            print(json.dumps({"initial": result, "queue_diagnostic": queue_diagnostic, "preview_diagnostic": preview_diagnostic,
+                              "device_badges": device_badges,
+                              "after_insert": inserted, "after_review": reviewed}, indent=2))
         finally:
             if browser and browser.poll() is None:
                 browser.terminate()

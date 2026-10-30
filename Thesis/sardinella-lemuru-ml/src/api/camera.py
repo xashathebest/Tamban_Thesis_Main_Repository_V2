@@ -96,6 +96,11 @@ class CameraInspectionService:
         self._skipped_model2_reasons: dict[str, int] = {}
         self._last_model1_debug: list[dict[str, object]] = []
         self._frame_index = 0
+        # The underlying tracker may restart its IDs at zero/one after Stop,
+        # calibration, or a policy change. Completed events survive those
+        # operations, so reserve a fresh range for each tracker epoch.
+        self._highest_track_id: int | None = None
+        self._track_id_epoch_offset = 0
         self._last_segmented_frame: dict[int, int] = {}
         self._track_grades: dict[int, QualitySummary] = {}
         self._model2_failure_count = 0
@@ -126,16 +131,41 @@ class CameraInspectionService:
             else {}
         )
         self._image_statistics: dict[str, object] = {}
+        # Retain only the latest bounded camera-open diagnostics.  These are
+        # hardware/operator facts; they never affect detection or grading.
+        self._camera_open_attempts: list[dict[str, object]] = []
         if isinstance(self.quality_model, YoloQualityModel):
             self.quality_model.set_debug_raw_output(self.debug_enabled)
+
+    def _reset_model_tracker(self) -> None:
+        """Start a new ID range while preserving completed in-memory events."""
+        reset_tracker = getattr(self.model, "reset_tracker", None)
+        if callable(reset_tracker):
+            reset_tracker()
+        self._track_id_epoch_offset = self._highest_track_id + 1 if self._highest_track_id is not None else 0
+
+    def _scope_tracker_ids(self, detections: list[Any]) -> list[Any]:
+        """Keep native tracker IDs stable and distinct across tracker resets."""
+        scoped = []
+        for detection in detections:
+            if detection.track_id is None:
+                scoped.append(detection)
+                continue
+            native_id = int(detection.track_id)
+            if native_id < 0:
+                # Negative IDs denote untracked detections, not identities.
+                scoped.append(replace(detection, track_id=None))
+                continue
+            track_id = native_id + self._track_id_epoch_offset
+            self._highest_track_id = max(self._highest_track_id if self._highest_track_id is not None else track_id, track_id)
+            scoped.append(replace(detection, track_id=track_id) if track_id != native_id else detection)
+        return scoped
 
     def _clear_calibration_tracking(self) -> None:
         """Drop transient IDs so calibration frames can never become events."""
 
         with self._processing_lock:
-            reset_tracker = getattr(self.model, "reset_tracker", None)
-            if callable(reset_tracker):
-                reset_tracker()
+            self._reset_model_tracker()
             self.state.tracking.reset_active_tracks()
             self._frame_index = 0
             self._model2_failure_count = 0
@@ -295,6 +325,7 @@ class CameraInspectionService:
             locked = self._camera_locked
             statistics = dict(self._image_statistics)
             pending_reference_scenes = dict(self._reference_scenes)
+            open_attempts = [dict(item) for item in self._camera_open_attempts]
         warnings: list[dict[str, object]] = []
         drift = data.get("profile_drift") if isinstance(data.get("profile_drift"), Mapping) else {}
         for item in drift.get("warnings", []) if isinstance(drift, Mapping) else []:
@@ -324,6 +355,9 @@ class CameraInspectionService:
             "locked": locked,
             "image_statistics": statistics,
             "pending_reference_scenes": pending_reference_scenes,
+            "configured_camera_index": self.camera_index,
+            "configured_camera_note": "Camera index is selected at backend startup; set LEMURU_CAMERA_INDEX and restart to change it.",
+            "open_attempts": open_attempts,
             "condition_warning": warnings[0] if warnings else None,
             "condition_warnings": warnings,
             "profile": profile,
@@ -386,16 +420,20 @@ class CameraInspectionService:
             "model1_detections": list(self._last_model1_debug),
             "active_tracks": len(self.state.tracking.active_tracks()),
             "quality_inference_mode": self.quality_inference_mode,
+            "camera_open_attempts": self._camera_open_attempts_snapshot(),
             "timing_provenance": {
                 "model1_inference": "Host-observed model call duration; GPU work may be asynchronous.",
                 "model2_inference": "Host-observed duration per successful Model 2 call; GPU work may be asynchronous.",
                 "tracker": "Model 1 tracker update; separate from event_tracking.",
-                "event_tracking": "Inspection state and counting update; excludes later event enrichment.",
+                "event_tracking": "Inspection state/counting update, including durable-event target capture and queue hand-off; normal SQLite work is excluded, but pathological ordered backpressure is included.",
                 "roi_extraction": "Crop mode: per-fish extraction; full-frame mode: summed extraction per Model 2 invocation.",
                 "part_assignment": "Summed full-frame per-fish part translation and association-summary preparation, excluding association and grading.",
                 "hsv": "Per-fish evidence preparation including part scoring and optional image diagnostics; included in grading_engine.",
                 "grading_engine": "Per-fish grading; includes hsv evidence preparation.",
                 "total_processing": "Frame processing including stages and overlays, excluding JPEG and publication.",
+                "capture_to_publish": "Capture timestamp to encoded JPEG publication in the server state; excludes client, network, and browser paint.",
+                "first_detection_to_decision": "First persistent Model 1 detection to virtual count-line decision; not physical entry or actuator confirmation.",
+                "event_persistence": "Background FIFO durable-event worker duration; normal SQLite work is outside frame processing and does not affect grading or counts.",
                 "mjpeg_dispatch": "Generator yield-to-resume time, including consumer pacing; not browser paint or network latency.",
                 "frontend_render": "Browser DOM render samples only while debug capture is enabled.",
                 "note": "Stage windows overlap and do not sum to total processing. Counts and percentiles use bounded rolling samples.",
@@ -422,6 +460,12 @@ class CameraInspectionService:
         """Record MJPEG generator pacing without claiming network completion."""
 
         self._runtime_metrics.record_latency("mjpeg_dispatch", seconds)
+        self._runtime_metrics.record_call("mjpeg_dispatch")
+
+    def record_event_persistence(self, seconds: float) -> None:
+        """Record background durable-write work without changing inspection decisions."""
+
+        self._runtime_metrics.record_latency("event_persistence", seconds)
 
     def _record_model2_skip(self, reason: str) -> None:
         self._skipped_model2_reasons[reason] = self._skipped_model2_reasons.get(reason, 0) + 1
@@ -561,7 +605,7 @@ class CameraInspectionService:
             if not self._models_prepared and not self._prepare_models_locked():
                 return False
             self._models_prepared = False
-            self.model.reset_tracker()
+            self._reset_model_tracker()
             if self.quality_model is not None and hasattr(self.quality_model, "reset_tracks"):
                 self.quality_model.reset_tracks()
             self._frame_index = 0
@@ -611,8 +655,10 @@ class CameraInspectionService:
             return False
         return True
 
-    def stop(self, timeout: float = 3.0) -> bool:
-        deadline = monotonic() + max(0.0, timeout)
+    def stop(self, timeout: float | None = 3.0) -> bool:
+        """Request stop; ``None`` waits for durable finalization during shutdown."""
+
+        deadline = None if timeout is None else monotonic() + max(0.0, timeout)
         with self._lifecycle_lock:
             thread = self._thread
             if thread is None:
@@ -620,9 +666,20 @@ class CameraInspectionService:
                 return False
             self._stop_event.set()
             self.state.mark_stopping()
-        thread.join(timeout=max(0.0, deadline - monotonic()))
+        thread.join(timeout=None if deadline is None else max(0.0, deadline - monotonic()))
         self._schedule_finalizer(thread)
-        return self._finalized.wait(max(0.0, deadline - monotonic()))
+        return self._finalized.wait(None if deadline is None else max(0.0, deadline - monotonic()))
+
+    def request_stop_after_current_frame(self, reason: str) -> None:
+        """Safely stop a worker when a non-frame subsystem becomes unhealthy.
+
+        This is deliberately non-blocking so callbacks invoked under the frame
+        processing lock can request shutdown without attempting to join their
+        own camera thread.
+        """
+
+        self.state.mark_error(str(reason))
+        self._stop_event.set()
 
     def _schedule_finalizer(self, thread: Thread) -> None:
         """At most one daemon waits for a worker; API requests never wait on it."""
@@ -657,9 +714,7 @@ class CameraInspectionService:
         """Reset live-only state after Stop without clearing production totals."""
 
         with self._processing_lock:
-            reset_tracker = getattr(self.model, "reset_tracker", None)
-            if callable(reset_tracker):
-                reset_tracker()
+            self._reset_model_tracker()
             self._frame_index = 0
             self._model2_failure_count = 0
             self._model2_retry_after = 0.0
@@ -675,7 +730,7 @@ class CameraInspectionService:
         """Atomically reset tracker identities and all session event data."""
 
         with self._processing_lock:
-            self.model.reset_tracker()
+            self._reset_model_tracker()
             self._frame_index = 0
             self._model2_failure_count = 0
             self._model2_retry_after = 0.0
@@ -1113,7 +1168,7 @@ class CameraInspectionService:
             self._update_image_statistics(frame, detections, cv2)
             return self._annotate_part_preview(frame, detections, cv2)  # type: ignore[arg-type]
         processing_started = monotonic()
-        detections = self.model.predict(frame)  # type: ignore[union-attr]
+        detections = self._scope_tracker_ids(self.model.predict(frame))  # type: ignore[union-attr]
         self._runtime_metrics.record_call("model1")
         self._runtime_metrics.record_latency("model1_inference", getattr(self.model, "last_inference_seconds", None))
         self._runtime_metrics.record_latency("tracker", getattr(self.model, "last_tracking_seconds", None))
@@ -1313,6 +1368,14 @@ class CameraInspectionService:
         tracking_ms = (monotonic() - tracking_started) * 1000
         self._runtime_metrics.record_latency("event_tracking", tracking_ms / 1000.0)
         for event in events:
+            conveyor_timing = event.analysis.get("conveyor_timing") if isinstance(event.analysis, Mapping) else None
+            if isinstance(conveyor_timing, Mapping):
+                latency_ms = conveyor_timing.get("first_detection_to_decision_ms")
+                if isinstance(latency_ms, (int, float)):
+                    self._runtime_metrics.record_latency("first_detection_to_decision", float(latency_ms) / 1000.0)
+                deadline_status = conveyor_timing.get("deadline_status")
+                if deadline_status in {"met", "missed"}:
+                    self._runtime_metrics.increment(f"decision_deadline_{deadline_status}")
             event_performance = event.analysis.get("performance") if isinstance(event.analysis.get("performance"), dict) else {}
             self.state.tracking.update_event_analysis(
                 event.track_id,
@@ -1340,46 +1403,141 @@ class CameraInspectionService:
         return annotated
 
     def _open_capture(self, cv2: Any) -> tuple[Any | None, str]:
-        """Open one UVC capture, preferring DirectShow for Windows webcams."""
+        """Open one capture, honoring a known saved backend before safe fallbacks."""
 
-        candidates: list[tuple[str, int | None]] = []
-        if os.name == "nt" and hasattr(cv2, "CAP_DSHOW"):
-            candidates.append(("DSHOW", cv2.CAP_DSHOW))
-        if os.name == "nt" and hasattr(cv2, "CAP_MSMF"):
-            candidates.append(("MSMF", cv2.CAP_MSMF))
-        candidates.append(("OpenCV default", None))
-        for label, backend in candidates:
+        candidates = self._capture_backend_candidates(cv2)
+        preferred = self._saved_preferred_backend()
+        if preferred is not None:
+            candidates.sort(key=lambda candidate: 0 if candidate[2] == preferred else 1)
+        with self._camera_state_lock:
+            self._camera_open_attempts = []
+        for label, backend, _candidate_key in candidates:
             try:
                 capture = cv2.VideoCapture(self.camera_index, backend) if backend is not None else cv2.VideoCapture(self.camera_index)
             except Exception as exc:
+                self._record_camera_open_attempt(label, "exception", detail=str(exc))
                 LOGGER.warning("[CAMERA] %s open attempt failed: %s", label, exc)
                 continue
-            if capture.isOpened():
+            try:
+                opened = bool(capture.isOpened())
+            except Exception as exc:
+                self._record_camera_open_attempt(label, "exception", detail=f"isOpened failed: {exc}")
+                LOGGER.warning("[CAMERA] %s open-state check failed: %s", label, exc)
+                try:
+                    capture.release()
+                except Exception:
+                    pass
+                continue
+            if opened:
                 try:
                     reported = capture.getBackendName()
                 except Exception:
                     reported = label
+                self._record_camera_open_attempt(label, "opened", reported_backend=str(reported or label))
                 return capture, str(reported or label)
             try:
                 capture.release()
             except Exception:
                 pass
+            self._record_camera_open_attempt(label, "not_opened")
             LOGGER.warning("[CAMERA] %s could not open camera index %s", label, self.camera_index)
         return None, "Unavailable"
+
+    @staticmethod
+    def _capture_backend_candidates(cv2: Any) -> list[tuple[str, int | None, str]]:
+        """Return the application's fixed, portable fallback order."""
+
+        candidates: list[tuple[str, int | None, str]] = []
+        if os.name == "nt" and hasattr(cv2, "CAP_DSHOW"):
+            candidates.append(("DSHOW", cv2.CAP_DSHOW, "dshow"))
+        if os.name == "nt" and hasattr(cv2, "CAP_MSMF"):
+            candidates.append(("MSMF", cv2.CAP_MSMF, "msmf"))
+        candidates.append(("OpenCV default", None, "default"))
+        return candidates
+
+    def _saved_preferred_backend(self) -> str | None:
+        """Map only known persisted backend names to safe candidate keys."""
+
+        value = self.camera_controls.profile().get("preferred_backend")
+        if not isinstance(value, str):
+            return None
+        normalized = " ".join(value.strip().casefold().split())
+        aliases = {
+            "dshow": "dshow",
+            "directshow": "dshow",
+            "msmf": "msmf",
+            "media foundation": "msmf",
+            "opencv default": "default",
+            "default": "default",
+        }
+        return aliases.get(normalized)
+
+    @staticmethod
+    def _camera_attempt_detail(value: object) -> str:
+        """Keep driver exception text useful but bounded and single-line."""
+
+        return " ".join(str(value).split())[:240]
+
+    def _record_camera_open_attempt(
+        self,
+        backend: str,
+        status: str,
+        *,
+        detail: object | None = None,
+        reported_backend: str | None = None,
+    ) -> None:
+        record: dict[str, object] = {"backend": backend, "status": status}
+        if detail:
+            record["detail"] = self._camera_attempt_detail(detail)
+        if reported_backend:
+            record["reported_backend"] = self._camera_attempt_detail(reported_backend)
+        with self._camera_state_lock:
+            self._camera_open_attempts.append(record)
+            self._camera_open_attempts = self._camera_open_attempts[-8:]
+
+    def _camera_open_attempts_snapshot(self) -> list[dict[str, object]]:
+        with self._camera_state_lock:
+            return [dict(item) for item in self._camera_open_attempts]
+
+    def _camera_open_failure_message(self) -> str:
+        """Give the operator bounded, actionable context without guessing cause."""
+
+        attempts = self._camera_open_attempts_snapshot()
+        if not attempts:
+            return f"Camera {self.camera_index} could not be opened. Check its connection, permission, and configured index."
+        summary = ", ".join(
+            f"{item.get('backend', 'unknown')} ({item.get('status', 'failed')})"
+            for item in attempts
+        )
+        return (
+            f"Camera {self.camera_index} could not be opened after: {summary}. "
+            "Check the connection, another application using the device, permissions, or the configured camera index."
+        )
 
     def _capture_frames(self, capture: Any) -> None:
         """Keep reading the sole camera so inference never creates a backlog."""
 
         while not self._stop_event.is_set():
             capture_started = monotonic()
-            with self.camera_controls.lock:
-                ok, frame = capture.read()
+            try:
+                with self.camera_controls.lock:
+                    ok, frame = capture.read()
+            except Exception as exc:
+                if not self._stop_event.is_set():
+                    LOGGER.exception("Camera %s frame acquisition failed", self.camera_index)
+                    self.state.mark_error(f"Camera {self.camera_index} frame acquisition failed: {exc}")
+                    self._stop_event.set()
+                return
             self._runtime_metrics.record_latency("camera_capture", monotonic() - capture_started)
-            if not ok:
+            if self._stop_event.is_set():
+                return
+            if not ok or frame is None:
                 self.state.mark_error(f"Camera {self.camera_index} stopped returning frames.")
                 self._stop_event.set()
                 return
             captured_at = monotonic()
+            # An opened device alone does not prove that usable frames arrive.
+            self.state.mark_running()
             try:
                 self.raw_preview.offer(frame, captured_at)
             except Exception:
@@ -1396,7 +1554,7 @@ class CameraInspectionService:
 
             capture, backend = self._open_capture(cv2)
             if capture is None:
-                self.state.mark_error(f"Camera {self.camera_index} is unavailable or permission was denied.")
+                self.state.mark_error(self._camera_open_failure_message())
                 return
             self.camera_controls.attach(capture, cv2, backend)
             try:
@@ -1413,7 +1571,6 @@ class CameraInspectionService:
                 LOGGER.info("[CAMERA] Inspection profile was not applied: %s", exc)
             if self._stop_event.is_set():
                 return
-            self.state.mark_running()
             self.raw_preview.start(self._stop_event, cv2)
             self._capture_thread = Thread(target=self._capture_frames, args=(capture,), name="camera-capture", daemon=True)
             self._capture_thread.start()
@@ -1422,6 +1579,7 @@ class CameraInspectionService:
             consecutive_processing_errors = 0
 
             while not self._stop_event.is_set():
+                frame_generation = self.state.frame_generation()
                 packet = self._latest_frames.take(timeout=.1)
                 if packet is None:
                     continue
@@ -1431,6 +1589,8 @@ class CameraInspectionService:
                 self._runtime_metrics.record_latency("capture_to_process", monotonic() - packet.captured_at)
                 try:
                     with self._processing_lock:
+                        if frame_generation != self.state.frame_generation():
+                            continue
                         annotated = self.process_frame(packet.frame, cv2)
                     consecutive_processing_errors = 0
                 except Exception as exc:
@@ -1454,7 +1614,9 @@ class CameraInspectionService:
                 smoothed_fps = instant_fps if smoothed_fps == 0 else (0.85 * smoothed_fps + 0.15 * instant_fps)
                 previous_time = now
                 self._runtime_metrics.record_call("processed_frame", when=now)
-                self.state.publish_frame(buffer.tobytes(), smoothed_fps)
+                jpeg = buffer.tobytes()
+                self.state.publish_frame(jpeg, smoothed_fps, generation=frame_generation)
+                self._runtime_metrics.record_latency("capture_to_publish", monotonic() - packet.captured_at)
         except Exception as exc:
             self.state.mark_error(f"Inspection failed: {exc}")
         finally:

@@ -1,0 +1,3527 @@
+{
+  "input_image": {
+    "path": "Dried Fish Quality Grading.v7i.coco-segmentation\\train\\1000094977_jpg.rf.402e22629186aa43ad51acd586f2f8a3.jpg",
+    "sha256": "31ed6edae45e8d32a2a24bc3c5cddd87eab04b78f401f26d4c0f5ee56fbb277e",
+    "width": 640,
+    "height": 640,
+    "dtype": "uint8",
+    "shape": [
+      640,
+      640,
+      3
+    ]
+  },
+  "model1": {
+    "model_id": "fish_parent_detector",
+    "resolved_path": "C:\\Users\\User\\Downloads\\Tamban_Thesis_Main_Repository\\Thesis\\sardinella-lemuru-ml\\models\\fish_detector\\weights\\model1_fish_parent_detector.pt",
+    "effective_inference": {
+      "confidence_threshold": 0.5,
+      "image_size": 768,
+      "resize_method": "Ultralytics letterbox inside model.predict"
+    },
+    "load_ok": true,
+    "load_error": null,
+    "class_names": [
+      "item"
+    ],
+    "checkpoint_sha256": "87498c748cec",
+    "load_seconds": 1.545,
+    "inference_seconds": 2.149,
+    "detection_count": 2
+  },
+  "model1_raw_detections": [
+    {
+      "bbox": [
+        75.49740600585938,
+        207.72315979003906,
+        259.6402893066406,
+        500.0611267089844
+      ],
+      "confidence": 0.8842917084693909
+    },
+    {
+      "bbox": [
+        330.5828857421875,
+        185.22735595703125,
+        402.59295654296875,
+        497.4215393066406
+      ],
+      "confidence": 0.7870072722434998
+    }
+  ],
+  "model2": {
+    "model_id": "yolo26m_partdet",
+    "resolved_path": "C:\\Users\\User\\Downloads\\Tamban_Thesis_Main_Repository\\Thesis\\sardinella-lemuru-ml\\models\\yolov26\\model2_tamban_yolo26m_partdet_r03_devbest.pt",
+    "expected_classes": {
+      "0": "Grade_A_Body",
+      "1": "Grade_A_Head",
+      "2": "Grade_A_Tail",
+      "3": "Grade_B_Body",
+      "4": "Grade_B_Head",
+      "5": "Grade_B_Tail",
+      "6": "Grade_C_Body",
+      "7": "Grade_C_Head",
+      "8": "Grade_C_Tail",
+      "9": "Rejected_Body",
+      "10": "Rejected_Head",
+      "11": "Rejected_Tail"
+    },
+    "load_ok": true,
+    "load_error": null,
+    "checkpoint_classes": {
+      "0": "Grade_A_Body",
+      "1": "Grade_A_Head",
+      "2": "Grade_A_Tail",
+      "3": "Grade_B_Body",
+      "4": "Grade_B_Head",
+      "5": "Grade_B_Tail",
+      "6": "Grade_C_Body",
+      "7": "Grade_C_Head",
+      "8": "Grade_C_Tail",
+      "9": "Rejected_Body",
+      "10": "Rejected_Head",
+      "11": "Rejected_Tail"
+    },
+    "checkpoint_sha256": "f74cd336b6ba",
+    "active_model_name": "YOLO26m Part Detector (r03 devbest)",
+    "checkpoint_training": {
+      "available": true,
+      "arguments": {
+        "model": "yolo26m.pt",
+        "data": "/content/tamban_model2_r03/model2_r03_dev.yaml",
+        "epochs": 70,
+        "imgsz": 768,
+        "rect": false,
+        "multi_scale": 0.0,
+        "augment": false,
+        "mosaic": 0.5,
+        "hsv_h": 0.0,
+        "hsv_s": 0.04,
+        "hsv_v": 0.04,
+        "degrees": 20.0,
+        "translate": 0.06,
+        "scale": 0.2,
+        "shear": 2.0,
+        "flipud": 0.5,
+        "fliplr": 0.5
+      },
+      "source_preprocessing_recorded": false,
+      "source_preprocessing_note": "The checkpoint does not record source-image export transforms; verify those from the exact training-pool archive or manifest."
+    },
+    "effective_inference": {
+      "confidence_threshold": 0.25,
+      "raw_diagnostic_floor": 0.001,
+      "image_size": 768,
+      "device": "cpu",
+      "iou_threshold": 0.7,
+      "mode": "full_frame"
+    },
+    "load_seconds": 0.154,
+    "full_frame_inference_seconds": 0.507,
+    "full_frame_raw_detections": [
+      {
+        "class_id": 1,
+        "class_name": "Grade_A_Head",
+        "confidence": 0.797,
+        "bbox": [
+          319.6,
+          434.8,
+          397.2,
+          500.8
+        ]
+      },
+      {
+        "class_id": 1,
+        "class_name": "Grade_A_Head",
+        "confidence": 0.7944,
+        "bbox": [
+          63.7,
+          431.8,
+          153.6,
+          500.5
+        ]
+      },
+      {
+        "class_id": 0,
+        "class_name": "Grade_A_Body",
+        "confidence": 0.768,
+        "bbox": [
+          321.7,
+          281.1,
+          409.1,
+          434.8
+        ]
+      },
+      {
+        "class_id": 0,
+        "class_name": "Grade_A_Body",
+        "confidence": 0.7294,
+        "bbox": [
+          90.7,
+          295.7,
+          215.0,
+          430.5
+        ]
+      },
+      {
+        "class_id": 2,
+        "class_name": "Grade_A_Tail",
+        "confidence": 0.5307,
+        "bbox": [
+          145.7,
+          208.2,
+          275.9,
+          311.0
+        ]
+      },
+      {
+        "class_id": 2,
+        "class_name": "Grade_A_Tail",
+        "confidence": 0.4327,
+        "bbox": [
+          328.9,
+          176.2,
+          409.0,
+          292.3
+        ]
+      },
+      {
+        "class_id": 2,
+        "class_name": "Grade_A_Tail",
+        "confidence": 0.2526,
+        "bbox": [
+          335.4,
+          176.7,
+          405.7,
+          267.8
+        ]
+      },
+      {
+        "class_id": 2,
+        "class_name": "Grade_A_Tail",
+        "confidence": 0.0325,
+        "bbox": [
+          169.9,
+          210.5,
+          270.7,
+          295.0
+        ]
+      },
+      {
+        "class_id": 2,
+        "class_name": "Grade_A_Tail",
+        "confidence": 0.0133,
+        "bbox": [
+          326.3,
+          188.8,
+          411.2,
+          322.1
+        ]
+      },
+      {
+        "class_id": 2,
+        "class_name": "Grade_A_Tail",
+        "confidence": 0.0061,
+        "bbox": [
+          325.9,
+          224.4,
+          412.4,
+          316.2
+        ]
+      },
+      {
+        "class_id": 2,
+        "class_name": "Grade_A_Tail",
+        "confidence": 0.0025,
+        "bbox": [
+          135.9,
+          226.4,
+          265.5,
+          336.0
+        ]
+      }
+    ],
+    "full_frame_above_threshold_count": 7
+  },
+  "integrated_full_frame": {
+    "mode": "full_frame",
+    "fish": [
+      {
+        "fish_index": 1,
+        "crop_bounds": [
+          75,
+          207,
+          260,
+          501
+        ],
+        "grade": "Class A",
+        "quality_confidence": 0.7091723501682281,
+        "reason_codes": [
+          "GR_CONFIDENT"
+        ],
+        "observed_regions": [
+          "Head",
+          "Body",
+          "Tail"
+        ],
+        "part_results": {
+          "Head": {
+            "present": true,
+            "status": "observed",
+            "observation_status": "observed",
+            "visibility_state": "PRESENT",
+            "presence_confidence": 0.7944128513336182,
+            "grade": "Class A",
+            "grade_confidence": 0.7944128513336182,
+            "grade_evidence": {
+              "Class A": 0.7944128513336182,
+              "Class B": 0.0,
+              "Class C": 0.0,
+              "Rejected": 0.0
+            },
+            "weight": 0.3,
+            "original_weight": 0.3,
+            "normalized_weight": 0.3,
+            "effective_weight": 0.3,
+            "contributions": {
+              "Class A": 0.23832385540008544,
+              "Class B": 0.0,
+              "Class C": 0.0,
+              "Rejected": 0.0
+            },
+            "missing_status": "present",
+            "physical_missing": null,
+            "temporal_statistics": {
+              "eligible_frame_count": 1,
+              "region_observation_count": 1,
+              "top_grade": "Class A",
+              "top_grade_statistics": {
+                "number_of_valid_observations": 1,
+                "mean_confidence": 0.7944128513336182,
+                "max_confidence": 0.7944128513336182,
+                "min_confidence": 0.7944128513336182,
+                "standard_deviation": 0.0,
+                "detection_frequency": 1.0
+              },
+              "by_grade": {
+                "Class A": {
+                  "number_of_valid_observations": 1,
+                  "mean_confidence": 0.7944128513336182,
+                  "max_confidence": 0.7944128513336182,
+                  "min_confidence": 0.7944128513336182,
+                  "standard_deviation": 0.0,
+                  "detection_frequency": 1.0
+                },
+                "Class B": {
+                  "number_of_valid_observations": 1,
+                  "mean_confidence": 0.0,
+                  "max_confidence": 0.0,
+                  "min_confidence": 0.0,
+                  "standard_deviation": 0.0,
+                  "detection_frequency": 0.0
+                },
+                "Class C": {
+                  "number_of_valid_observations": 1,
+                  "mean_confidence": 0.0,
+                  "max_confidence": 0.0,
+                  "min_confidence": 0.0,
+                  "standard_deviation": 0.0,
+                  "detection_frequency": 0.0
+                },
+                "Rejected": {
+                  "number_of_valid_observations": 1,
+                  "mean_confidence": 0.0,
+                  "max_confidence": 0.0,
+                  "min_confidence": 0.0,
+                  "standard_deviation": 0.0,
+                  "detection_frequency": 0.0
+                }
+              }
+            },
+            "color": {
+              "status": "measured",
+              "observations": 1,
+              "source": "Model 2 part-detection bounding box; no segmentation mask",
+              "grade_adjustment": 0.0,
+              "grade_adjustment_reason": "No validated HSV grading rule is active.",
+              "mean_hue_deg": 300.46727785909076,
+              "median_hue_deg": 51.5625,
+              "mean_saturation": 0.5325076420408469,
+              "median_saturation": 0.43749999999999994,
+              "mean_value": 0.3281225401553026,
+              "median_value": 0.35294117647058826,
+              "yellow_ratio_proxy": 0.4244122965641953,
+              "brown_ratio_proxy": 0.0945750452079566,
+              "dark_patch_ratio_proxy": 0.41844484629294754,
+              "discoloration_coverage_proxy": 0.8437613019891501,
+              "specular_ratio_proxy": 0.014828209764918625
+            }
+          },
+          "Body": {
+            "present": true,
+            "status": "observed",
+            "observation_status": "observed",
+            "visibility_state": "PRESENT",
+            "presence_confidence": 0.7294310927391052,
+            "grade": "Class A",
+            "grade_confidence": 0.7294310927391052,
+            "grade_evidence": {
+              "Class A": 0.7294310927391052,
+              "Class B": 0.0,
+              "Class C": 0.0,
+              "Rejected": 0.0
+            },
+            "weight": 0.5,
+            "original_weight": 0.5,
+            "normalized_weight": 0.5,
+            "effective_weight": 0.5,
+            "contributions": {
+              "Class A": 0.3647155463695526,
+              "Class B": 0.0,
+              "Class C": 0.0,
+              "Rejected": 0.0
+            },
+            "missing_status": "present",
+            "physical_missing": null,
+            "temporal_statistics": {
+              "eligible_frame_count": 1,
+              "region_observation_count": 1,
+              "top_grade": "Class A",
+              "top_grade_statistics": {
+                "number_of_valid_observations": 1,
+                "mean_confidence": 0.7294310927391052,
+                "max_confidence": 0.7294310927391052,
+                "min_confidence": 0.7294310927391052,
+                "standard_deviation": 0.0,
+                "detection_frequency": 1.0
+              },
+              "by_grade": {
+                "Class A": {
+                  "number_of_valid_observations": 1,
+                  "mean_confidence": 0.7294310927391052,
+                  "max_confidence": 0.7294310927391052,
+                  "min_confidence": 0.7294310927391052,
+                  "standard_deviation": 0.0,
+                  "detection_frequency": 1.0
+                },
+                "Class B": {
+                  "number_of_valid_observations": 1,
+                  "mean_confidence": 0.0,
+                  "max_confidence": 0.0,
+                  "min_confidence": 0.0,
+                  "standard_deviation": 0.0,
+                  "detection_frequency": 0.0
+                },
+                "Class C": {
+                  "number_of_valid_observations": 1,
+                  "mean_confidence": 0.0,
+                  "max_confidence": 0.0,
+                  "min_confidence": 0.0,
+                  "standard_deviation": 0.0,
+                  "detection_frequency": 0.0
+                },
+                "Rejected": {
+                  "number_of_valid_observations": 1,
+                  "mean_confidence": 0.0,
+                  "max_confidence": 0.0,
+                  "min_confidence": 0.0,
+                  "standard_deviation": 0.0,
+                  "detection_frequency": 0.0
+                }
+              }
+            },
+            "color": {
+              "status": "measured",
+              "observations": 1,
+              "source": "Model 2 part-detection bounding box; no segmentation mask",
+              "grade_adjustment": 0.0,
+              "grade_adjustment_reason": "No validated HSV grading rule is active.",
+              "mean_hue_deg": 238.82503500735544,
+              "median_hue_deg": 232.8705882352941,
+              "mean_saturation": 0.5964439356658254,
+              "median_saturation": 0.8717948717948719,
+              "mean_value": 0.29848258362168395,
+              "median_value": 0.13333333333333333,
+              "yellow_ratio_proxy": 0.03852941176470588,
+              "brown_ratio_proxy": 0.01288235294117647,
+              "dark_patch_ratio_proxy": 0.6056470588235294,
+              "discoloration_coverage_proxy": 0.6437647058823529,
+              "specular_ratio_proxy": 0.0002941176470588235
+            }
+          },
+          "Tail": {
+            "present": true,
+            "status": "observed",
+            "observation_status": "observed",
+            "visibility_state": "PRESENT",
+            "presence_confidence": 0.5306647419929504,
+            "grade": "Class A",
+            "grade_confidence": 0.5306647419929504,
+            "grade_evidence": {
+              "Class A": 0.5306647419929504,
+              "Class B": 0.0,
+              "Class C": 0.0,
+              "Rejected": 0.0
+            },
+            "weight": 0.2,
+            "original_weight": 0.2,
+            "normalized_weight": 0.2,
+            "effective_weight": 0.2,
+            "contributions": {
+              "Class A": 0.1061329483985901,
+              "Class B": 0.0,
+              "Class C": 0.0,
+              "Rejected": 0.0
+            },
+            "missing_status": "present",
+            "physical_missing": null,
+            "temporal_statistics": {
+              "eligible_frame_count": 1,
+              "region_observation_count": 1,
+              "top_grade": "Class A",
+              "top_grade_statistics": {
+                "number_of_valid_observations": 1,
+                "mean_confidence": 0.5306647419929504,
+                "max_confidence": 0.5306647419929504,
+                "min_confidence": 0.5306647419929504,
+                "standard_deviation": 0.0,
+                "detection_frequency": 1.0
+              },
+              "by_grade": {
+                "Class A": {
+                  "number_of_valid_observations": 1,
+                  "mean_confidence": 0.5306647419929504,
+                  "max_confidence": 0.5306647419929504,
+                  "min_confidence": 0.5306647419929504,
+                  "standard_deviation": 0.0,
+                  "detection_frequency": 1.0
+                },
+                "Class B": {
+                  "number_of_valid_observations": 1,
+                  "mean_confidence": 0.0,
+                  "max_confidence": 0.0,
+                  "min_confidence": 0.0,
+                  "standard_deviation": 0.0,
+                  "detection_frequency": 0.0
+                },
+                "Class C": {
+                  "number_of_valid_observations": 1,
+                  "mean_confidence": 0.0,
+                  "max_confidence": 0.0,
+                  "min_confidence": 0.0,
+                  "standard_deviation": 0.0,
+                  "detection_frequency": 0.0
+                },
+                "Rejected": {
+                  "number_of_valid_observations": 1,
+                  "mean_confidence": 0.0,
+                  "max_confidence": 0.0,
+                  "min_confidence": 0.0,
+                  "standard_deviation": 0.0,
+                  "detection_frequency": 0.0
+                }
+              }
+            },
+            "color": {
+              "status": "measured",
+              "observations": 1,
+              "source": "Model 2 part-detection bounding box; no segmentation mask",
+              "grade_adjustment": 0.0,
+              "grade_adjustment_reason": "No validated HSV grading rule is active.",
+              "mean_hue_deg": 232.8833177091921,
+              "median_hue_deg": 231.42857142857144,
+              "mean_saturation": 0.7018039510775298,
+              "median_saturation": 0.8867924528301887,
+              "mean_value": 0.24337989376352548,
+              "median_value": 0.1843137254901961,
+              "yellow_ratio_proxy": 0.03035117056856187,
+              "brown_ratio_proxy": 0.0027591973244147157,
+              "dark_patch_ratio_proxy": 0.7622909698996656,
+              "discoloration_coverage_proxy": 0.7925585284280936,
+              "specular_ratio_proxy": 0.0
+            }
+          }
+        },
+        "model2_debug": {
+          "raw_detections": [
+            {
+              "source_class_id": 1,
+              "source_class_name": "Grade_A_Head",
+              "region": "Head",
+              "grade": "Class A",
+              "confidence": 0.7944128513336182,
+              "bbox": [
+                0.0,
+                224.80682373046875,
+                78.61050415039062,
+                293.4729919433594
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 0,
+              "source_class_name": "Grade_A_Body",
+              "region": "Body",
+              "grade": "Class A",
+              "confidence": 0.7294310927391052,
+              "bbox": [
+                15.666915893554688,
+                88.74465942382812,
+                139.9512176513672,
+                223.52951049804688
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.5306647419929504,
+              "bbox": [
+                70.71800231933594,
+                1.237579345703125,
+                185.0,
+                104.04437255859375
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.0324556864798069,
+              "bbox": [
+                94.92604064941406,
+                3.520294189453125,
+                185.0,
+                88.0421142578125
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.0025120561476796865,
+              "bbox": [
+                60.9075927734375,
+                19.39642333984375,
+                185.0,
+                128.95407104492188
+              ],
+              "mask": null
+            }
+          ],
+          "selected_detections": [
+            {
+              "source_class_id": 1,
+              "source_class_name": "Grade_A_Head",
+              "region": "Head",
+              "grade": "Class A",
+              "confidence": 0.7944128513336182,
+              "bbox": [
+                0.0,
+                224.80682373046875,
+                78.61050415039062,
+                293.4729919433594
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 0,
+              "source_class_name": "Grade_A_Body",
+              "region": "Body",
+              "grade": "Class A",
+              "confidence": 0.7294310927391052,
+              "bbox": [
+                15.666915893554688,
+                88.74465942382812,
+                139.9512176513672,
+                223.52951049804688
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.5306647419929504,
+              "bbox": [
+                70.71800231933594,
+                1.237579345703125,
+                185.0,
+                104.04437255859375
+              ],
+              "mask": null
+            }
+          ],
+          "rejected_detections": [
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.0324556864798069,
+              "bbox": [
+                94.92604064941406,
+                3.520294189453125,
+                185.0,
+                88.0421142578125
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.0025120561476796865,
+              "bbox": [
+                60.9075927734375,
+                19.39642333984375,
+                185.0,
+                128.95407104492188
+              ],
+              "mask": null
+            }
+          ],
+          "selection_threshold": 0.25,
+          "coordinate_space": "full_frame_then_crop_local",
+          "unassigned_detections": []
+        },
+        "traceability": {
+          "model2_id": "yolo26m_partdet",
+          "model2_name": "YOLO26m Part Detector (r03 devbest)",
+          "model2_checkpoint": "model2_tamban_yolo26m_partdet_r03_devbest.pt",
+          "model2_checkpoint_sha256": "f74cd336b6ba",
+          "grading_config_version": "4.0",
+          "part_weights": {
+            "Body": 0.5,
+            "Head": 0.3,
+            "Tail": 0.2
+          },
+          "model2_detector_threshold": 0.25,
+          "minimum_part_evidence_threshold": 0.25,
+          "minimum_grade_margin": 0.0,
+          "quality_threshold": 0.25,
+          "final_verdict_threshold": 0.5,
+          "minimum_original_weight_coverage": 0.5,
+          "grading_mode": "tail_optional_v1",
+          "quality_inference_mode": "full_frame",
+          "roi_padding": 0,
+          "model2_available": true
+        }
+      },
+      {
+        "fish_index": 2,
+        "crop_bounds": [
+          330,
+          185,
+          403,
+          498
+        ],
+        "grade": "Class A",
+        "quality_confidence": 0.7096651494503021,
+        "reason_codes": [
+          "GR_CONFIDENT"
+        ],
+        "observed_regions": [
+          "Head",
+          "Body",
+          "Tail"
+        ],
+        "part_results": {
+          "Head": {
+            "present": true,
+            "status": "observed",
+            "observation_status": "observed",
+            "visibility_state": "PRESENT",
+            "presence_confidence": 0.7970463037490845,
+            "grade": "Class A",
+            "grade_confidence": 0.7970463037490845,
+            "grade_evidence": {
+              "Class A": 0.7970463037490845,
+              "Class B": 0.0,
+              "Class C": 0.0,
+              "Rejected": 0.0
+            },
+            "weight": 0.3,
+            "original_weight": 0.3,
+            "normalized_weight": 0.3,
+            "effective_weight": 0.3,
+            "contributions": {
+              "Class A": 0.23911389112472534,
+              "Class B": 0.0,
+              "Class C": 0.0,
+              "Rejected": 0.0
+            },
+            "missing_status": "present",
+            "physical_missing": null,
+            "temporal_statistics": {
+              "eligible_frame_count": 1,
+              "region_observation_count": 1,
+              "top_grade": "Class A",
+              "top_grade_statistics": {
+                "number_of_valid_observations": 1,
+                "mean_confidence": 0.7970463037490845,
+                "max_confidence": 0.7970463037490845,
+                "min_confidence": 0.7970463037490845,
+                "standard_deviation": 0.0,
+                "detection_frequency": 1.0
+              },
+              "by_grade": {
+                "Class A": {
+                  "number_of_valid_observations": 1,
+                  "mean_confidence": 0.7970463037490845,
+                  "max_confidence": 0.7970463037490845,
+                  "min_confidence": 0.7970463037490845,
+                  "standard_deviation": 0.0,
+                  "detection_frequency": 1.0
+                },
+                "Class B": {
+                  "number_of_valid_observations": 1,
+                  "mean_confidence": 0.0,
+                  "max_confidence": 0.0,
+                  "min_confidence": 0.0,
+                  "standard_deviation": 0.0,
+                  "detection_frequency": 0.0
+                },
+                "Class C": {
+                  "number_of_valid_observations": 1,
+                  "mean_confidence": 0.0,
+                  "max_confidence": 0.0,
+                  "min_confidence": 0.0,
+                  "standard_deviation": 0.0,
+                  "detection_frequency": 0.0
+                },
+                "Rejected": {
+                  "number_of_valid_observations": 1,
+                  "mean_confidence": 0.0,
+                  "max_confidence": 0.0,
+                  "min_confidence": 0.0,
+                  "standard_deviation": 0.0,
+                  "detection_frequency": 0.0
+                }
+              }
+            },
+            "color": {
+              "status": "measured",
+              "observations": 1,
+              "source": "Model 2 part-detection bounding box; no segmentation mask",
+              "grade_adjustment": 0.0,
+              "grade_adjustment_reason": "No validated HSV grading rule is active.",
+              "mean_hue_deg": 76.40982576308167,
+              "median_hue_deg": 51.891891891891916,
+              "mean_saturation": 0.4765150529573419,
+              "median_saturation": 0.3582089552238806,
+              "mean_value": 0.31921856978085345,
+              "median_value": 0.33725490196078434,
+              "yellow_ratio_proxy": 0.4117647058823529,
+              "brown_ratio_proxy": 0.1013327205882353,
+              "dark_patch_ratio_proxy": 0.41061580882352944,
+              "discoloration_coverage_proxy": 0.8230698529411765,
+              "specular_ratio_proxy": 0.007352941176470588
+            }
+          },
+          "Body": {
+            "present": true,
+            "status": "observed",
+            "observation_status": "observed",
+            "visibility_state": "PRESENT",
+            "presence_confidence": 0.7680239081382751,
+            "grade": "Class A",
+            "grade_confidence": 0.7680239081382751,
+            "grade_evidence": {
+              "Class A": 0.7680239081382751,
+              "Class B": 0.0,
+              "Class C": 0.0,
+              "Rejected": 0.0
+            },
+            "weight": 0.5,
+            "original_weight": 0.5,
+            "normalized_weight": 0.5,
+            "effective_weight": 0.5,
+            "contributions": {
+              "Class A": 0.3840119540691376,
+              "Class B": 0.0,
+              "Class C": 0.0,
+              "Rejected": 0.0
+            },
+            "missing_status": "present",
+            "physical_missing": null,
+            "temporal_statistics": {
+              "eligible_frame_count": 1,
+              "region_observation_count": 1,
+              "top_grade": "Class A",
+              "top_grade_statistics": {
+                "number_of_valid_observations": 1,
+                "mean_confidence": 0.7680239081382751,
+                "max_confidence": 0.7680239081382751,
+                "min_confidence": 0.7680239081382751,
+                "standard_deviation": 0.0,
+                "detection_frequency": 1.0
+              },
+              "by_grade": {
+                "Class A": {
+                  "number_of_valid_observations": 1,
+                  "mean_confidence": 0.7680239081382751,
+                  "max_confidence": 0.7680239081382751,
+                  "min_confidence": 0.7680239081382751,
+                  "standard_deviation": 0.0,
+                  "detection_frequency": 1.0
+                },
+                "Class B": {
+                  "number_of_valid_observations": 1,
+                  "mean_confidence": 0.0,
+                  "max_confidence": 0.0,
+                  "min_confidence": 0.0,
+                  "standard_deviation": 0.0,
+                  "detection_frequency": 0.0
+                },
+                "Class C": {
+                  "number_of_valid_observations": 1,
+                  "mean_confidence": 0.0,
+                  "max_confidence": 0.0,
+                  "min_confidence": 0.0,
+                  "standard_deviation": 0.0,
+                  "detection_frequency": 0.0
+                },
+                "Rejected": {
+                  "number_of_valid_observations": 1,
+                  "mean_confidence": 0.0,
+                  "max_confidence": 0.0,
+                  "min_confidence": 0.0,
+                  "standard_deviation": 0.0,
+                  "detection_frequency": 0.0
+                }
+              }
+            },
+            "color": {
+              "status": "measured",
+              "observations": 1,
+              "source": "Model 2 part-detection bounding box; no segmentation mask",
+              "grade_adjustment": 0.0,
+              "grade_adjustment_reason": "No validated HSV grading rule is active.",
+              "mean_hue_deg": 153.41694168480603,
+              "median_hue_deg": 120.0,
+              "mean_saturation": 0.23861932074629832,
+              "median_saturation": 0.09259259259259253,
+              "mean_value": 0.4651586662062085,
+              "median_value": 0.49019607843137253,
+              "yellow_ratio_proxy": 0.04723358832947874,
+              "brown_ratio_proxy": 0.013609677993239637,
+              "dark_patch_ratio_proxy": 0.2466642946095001,
+              "discoloration_coverage_proxy": 0.29425369151396547,
+              "specular_ratio_proxy": 0.007916740793453123
+            }
+          },
+          "Tail": {
+            "present": true,
+            "status": "observed",
+            "observation_status": "observed",
+            "visibility_state": "PRESENT",
+            "presence_confidence": 0.43269652128219604,
+            "grade": "Class A",
+            "grade_confidence": 0.43269652128219604,
+            "grade_evidence": {
+              "Class A": 0.43269652128219604,
+              "Class B": 0.0,
+              "Class C": 0.0,
+              "Rejected": 0.0
+            },
+            "weight": 0.2,
+            "original_weight": 0.2,
+            "normalized_weight": 0.2,
+            "effective_weight": 0.2,
+            "contributions": {
+              "Class A": 0.08653930425643921,
+              "Class B": 0.0,
+              "Class C": 0.0,
+              "Rejected": 0.0
+            },
+            "missing_status": "present",
+            "physical_missing": null,
+            "temporal_statistics": {
+              "eligible_frame_count": 1,
+              "region_observation_count": 1,
+              "top_grade": "Class A",
+              "top_grade_statistics": {
+                "number_of_valid_observations": 1,
+                "mean_confidence": 0.43269652128219604,
+                "max_confidence": 0.43269652128219604,
+                "min_confidence": 0.43269652128219604,
+                "standard_deviation": 0.0,
+                "detection_frequency": 1.0
+              },
+              "by_grade": {
+                "Class A": {
+                  "number_of_valid_observations": 1,
+                  "mean_confidence": 0.43269652128219604,
+                  "max_confidence": 0.43269652128219604,
+                  "min_confidence": 0.43269652128219604,
+                  "standard_deviation": 0.0,
+                  "detection_frequency": 1.0
+                },
+                "Class B": {
+                  "number_of_valid_observations": 1,
+                  "mean_confidence": 0.0,
+                  "max_confidence": 0.0,
+                  "min_confidence": 0.0,
+                  "standard_deviation": 0.0,
+                  "detection_frequency": 0.0
+                },
+                "Class C": {
+                  "number_of_valid_observations": 1,
+                  "mean_confidence": 0.0,
+                  "max_confidence": 0.0,
+                  "min_confidence": 0.0,
+                  "standard_deviation": 0.0,
+                  "detection_frequency": 0.0
+                },
+                "Rejected": {
+                  "number_of_valid_observations": 1,
+                  "mean_confidence": 0.0,
+                  "max_confidence": 0.0,
+                  "min_confidence": 0.0,
+                  "standard_deviation": 0.0,
+                  "detection_frequency": 0.0
+                }
+              }
+            },
+            "color": {
+              "status": "measured",
+              "observations": 1,
+              "source": "Model 2 part-detection bounding box; no segmentation mask",
+              "grade_adjustment": 0.0,
+              "grade_adjustment_reason": "No validated HSV grading rule is active.",
+              "mean_hue_deg": 188.31963770153237,
+              "median_hue_deg": 150.00000000000006,
+              "mean_saturation": 0.5920373920015002,
+              "median_saturation": 0.8,
+              "mean_value": 0.20534863361884578,
+              "median_value": 0.06666666666666667,
+              "yellow_ratio_proxy": 0.0730593607305936,
+              "brown_ratio_proxy": 0.0020294266869609334,
+              "dark_patch_ratio_proxy": 0.6440892947742263,
+              "discoloration_coverage_proxy": 0.7171486555048199,
+              "specular_ratio_proxy": 0.0
+            }
+          }
+        },
+        "model2_debug": {
+          "raw_detections": [
+            {
+              "source_class_id": 1,
+              "source_class_name": "Grade_A_Head",
+              "region": "Head",
+              "grade": "Class A",
+              "confidence": 0.7970463037490845,
+              "bbox": [
+                0.0,
+                249.84951782226562,
+                67.20816040039062,
+                313.0
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 0,
+              "source_class_name": "Grade_A_Body",
+              "region": "Body",
+              "grade": "Class A",
+              "confidence": 0.7680239081382751,
+              "bbox": [
+                0.0,
+                96.13772583007812,
+                73.0,
+                249.84317016601562
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.43269652128219604,
+              "bbox": [
+                0.0,
+                0.0,
+                73.0,
+                107.26654052734375
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.25263461470603943,
+              "bbox": [
+                5.38330078125,
+                0.0,
+                73.0,
+                82.8145751953125
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.013302546925842762,
+              "bbox": [
+                0.0,
+                3.7667999267578125,
+                73.0,
+                137.10720825195312
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.006052824202924967,
+              "bbox": [
+                0.0,
+                39.37519836425781,
+                73.0,
+                131.18011474609375
+              ],
+              "mask": null
+            }
+          ],
+          "selected_detections": [
+            {
+              "source_class_id": 1,
+              "source_class_name": "Grade_A_Head",
+              "region": "Head",
+              "grade": "Class A",
+              "confidence": 0.7970463037490845,
+              "bbox": [
+                0.0,
+                249.84951782226562,
+                67.20816040039062,
+                313.0
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 0,
+              "source_class_name": "Grade_A_Body",
+              "region": "Body",
+              "grade": "Class A",
+              "confidence": 0.7680239081382751,
+              "bbox": [
+                0.0,
+                96.13772583007812,
+                73.0,
+                249.84317016601562
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.43269652128219604,
+              "bbox": [
+                0.0,
+                0.0,
+                73.0,
+                107.26654052734375
+              ],
+              "mask": null
+            }
+          ],
+          "rejected_detections": [
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.25263461470603943,
+              "bbox": [
+                5.38330078125,
+                0.0,
+                73.0,
+                82.8145751953125
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.013302546925842762,
+              "bbox": [
+                0.0,
+                3.7667999267578125,
+                73.0,
+                137.10720825195312
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.006052824202924967,
+              "bbox": [
+                0.0,
+                39.37519836425781,
+                73.0,
+                131.18011474609375
+              ],
+              "mask": null
+            }
+          ],
+          "selection_threshold": 0.25,
+          "coordinate_space": "full_frame_then_crop_local",
+          "unassigned_detections": [
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.25263461470603943,
+              "bbox": [
+                5.38330078125,
+                0.0,
+                73.0,
+                82.8145751953125
+              ],
+              "mask": null
+            }
+          ]
+        },
+        "traceability": {
+          "model2_id": "yolo26m_partdet",
+          "model2_name": "YOLO26m Part Detector (r03 devbest)",
+          "model2_checkpoint": "model2_tamban_yolo26m_partdet_r03_devbest.pt",
+          "model2_checkpoint_sha256": "f74cd336b6ba",
+          "grading_config_version": "4.0",
+          "part_weights": {
+            "Body": 0.5,
+            "Head": 0.3,
+            "Tail": 0.2
+          },
+          "model2_detector_threshold": 0.25,
+          "minimum_part_evidence_threshold": 0.25,
+          "minimum_grade_margin": 0.0,
+          "quality_threshold": 0.25,
+          "final_verdict_threshold": 0.5,
+          "minimum_original_weight_coverage": 0.5,
+          "grading_mode": "tail_optional_v1",
+          "quality_inference_mode": "full_frame",
+          "roi_padding": 0,
+          "model2_available": true
+        }
+      }
+    ]
+  },
+  "fish": [
+    {
+      "fish_index": 1,
+      "model1_bbox": [
+        75.49740600585938,
+        207.72315979003906,
+        259.6402893066406,
+        500.0611267089844
+      ],
+      "model1_confidence": 0.8842917084693909,
+      "comparison_only": "legacy_per_crop_inference_not_production_grade",
+      "crop_bounds": {
+        "x1": 75,
+        "y1": 207,
+        "x2": 260,
+        "y2": 501
+      },
+      "crop_size": {
+        "width": 185,
+        "height": 294
+      },
+      "crop_saved": "results\\diagnostic\\analyzeimage_verify_train\\crop_fish_1.jpg",
+      "model2_on_crop_by_threshold": {
+        "conf_0.001": [
+          {
+            "class_id": 0,
+            "class_name": "Grade_A_Body",
+            "confidence": 0.6159,
+            "bbox": [
+              17.2,
+              139.1,
+              119.2,
+              233.3
+            ]
+          },
+          {
+            "class_id": 1,
+            "class_name": "Grade_A_Head",
+            "confidence": 0.436,
+            "bbox": [
+              0.0,
+              229.0,
+              69.0,
+              294.0
+            ]
+          },
+          {
+            "class_id": 0,
+            "class_name": "Grade_A_Body",
+            "confidence": 0.3012,
+            "bbox": [
+              34.4,
+              107.6,
+              134.7,
+              200.6
+            ]
+          },
+          {
+            "class_id": 0,
+            "class_name": "Grade_A_Body",
+            "confidence": 0.2838,
+            "bbox": [
+              27.3,
+              119.7,
+              130.0,
+              214.8
+            ]
+          },
+          {
+            "class_id": 2,
+            "class_name": "Grade_A_Tail",
+            "confidence": 0.2821,
+            "bbox": [
+              97.5,
+              6.9,
+              181.7,
+              84.4
+            ]
+          },
+          {
+            "class_id": 0,
+            "class_name": "Grade_A_Body",
+            "confidence": 0.2195,
+            "bbox": [
+              55.4,
+              70.0,
+              143.0,
+              169.1
+            ]
+          },
+          {
+            "class_id": 2,
+            "class_name": "Grade_A_Tail",
+            "confidence": 0.1167,
+            "bbox": [
+              92.6,
+              21.2,
+              173.0,
+              93.0
+            ]
+          },
+          {
+            "class_id": 0,
+            "class_name": "Grade_A_Body",
+            "confidence": 0.0649,
+            "bbox": [
+              43.9,
+              93.7,
+              138.6,
+              185.6
+            ]
+          },
+          {
+            "class_id": 1,
+            "class_name": "Grade_A_Head",
+            "confidence": 0.0076,
+            "bbox": [
+              104.2,
+              6.2,
+              184.4,
+              74.2
+            ]
+          },
+          {
+            "class_id": 1,
+            "class_name": "Grade_A_Head",
+            "confidence": 0.0061,
+            "bbox": [
+              4.8,
+              224.8,
+              67.8,
+              258.6
+            ]
+          },
+          {
+            "class_id": 1,
+            "class_name": "Grade_A_Head",
+            "confidence": 0.004,
+            "bbox": [
+              0.0,
+              290.0,
+              54.9,
+              294.0
+            ]
+          },
+          {
+            "class_id": 0,
+            "class_name": "Grade_A_Body",
+            "confidence": 0.0036,
+            "bbox": [
+              60.7,
+              65.6,
+              140.7,
+              148.2
+            ]
+          },
+          {
+            "class_id": 2,
+            "class_name": "Grade_A_Tail",
+            "confidence": 0.0033,
+            "bbox": [
+              83.1,
+              32.5,
+              164.5,
+              104.9
+            ]
+          },
+          {
+            "class_id": 1,
+            "class_name": "Grade_A_Head",
+            "confidence": 0.0016,
+            "bbox": [
+              0.0,
+              226.0,
+              69.3,
+              267.7
+            ]
+          },
+          {
+            "class_id": 0,
+            "class_name": "Grade_A_Body",
+            "confidence": 0.0015,
+            "bbox": [
+              18.6,
+              161.9,
+              108.3,
+              236.1
+            ]
+          },
+          {
+            "class_id": 2,
+            "class_name": "Grade_A_Tail",
+            "confidence": 0.0015,
+            "bbox": [
+              130.7,
+              6.0,
+              168.8,
+              42.1
+            ]
+          },
+          {
+            "class_id": 1,
+            "class_name": "Grade_A_Head",
+            "confidence": 0.0013,
+            "bbox": [
+              0.0,
+              287.5,
+              65.0,
+              294.0
+            ]
+          },
+          {
+            "class_id": 1,
+            "class_name": "Grade_A_Head",
+            "confidence": 0.0012,
+            "bbox": [
+              7.7,
+              213.5,
+              87.3,
+              266.6
+            ]
+          },
+          {
+            "class_id": 2,
+            "class_name": "Grade_A_Tail",
+            "confidence": 0.0012,
+            "bbox": [
+              111.6,
+              42.9,
+              162.1,
+              96.9
+            ]
+          },
+          {
+            "class_id": 1,
+            "class_name": "Grade_A_Head",
+            "confidence": 0.001,
+            "bbox": [
+              15.2,
+              290.2,
+              59.4,
+              294.0
+            ]
+          }
+        ],
+        "conf_0.05": [
+          {
+            "class_id": 0,
+            "class_name": "Grade_A_Body",
+            "confidence": 0.6159,
+            "bbox": [
+              17.2,
+              139.1,
+              119.2,
+              233.3
+            ]
+          },
+          {
+            "class_id": 1,
+            "class_name": "Grade_A_Head",
+            "confidence": 0.436,
+            "bbox": [
+              0.0,
+              229.0,
+              69.0,
+              294.0
+            ]
+          },
+          {
+            "class_id": 0,
+            "class_name": "Grade_A_Body",
+            "confidence": 0.3012,
+            "bbox": [
+              34.4,
+              107.6,
+              134.7,
+              200.6
+            ]
+          },
+          {
+            "class_id": 0,
+            "class_name": "Grade_A_Body",
+            "confidence": 0.2838,
+            "bbox": [
+              27.3,
+              119.7,
+              130.0,
+              214.8
+            ]
+          },
+          {
+            "class_id": 2,
+            "class_name": "Grade_A_Tail",
+            "confidence": 0.2821,
+            "bbox": [
+              97.5,
+              6.9,
+              181.7,
+              84.4
+            ]
+          },
+          {
+            "class_id": 0,
+            "class_name": "Grade_A_Body",
+            "confidence": 0.2195,
+            "bbox": [
+              55.4,
+              70.0,
+              143.0,
+              169.1
+            ]
+          },
+          {
+            "class_id": 2,
+            "class_name": "Grade_A_Tail",
+            "confidence": 0.1167,
+            "bbox": [
+              92.6,
+              21.2,
+              173.0,
+              93.0
+            ]
+          },
+          {
+            "class_id": 0,
+            "class_name": "Grade_A_Body",
+            "confidence": 0.0649,
+            "bbox": [
+              43.9,
+              93.7,
+              138.6,
+              185.6
+            ]
+          }
+        ],
+        "conf_0.1": [
+          {
+            "class_id": 0,
+            "class_name": "Grade_A_Body",
+            "confidence": 0.6159,
+            "bbox": [
+              17.2,
+              139.1,
+              119.2,
+              233.3
+            ]
+          },
+          {
+            "class_id": 1,
+            "class_name": "Grade_A_Head",
+            "confidence": 0.436,
+            "bbox": [
+              0.0,
+              229.0,
+              69.0,
+              294.0
+            ]
+          },
+          {
+            "class_id": 0,
+            "class_name": "Grade_A_Body",
+            "confidence": 0.3012,
+            "bbox": [
+              34.4,
+              107.6,
+              134.7,
+              200.6
+            ]
+          },
+          {
+            "class_id": 0,
+            "class_name": "Grade_A_Body",
+            "confidence": 0.2838,
+            "bbox": [
+              27.3,
+              119.7,
+              130.0,
+              214.8
+            ]
+          },
+          {
+            "class_id": 2,
+            "class_name": "Grade_A_Tail",
+            "confidence": 0.2821,
+            "bbox": [
+              97.5,
+              6.9,
+              181.7,
+              84.4
+            ]
+          },
+          {
+            "class_id": 0,
+            "class_name": "Grade_A_Body",
+            "confidence": 0.2195,
+            "bbox": [
+              55.4,
+              70.0,
+              143.0,
+              169.1
+            ]
+          },
+          {
+            "class_id": 2,
+            "class_name": "Grade_A_Tail",
+            "confidence": 0.1167,
+            "bbox": [
+              92.6,
+              21.2,
+              173.0,
+              93.0
+            ]
+          }
+        ],
+        "conf_0.15": [
+          {
+            "class_id": 0,
+            "class_name": "Grade_A_Body",
+            "confidence": 0.6159,
+            "bbox": [
+              17.2,
+              139.1,
+              119.2,
+              233.3
+            ]
+          },
+          {
+            "class_id": 1,
+            "class_name": "Grade_A_Head",
+            "confidence": 0.436,
+            "bbox": [
+              0.0,
+              229.0,
+              69.0,
+              294.0
+            ]
+          },
+          {
+            "class_id": 0,
+            "class_name": "Grade_A_Body",
+            "confidence": 0.3012,
+            "bbox": [
+              34.4,
+              107.6,
+              134.7,
+              200.6
+            ]
+          },
+          {
+            "class_id": 0,
+            "class_name": "Grade_A_Body",
+            "confidence": 0.2838,
+            "bbox": [
+              27.3,
+              119.7,
+              130.0,
+              214.8
+            ]
+          },
+          {
+            "class_id": 2,
+            "class_name": "Grade_A_Tail",
+            "confidence": 0.2821,
+            "bbox": [
+              97.5,
+              6.9,
+              181.7,
+              84.4
+            ]
+          },
+          {
+            "class_id": 0,
+            "class_name": "Grade_A_Body",
+            "confidence": 0.2195,
+            "bbox": [
+              55.4,
+              70.0,
+              143.0,
+              169.1
+            ]
+          }
+        ],
+        "conf_0.25": [
+          {
+            "class_id": 0,
+            "class_name": "Grade_A_Body",
+            "confidence": 0.6159,
+            "bbox": [
+              17.2,
+              139.1,
+              119.2,
+              233.3
+            ]
+          },
+          {
+            "class_id": 1,
+            "class_name": "Grade_A_Head",
+            "confidence": 0.436,
+            "bbox": [
+              0.0,
+              229.0,
+              69.0,
+              294.0
+            ]
+          },
+          {
+            "class_id": 0,
+            "class_name": "Grade_A_Body",
+            "confidence": 0.3012,
+            "bbox": [
+              34.4,
+              107.6,
+              134.7,
+              200.6
+            ]
+          },
+          {
+            "class_id": 0,
+            "class_name": "Grade_A_Body",
+            "confidence": 0.2838,
+            "bbox": [
+              27.3,
+              119.7,
+              130.0,
+              214.8
+            ]
+          },
+          {
+            "class_id": 2,
+            "class_name": "Grade_A_Tail",
+            "confidence": 0.2821,
+            "bbox": [
+              97.5,
+              6.9,
+              181.7,
+              84.4
+            ]
+          }
+        ]
+      },
+      "model2_raw_count_at_0.001": 20,
+      "model2_above_threshold_count_at_0.25": 5,
+      "grading_result": {
+        "final_grade": null,
+        "quality_confidence": 0.49514555335044863,
+        "reason_codes": [
+          "UG_LOW_GRADE_SUPPORT"
+        ],
+        "verdict_reason_text": "Highest weighted grade support was 49.51%, below the 50.00% final verdict threshold.",
+        "observed_regions": [
+          "Head",
+          "Body",
+          "Tail"
+        ],
+        "part_results": {
+          "Head": {
+            "present": true,
+            "status": "observed",
+            "grade": "Class A",
+            "presence_confidence": 0.43595945835113525
+          },
+          "Body": {
+            "present": true,
+            "status": "observed",
+            "grade": "Class A",
+            "presence_confidence": 0.6158773303031921
+          },
+          "Tail": {
+            "present": true,
+            "status": "observed",
+            "grade": "Class A",
+            "presence_confidence": 0.2820952534675598
+          }
+        },
+        "weighted_scores": {
+          "Class A": 0.49514555335044863,
+          "Class B": 0.0,
+          "Class C": 0.0,
+          "Rejected": 0.0
+        },
+        "original_weight_coverage": 1.0,
+        "model2_debug": {
+          "raw_detections": [
+            {
+              "source_class_id": 0,
+              "source_class_name": "Grade_A_Body",
+              "region": "Body",
+              "grade": "Class A",
+              "confidence": 0.6158773303031921,
+              "bbox": [
+                17.219552993774414,
+                139.08448791503906,
+                119.19554901123047,
+                233.25828552246094
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 1,
+              "source_class_name": "Grade_A_Head",
+              "region": "Head",
+              "grade": "Class A",
+              "confidence": 0.43595945835113525,
+              "bbox": [
+                0.0,
+                228.9567108154297,
+                69.00518798828125,
+                294.0
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 0,
+              "source_class_name": "Grade_A_Body",
+              "region": "Body",
+              "grade": "Class A",
+              "confidence": 0.30120041966438293,
+              "bbox": [
+                34.42215347290039,
+                107.5838394165039,
+                134.65586853027344,
+                200.62130737304688
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 0,
+              "source_class_name": "Grade_A_Body",
+              "region": "Body",
+              "grade": "Class A",
+              "confidence": 0.2837753891944885,
+              "bbox": [
+                27.286874771118164,
+                119.71449279785156,
+                129.98446655273438,
+                214.81265258789062
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.2820952534675598,
+              "bbox": [
+                97.52345275878906,
+                6.899866104125977,
+                181.71920776367188,
+                84.37165832519531
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 0,
+              "source_class_name": "Grade_A_Body",
+              "region": "Body",
+              "grade": "Class A",
+              "confidence": 0.21949030458927155,
+              "bbox": [
+                55.44207763671875,
+                70.01980590820312,
+                142.9775390625,
+                169.093994140625
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.11671770364046097,
+              "bbox": [
+                92.62665557861328,
+                21.238561630249023,
+                173.04031372070312,
+                93.00001525878906
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 0,
+              "source_class_name": "Grade_A_Body",
+              "region": "Body",
+              "grade": "Class A",
+              "confidence": 0.06492163240909576,
+              "bbox": [
+                43.87210464477539,
+                93.66464233398438,
+                138.58470153808594,
+                185.56515502929688
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 1,
+              "source_class_name": "Grade_A_Head",
+              "region": "Head",
+              "grade": "Class A",
+              "confidence": 0.007646934129297733,
+              "bbox": [
+                104.18876647949219,
+                6.178167343139648,
+                184.42190551757812,
+                74.24771881103516
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 1,
+              "source_class_name": "Grade_A_Head",
+              "region": "Head",
+              "grade": "Class A",
+              "confidence": 0.00609173346310854,
+              "bbox": [
+                4.819251537322998,
+                224.7751922607422,
+                67.83992004394531,
+                258.6332702636719
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 1,
+              "source_class_name": "Grade_A_Head",
+              "region": "Head",
+              "grade": "Class A",
+              "confidence": 0.003962157294154167,
+              "bbox": [
+                0.0,
+                289.9905090332031,
+                54.88019943237305,
+                294.0
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 0,
+              "source_class_name": "Grade_A_Body",
+              "region": "Body",
+              "grade": "Class A",
+              "confidence": 0.0035602280404418707,
+              "bbox": [
+                60.748558044433594,
+                65.64476013183594,
+                140.7445068359375,
+                148.19602966308594
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.0033309462014585733,
+              "bbox": [
+                83.12095642089844,
+                32.50634002685547,
+                164.50917053222656,
+                104.91410064697266
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 1,
+              "source_class_name": "Grade_A_Head",
+              "region": "Head",
+              "grade": "Class A",
+              "confidence": 0.0016444972716271877,
+              "bbox": [
+                0.0,
+                226.02499389648438,
+                69.29818725585938,
+                267.674072265625
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 0,
+              "source_class_name": "Grade_A_Body",
+              "region": "Body",
+              "grade": "Class A",
+              "confidence": 0.0015026553301140666,
+              "bbox": [
+                18.61228370666504,
+                161.87306213378906,
+                108.2548828125,
+                236.0957794189453
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.0014847655547782779,
+              "bbox": [
+                130.6906280517578,
+                6.023447036743164,
+                168.81402587890625,
+                42.061607360839844
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 1,
+              "source_class_name": "Grade_A_Head",
+              "region": "Head",
+              "grade": "Class A",
+              "confidence": 0.0012762958649545908,
+              "bbox": [
+                0.0,
+                287.4881286621094,
+                65.04051208496094,
+                294.0
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 1,
+              "source_class_name": "Grade_A_Head",
+              "region": "Head",
+              "grade": "Class A",
+              "confidence": 0.001215115305967629,
+              "bbox": [
+                7.736672401428223,
+                213.51246643066406,
+                87.29754638671875,
+                266.5661926269531
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.0011848321883007884,
+              "bbox": [
+                111.61273193359375,
+                42.918212890625,
+                162.14137268066406,
+                96.86536407470703
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 1,
+              "source_class_name": "Grade_A_Head",
+              "region": "Head",
+              "grade": "Class A",
+              "confidence": 0.0010452165734022856,
+              "bbox": [
+                15.183038711547852,
+                290.2265625,
+                59.378353118896484,
+                294.0
+              ],
+              "mask": null
+            }
+          ],
+          "selected_detections": [
+            {
+              "source_class_id": 0,
+              "source_class_name": "Grade_A_Body",
+              "region": "Body",
+              "grade": "Class A",
+              "confidence": 0.6158773303031921,
+              "bbox": [
+                17.219552993774414,
+                139.08448791503906,
+                119.19554901123047,
+                233.25828552246094
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 1,
+              "source_class_name": "Grade_A_Head",
+              "region": "Head",
+              "grade": "Class A",
+              "confidence": 0.43595945835113525,
+              "bbox": [
+                0.0,
+                228.9567108154297,
+                69.00518798828125,
+                294.0
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 0,
+              "source_class_name": "Grade_A_Body",
+              "region": "Body",
+              "grade": "Class A",
+              "confidence": 0.30120041966438293,
+              "bbox": [
+                34.42215347290039,
+                107.5838394165039,
+                134.65586853027344,
+                200.62130737304688
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 0,
+              "source_class_name": "Grade_A_Body",
+              "region": "Body",
+              "grade": "Class A",
+              "confidence": 0.2837753891944885,
+              "bbox": [
+                27.286874771118164,
+                119.71449279785156,
+                129.98446655273438,
+                214.81265258789062
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.2820952534675598,
+              "bbox": [
+                97.52345275878906,
+                6.899866104125977,
+                181.71920776367188,
+                84.37165832519531
+              ],
+              "mask": null
+            }
+          ],
+          "rejected_detections": [
+            {
+              "source_class_id": 0,
+              "source_class_name": "Grade_A_Body",
+              "region": "Body",
+              "grade": "Class A",
+              "confidence": 0.21949030458927155,
+              "bbox": [
+                55.44207763671875,
+                70.01980590820312,
+                142.9775390625,
+                169.093994140625
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.11671770364046097,
+              "bbox": [
+                92.62665557861328,
+                21.238561630249023,
+                173.04031372070312,
+                93.00001525878906
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 0,
+              "source_class_name": "Grade_A_Body",
+              "region": "Body",
+              "grade": "Class A",
+              "confidence": 0.06492163240909576,
+              "bbox": [
+                43.87210464477539,
+                93.66464233398438,
+                138.58470153808594,
+                185.56515502929688
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 1,
+              "source_class_name": "Grade_A_Head",
+              "region": "Head",
+              "grade": "Class A",
+              "confidence": 0.007646934129297733,
+              "bbox": [
+                104.18876647949219,
+                6.178167343139648,
+                184.42190551757812,
+                74.24771881103516
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 1,
+              "source_class_name": "Grade_A_Head",
+              "region": "Head",
+              "grade": "Class A",
+              "confidence": 0.00609173346310854,
+              "bbox": [
+                4.819251537322998,
+                224.7751922607422,
+                67.83992004394531,
+                258.6332702636719
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 1,
+              "source_class_name": "Grade_A_Head",
+              "region": "Head",
+              "grade": "Class A",
+              "confidence": 0.003962157294154167,
+              "bbox": [
+                0.0,
+                289.9905090332031,
+                54.88019943237305,
+                294.0
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 0,
+              "source_class_name": "Grade_A_Body",
+              "region": "Body",
+              "grade": "Class A",
+              "confidence": 0.0035602280404418707,
+              "bbox": [
+                60.748558044433594,
+                65.64476013183594,
+                140.7445068359375,
+                148.19602966308594
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.0033309462014585733,
+              "bbox": [
+                83.12095642089844,
+                32.50634002685547,
+                164.50917053222656,
+                104.91410064697266
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 1,
+              "source_class_name": "Grade_A_Head",
+              "region": "Head",
+              "grade": "Class A",
+              "confidence": 0.0016444972716271877,
+              "bbox": [
+                0.0,
+                226.02499389648438,
+                69.29818725585938,
+                267.674072265625
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 0,
+              "source_class_name": "Grade_A_Body",
+              "region": "Body",
+              "grade": "Class A",
+              "confidence": 0.0015026553301140666,
+              "bbox": [
+                18.61228370666504,
+                161.87306213378906,
+                108.2548828125,
+                236.0957794189453
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.0014847655547782779,
+              "bbox": [
+                130.6906280517578,
+                6.023447036743164,
+                168.81402587890625,
+                42.061607360839844
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 1,
+              "source_class_name": "Grade_A_Head",
+              "region": "Head",
+              "grade": "Class A",
+              "confidence": 0.0012762958649545908,
+              "bbox": [
+                0.0,
+                287.4881286621094,
+                65.04051208496094,
+                294.0
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 1,
+              "source_class_name": "Grade_A_Head",
+              "region": "Head",
+              "grade": "Class A",
+              "confidence": 0.001215115305967629,
+              "bbox": [
+                7.736672401428223,
+                213.51246643066406,
+                87.29754638671875,
+                266.5661926269531
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.0011848321883007884,
+              "bbox": [
+                111.61273193359375,
+                42.918212890625,
+                162.14137268066406,
+                96.86536407470703
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 1,
+              "source_class_name": "Grade_A_Head",
+              "region": "Head",
+              "grade": "Class A",
+              "confidence": 0.0010452165734022856,
+              "bbox": [
+                15.183038711547852,
+                290.2265625,
+                59.378353118896484,
+                294.0
+              ],
+              "mask": null
+            }
+          ],
+          "selection_threshold": 0.25,
+          "coordinate_space": "crop_local",
+          "unassigned_detections": []
+        },
+        "traceability": {
+          "model2_id": "yolo26m_partdet",
+          "model2_name": "YOLO26m Part Detector (r03 devbest)",
+          "model2_checkpoint": "model2_tamban_yolo26m_partdet_r03_devbest.pt",
+          "model2_checkpoint_sha256": "f74cd336b6ba",
+          "grading_config_version": "4.0",
+          "part_weights": {
+            "Body": 0.5,
+            "Head": 0.3,
+            "Tail": 0.2
+          },
+          "model2_detector_threshold": 0.25,
+          "minimum_part_evidence_threshold": 0.25,
+          "minimum_grade_margin": 0.0,
+          "quality_threshold": 0.25,
+          "final_verdict_threshold": 0.5,
+          "minimum_original_weight_coverage": 0.5,
+          "grading_mode": "tail_optional_v1",
+          "quality_inference_mode": "crop",
+          "roi_padding": 0,
+          "model2_available": true
+        }
+      }
+    },
+    {
+      "fish_index": 2,
+      "model1_bbox": [
+        330.5828857421875,
+        185.22735595703125,
+        402.59295654296875,
+        497.4215393066406
+      ],
+      "model1_confidence": 0.7870072722434998,
+      "comparison_only": "legacy_per_crop_inference_not_production_grade",
+      "crop_bounds": {
+        "x1": 330,
+        "y1": 185,
+        "x2": 403,
+        "y2": 498
+      },
+      "crop_size": {
+        "width": 73,
+        "height": 313
+      },
+      "crop_saved": "results\\diagnostic\\analyzeimage_verify_train\\crop_fish_2.jpg",
+      "model2_on_crop_by_threshold": {
+        "conf_0.001": [
+          {
+            "class_id": 6,
+            "class_name": "Grade_C_Body",
+            "confidence": 0.5625,
+            "bbox": [
+              0.0,
+              246.6,
+              58.3,
+              313.0
+            ]
+          },
+          {
+            "class_id": 7,
+            "class_name": "Grade_C_Head",
+            "confidence": 0.2263,
+            "bbox": [
+              0.0,
+              246.9,
+              58.0,
+              313.0
+            ]
+          },
+          {
+            "class_id": 6,
+            "class_name": "Grade_C_Body",
+            "confidence": 0.1188,
+            "bbox": [
+              11.8,
+              176.4,
+              73.0,
+              260.4
+            ]
+          },
+          {
+            "class_id": 6,
+            "class_name": "Grade_C_Body",
+            "confidence": 0.0545,
+            "bbox": [
+              3.0,
+              65.7,
+              70.6,
+              161.2
+            ]
+          },
+          {
+            "class_id": 2,
+            "class_name": "Grade_A_Tail",
+            "confidence": 0.0299,
+            "bbox": [
+              13.7,
+              5.0,
+              71.6,
+              80.9
+            ]
+          },
+          {
+            "class_id": 2,
+            "class_name": "Grade_A_Tail",
+            "confidence": 0.0238,
+            "bbox": [
+              7.0,
+              0.0,
+              42.9,
+              10.1
+            ]
+          },
+          {
+            "class_id": 2,
+            "class_name": "Grade_A_Tail",
+            "confidence": 0.0228,
+            "bbox": [
+              17.6,
+              0.0,
+              40.7,
+              16.8
+            ]
+          },
+          {
+            "class_id": 2,
+            "class_name": "Grade_A_Tail",
+            "confidence": 0.0197,
+            "bbox": [
+              5.9,
+              0.0,
+              46.6,
+              15.0
+            ]
+          },
+          {
+            "class_id": 2,
+            "class_name": "Grade_A_Tail",
+            "confidence": 0.0116,
+            "bbox": [
+              14.4,
+              0.1,
+              51.3,
+              30.0
+            ]
+          },
+          {
+            "class_id": 6,
+            "class_name": "Grade_C_Body",
+            "confidence": 0.0099,
+            "bbox": [
+              23.1,
+              160.3,
+              73.0,
+              259.1
+            ]
+          },
+          {
+            "class_id": 2,
+            "class_name": "Grade_A_Tail",
+            "confidence": 0.0087,
+            "bbox": [
+              11.2,
+              0.0,
+              50.5,
+              20.7
+            ]
+          },
+          {
+            "class_id": 2,
+            "class_name": "Grade_A_Tail",
+            "confidence": 0.0082,
+            "bbox": [
+              16.9,
+              0.0,
+              40.2,
+              7.1
+            ]
+          },
+          {
+            "class_id": 2,
+            "class_name": "Grade_A_Tail",
+            "confidence": 0.0047,
+            "bbox": [
+              12.3,
+              0.0,
+              37.9,
+              9.8
+            ]
+          },
+          {
+            "class_id": 2,
+            "class_name": "Grade_A_Tail",
+            "confidence": 0.0045,
+            "bbox": [
+              13.3,
+              0.0,
+              54.3,
+              16.5
+            ]
+          },
+          {
+            "class_id": 2,
+            "class_name": "Grade_A_Tail",
+            "confidence": 0.0045,
+            "bbox": [
+              10.9,
+              0.0,
+              37.7,
+              5.4
+            ]
+          },
+          {
+            "class_id": 6,
+            "class_name": "Grade_C_Body",
+            "confidence": 0.004,
+            "bbox": [
+              0.0,
+              163.5,
+              42.2,
+              254.3
+            ]
+          },
+          {
+            "class_id": 6,
+            "class_name": "Grade_C_Body",
+            "confidence": 0.0027,
+            "bbox": [
+              3.1,
+              178.5,
+              50.6,
+              258.1
+            ]
+          },
+          {
+            "class_id": 6,
+            "class_name": "Grade_C_Body",
+            "confidence": 0.0023,
+            "bbox": [
+              24.9,
+              178.4,
+              60.0,
+              256.3
+            ]
+          },
+          {
+            "class_id": 2,
+            "class_name": "Grade_A_Tail",
+            "confidence": 0.0022,
+            "bbox": [
+              17.4,
+              0.0,
+              44.4,
+              23.5
+            ]
+          },
+          {
+            "class_id": 7,
+            "class_name": "Grade_C_Head",
+            "confidence": 0.0022,
+            "bbox": [
+              5.1,
+              308.6,
+              51.7,
+              313.0
+            ]
+          },
+          {
+            "class_id": 6,
+            "class_name": "Grade_C_Body",
+            "confidence": 0.0017,
+            "bbox": [
+              12.1,
+              179.5,
+              43.9,
+              254.0
+            ]
+          },
+          {
+            "class_id": 6,
+            "class_name": "Grade_C_Body",
+            "confidence": 0.0013,
+            "bbox": [
+              0.1,
+              111.1,
+              47.6,
+              205.8
+            ]
+          },
+          {
+            "class_id": 2,
+            "class_name": "Grade_A_Tail",
+            "confidence": 0.0012,
+            "bbox": [
+              16.1,
+              0.5,
+              58.3,
+              39.8
+            ]
+          }
+        ],
+        "conf_0.05": [
+          {
+            "class_id": 6,
+            "class_name": "Grade_C_Body",
+            "confidence": 0.5625,
+            "bbox": [
+              0.0,
+              246.6,
+              58.3,
+              313.0
+            ]
+          },
+          {
+            "class_id": 7,
+            "class_name": "Grade_C_Head",
+            "confidence": 0.2263,
+            "bbox": [
+              0.0,
+              246.9,
+              58.0,
+              313.0
+            ]
+          },
+          {
+            "class_id": 6,
+            "class_name": "Grade_C_Body",
+            "confidence": 0.1188,
+            "bbox": [
+              11.8,
+              176.4,
+              73.0,
+              260.4
+            ]
+          },
+          {
+            "class_id": 6,
+            "class_name": "Grade_C_Body",
+            "confidence": 0.0545,
+            "bbox": [
+              3.0,
+              65.7,
+              70.6,
+              161.2
+            ]
+          }
+        ],
+        "conf_0.1": [
+          {
+            "class_id": 6,
+            "class_name": "Grade_C_Body",
+            "confidence": 0.5625,
+            "bbox": [
+              0.0,
+              246.6,
+              58.3,
+              313.0
+            ]
+          },
+          {
+            "class_id": 7,
+            "class_name": "Grade_C_Head",
+            "confidence": 0.2263,
+            "bbox": [
+              0.0,
+              246.9,
+              58.0,
+              313.0
+            ]
+          },
+          {
+            "class_id": 6,
+            "class_name": "Grade_C_Body",
+            "confidence": 0.1188,
+            "bbox": [
+              11.8,
+              176.4,
+              73.0,
+              260.4
+            ]
+          }
+        ],
+        "conf_0.15": [
+          {
+            "class_id": 6,
+            "class_name": "Grade_C_Body",
+            "confidence": 0.5625,
+            "bbox": [
+              0.0,
+              246.6,
+              58.3,
+              313.0
+            ]
+          },
+          {
+            "class_id": 7,
+            "class_name": "Grade_C_Head",
+            "confidence": 0.2263,
+            "bbox": [
+              0.0,
+              246.9,
+              58.0,
+              313.0
+            ]
+          }
+        ],
+        "conf_0.25": [
+          {
+            "class_id": 6,
+            "class_name": "Grade_C_Body",
+            "confidence": 0.5625,
+            "bbox": [
+              0.0,
+              246.6,
+              58.3,
+              313.0
+            ]
+          }
+        ]
+      },
+      "model2_raw_count_at_0.001": 23,
+      "model2_above_threshold_count_at_0.25": 1,
+      "grading_result": {
+        "final_grade": null,
+        "quality_confidence": 0.28126347064971924,
+        "reason_codes": [
+          "UG_MISSING_PART_EVIDENCE",
+          "UG_INSUFFICIENT_REGIONS",
+          "UG_LOW_GRADE_SUPPORT"
+        ],
+        "verdict_reason_text": "Required Body and Head evidence was not reliably observed; this is not a physical missing-part claim. Fewer than 2 reliable regions were observed. Highest weighted grade support was 28.13%, below the 50.00% final verdict threshold.",
+        "observed_regions": [
+          "Body"
+        ],
+        "part_results": {
+          "Head": {
+            "present": false,
+            "status": "not_detected",
+            "grade": null,
+            "presence_confidence": 0.0
+          },
+          "Body": {
+            "present": true,
+            "status": "observed",
+            "grade": "Class C",
+            "presence_confidence": 0.5625269412994385
+          },
+          "Tail": {
+            "present": false,
+            "status": "not_detected",
+            "grade": null,
+            "presence_confidence": 0.0
+          }
+        },
+        "weighted_scores": {
+          "Class A": 0.0,
+          "Class B": 0.0,
+          "Class C": 0.28126347064971924,
+          "Rejected": 0.0
+        },
+        "original_weight_coverage": 0.5,
+        "model2_debug": {
+          "raw_detections": [
+            {
+              "source_class_id": 6,
+              "source_class_name": "Grade_C_Body",
+              "region": "Body",
+              "grade": "Class C",
+              "confidence": 0.5625269412994385,
+              "bbox": [
+                0.0,
+                246.63998413085938,
+                58.311790466308594,
+                313.0
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 7,
+              "source_class_name": "Grade_C_Head",
+              "region": "Head",
+              "grade": "Class C",
+              "confidence": 0.22630195319652557,
+              "bbox": [
+                0.0,
+                246.90484619140625,
+                57.96688461303711,
+                313.0
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 6,
+              "source_class_name": "Grade_C_Body",
+              "region": "Body",
+              "grade": "Class C",
+              "confidence": 0.11880911886692047,
+              "bbox": [
+                11.834762573242188,
+                176.377197265625,
+                73.0,
+                260.380126953125
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 6,
+              "source_class_name": "Grade_C_Body",
+              "region": "Body",
+              "grade": "Class C",
+              "confidence": 0.054467424750328064,
+              "bbox": [
+                3.0338737964630127,
+                65.6612777709961,
+                70.55692291259766,
+                161.2086181640625
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.029939288273453712,
+              "bbox": [
+                13.73900032043457,
+                5.012320041656494,
+                71.62384796142578,
+                80.89542388916016
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.02377927675843239,
+              "bbox": [
+                7.044164657592773,
+                0.0,
+                42.864471435546875,
+                10.121495246887207
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.02277247980237007,
+              "bbox": [
+                17.642671585083008,
+                0.0,
+                40.72880935668945,
+                16.792787551879883
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.019685953855514526,
+              "bbox": [
+                5.925283908843994,
+                0.024876561015844345,
+                46.61252212524414,
+                15.047493934631348
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.011624915525317192,
+              "bbox": [
+                14.363935470581055,
+                0.10310067981481552,
+                51.30122756958008,
+                30.035400390625
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 6,
+              "source_class_name": "Grade_C_Body",
+              "region": "Body",
+              "grade": "Class C",
+              "confidence": 0.009942340664565563,
+              "bbox": [
+                23.143400192260742,
+                160.2689666748047,
+                73.0,
+                259.1327819824219
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.008738384582102299,
+              "bbox": [
+                11.217222213745117,
+                0.015338550321757793,
+                50.48560333251953,
+                20.65564727783203
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.008223239332437515,
+              "bbox": [
+                16.931203842163086,
+                0.0,
+                40.24464797973633,
+                7.081542491912842
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.004658821038901806,
+              "bbox": [
+                12.310441017150879,
+                0.0,
+                37.9352912902832,
+                9.795735359191895
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.00453208526596427,
+              "bbox": [
+                13.294210433959961,
+                0.0,
+                54.303062438964844,
+                16.47039031982422
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.004482997581362724,
+              "bbox": [
+                10.881104469299316,
+                0.013146440498530865,
+                37.67839431762695,
+                5.389220237731934
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 6,
+              "source_class_name": "Grade_C_Body",
+              "region": "Body",
+              "grade": "Class C",
+              "confidence": 0.004031759686768055,
+              "bbox": [
+                0.0,
+                163.54730224609375,
+                42.22894287109375,
+                254.32931518554688
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 6,
+              "source_class_name": "Grade_C_Body",
+              "region": "Body",
+              "grade": "Class C",
+              "confidence": 0.002683809958398342,
+              "bbox": [
+                3.143230676651001,
+                178.52407836914062,
+                50.59284591674805,
+                258.06231689453125
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 6,
+              "source_class_name": "Grade_C_Body",
+              "region": "Body",
+              "grade": "Class C",
+              "confidence": 0.0023462153039872646,
+              "bbox": [
+                24.856124877929688,
+                178.42095947265625,
+                60.03241729736328,
+                256.2967834472656
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.0022454848513007164,
+              "bbox": [
+                17.422025680541992,
+                0.0304781012237072,
+                44.388694763183594,
+                23.532909393310547
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 7,
+              "source_class_name": "Grade_C_Head",
+              "region": "Head",
+              "grade": "Class C",
+              "confidence": 0.0022267575841397047,
+              "bbox": [
+                5.056112289428711,
+                308.583251953125,
+                51.72900390625,
+                313.0
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 6,
+              "source_class_name": "Grade_C_Body",
+              "region": "Body",
+              "grade": "Class C",
+              "confidence": 0.0017395258182659745,
+              "bbox": [
+                12.100358963012695,
+                179.4640350341797,
+                43.93607711791992,
+                253.99258422851562
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 6,
+              "source_class_name": "Grade_C_Body",
+              "region": "Body",
+              "grade": "Class C",
+              "confidence": 0.0013356386916711926,
+              "bbox": [
+                0.11940780282020569,
+                111.08023071289062,
+                47.58462142944336,
+                205.79815673828125
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.0011839392827823758,
+              "bbox": [
+                16.09561538696289,
+                0.49333977699279785,
+                58.32854080200195,
+                39.84856033325195
+              ],
+              "mask": null
+            }
+          ],
+          "selected_detections": [
+            {
+              "source_class_id": 6,
+              "source_class_name": "Grade_C_Body",
+              "region": "Body",
+              "grade": "Class C",
+              "confidence": 0.5625269412994385,
+              "bbox": [
+                0.0,
+                246.63998413085938,
+                58.311790466308594,
+                313.0
+              ],
+              "mask": null
+            }
+          ],
+          "rejected_detections": [
+            {
+              "source_class_id": 7,
+              "source_class_name": "Grade_C_Head",
+              "region": "Head",
+              "grade": "Class C",
+              "confidence": 0.22630195319652557,
+              "bbox": [
+                0.0,
+                246.90484619140625,
+                57.96688461303711,
+                313.0
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 6,
+              "source_class_name": "Grade_C_Body",
+              "region": "Body",
+              "grade": "Class C",
+              "confidence": 0.11880911886692047,
+              "bbox": [
+                11.834762573242188,
+                176.377197265625,
+                73.0,
+                260.380126953125
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 6,
+              "source_class_name": "Grade_C_Body",
+              "region": "Body",
+              "grade": "Class C",
+              "confidence": 0.054467424750328064,
+              "bbox": [
+                3.0338737964630127,
+                65.6612777709961,
+                70.55692291259766,
+                161.2086181640625
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.029939288273453712,
+              "bbox": [
+                13.73900032043457,
+                5.012320041656494,
+                71.62384796142578,
+                80.89542388916016
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.02377927675843239,
+              "bbox": [
+                7.044164657592773,
+                0.0,
+                42.864471435546875,
+                10.121495246887207
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.02277247980237007,
+              "bbox": [
+                17.642671585083008,
+                0.0,
+                40.72880935668945,
+                16.792787551879883
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.019685953855514526,
+              "bbox": [
+                5.925283908843994,
+                0.024876561015844345,
+                46.61252212524414,
+                15.047493934631348
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.011624915525317192,
+              "bbox": [
+                14.363935470581055,
+                0.10310067981481552,
+                51.30122756958008,
+                30.035400390625
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 6,
+              "source_class_name": "Grade_C_Body",
+              "region": "Body",
+              "grade": "Class C",
+              "confidence": 0.009942340664565563,
+              "bbox": [
+                23.143400192260742,
+                160.2689666748047,
+                73.0,
+                259.1327819824219
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.008738384582102299,
+              "bbox": [
+                11.217222213745117,
+                0.015338550321757793,
+                50.48560333251953,
+                20.65564727783203
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.008223239332437515,
+              "bbox": [
+                16.931203842163086,
+                0.0,
+                40.24464797973633,
+                7.081542491912842
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.004658821038901806,
+              "bbox": [
+                12.310441017150879,
+                0.0,
+                37.9352912902832,
+                9.795735359191895
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.00453208526596427,
+              "bbox": [
+                13.294210433959961,
+                0.0,
+                54.303062438964844,
+                16.47039031982422
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.004482997581362724,
+              "bbox": [
+                10.881104469299316,
+                0.013146440498530865,
+                37.67839431762695,
+                5.389220237731934
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 6,
+              "source_class_name": "Grade_C_Body",
+              "region": "Body",
+              "grade": "Class C",
+              "confidence": 0.004031759686768055,
+              "bbox": [
+                0.0,
+                163.54730224609375,
+                42.22894287109375,
+                254.32931518554688
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 6,
+              "source_class_name": "Grade_C_Body",
+              "region": "Body",
+              "grade": "Class C",
+              "confidence": 0.002683809958398342,
+              "bbox": [
+                3.143230676651001,
+                178.52407836914062,
+                50.59284591674805,
+                258.06231689453125
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 6,
+              "source_class_name": "Grade_C_Body",
+              "region": "Body",
+              "grade": "Class C",
+              "confidence": 0.0023462153039872646,
+              "bbox": [
+                24.856124877929688,
+                178.42095947265625,
+                60.03241729736328,
+                256.2967834472656
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.0022454848513007164,
+              "bbox": [
+                17.422025680541992,
+                0.0304781012237072,
+                44.388694763183594,
+                23.532909393310547
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 7,
+              "source_class_name": "Grade_C_Head",
+              "region": "Head",
+              "grade": "Class C",
+              "confidence": 0.0022267575841397047,
+              "bbox": [
+                5.056112289428711,
+                308.583251953125,
+                51.72900390625,
+                313.0
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 6,
+              "source_class_name": "Grade_C_Body",
+              "region": "Body",
+              "grade": "Class C",
+              "confidence": 0.0017395258182659745,
+              "bbox": [
+                12.100358963012695,
+                179.4640350341797,
+                43.93607711791992,
+                253.99258422851562
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 6,
+              "source_class_name": "Grade_C_Body",
+              "region": "Body",
+              "grade": "Class C",
+              "confidence": 0.0013356386916711926,
+              "bbox": [
+                0.11940780282020569,
+                111.08023071289062,
+                47.58462142944336,
+                205.79815673828125
+              ],
+              "mask": null
+            },
+            {
+              "source_class_id": 2,
+              "source_class_name": "Grade_A_Tail",
+              "region": "Tail",
+              "grade": "Class A",
+              "confidence": 0.0011839392827823758,
+              "bbox": [
+                16.09561538696289,
+                0.49333977699279785,
+                58.32854080200195,
+                39.84856033325195
+              ],
+              "mask": null
+            }
+          ],
+          "selection_threshold": 0.25,
+          "coordinate_space": "crop_local",
+          "unassigned_detections": []
+        },
+        "traceability": {
+          "model2_id": "yolo26m_partdet",
+          "model2_name": "YOLO26m Part Detector (r03 devbest)",
+          "model2_checkpoint": "model2_tamban_yolo26m_partdet_r03_devbest.pt",
+          "model2_checkpoint_sha256": "f74cd336b6ba",
+          "grading_config_version": "4.0",
+          "part_weights": {
+            "Body": 0.5,
+            "Head": 0.3,
+            "Tail": 0.2
+          },
+          "model2_detector_threshold": 0.25,
+          "minimum_part_evidence_threshold": 0.25,
+          "minimum_grade_margin": 0.0,
+          "quality_threshold": 0.25,
+          "final_verdict_threshold": 0.5,
+          "minimum_original_weight_coverage": 0.5,
+          "grading_mode": "tail_optional_v1",
+          "quality_inference_mode": "crop",
+          "roi_padding": 0,
+          "model2_available": true
+        }
+      }
+    }
+  ]
+}

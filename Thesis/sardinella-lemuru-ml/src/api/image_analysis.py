@@ -232,24 +232,39 @@ class StillImageAnalyzer:
                 continue
             quality_result = None
             crop_bounds = None
-            if self.quality_model is not None and self.quality_model.model is not None:
-                if isinstance(self.quality_model, YoloQualityModel):
-                    if self.quality_model.quality_inference_mode == "full_frame":
-                        quality_result, crop_bounds = full_frame_results[index]
-                    else:
-                        crop, crop_bounds = crop_fish(frame, bounded, padding=self.roi_padding)
-                        quality_result = self.quality_model.predict(
-                            crop,
-                            index,
-                            stabilize=False,
-                            frame_id=f"still-{index}",
-                            detection_confidence=detection.confidence,
-                            parent_bbox=bounded,
-                            frame_shape=frame.shape,
-                        )
-                else:  # Compatibility for the prior experimental RF-DETR adapter.
+            if isinstance(self.quality_model, YoloQualityModel):
+                if self.quality_model.model is None:
+                    # Match the live pipeline: an unavailable Model 2 is an
+                    # explicit abstention, not a blank upload result.  The
+                    # canonical grading policy records UG_MODEL2_UNAVAILABLE
+                    # with the same per-fish traceability as a live frame.
                     crop, crop_bounds = crop_fish(frame, bounded, padding=self.roi_padding)
-                    quality_result = self.quality_model.predict(crop, index)
+                    quality_result = self.quality_model.unavailable_observation(
+                        crop,
+                        index,
+                        stabilize=False,
+                        frame_id=f"still-{index}",
+                        detection_confidence=detection.confidence,
+                        parent_bbox=bounded,
+                        frame_shape=frame.shape,
+                    )
+                elif self.quality_model.quality_inference_mode == "full_frame":
+                    quality_result, crop_bounds = full_frame_results[index]
+                else:
+                    crop, crop_bounds = crop_fish(frame, bounded, padding=self.roi_padding)
+                    quality_result = self.quality_model.predict(
+                        crop,
+                        index,
+                        stabilize=False,
+                        frame_id=f"still-{index}",
+                        detection_confidence=detection.confidence,
+                        parent_bbox=bounded,
+                        frame_shape=frame.shape,
+                    )
+            elif self.quality_model is not None and self.quality_model.model is not None:
+                # Compatibility for the prior experimental RF-DETR adapter.
+                crop, crop_bounds = crop_fish(frame, bounded, padding=self.roi_padding)
+                quality_result = self.quality_model.predict(crop, index)
             fish = _UploadFish(index, bounded, detection.confidence, quality_result, crop_bounds)
             results.append(fish)
 

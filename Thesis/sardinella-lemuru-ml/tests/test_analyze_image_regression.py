@@ -20,6 +20,8 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+from contextlib import redirect_stdout
+from io import StringIO
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -38,6 +40,7 @@ from src.inference.part_types import PartDetection
 from src.inference.preprocessing import clamp_bbox, crop_fish
 from src.inference.yolo_fish_detector import YoloFishDetector, FishDetection
 from src.inference.yolo_quality_model import YoloQualityModel, validate_yolo_quality_class_mapping
+from src.inference.analyze_image_diagnostic import _checkpoint_training_metadata, _print_summary
 from src.api.image_analysis import StillImageAnalyzer
 from src.preprocessing.audit_v7_exports import SOURCE_CLASSES
 
@@ -206,6 +209,20 @@ class Scenario2_Model2ReturnsNoParts(unittest.TestCase):
         self.assertEqual(result["fish_detected"], 1)
         self.assertEqual(result["quality_counters"]["Ungraded"], 1)
         self.assertFalse(result["model2_available"])
+
+    def test_still_image_analyzer_records_unavailable_yolo_model2_reason(self):
+        detector = _Detector([FishDetection((5, 5, 70, 70), 0.88)])
+        # This is the normal application's unavailable state: the Model 2
+        # service exists but its checkpoint did not load.  Upload analysis
+        # must expose the same policy abstention used by live inspection.
+        quality = YoloQualityModel(None, device="cpu")
+        result = StillImageAnalyzer(detector, quality).analyze(np.zeros((80, 80, 3), dtype=np.uint8))
+        fish = result["fish"][0]
+        self.assertEqual(fish["quality"], "Ungraded")
+        self.assertFalse(result["model2_available"])
+        self.assertFalse(fish["analysis"]["model2_available"])
+        self.assertIn(UG_MODEL2_UNAVAILABLE, fish["analysis"]["reason_codes"])
+        self.assertEqual(fish["analysis"]["quality_inference"]["model2_status"], "unavailable")
 
 
 # ---------------------------------------------------------------------------
@@ -597,6 +614,53 @@ class ClassMappingConsistencyTests(unittest.TestCase):
         part = PartDetection.from_source_class(11, 0.60, (5, 5, 20, 20))
         self.assertEqual(part.region, "Tail")
         self.assertEqual(part.grade, "Rejected")
+
+
+# ---------------------------------------------------------------------------
+# Diagnostic output must report the same path used by Analyze Image
+# ---------------------------------------------------------------------------
+
+class DiagnosticSummaryTests(unittest.TestCase):
+
+    def test_checkpoint_training_metadata_keeps_training_arguments_distinct_from_source_preprocessing(self):
+        metadata = _checkpoint_training_metadata(SimpleNamespace(ckpt={"train_args": {
+            "imgsz": 768,
+            "data": "/content/model2_r03_dev.yaml",
+            "rect": False,
+            "mosaic": 0.5,
+        }}))
+        self.assertTrue(metadata["available"])
+        self.assertEqual(metadata["arguments"]["imgsz"], 768)
+        self.assertFalse(metadata["source_preprocessing_recorded"])
+        self.assertIn("does not record", metadata["source_preprocessing_note"])
+
+    def test_summary_prioritizes_integrated_full_frame_grade_over_legacy_crop_comparison(self):
+        report = {
+            "input_image": {"path": "sample.jpg", "width": 640, "height": 640, "sha256": "abc"},
+            "model1": {"load_ok": True, "class_names": ["item"], "checkpoint_sha256": "m1", "detection_count": 1},
+            "model2": {"load_ok": True, "checkpoint_sha256": "m2", "full_frame_above_threshold_count": 3},
+            "integrated_full_frame": {
+                "mode": "full_frame",
+                "fish": [{
+                    "fish_index": 1,
+                    "grade": "Class A",
+                    "quality_confidence": 0.71,
+                    "observed_regions": ["Head", "Body", "Tail"],
+                    "reason_codes": ["GR_CONFIDENT"],
+                }],
+            },
+            # A deliberately different crop result proves that it is not used
+            # as the production verdict in the human-readable summary.
+            "fish": [{"fish_index": 1, "grading_result": {"final_grade": None}}],
+        }
+        output = StringIO()
+        with redirect_stdout(output):
+            _print_summary(report)
+        text = output.getvalue()
+        self.assertIn("Production full-frame association and grading:", text)
+        self.assertIn("Fish #1: grade=Class A support=0.710", text)
+        self.assertIn("Legacy per-crop comparison artifacts", text)
+        self.assertNotIn("grade=None", text)
 
 
 # ---------------------------------------------------------------------------

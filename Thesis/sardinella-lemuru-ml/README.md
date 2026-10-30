@@ -65,14 +65,25 @@ The persisted selection and environment overrides can change the active checkpoi
 ## Quick start
 
 ```powershell
-# Install dependencies
-pip install -r requirements.txt
+# Create a project environment, then install its runtime and tracker dependencies.
+py -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pip install --only-binary=:all: -r requirements-bytetrack.txt
 
-# Run the inspection dashboard (default: camera index 0)
-py -m src.api
+# Run the inspection dashboard (default: camera index 0). Require real ByteTrack
+# rather than silently accepting the IoU fallback for an operator session.
+$env:FISH_REQUIRE_BYTETRACK = '1'
+.\.venv\Scripts\python.exe -m src.api
 
 # Open the dashboard at http://localhost:8000
 ```
+
+Use the same project interpreter for installation and startup; installing
+`lap` into one Python does not enable ByteTrack in another running process.
+If Windows' `py` launcher is unavailable, create the environment with the
+actual installed Python executable, for example the one identified in
+[the runtime baseline](docs/runtime_baseline.md). Restart the API using the
+project interpreter and check the active tracker in Runtime Diagnostics.
 
 ---
 
@@ -90,15 +101,17 @@ remaining validation gates, see [the UI/FPS handoff](docs/ui_fps_handoff.md).
 | FISH_DETECTION_CONFIDENCE | 0.5 | Model 1 confidence threshold |
 | FISH_QUALITY_CONFIDENCE | 0.25 | Model 2 part evidence threshold |
 | FISH_QUALITY_INTERVAL | 3 | Run Model 2 every N processed frames |
-| FISH_QUALITY_INFERENCE_MODE | full_frame | `full_frame` or `crop` |
+| FISH_QUALITY_INFERENCE_MODE | full_frame | Live whole-fish inspection always uses `full_frame` association. A stale `crop` request is safely promoted to `full_frame`; crop mode is retained only for isolated tooling/part-preview paths. |
 | FISH_REQUIRE_BYTETRACK | 0 | Set to `1` to refuse startup if ByteTrack is unavailable |
 | FISH_STRICT_MODEL_INTEGRITY | 0 | Set to `1` to require verified registry checkpoints for Model 1 and Model 2 |
+| FISH_EVENT_PERSISTENCE_QUEUE_CAPACITY | 256 | Positive bounded FIFO capacity for durable fish-event writes. At capacity, the producer applies ordered backpressure rather than dropping or bypassing an older record; session close/reset/policy rotation flushes it first. |
 | FISH_UPLOAD_MAX_BYTES | 10485760 | Maximum encoded image upload size in bytes |
 | FISH_UPLOAD_MAX_DIMENSION | 4096 | Maximum image width or height in pixels |
 | FISH_UPLOAD_MAX_PIXELS | 16777216 | Maximum decoded image pixel count |
 | LEMURU_CAMERA_INDEX | 0 | OpenCV camera index |
+| LEMURU_DECISION_DEADLINE_SECONDS | unset | Optional independently approved limit from first persistent Model 1 detection to the virtual count-line decision. It records `met`/`missed` telemetry only and never changes a fish count, class, or grade. |
 | LEMURU_MODE | (runtime) | part_preview enables upload-test segmentation |
-| FISH_RAW_PREVIEW_ENABLED | 0 | Set to 1 before startup to offer a separate raw camera preview. It has no AI overlays and is capped at 15 frames per second; browser display FPS and latency have not been measured. The processed feed remains the default. |
+| FISH_RAW_PREVIEW_ENABLED | 0 | Set to 1 before startup to offer a separate raw camera preview. It has no AI overlays and is capped at 15 frames per second; Runtime Diagnostics reports this browser's observed MJPEG image-load rate, while browser paint/network latency remains unmeasured. The processed feed remains the default. |
 | LEMURU_RUNTIME_DIAGNOSTICS | ? | Set to `true` for verbose inference logging |
 
 Grading policy: [configs/grading_engine.yaml](configs/grading_engine.yaml)
@@ -367,6 +380,9 @@ Inspection exports use the checked columns in the order shown. Select **Export
 all evidence columns** to include every evidence field. API clients must supply
 a nonempty `fields` list or explicitly set `complete_analysis` to `true`.
 Excel exports also contain separately named summary, review, and rules sheets.
+The dashboard's **Specific inspection run** choice lists the 1,000 most recent
+durable runs and exports the selected run by its `session_id`; **Current
+session** remains the default for the active/latest run.
 Exports spanning multiple sessions require Excel, which includes each session's
 recorded policy and a mapping from inspection rows to sessions. Missing historical
 configuration is marked unavailable.

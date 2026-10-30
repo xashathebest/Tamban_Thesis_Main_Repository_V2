@@ -180,12 +180,16 @@ def extract_color_features(
     settings: ColorSettings,
     *,
     head_tail_direction_known: bool = False,
+    summary_only: bool = False,
 ) -> dict[str, object]:
     """Measure fish-only color proxies without assigning a quality class.
 
     Anatomical-region values are emitted only when the crop's metadata confirms
     that the head is on the left.  Otherwise they are NaN rather than silently
-    treating an arbitrary PCA direction as anatomy.
+    treating an arbitrary PCA direction as anatomy. The live diagnostic path
+    needs only the HSV and coverage summaries; ``summary_only`` skips unrelated
+    connected-region, Lab-summary, and directional calculations. Those values
+    have the same definitions as in the full offline feature table.
     """
 
     settings.validate()
@@ -217,6 +221,23 @@ def extract_color_features(
     )
     discoloration = yellow | brown | dark
     fish_pixels = int(binary.sum())
+    fish_hsv = hsv[binary]
+    summary: dict[str, object] = {
+        "circular_mean_hue_deg": _circular_hue_mean(fish_hsv[:, 0], fish_hsv[:, 1]),
+        "median_hue_deg": float(np.median(fish_hsv[:, 0])),
+        "mean_saturation": float(fish_hsv[:, 1].mean()),
+        "median_saturation": float(np.median(fish_hsv[:, 1])),
+        "mean_value": float(fish_hsv[:, 2].mean()),
+        "median_value": float(np.median(fish_hsv[:, 2])),
+        "yellow_ratio_proxy": float(yellow.sum() / fish_pixels),
+        "brown_ratio_proxy": float(brown.sum() / fish_pixels),
+        "dark_patch_ratio_proxy": float(dark.sum() / fish_pixels),
+        "discoloration_coverage_proxy": float(discoloration.sum() / fish_pixels),
+        "specular_ratio_proxy": float(specular.sum() / fish_pixels),
+    }
+    if summary_only:
+        return summary
+
     largest_yellow, yellow_regions = _largest_region_fraction(yellow, fish_pixels)
     largest_brown, brown_regions = _largest_region_fraction(brown, fish_pixels)
     largest_discoloration, discoloration_regions = _largest_region_fraction(
@@ -225,8 +246,8 @@ def extract_color_features(
     largest_highlight, highlight_regions = _largest_region_fraction(specular, fish_pixels)
 
     fish_rgb = rgb[binary]
-    fish_hsv = hsv[binary]
     fish_lab = lab[binary]
+    # Preserve the full offline table's established column order.
     result: dict[str, object] = {
         "color_fish_pixels": fish_pixels,
         "mean_r": float(fish_rgb[:, 0].mean()),
@@ -238,23 +259,23 @@ def extract_color_features(
         "mean_lab_a": float(fish_lab[:, 1].mean()),
         "mean_lab_b": float(fish_lab[:, 2].mean()),
         "lab_b_p90": float(np.percentile(fish_lab[:, 2], 90)),
-        "circular_mean_hue_deg": _circular_hue_mean(fish_hsv[:, 0], fish_hsv[:, 1]),
-        "median_hue_deg": float(np.median(fish_hsv[:, 0])),
-        "mean_saturation": float(fish_hsv[:, 1].mean()),
-        "median_saturation": float(np.median(fish_hsv[:, 1])),
-        "mean_value": float(fish_hsv[:, 2].mean()),
-        "median_value": float(np.median(fish_hsv[:, 2])),
-        "yellow_ratio_proxy": float(yellow.sum() / fish_pixels),
-        "brown_ratio_proxy": float(brown.sum() / fish_pixels),
-        "dark_patch_ratio_proxy": float(dark.sum() / fish_pixels),
-        "discoloration_coverage_proxy": float(discoloration.sum() / fish_pixels),
+        "circular_mean_hue_deg": summary["circular_mean_hue_deg"],
+        "median_hue_deg": summary["median_hue_deg"],
+        "mean_saturation": summary["mean_saturation"],
+        "median_saturation": summary["median_saturation"],
+        "mean_value": summary["mean_value"],
+        "median_value": summary["median_value"],
+        "yellow_ratio_proxy": summary["yellow_ratio_proxy"],
+        "brown_ratio_proxy": summary["brown_ratio_proxy"],
+        "dark_patch_ratio_proxy": summary["dark_patch_ratio_proxy"],
+        "discoloration_coverage_proxy": summary["discoloration_coverage_proxy"],
         "largest_yellow_region_ratio_proxy": float(largest_yellow),
         "largest_brown_region_ratio_proxy": float(largest_brown),
         "largest_discoloration_region_ratio_proxy": float(largest_discoloration),
         "yellow_region_count_proxy": yellow_regions,
         "brown_region_count_proxy": brown_regions,
         "discoloration_region_count_proxy": discoloration_regions,
-        "specular_ratio_proxy": float(specular.sum() / fish_pixels),
+        "specular_ratio_proxy": summary["specular_ratio_proxy"],
         "largest_highlight_ratio_proxy": float(largest_highlight),
         "highlight_region_count_proxy": highlight_regions,
         "head_tail_direction_known": head_tail_direction_known,

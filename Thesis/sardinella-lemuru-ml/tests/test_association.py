@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import unittest
+from dataclasses import replace
 
-from src.inference.association import AssociationConfig, ParentAnchor, associate_parts_to_parents
+from src.inference.association import AssociationConfig, ParentAnchor, associate_parts_to_parents, association_summary
 from src.inference.part_types import PartDetection
 
 
@@ -32,6 +33,27 @@ class FullFrameAssociationTests(unittest.TestCase):
         self.assertEqual(result.status, "AMBIGUOUS")
         self.assertIsNone(result.track_id)
         self.assertGreaterEqual(len(result.candidates), 2)
+
+    def test_ambiguity_does_not_contaminate_a_distant_fish(self) -> None:
+        associations = associate_parts_to_parents(
+            [part(0, (50, 20, 75, 55))],
+            [ParentAnchor(1, (0, 0, 120, 100)), ParentAnchor(2, (5, 0, 125, 100)), ParentAnchor(3, (220, 0, 320, 100))],
+        )
+        self.assertEqual(associations[0].status, "AMBIGUOUS")
+        self.assertEqual(set(associations[0].ambiguous_track_ids), {1, 2})
+        self.assertTrue(association_summary(associations, 1)["ambiguous"])
+        self.assertTrue(association_summary(associations, 2)["ambiguous"])
+        self.assertFalse(association_summary(associations, 3)["ambiguous"])
+        self.assertEqual(association_summary(associations, 3)["parts"], [])
+
+    def test_legacy_ambiguity_without_contenders_remains_conservative(self) -> None:
+        association = associate_parts_to_parents(
+            [part(0, (50, 20, 75, 55))],
+            [ParentAnchor(1, (0, 0, 120, 100)), ParentAnchor(2, (5, 0, 125, 100))],
+        )[0]
+        legacy = replace(association, ambiguous_track_ids=())
+        self.assertTrue(association_summary([legacy], 1)["ambiguous"])
+        self.assertTrue(association_summary([legacy], 2)["ambiguous"])
 
     def test_crossing_known_tracks_abstains_during_overlap_then_recovers(self) -> None:
         before = associate_parts_to_parents(

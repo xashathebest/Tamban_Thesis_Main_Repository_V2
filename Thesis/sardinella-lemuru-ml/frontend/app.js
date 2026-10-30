@@ -22,7 +22,7 @@ const elements = {
   resultEmpty: $("result-empty"), resultActive: $("result-active"), resultEmptyTitle: $("result-empty-title"), resultEmptyCopy: $("result-empty-copy"),
   decision: $("decision"), resultFish: $("result-fish"), resultLabel: $("result-label"), confidence: $("confidence"), confidenceBar: $("confidence-bar"), resultProcessing: $("result-processing"), resultTime: $("result-time"), latestFeatures: $("latest-feature-list"), classificationPolicy: $("classification-policy"),
   latestVerdictDetails: $("latest-verdict-details"), latestVerdictStatus: $("latest-verdict-status"), latestVerdictReason: $("latest-verdict-reason"), latestDetectionConfidence: $("latest-detection-confidence"), latestModel2Evidence: $("latest-model2-evidence"), latestCoverage: $("latest-coverage"), latestEffectiveWeights: $("latest-effective-weights"),
-  uploadMode: $("upload-mode-button"), closeUpload: $("close-upload-button"), uploadWorkspace: $("upload-workspace"), uploadInput: $("upload-input"), analyze: $("analyze-button"), uploadStatus: $("upload-status"), uploadNote: $("upload-note"), uploadImage: $("upload-result-image"), uploadResults: $("upload-results"), uploadFishCount: $("upload-fish-count"), uploadCountLabel: $("upload-count-label"),
+  uploadMode: $("upload-mode-button"), closeUpload: $("close-upload-button"), uploadWorkspace: $("upload-workspace"), uploadInput: $("upload-input"), selectUpload: $("select-upload-button"), uploadFileName: $("upload-file-name"), analyze: $("analyze-button"), uploadStatus: $("upload-status"), uploadNote: $("upload-note"), uploadImage: $("upload-result-image"), uploadResults: $("upload-results"), uploadFishCount: $("upload-fish-count"), uploadCountLabel: $("upload-count-label"), uploadEvidence: $("upload-fish-evidence"), uploadMeasurements: $("upload-fish-measurements"),
   kpiGrid: $("kpi-grid"), featureCounterGrid: $("feature-counter-grid"), threshold: $("threshold"), openConfidence: $("open-confidence-button"),
   gradeChartEmpty: $("grade-chart-empty"), gradeChart: $("grade-chart"), gradeDonut: $("grade-donut"), gradeTotal: $("grade-total"), gradeLegend: $("grade-legend"),
   featureChartEmpty: $("feature-chart-empty"), featureChart: $("feature-chart"), throughputChartEmpty: $("throughput-chart-empty"), throughputChart: $("throughput-chart"), throughputLine: $("throughput-line"), throughputCaption: $("throughput-caption"),
@@ -30,7 +30,7 @@ const elements = {
   recentEmpty: $("recent-empty"), recentWrap: $("recent-table-wrap"), recentHistoryBody: $("recent-history-body"), viewAll: $("view-all-button"),
   historyEmpty: $("history-empty"), historyWrap: $("history-table-wrap"), historyBody: $("history-body"), historySession: $("history-session"), historySearch: $("history-search"), historyGrade: $("history-grade"), historyFeature: $("history-feature"), historyConfidence: $("history-confidence"), historyFilter: $("history-filter-button"), historyPrev: $("history-prev"), historyNext: $("history-next"), historyPage: $("history-page"),
   reviewEmpty: $("review-empty"), reviewWrap: $("review-table-wrap"), reviewBody: $("review-body"), reviewPrev: $("review-prev"), reviewNext: $("review-next"), reviewPage: $("review-page"),
-  exportButton: $("export-button"), sidebarExport: $("sidebar-export"), exportModal: $("export-modal"), exportForm: $("export-form"), closeExport: $("close-export-button"), cancelExport: $("cancel-export-button"), dateRange: $("date-range"), exportStartDate: $("export-start-date"), exportEndDate: $("export-end-date"),
+  exportButton: $("export-button"), sidebarExport: $("sidebar-export"), exportModal: $("export-modal"), exportForm: $("export-form"), closeExport: $("close-export-button"), cancelExport: $("cancel-export-button"), dateRange: $("date-range"), exportSessionRange: $("export-session-range"), exportSession: $("export-session"), exportSessionStatus: $("export-session-status"), exportStartDate: $("export-start-date"), exportEndDate: $("export-end-date"),
   settingsButton: $("settings-button"), sidebarSettings: $("sidebar-settings"), settingsDrawer: $("settings-drawer"), closeSettings: $("close-settings-button"), scrim: $("scrim"),
   cameraSettingsButton: $("camera-settings-button"), cameraCalibrationDrawer: $("camera-calibration-drawer"), closeCameraCalibration: $("close-camera-calibration-button"),
   cameraDeviceName: $("camera-device-name"), cameraConnection: $("camera-connection"), cameraLockBadge: $("camera-lock-badge"), cameraCaptureResolution: $("camera-capture-resolution"), cameraProcessingResolution: $("camera-processing-resolution"), cameraHardwareFps: $("camera-hardware-fps"), cameraBackend: $("camera-backend"), cameraProfileName: $("camera-profile-name"), cameraLockState: $("camera-lock-state"),
@@ -76,7 +76,13 @@ let streamReady = false;
 let rawPreview = false;
 let selectedUpload = null;
 let uploadInFlight = false;
+let uploadSelectionVersion = 0;
+let uploadRequestVersion = 0;
+let uploadPreviewUrl = null;
 let exportInFlight = false;
+let exportSessionsLoading = false;
+let exportSessionsError = "";
+let exportSessionsRequestVersion = 0;
 let selectedView = "live";
 let historyState = { page: 1, totalPages: 1 };
 let reviewState = { page: 1, totalPages: 1 };
@@ -84,11 +90,13 @@ let defaultConfidence = 0.5;
 let defaultQualityConfidence = 0.25;
 let partQualityChart = null;
 let colorTrendChart = null;
+let decisionTimingChart = null;
 let statusRequestInFlight = false;
 let statusController = null;
 let cameraCalibrationStatus = null;
 let controlRequestInFlight = false;
 let controlRevision = 0;
+let previewImageLoadTimes = [];
 let activePanel = null;
 let panelTrigger = null;
 let historyRequestVersion = 0;
@@ -110,6 +118,8 @@ const cameraControlTimers = new Map();
 const kpiCards = new Map();
 const secondaryKpiCards = new Map();
 const featureCards = new Map();
+const PREVIEW_IMAGE_LOAD_WINDOW_MS = 5000;
+const PREVIEW_IMAGE_LOAD_SAMPLE_LIMIT = 300;
 // Match the shipped Model 2 operating point before the first status refresh.
 elements.qualitySlider.value = "25";
 elements.settingsQualityThreshold.textContent = "25%";
@@ -133,17 +143,47 @@ function setCompactStatus(element, label, value, state) {
 }
 function setText(id, value) { const element = $(id); if (element) element.textContent = value; }
 function hasEvents(data) { return Number(data?.counters?.total || 0) > 0; }
+function resetBrowserPreviewImageLoads() { previewImageLoadTimes = []; }
+function pruneBrowserPreviewImageLoads(now) {
+  const cutoff = now - PREVIEW_IMAGE_LOAD_WINDOW_MS;
+  let firstCurrent = 0;
+  while (firstCurrent < previewImageLoadTimes.length && previewImageLoadTimes[firstCurrent] < cutoff) firstCurrent += 1;
+  if (firstCurrent) previewImageLoadTimes.splice(0, firstCurrent);
+  if (previewImageLoadTimes.length > PREVIEW_IMAGE_LOAD_SAMPLE_LIMIT) previewImageLoadTimes.splice(0, previewImageLoadTimes.length - PREVIEW_IMAGE_LOAD_SAMPLE_LIMIT);
+}
+function recordBrowserPreviewImageLoad(now = performance.now()) {
+  if (!Number.isFinite(now)) return;
+  if (previewImageLoadTimes.length && now < previewImageLoadTimes.at(-1)) resetBrowserPreviewImageLoads();
+  previewImageLoadTimes.push(now); pruneBrowserPreviewImageLoads(now);
+}
+function browserPreviewImageLoadFps(now = performance.now()) {
+  if (!Number.isFinite(now)) return null;
+  pruneBrowserPreviewImageLoads(now);
+  if (previewImageLoadTimes.length < 2) return null;
+  const duration = previewImageLoadTimes.at(-1) - previewImageLoadTimes[0];
+  return duration > 0 ? ((previewImageLoadTimes.length - 1) * 1000) / duration : null;
+}
+function browserPreviewImageLoadText() {
+  const fps = browserPreviewImageLoadFps();
+  return fps == null ? "Not measured (waiting for recent image loads)" : `${fps.toFixed(1)} FPS (recent load events)`;
+}
+function detachStream() {
+  elements.video.removeAttribute("src"); streamAttached = false; streamReady = false; resetBrowserPreviewImageLoads();
+}
 
 function attachStream() {
   if (streamAttached) return;
+  resetBrowserPreviewImageLoads();
   elements.video.src = `/api/video-feed${rawPreview ? "/raw" : ""}?t=${Date.now()}`;
   streamAttached = true;
 }
-elements.video.addEventListener("load", () => { streamReady = true; elements.placeholder.classList.add("hidden"); });
+elements.video.addEventListener("load", () => {
+  if (!streamAttached) return;
+  streamReady = true;
+  if (latestStatus?.inspection_status === "running") { recordBrowserPreviewImageLoad(); elements.placeholder.classList.add("hidden"); }
+});
 elements.video.addEventListener("error", () => {
-  streamReady = false;
-  streamAttached = false;
-  elements.video.removeAttribute("src");
+  detachStream();
   elements.placeholder.classList.remove("hidden");
   elements.placeholderTitle.textContent = "Camera feed interrupted";
   elements.placeholderCopy.textContent = "Reconnecting to the inspection feed…";
@@ -181,10 +221,13 @@ function renderAlert(data) {
 function renderCamera(data) {
   const inspection = data.inspection_status;
   elements.previewMode.classList.toggle("hidden", !data.raw_preview_available);
-  if (!data.raw_preview_available && rawPreview) { rawPreview = false; elements.video.removeAttribute("src"); streamAttached = false; streamReady = false; }
+  if (!data.raw_preview_available && rawPreview) { rawPreview = false; detachStream(); }
   elements.previewMode.textContent = rawPreview ? "View processed feed" : "View raw preview";
   elements.previewMode.setAttribute("aria-pressed", String(rawPreview));
-  elements.previewDescription.textContent = rawPreview ? "Raw camera preview, without AI annotations. Preview FPS and display latency are not measured." : "Processed feed with AI annotations. Preview FPS and display latency are not measured.";
+  const previewRate = browserPreviewImageLoadText();
+  elements.previewDescription.textContent = rawPreview
+    ? `Raw camera preview, without AI annotations. This browser's image-load rate: ${previewRate}. Capture-to-display latency is not measured.`
+    : `Processed feed with AI annotations. This browser's image-load rate: ${previewRate}. Capture-to-display latency is not measured.`;
   elements.video.alt = rawPreview ? "Raw local webcam preview without AI annotations" : "Annotated local webcam feed";
   const running = ["starting", "running", "stopping"].includes(inspection);
   const preview = data.runtime_mode === "part_preview";
@@ -196,8 +239,10 @@ function renderCamera(data) {
   const qualityStatus = data.model_info?.quality?.status || data.segmenter_status;
   const modelState = data.model_status !== "ready" ? data.model_status : qualityStatus;
   setCompactStatus(elements.modelPill, preview ? "Part model" : "M1 / M2", preview ? titleCase(data.model_status) : `${titleCase(data.model_status)} / ${titleCase(qualityStatus)}`, preview ? data.model_status : modelState);
-  const device = data.model_info?.detector?.device || "—";
-  setCompactStatus(elements.devicePill, "Device", String(device).toUpperCase(), device === "cpu" || device === "0" || device === "cuda" ? "healthy" : "neutral");
+  const device = data.model_info?.detector?.device ?? "—";
+  const deviceKey = String(device).trim().toLowerCase();
+  const recognizedDevice = deviceKey === "cpu" || deviceKey === "cuda" || /^\d+$/.test(deviceKey) || /^cuda:\d+$/.test(deviceKey);
+  setCompactStatus(elements.devicePill, "Device", String(device).toUpperCase(), recognizedDevice ? "healthy" : "neutral");
   elements.inspectionState.className = `inspection-state ${stateClass(inspection)}`;
   elements.inspectionState.replaceChildren(document.createElement("i"), document.createTextNode(titleCase(inspection)));
   elements.liveBadge.className = `live-badge ${stateClass(inspection)}`;
@@ -210,9 +255,9 @@ function renderCamera(data) {
   elements.emptyStart.classList.toggle("hidden", running);
   elements.stop.disabled = controlRequestInFlight || !["starting", "running"].includes(inspection);
   elements.reset.disabled = controlRequestInFlight || ["starting", "stopping"].includes(inspection);
-  elements.analyze.disabled = uploadInFlight || !selectedUpload || !data.upload_analysis_available;
+  updateUploadControls();
   if (running) attachStream();
-  else if (streamAttached) { elements.video.removeAttribute("src"); streamAttached = false; streamReady = false; }
+  else if (streamAttached) detachStream();
   elements.placeholder.classList.toggle("hidden", inspection === "running" && streamReady);
   if (inspection === "starting") {
     elements.placeholderTitle.textContent = "Starting inspection";
@@ -264,6 +309,14 @@ function verdictStatus(event) { return String(eventValue(event, "verdict_status"
 function readableVerdictStatus(value) {
   const labels = { AUTO_GRADED: "Automatically graded", NEEDS_REVIEW: "Needs review", NOT_AVAILABLE: "Verdict status unavailable" };
   return labels[String(value || "").toUpperCase()] || titleCase(value);
+}
+function conveyorTiming(event) {
+  const value = analysisFor(event).conveyor_timing;
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+function readableDecisionDeadlineStatus(value) {
+  const labels = { met: "Met", missed: "Missed", not_configured: "Not configured" };
+  return labels[String(value || "").toLowerCase()] || "Not recorded";
 }
 function verdictReason(event) {
   const stored = eventValue(event, "reason_codes");
@@ -337,6 +390,19 @@ function appendFullAnalysis(container, event) {
   appendAnalysisBlock(body, "Confidence concepts", (block) => {
     const grid = document.createElement("div"); grid.className = "analysis-data-grid";
     addAnalysisDatum(grid, "Model 1 detection confidence", scoreText(model1Confidence(event))); addAnalysisDatum(grid, "Model 2 best evidence", `${evidence.grade || "-"} ${scoreText(evidence.score)}`); addAnalysisDatum(grid, "Final weighted support", scoreText(support)); addAnalysisDatum(grid, "Best evidence class", evidence.grade || "-"); block.append(grid);
+  });
+  const timing = conveyorTiming(event);
+  if (timing) appendAnalysisBlock(body, "Conveyor decision timing", (block) => {
+    const grid = document.createElement("div"); grid.className = "analysis-data-grid";
+    const deadlineSeconds = finiteNumber(timing.decision_deadline_seconds);
+    addAnalysisDatum(grid, "First detection to decision", formatMs(finiteNumber(timing.first_detection_to_decision_ms)));
+    addAnalysisDatum(grid, "Configured deadline", deadlineSeconds == null ? "Not configured" : formatMs(deadlineSeconds * 1000));
+    addAnalysisDatum(grid, "Deadline status", readableDecisionDeadlineStatus(timing.deadline_status));
+    block.append(grid);
+    const scope = typeof timing.measurement_scope === "string" && timing.measurement_scope.trim()
+      ? timing.measurement_scope.trim()
+      : "Elapsed time from first persistent Model 1 detection to the virtual count-line decision; it is not physical entry or actuator confirmation.";
+    block.append(Object.assign(document.createElement("p"), { textContent: scope }));
   });
   appendAnalysisBlock(body, "Part analysis", (block) => {
     ["Body", "Head", "Tail"].forEach((region) => {
@@ -473,7 +539,7 @@ function renderKpis(data) {
   const coverage = total ? `${((graded / total) * 100).toFixed(1)}% grading coverage` : "No graded fish yet";
   const liveGrade = live ? (aiFinalGrade(live) || "Ungraded") : "-";
   const averageSupport = data.analytics?.average_final_support ?? data.analytics?.average_best_evidence_support;
-  const cards = [["Fish detected", total, "Current session", true], ["Graded fish", graded, coverage, false]];
+  const cards = [["Fish detected", total, "Since reset", true], ["Graded fish", graded, coverage, false]];
   Object.entries(grades).forEach(([name, count]) => cards.push([name, count || 0, percentage(name)]));
   const secondary = [
     ["Acceptance rate", total ? `${((accepted / total) * 100).toFixed(1)}%` : "-", "Grade A, B, or C final verdicts"],
@@ -517,16 +583,33 @@ function renderFeatureCounters(data) {
 }
 
 function ensureAnalysisCharts() {
-  if (partQualityChart && colorTrendChart) return;
+  if (partQualityChart && colorTrendChart && decisionTimingChart) return;
   const grid = document.querySelector("#analytics-section .analytics-grid"); if (!grid) return;
   const makeCard = (title) => { const card = document.createElement("article"); card.className = "chart-card surface"; const heading = document.createElement("h3"); heading.textContent = title; const chart = document.createElement("div"); chart.className = "bar-chart"; card.append(heading, chart); grid.append(card); return chart; };
   partQualityChart = makeCard("Average part quality scores");
   colorTrendChart = makeCard("Colour measurement trend");
+  decisionTimingChart = makeCard("Conveyor decision timing");
 }
 function appendMetricRow(container, label, fraction, value) {
   const row = document.createElement("div"); row.className = "bar-row"; const name = document.createElement("span"); name.textContent = label; const track = document.createElement("i"); track.style.setProperty("--bar-width", `${Math.max(0, Math.min(100, fraction * 100))}%`); const amount = document.createElement("b"); amount.textContent = value; row.append(name, track, amount); container.append(row);
 }
 function renderAnalytics(analytics) {
+  const reasons = $("ungraded-reasons");
+  if (reasons) {
+    reasons.replaceChildren();
+    const counts = analytics?.ungraded_reasons;
+    if (!counts || typeof counts !== "object" || Array.isArray(counts)) {
+      reasons.textContent = analytics?.has_data ? "Reasons not available" : "Waiting for inspection data";
+    } else if (!Object.keys(counts).length) {
+      reasons.textContent = "No AI Ungraded reasons recorded";
+    } else {
+      Object.entries(counts).sort((a, b) => Number(b[1]) - Number(a[1]) || a[0].localeCompare(b[0])).forEach(([reason, count]) => {
+        const row = document.createElement("div"); row.className = "legend-row";
+        row.append(Object.assign(document.createElement("span"), { textContent: reason }), Object.assign(document.createElement("b"), { textContent: String(count) }));
+        reasons.append(row);
+      });
+    }
+  }
   ensureAnalysisCharts();
   const hasData = Boolean(analytics?.has_data);
   [elements.gradeChartEmpty, elements.featureChartEmpty, elements.throughputChartEmpty, elements.confidenceChartEmpty].forEach((element) => element.classList.toggle("hidden", hasData));
@@ -535,13 +618,13 @@ function renderAnalytics(analytics) {
   elements.confidenceChart.classList.toggle("hidden", !confidenceAvailable);
   elements.confidenceChartEmpty.classList.toggle("hidden", confidenceAvailable);
   if (!hasData) {
-    [partQualityChart, colorTrendChart].filter(Boolean).forEach((chart) => {
+    [partQualityChart, colorTrendChart, decisionTimingChart].filter(Boolean).forEach((chart) => {
       chart.classList.add("chart-empty");
       chart.textContent = "Waiting for inspection data";
     });
     return;
   }
-  [partQualityChart, colorTrendChart].filter(Boolean).forEach((chart) => chart.classList.remove("chart-empty"));
+  [partQualityChart, colorTrendChart, decisionTimingChart].filter(Boolean).forEach((chart) => chart.classList.remove("chart-empty"));
   const distribution = analytics.grade_distribution || {}; const total = Object.values(distribution).reduce((sum, value) => sum + Number(value || 0), 0);
   let offset = 0; const segments = []; const colors = { ...gradeColors };
   Object.keys(distribution).forEach((name) => { if (!colors[name]) colors[name] = gradeColors.Ungraded; });
@@ -556,12 +639,32 @@ function renderAnalytics(analytics) {
   measurable.forEach(([name, detail]) => { const row = document.createElement("div"); row.className = "bar-row"; const label = document.createElement("span"); label.textContent = name; const track = document.createElement("i"); track.style.setProperty("--bar-width", `${(Number(detail.count || 0) / max) * 100}%`); const value = document.createElement("b"); value.textContent = String(detail.count || 0); row.append(label, track, value); elements.featureChart.append(row); });
   if (partQualityChart) { partQualityChart.replaceChildren(); const scores = analytics.average_part_quality_scores || {}; ["Body", "Head", "Tail"].forEach((region) => { const score = scores[region]; appendMetricRow(partQualityChart, region, Number(score || 0) / 100, score == null ? "—" : formatPercent(score)); }); }
   if (colorTrendChart) { colorTrendChart.replaceChildren(); const trend = analytics.color_trend || []; if (!trend.length) { const note = document.createElement("span"); note.textContent = "No measured HSV samples"; colorTrendChart.append(note); } else trend.slice(-6).forEach((sample) => appendMetricRow(colorTrendChart, formatTime(sample.timestamp), Number(sample.mean_hue_deg || 0) / 360, `${Number(sample.mean_hue_deg).toFixed(1)}° / ${formatPercent(sample.yellow_ratio_proxy)}`)); }
+  if (decisionTimingChart) {
+    decisionTimingChart.replaceChildren();
+    const average = finiteNumber(analytics.average_first_detection_to_decision_ms);
+    const statuses = analytics.decision_deadline_status_counts && typeof analytics.decision_deadline_status_counts === "object" ? analytics.decision_deadline_status_counts : {};
+    const statusCount = (value) => Math.max(0, finiteNumber(value) ?? 0);
+    const met = statusCount(statuses.met); const missed = statusCount(statuses.missed); const notConfigured = statusCount(statuses.not_configured);
+    if (average == null) {
+      decisionTimingChart.append(Object.assign(document.createElement("span"), { textContent: "No finalized decision-timing measurement yet" }));
+    } else {
+      const averageLine = document.createElement("p"); averageLine.textContent = `Average first detection to decision: ${formatMs(average)}`; decisionTimingChart.append(averageLine);
+      const configuredTotal = Math.max(1, met + missed);
+      appendMetricRow(decisionTimingChart, "Deadline met", met / configuredTotal, String(met));
+      appendMetricRow(decisionTimingChart, "Deadline missed", missed / configuredTotal, String(missed));
+      const unconfigured = document.createElement("p"); unconfigured.textContent = `No deadline configured: ${notConfigured}`; decisionTimingChart.append(unconfigured);
+    }
+    const scope = typeof analytics.decision_timing_scope === "string" && analytics.decision_timing_scope.trim()
+      ? analytics.decision_timing_scope.trim()
+      : "Elapsed time from first persistent Model 1 detection to the virtual count-line decision; it is not physical entry or actuator confirmation.";
+    decisionTimingChart.append(Object.assign(document.createElement("small"), { textContent: scope }));
+  }
   const throughput = analytics.throughput || []; const maxTotal = Math.max(1, ...throughput.map((item) => Number(item.total || 0))); const denominator = Math.max(1, throughput.length - 1);
   const points = throughput.map((item, index) => `${(index / denominator) * 560},${166 - (Number(item.total || 0) / maxTotal) * 142}`).join(" ");
   elements.throughputLine.setAttribute("points", points || "0,166");
   const trendLabel = Number(analytics.trend_events_total || 0) > throughput.length ? `latest ${throughput.length}` : `${throughput.length}`;
   elements.throughputCaption.textContent = `${total} fish · ${trendLabel} observations`;
-  if (confidenceAvailable) elements.averageGradeConfidence.textContent = `M1 raw ${formatPercent(analytics.average_detection_confidence)} · final support ${formatPercent(analytics.average_grade_confidence)}`;
+  if (confidenceAvailable) elements.averageGradeConfidence.textContent = `Track-mean M1 detection confidence ${formatPercent(analytics.average_detection_confidence)} · final support ${formatPercent(analytics.average_grade_confidence)}`;
 }
 
 function detectedFeatures(event) {
@@ -672,7 +775,13 @@ function diagnosticsRow(label, value) {
   term.textContent = label; detail.textContent = value == null || value === "" ? "—" : String(value); row.append(term, detail); return row;
 }
 function renderRuntimeDiagnostics(data) {
-  const diagnostics = data.runtime_diagnostics || {}; const performance = diagnostics.performance || {}; const timings = performance.timings || {}; const queue = diagnostics.frame_queue || {};
+  const diagnostics = data.runtime_diagnostics || {}; const performance = diagnostics.performance || {}; const timings = performance.timings || {}; const queue = diagnostics.frame_queue || {}; const persistenceQueue = diagnostics.event_persistence_queue || {};
+  const measured = (value) => value == null || value === "" ? "Not measured" : String(value);
+  const rate = (value) => value == null ? "Not measured" : `${Number(value).toFixed(1)} FPS`;
+  const timing = (name) => {
+    const sample = timings[name];
+    return sample?.p50 == null ? "Not measured" : `${sample.p50} / ${sample.p95} ms (${sample.count} samples)`;
+  };
   const enabled = Boolean(diagnostics.enabled); elements.debugRuntimeEnabled.checked = enabled; elements.debugPause.disabled = !enabled; elements.debugPause.textContent = diagnostics.paused ? "Resume inspection" : "Pause on current frame";
   elements.runtimeDiagnosticsNote.textContent = enabled
     ? "Debug mode is bounded and research-only. Raw candidates and saved crops do not change production predictions, grading, or history."
@@ -680,16 +789,44 @@ function renderRuntimeDiagnostics(data) {
       ? "Runtime sample recording is disabled for an overhead experiment. Debug capture is off."
       : "Clean runtime counters remain active. Debug capture changes candidate collection and saves research artifacts; leave it off for baseline measurements.";
   elements.runtimeDiagnosticsValues.replaceChildren(
-    diagnosticsRow("Capture FPS", performance.calls_per_second?.camera_capture == null ? "—" : `${Number(performance.calls_per_second.camera_capture).toFixed(1)}`),
-    diagnosticsRow("Processing FPS", performance.calls_per_second?.processed_frame == null ? "—" : `${Number(performance.calls_per_second.processed_frame).toFixed(1)}`),
-    diagnosticsRow("Dropped stale frames", queue.dropped_frames ?? "—"), diagnosticsRow("Queue depth", queue.depth ?? "—"),
-    diagnosticsRow("Model 1 host time p50 / p95", timings.model1_inference?.p50 == null ? "—" : `${timings.model1_inference.p50} / ${timings.model1_inference.p95} ms (${timings.model1_inference.count} samples)`),
-    diagnosticsRow("Model 2 host time p50 / p95", timings.model2_inference?.p50 == null ? "—" : `${timings.model2_inference.p50} / ${timings.model2_inference.p95} ms (${timings.model2_inference.count} samples)`),
-    diagnosticsRow("Model 2 calls / active fish / mode", `${performance.counters?.model2 ?? 0} / ${diagnostics.active_tracks ?? 0} / ${diagnostics.quality_inference_mode ?? "—"}`),
+    diagnosticsRow("Camera", measured(data.camera_status)),
+    diagnosticsRow("Active tracker", data.runtime_mode === "part_preview" ? "Not used" : measured(data.tracker_backend)),
+    diagnosticsRow("Tracker fallback reason", data.tracker_warning || "None reported"),
+    diagnosticsRow("Model 1 / device", `${measured(data.model_info?.detector?.name)} / ${measured(data.model_info?.detector?.device)}`),
+    diagnosticsRow("Model 2 / device", `${measured(data.model_info?.quality?.name)} / ${measured(data.model_info?.quality?.device)}`),
+    diagnosticsRow("Capture FPS", rate(performance.calls_per_second?.camera_capture)),
+    diagnosticsRow("AI processing FPS", rate(performance.calls_per_second?.processed_frame)),
+    diagnosticsRow("This browser's MJPEG image-load FPS", browserPreviewImageLoadText()),
+    diagnosticsRow("Capture-to-display latency", "Not measured"),
+    diagnosticsRow("Dropped stale frames", measured(queue.dropped_frames)), diagnosticsRow("Queue depth / capacity", `${measured(queue.depth)} / ${measured(queue.capacity)}`),
+    diagnosticsRow("Capture p50 / p95", timing("camera_capture")),
+    diagnosticsRow("Frame age at processing p50 / p95", timing("capture_to_process")),
+    diagnosticsRow("Capture-to-server-publish p50 / p95", timing("capture_to_publish")),
+    diagnosticsRow("Model 1 host time p50 / p95", timing("model1_inference")),
+    diagnosticsRow("Tracker p50 / p95", timing("tracker")),
+    diagnosticsRow("Model 2 host time p50 / p95", timing("model2_inference")),
+    diagnosticsRow("ROI extraction p50 / p95", timing("roi_extraction")),
+    diagnosticsRow("Association p50 / p95", timing("association")),
+    diagnosticsRow("Part assignment p50 / p95", timing("part_assignment")),
+    diagnosticsRow("Visual evidence preparation p50 / p95", timing("hsv")),
+    diagnosticsRow("Grading p50 / p95", timing("grading_engine")),
+    diagnosticsRow("Event tracking p50 / p95", timing("event_tracking")),
+    diagnosticsRow("First detection to virtual decision p50 / p95", timing("first_detection_to_decision")),
+    diagnosticsRow("Event persistence worker p50 / p95", timing("event_persistence")),
+    diagnosticsRow("Event write queue (pending / capacity)", `${measured(persistenceQueue.pending)} / ${measured(persistenceQueue.capacity)}`),
+    diagnosticsRow("Event queue accepted / completed", `${measured(persistenceQueue.accepted)} / ${measured(persistenceQueue.completed)}`),
+    diagnosticsRow("Event queue backpressure", `${measured(persistenceQueue.backpressure_waits)} waits / ${measured(persistenceQueue.backpressure_wait_ms)} ms total`),
+    diagnosticsRow("Event queue health", persistenceQueue.failed ? `Failure: ${persistenceQueue.failure?.message || "unknown error"}` : !persistenceQueue.accepting ? "Stopping" : persistenceQueue.worker_alive ? "Ready" : "Stopped"),
+    diagnosticsRow("Overlay rendering p50 / p95", timing("overlay_rendering")),
+    diagnosticsRow("Total processing p50 / p95", timing("total_processing")),
+    diagnosticsRow("Model 2 calls / active fish / mode", `${measured(performance.counters?.model2)} / ${measured(diagnostics.active_tracks)} / ${measured(diagnostics.quality_inference_mode)}`),
     diagnosticsRow("Timing scope", "Host durations; GPU work may be asynchronous. Some stages overlap."),
-    diagnosticsRow("JPEG p50 / p95", timings.jpeg_encoding?.p50 == null ? "—" : `${timings.jpeg_encoding.p50} / ${timings.jpeg_encoding.p95} ms`),
-    diagnosticsRow("Frontend render p50 / p95", timings.frontend_render?.p50 == null ? "Waiting for browser telemetry" : `${timings.frontend_render.p50} / ${timings.frontend_render.p95} ms`),
-    diagnosticsRow("Model 2 raw / associated / rejected / unassigned", `${diagnostics.model2_raw_candidates ?? 0} / ${diagnostics.model2_associated_parts ?? 0} / ${diagnostics.model2_rejected_candidates ?? 0} / ${diagnostics.model2_unassigned_candidates ?? 0}`),
+    diagnosticsRow("JPEG p50 / p95", timing("jpeg_encoding")),
+    diagnosticsRow("MJPEG dispatch samples / s", rate(performance.calls_per_second?.mjpeg_dispatch)),
+    diagnosticsRow("MJPEG generator pacing p50 / p95", timing("mjpeg_dispatch")),
+    diagnosticsRow("Frontend DOM render p50 / p95", timing("frontend_render")),
+    diagnosticsRow("Telemetry recording overhead", "Not measured"),
+    diagnosticsRow("Model 2 raw / associated / rejected / unassigned", enabled ? `${measured(diagnostics.model2_raw_candidates)} / ${measured(diagnostics.model2_associated_parts)} / ${measured(diagnostics.model2_rejected_candidates)} / ${measured(diagnostics.model2_unassigned_candidates)}` : "Not measured (debug capture off)"),
   );
   elements.hardNegativeList.replaceChildren(); const records = Array.isArray(diagnostics.hard_negative_records) ? diagnostics.hard_negative_records : [];
   if (!records.length) { elements.hardNegativeList.textContent = enabled ? "No bounded candidates saved yet." : "Enable diagnostics to create bounded research-only candidates."; return; }
@@ -758,7 +895,8 @@ function render(data) {
   const renderStarted = performance.now(); latestStatus = data; defaultConfidence = Number(data.default_confidence_threshold ?? defaultConfidence); defaultQualityConfidence = Number(data.default_quality_confidence_threshold ?? defaultQualityConfidence);
   const alertKey = JSON.stringify([data.model_status, data.segmenter_status, data.inspection_status, data.runtime_mode, data.message, data.segmenter_message, data.upload_analysis_available, data.tracker_backend, data.tracker_warning]);
   if (alertKey !== alertRenderKey) { renderAlert(data); alertRenderKey = alertKey; }
-  const cameraKey = JSON.stringify([data.inspection_status, data.camera_status, data.model_status, data.segmenter_status, data.runtime_mode, data.model_info?.quality?.status, data.model_info?.detector?.device, data.fps, data.frame_size, data.message, data.raw_preview_available, data.upload_analysis_available, Boolean(selectedUpload), uploadInFlight, streamReady, streamAttached, controlRequestInFlight]);
+  const previewImageLoadFps = browserPreviewImageLoadFps();
+  const cameraKey = JSON.stringify([data.inspection_status, data.camera_status, data.model_status, data.segmenter_status, data.runtime_mode, data.model_info?.quality?.status, data.model_info?.detector?.device, data.fps, data.frame_size, data.message, data.raw_preview_available, data.upload_analysis_available, Boolean(selectedUpload), uploadInFlight, streamReady, streamAttached, previewImageLoadFps == null ? null : previewImageLoadFps.toFixed(1), controlRequestInFlight]);
   if (cameraKey !== cameraRenderKey) { renderCamera(data); cameraRenderKey = cameraKey; }
   if (selectedView === "live") {
     renderLatest(data); renderKpis(data); renderFeatureCounters(data); renderRecent(data.recent_history);
@@ -797,7 +935,7 @@ function renderBackendUnavailable() {
   setCompactStatus(elements.modelPill, "Models", "Unknown", "neutral");
   elements.liveBadge.textContent = "CONNECTION LOST";
   elements.liveBadge.className = "live-badge error";
-  elements.video.removeAttribute("src"); streamAttached = false; streamReady = false;
+  detachStream();
   elements.placeholder.classList.remove("hidden");
   elements.placeholderTitle.textContent = "Waiting for the local server";
   elements.placeholderCopy.textContent = "The feed will reconnect when the backend is available.";
@@ -945,7 +1083,7 @@ function closePanel(panel) {
 }
 function openSettings() { if (latestStatus) syncSettings(latestStatus); openPanel(elements.settingsDrawer); }
 function closeSettings() { closePanel(elements.settingsDrawer); }
-function openExport() { updateExportSelection(); openPanel(elements.exportModal); }
+function openExport() { syncExportRangeControls(); if (!exportSessionsLoading) void loadExportSessions(); openPanel(elements.exportModal); }
 function closeExport() { closePanel(elements.exportModal); }
 function openCameraCalibration() { openPanel(elements.cameraCalibrationDrawer); loadCameraCalibration(); }
 function closeCameraCalibration() { closePanel(elements.cameraCalibrationDrawer); }
@@ -1020,7 +1158,9 @@ function renderCameraCalibration(status) {
   const available = Boolean(status?.available);
   const locked = Boolean(status?.locked);
   const calibration = Boolean(status?.calibration_mode);
-  elements.cameraDeviceName.textContent = camera.device_name || "Camera unavailable";
+  const configuredIndex = finiteNumber(status?.configured_camera_index);
+  const cameraName = camera.device_name || "Camera unavailable";
+  elements.cameraDeviceName.textContent = configuredIndex == null ? cameraName : `Camera #${configuredIndex} — ${cameraName}`;
   elements.cameraConnection.textContent = available ? "Connected to the shared inspection capture" : (status?.capabilities?.reason || "Start inspection to connect");
   elements.cameraLockBadge.textContent = locked ? "LOCKED" : "UNLOCKED"; elements.cameraLockBadge.classList.toggle("locked", locked);
   elements.cameraCaptureResolution.textContent = Array.isArray(camera.capture_resolution) ? `${camera.capture_resolution[0]} x ${camera.capture_resolution[1]}` : "-";
@@ -1028,7 +1168,15 @@ function renderCameraCalibration(status) {
   elements.cameraHardwareFps.textContent = cameraNumber(camera.fps); elements.cameraBackend.textContent = camera.backend || "-";
   elements.cameraProfileName.textContent = camera.profile_name || "Not saved"; elements.cameraLockState.textContent = locked ? "Locked" : "Unlocked";
   elements.calibrationMode.checked = calibration; elements.calibrationMode.disabled = !available || locked;
-  elements.cameraControlNote.textContent = available ? (locked ? "Unlock to calibrate" : calibration ? "Validated hardware controls" : "Enable Calibration Mode to adjust") : "Camera is not running";
+  const attempts = Array.isArray(status?.open_attempts) ? status.open_attempts : [];
+  const attemptSummary = attempts.map((attempt) => {
+    const backend = typeof attempt?.backend === "string" && attempt.backend ? attempt.backend : "Unknown backend";
+    const outcome = typeof attempt?.status === "string" && attempt.status ? attempt.status.replaceAll("_", " ") : "failed";
+    return `${backend}: ${outcome}`;
+  }).join("; ");
+  elements.cameraControlNote.textContent = available
+    ? (locked ? "Unlock to calibrate" : calibration ? "Validated hardware controls" : "Enable Calibration Mode to adjust")
+    : [status?.configured_camera_note || "Camera is not running", attemptSummary ? `Open attempts: ${attemptSummary}.` : ""].filter(Boolean).join(" ");
   elements.imageStatistics.classList.toggle("hidden", !calibration);
   const stats = status?.image_statistics || {};
   elements.statFrameBrightness.textContent = cameraNumber(stats.frame_brightness); elements.statFishBrightness.textContent = cameraNumber(stats.fish_roi_brightness); elements.statBackgroundBrightness.textContent = cameraNumber(stats.background_brightness); elements.statContrast.textContent = cameraNumber(stats.fish_background_contrast);
@@ -1107,10 +1255,56 @@ async function loadHistorySessions() {
   try {
     const response = await fetch("/api/sessions?limit=1000"); const data = await response.json(); if (!response.ok) throw new Error(data.detail || "Sessions unavailable");
     const selected = elements.historySession.value; elements.historySession.replaceChildren();
-    const current = document.createElement("option"); current.value = ""; current.textContent = "Current session"; elements.historySession.append(current);
+    const current = document.createElement("option"); current.value = ""; current.textContent = "Latest run"; elements.historySession.append(current);
     (data.items || []).forEach((session) => { const option = document.createElement("option"); option.value = session.session_id; option.textContent = `${session.started_at || "Unknown date"} · ${session.session_id}`; elements.historySession.append(option); });
     elements.historySession.value = selected;
   } catch (error) { elements.historyEmpty.textContent = error instanceof Error ? error.message : "Sessions unavailable."; }
+}
+function exportSessionLabel(session, currentSessionId) {
+  const started = typeof session?.started_at === "string" && session.started_at ? session.started_at : "Unknown start";
+  const state = session?.session_id === currentSessionId ? "current" : session?.ended_at ? "completed" : "open";
+  return `${started} · ${state} · ${session.session_id}`;
+}
+async function loadExportSessions() {
+  const version = ++exportSessionsRequestVersion;
+  const selected = elements.exportSession.value;
+  exportSessionsLoading = true; exportSessionsError = "";
+  elements.exportSession.disabled = true;
+  elements.exportSession.replaceChildren(Object.assign(document.createElement("option"), { value: "", textContent: "Loading inspection runs…" }));
+  elements.exportSessionStatus.textContent = "Loading durable inspection runs…";
+  updateExportSelection({ preserveFeedback: exportInFlight });
+  try {
+    const response = await fetch("/api/sessions?limit=1000"); const data = await response.json(); if (!response.ok) throw new Error(data.detail || "Inspection runs unavailable");
+    if (version !== exportSessionsRequestVersion) return;
+    const sessions = Array.isArray(data.items) ? data.items.filter((session) => session && typeof session.session_id === "string" && session.session_id) : [];
+    elements.exportSession.replaceChildren();
+    if (!sessions.length) {
+      elements.exportSession.append(Object.assign(document.createElement("option"), { value: "", textContent: "No durable inspection runs available" }));
+      elements.exportSession.disabled = true;
+      exportSessionsError = "No durable inspection runs are available yet.";
+      elements.exportSessionStatus.textContent = exportSessionsError;
+      return;
+    }
+    sessions.forEach((session) => elements.exportSession.append(Object.assign(document.createElement("option"), {
+      value: session.session_id, textContent: exportSessionLabel(session, data.current_session_id),
+    })));
+    const current = typeof data.current_session_id === "string" ? data.current_session_id : "";
+    elements.exportSession.value = sessions.some((session) => session.session_id === selected) ? selected
+      : sessions.some((session) => session.session_id === current) ? current : sessions[0].session_id;
+    elements.exportSession.disabled = false;
+    elements.exportSessionStatus.textContent = "Choose a durable inspection run to export its records and recorded configuration.";
+  } catch (error) {
+    if (version !== exportSessionsRequestVersion) return;
+    exportSessionsError = error instanceof Error ? error.message : "Inspection runs unavailable.";
+    elements.exportSession.replaceChildren(Object.assign(document.createElement("option"), { value: "", textContent: "Inspection runs unavailable" }));
+    elements.exportSession.disabled = true;
+    elements.exportSessionStatus.textContent = exportSessionsError;
+  } finally {
+    if (version === exportSessionsRequestVersion) {
+      exportSessionsLoading = false;
+      updateExportSelection({ preserveFeedback: exportInFlight });
+    }
+  }
 }
 async function loadHistory(resetPage = false) {
   ensureHistoryVerdictFilter(); if (resetPage) historyState.page = 1;
@@ -1174,7 +1368,78 @@ function setQualityConfidence(value, apply = false) {
   if (apply) postSettings({ quality_confidence_threshold: normalized / 100 });
 }
 function setOverlay(name, checked) { overlayControls[name].forEach((control) => { control.checked = checked; }); postSettings({ display_settings: { [name]: checked } }); }
-function toggleUpload(show) { elements.uploadWorkspace.classList.toggle("hidden", !show); if (show) elements.uploadWorkspace.scrollIntoView({ behavior: motionPreference(), block: "start" }); }
+function uploadAnalysisAvailable() { return Boolean(latestStatus?.upload_analysis_available); }
+function updateUploadControls() {
+  const canAnalyze = Boolean(selectedUpload && uploadAnalysisAvailable() && !uploadInFlight);
+  elements.analyze.disabled = !canAnalyze;
+  elements.selectUpload.disabled = uploadInFlight;
+  elements.uploadInput.disabled = uploadInFlight;
+  elements.closeUpload.disabled = uploadInFlight;
+  elements.uploadMode.disabled = uploadInFlight;
+  elements.uploadWorkspace.setAttribute("aria-busy", String(uploadInFlight));
+}
+function revokeUploadPreview() {
+  if (uploadPreviewUrl) URL.revokeObjectURL(uploadPreviewUrl);
+  uploadPreviewUrl = null;
+  elements.uploadImage.onerror = null;
+}
+function resetUploadWorkspace() {
+  uploadSelectionVersion += 1;
+  selectedUpload = null;
+  elements.uploadInput.value = "";
+  elements.uploadFileName.textContent = "No photo selected";
+  elements.uploadStatus.textContent = "No photo selected";
+  elements.uploadNote.textContent = "Choose a JPEG, PNG, or WebP photo for separate local analysis. It does not change this live session.";
+  elements.uploadResults.classList.add("hidden");
+  elements.uploadFishCount.textContent = "0";
+  elements.uploadCountLabel.textContent = "Fish found";
+  renderUploadEvidence();
+  renderUploadMeasurements();
+  revokeUploadPreview();
+  elements.uploadImage.removeAttribute("src");
+  elements.uploadImage.alt = "Selected or annotated fish photo";
+  elements.uploadImage.classList.add("hidden");
+  updateUploadControls();
+}
+function setUploadSelection(file) {
+  const selectionVersion = ++uploadSelectionVersion;
+  selectedUpload = file || null;
+  elements.uploadResults.classList.add("hidden");
+  renderUploadEvidence();
+  renderUploadMeasurements();
+  if (!selectedUpload) {
+    resetUploadWorkspace();
+    return;
+  }
+  elements.uploadFileName.textContent = selectedUpload.name;
+  elements.uploadStatus.textContent = "Ready to analyze";
+  elements.uploadNote.textContent = `${selectedUpload.name} is ready for separate local analysis.`;
+  revokeUploadPreview();
+  uploadPreviewUrl = URL.createObjectURL(selectedUpload);
+  elements.uploadImage.src = uploadPreviewUrl;
+  elements.uploadImage.alt = `Selected photo preview: ${selectedUpload.name}`;
+  elements.uploadImage.classList.remove("hidden");
+  elements.uploadImage.onerror = () => {
+    if (selectionVersion !== uploadSelectionVersion) return;
+    elements.uploadStatus.textContent = "Preview unavailable";
+    elements.uploadNote.textContent = "The selected file could not be previewed. Choose another JPEG, PNG, or WebP photo.";
+    elements.uploadImage.classList.add("hidden");
+  };
+  updateUploadControls();
+}
+function toggleUpload(show) {
+  if (!show && uploadInFlight) return;
+  elements.uploadWorkspace.classList.toggle("hidden", !show);
+  elements.uploadMode.setAttribute("aria-expanded", String(show));
+  elements.uploadMode.textContent = show ? "Close photo analysis" : "Analyze a photo";
+  if (show) {
+    elements.uploadWorkspace.scrollIntoView({ behavior: motionPreference(), block: "nearest" });
+    requestAnimationFrame(() => elements.selectUpload.focus({ preventScroll: true }));
+  } else {
+    resetUploadWorkspace();
+    elements.uploadMode.focus({ preventScroll: true });
+  }
+}
 
 document.querySelectorAll(".nav-item[data-view]").forEach((button) => button.addEventListener("click", () => showView(button.dataset.view)));
 document.querySelectorAll(".nav-item[data-anchor]").forEach((button) => button.addEventListener("click", () => { showView("live"); $("analytics-disclosure").open = true; setTimeout(() => { $(button.dataset.anchor).scrollIntoView({ behavior: motionPreference(), block: "start" }); document.querySelectorAll(".nav-item").forEach((item) => item.classList.toggle("active", item === button)); }, 30); }));
@@ -1194,12 +1459,204 @@ elements.sidebarToggle.addEventListener("click", () => {
   elements.sidebarToggle.setAttribute("aria-label", collapsed ? "Expand sidebar" : "Collapse sidebar");
 });
 elements.start.addEventListener("click", () => postControl("/api/inspection/start")); elements.emptyStart.addEventListener("click", () => postControl("/api/inspection/start")); elements.stop.addEventListener("click", () => postControl("/api/inspection/stop"));
-elements.previewMode.addEventListener("click", () => { rawPreview = !rawPreview; elements.video.removeAttribute("src"); streamAttached = false; streamReady = false; if (latestStatus) renderCamera(latestStatus); });
+elements.previewMode.addEventListener("click", () => { rawPreview = !rawPreview; detachStream(); if (latestStatus) renderCamera(latestStatus); });
 elements.reset.addEventListener("click", () => { if (!hasEvents(latestStatus) || window.confirm("Reset this session? Live counters will reset. Saved inspection records will remain in the local database.")) postControl("/api/session/reset"); });
-elements.uploadMode.addEventListener("click", () => toggleUpload(true)); elements.closeUpload.addEventListener("click", () => toggleUpload(false));
-elements.uploadInput.addEventListener("change", () => { selectedUpload = elements.uploadInput.files?.[0] || null; elements.uploadResults.classList.add("hidden"); if (!selectedUpload) { elements.uploadStatus.textContent = "No image selected"; elements.uploadImage.classList.add("hidden"); elements.analyze.disabled = true; return; } elements.uploadStatus.textContent = "Ready"; elements.uploadNote.textContent = `${selectedUpload.name} is ready for separate local analysis.`; const reader = new FileReader(); reader.onload = () => { elements.uploadImage.src = reader.result; elements.uploadImage.classList.remove("hidden"); }; reader.readAsDataURL(selectedUpload); elements.analyze.disabled = !latestStatus?.upload_analysis_available; });
-elements.analyze.addEventListener("click", async () => { if (!selectedUpload || uploadInFlight) return; uploadInFlight = true; elements.analyze.disabled = true; elements.uploadStatus.textContent = "Analyzing"; elements.uploadNote.textContent = latestStatus?.runtime_mode === "part_preview" ? "Running the research part model. No fish grades or counts are produced." : "Running Model 1, then Model 2 on each detected fish crop."; try { const response = await fetch("/api/analyze-image", { method: "POST", headers: { "Content-Type": selectedUpload.type || "application/octet-stream", "X-Filename": selectedUpload.name }, body: selectedUpload }); const payload = await response.json(); if (!response.ok) throw new Error(payload.detail || `HTTP ${response.status}`); const isPartPreview = payload.analysis_mode === "part_preview"; elements.uploadImage.src = payload.annotated_image; elements.uploadFishCount.textContent = String(isPartPreview ? payload.parts_detected : payload.fish_detected); elements.uploadCountLabel.textContent = isPartPreview ? "Parts detected" : "Fish found"; renderUploadQuality(payload.quality_counters); elements.uploadResults.classList.remove("hidden"); elements.uploadStatus.textContent = "Complete"; elements.uploadNote.textContent = isPartPreview ? "Raw part-preview test complete. It does not create fish counts or live inspection records." : payload.model2_available ? "Model 1 fish detections and Model 2 part/grade evidence are shown." : "Detection complete; the Quality Model is unavailable."; } catch (error) { elements.uploadStatus.textContent = "Error"; elements.uploadNote.textContent = error instanceof Error ? error.message : "Image analysis failed."; } finally { uploadInFlight = false; elements.analyze.disabled = !selectedUpload || !latestStatus?.upload_analysis_available; } });
+elements.uploadMode.addEventListener("click", () => toggleUpload(elements.uploadWorkspace.classList.contains("hidden")));
+elements.closeUpload.addEventListener("click", () => toggleUpload(false));
+elements.selectUpload.addEventListener("click", () => { if (!uploadInFlight) elements.uploadInput.click(); });
+elements.uploadInput.addEventListener("change", () => setUploadSelection(elements.uploadInput.files?.[0] || null));
+elements.analyze.addEventListener("click", async () => {
+  if (!selectedUpload || uploadInFlight) return;
+  const upload = selectedUpload;
+  const requestVersion = ++uploadRequestVersion;
+  uploadInFlight = true;
+  elements.analyze.textContent = "Analyzing...";
+  elements.uploadStatus.textContent = "Analyzing";
+  elements.uploadNote.textContent = latestStatus?.runtime_mode === "part_preview"
+    ? "Running the research part model. No fish grades or counts are produced."
+    : "Running Model 1, then full-frame Model 2 part evidence with fish ownership association.";
+  updateUploadControls();
+  try {
+    const response = await fetch("/api/analyze-image", {
+      method: "POST",
+      headers: { "Content-Type": upload.type || "application/octet-stream", "X-Filename": upload.name },
+      body: upload,
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.detail || `HTTP ${response.status}`);
+    if (requestVersion !== uploadRequestVersion || upload !== selectedUpload) return;
+    const isPartPreview = payload.analysis_mode === "part_preview";
+    revokeUploadPreview();
+    elements.uploadImage.src = payload.annotated_image;
+    elements.uploadImage.alt = `Annotated analysis result: ${upload.name}`;
+    elements.uploadImage.classList.remove("hidden");
+    elements.uploadFishCount.textContent = String(isPartPreview ? payload.parts_detected : payload.fish_detected);
+    elements.uploadCountLabel.textContent = isPartPreview ? "Parts detected" : "Fish found";
+    renderUploadQuality(payload.quality_counters);
+    renderUploadEvidence(isPartPreview ? [] : payload.fish);
+    renderUploadMeasurements(isPartPreview ? [] : payload.fish);
+    elements.uploadResults.classList.remove("hidden");
+    elements.uploadStatus.textContent = "Analysis complete";
+    elements.uploadNote.textContent = isPartPreview
+      ? "Raw part-preview test complete. It does not create fish counts or live inspection records."
+      : payload.model2_available
+        ? "Model 1 fish detections and Model 2 part/grade evidence are shown."
+        : "Detection complete; the Quality Model is unavailable.";
+  } catch (error) {
+    if (requestVersion !== uploadRequestVersion) return;
+    elements.uploadStatus.textContent = "Analysis failed";
+    elements.uploadNote.textContent = error instanceof Error ? error.message : "Image analysis failed.";
+  } finally {
+    if (requestVersion !== uploadRequestVersion) return;
+    uploadInFlight = false;
+    elements.analyze.textContent = "Run analysis";
+    updateUploadControls();
+  }
+});
 function renderUploadQuality(counters) { const grid = $("upload-quality-counter-grid"); grid.replaceChildren(); Object.entries(counters || {}).forEach(([name, value]) => { const card = document.createElement("article"); card.className = "feature-counter"; card.append(Object.assign(document.createElement("span"), { textContent: name }), Object.assign(document.createElement("strong"), { textContent: String(value) }), Object.assign(document.createElement("small"), { textContent: "Image analysis only" })); grid.append(card); }); }
+function uploadPartWeight(part) {
+  const original = scoreText(part?.original_weight ?? part?.weight);
+  if (part?.present !== true) return original === "-" ? "No weight used" : `No weight used (original ${original})`;
+  const effective = scoreText(part?.effective_weight);
+  if (effective === "-") return "Weight unavailable";
+  if (effective === "0.0%") return original === "-" ? "Not used in the grade" : `Not used (original ${original})`;
+  return original !== "-" && original !== effective ? `${effective} used (original ${original})` : `${effective} used`;
+}
+function renderUploadEvidence(fishList = []) {
+  const container = elements.uploadEvidence;
+  container.replaceChildren();
+  if (!Array.isArray(fishList) || !fishList.length) { container.classList.add("hidden"); return; }
+  container.classList.remove("hidden");
+  fishList.forEach((fish, index) => {
+    const grade = aiFinalGrade(fish); const fishId = fish?.id ?? index + 1;
+    const ungraded = grade === "Ungraded"; const rejected = grade === "Rejected";
+    const card = document.createElement("details"); card.className = `upload-evidence-card ${ungraded ? "needs-evidence" : rejected ? "rejected" : "graded"}`;
+    card.open = fishList.length === 1;
+    const toggle = document.createElement("summary"); toggle.className = "upload-evidence-toggle";
+    const identity = document.createElement("span"); identity.className = "upload-evidence-fish";
+    const fishLabel = document.createElement("strong"); fishLabel.textContent = `Fish #${fishId}`;
+    const gradeLabel = document.createElement("span"); gradeLabel.className = "upload-evidence-grade"; gradeLabel.textContent = grade;
+    identity.append(fishLabel, gradeLabel);
+    const status = document.createElement("span"); status.className = "upload-evidence-summary-status";
+    status.textContent = ungraded ? "Needs more reliable part evidence" : rejected ? "Rejected by Model 2 evidence" : "Grade evidence available";
+    const support = document.createElement("span"); support.className = "upload-evidence-summary-metric";
+    support.append(Object.assign(document.createElement("small"), { textContent: "Final support" }), Object.assign(document.createElement("b"), { textContent: scoreText(weightedFinalSupport(fish)) }));
+    const action = document.createElement("span"); action.className = "upload-evidence-action"; action.textContent = "Expand evidence";
+    card.addEventListener("toggle", () => { action.textContent = card.open ? "Hide evidence" : "Expand evidence"; });
+    toggle.append(identity, status, support, action); card.append(toggle);
+    const body = document.createElement("div"); body.className = "upload-evidence-body";
+    const metricsHeading = document.createElement("h4"); metricsHeading.textContent = "Grading inputs"; body.append(metricsHeading);
+    const metrics = document.createElement("div"); metrics.className = "upload-evidence-metrics";
+    [["Final weighted support", scoreText(weightedFinalSupport(fish))], ["Effective weights", effectiveWeightText(fish)], ["Model 1 detection", scoreText(model1Confidence(fish))]].forEach(([label, value]) => {
+      const item = document.createElement("span"); item.append(Object.assign(document.createElement("small"), { textContent: label }), Object.assign(document.createElement("b"), { textContent: value })); metrics.append(item);
+    });
+    body.append(metrics);
+    const partsHeading = document.createElement("h4"); partsHeading.textContent = "Model 2 part evidence"; body.append(partsHeading);
+    const parts = document.createElement("div"); parts.className = "upload-part-evidence";
+    ["Body", "Head", "Tail"].forEach((region) => {
+      const part = partFor(fish, region); const row = document.createElement("div");
+      const name = document.createElement("strong"); name.textContent = region;
+      const observation = document.createElement("span"); observation.textContent = part?.present ? `${part.grade || "Observed"} - ${scoreText(part.grade_confidence)}` : partStatus(part);
+      const weight = document.createElement("small"); weight.textContent = uploadPartWeight(part);
+      row.append(name, observation, weight); parts.append(row);
+    });
+    body.append(parts);
+    if (ungraded) {
+      const reason = verdictReason(fish); const note = document.createElement("p"); note.className = "upload-evidence-reason";
+      note.textContent = `Ungraded reason: ${reason.text || reason.label || "No reason was returned."}`; body.append(note);
+    }
+    card.append(body);
+    container.append(card);
+  });
+}
+function uploadObject(value) { return value && typeof value === "object" && !Array.isArray(value) ? value : {}; }
+function pixelBox(box) {
+  if (!Array.isArray(box) || box.length < 4) return null;
+  const [left, top, right, bottom] = box.slice(0, 4).map(finiteNumber);
+  if ([left, top, right, bottom].some((value) => value == null)) return null;
+  const width = right - left; const height = bottom - top;
+  return width > 0 && height > 0 ? { left, top, right, bottom, width, height, area: width * height } : null;
+}
+function pixelBoxText(box) {
+  const dimensions = pixelBox(box);
+  return dimensions ? `${Math.round(dimensions.width)} x ${Math.round(dimensions.height)} px` : "Not available";
+}
+function measurementPercent(value) {
+  const fraction = asFraction(value);
+  return fraction == null ? "Not measured" : formatPercent(fraction * 100);
+}
+function measurementHue(value) {
+  const number = finiteNumber(value);
+  return number == null ? "Not measured" : `${number.toFixed(1)} deg`;
+}
+function uploadPartDetection(fish, region) {
+  const expected = String(region).toLowerCase();
+  return (Array.isArray(fish?.parts) ? fish.parts : []).find((part) => String(part?.region || part?.part || "").toLowerCase() === expected) || null;
+}
+function uploadFrameSize(fish) {
+  const latest = uploadObject(uploadObject(analysisFor(fish).frame_quality).latest);
+  const width = finiteNumber(latest.frame_width); const height = finiteNumber(latest.frame_height);
+  return width != null && height != null && width > 0 && height > 0 ? `${Math.round(width)} x ${Math.round(height)} px` : "Not returned";
+}
+function appendUploadMeasurementDatum(grid, label, value) {
+  const item = document.createElement("div"); const name = document.createElement("small"); const detail = document.createElement("b");
+  name.textContent = label; detail.textContent = value == null || value === "" ? "Not available" : String(value); item.append(name, detail); grid.append(item);
+}
+function appendUploadColorRegion(container, fish, region, reading) {
+  const card = document.createElement("article"); card.className = "upload-color-region";
+  const heading = document.createElement("h4"); heading.textContent = region; card.append(heading);
+  const measured = reading?.status === "measured";
+  const source = document.createElement("p"); source.className = "upload-color-source";
+  source.textContent = measured
+    ? (reading.measurement_source || "Measurement source was not returned.")
+    : `Not measured: ${reading?.missing_value_reason || "No eligible image region was returned."}`;
+  card.append(source);
+  if (!measured) { container.append(card); return; }
+  const values = uploadObject(reading.values); const grid = document.createElement("div"); grid.className = "upload-measurement-grid";
+  const roi = Array.isArray(reading.frame_rois) ? reading.frame_rois.find((item) => pixelBox(item?.crop_local_bbox)) : null;
+  const part = region === "Whole Fish" ? null : uploadPartDetection(fish, region);
+  const fallbackBox = part?.bbox || (region === "Whole Fish" ? fish?.bbox : null);
+  appendUploadMeasurementDatum(grid, "Measured ROI", pixelBoxText(pixelBox(roi?.crop_local_bbox) ? roi.crop_local_bbox : fallbackBox));
+  appendUploadMeasurementDatum(grid, "Hue (mean)", measurementHue(values.mean_hue_deg));
+  appendUploadMeasurementDatum(grid, "Saturation (mean)", measurementPercent(values.mean_saturation));
+  appendUploadMeasurementDatum(grid, "Brightness (HSV value)", measurementPercent(values.mean_value));
+  appendUploadMeasurementDatum(grid, "Yellow proxy", measurementPercent(values.yellow_ratio_proxy));
+  appendUploadMeasurementDatum(grid, "Brown proxy", measurementPercent(values.brown_ratio_proxy));
+  appendUploadMeasurementDatum(grid, "Dark-area proxy", measurementPercent(values.dark_patch_ratio_proxy));
+  appendUploadMeasurementDatum(grid, "Discoloration proxy", measurementPercent(values.discoloration_coverage_proxy));
+  appendUploadMeasurementDatum(grid, "Highlight proxy", measurementPercent(values.specular_ratio_proxy));
+  card.append(grid); container.append(card);
+}
+function renderUploadMeasurements(fishList = []) {
+  const container = elements.uploadMeasurements;
+  container.replaceChildren();
+  if (!Array.isArray(fishList) || !fishList.length) { container.classList.add("hidden"); return; }
+  container.classList.remove("hidden");
+  const intro = document.createElement("div"); intro.className = "upload-measurements-intro";
+  const title = document.createElement("h3"); title.id = "upload-measurements-title"; title.textContent = "Image features and measurements";
+  const explanation = document.createElement("p"); explanation.textContent = "Model 2 Body, Head, and Tail evidence is used for the current grade. Color results and pixel dimensions below are supporting diagnostics only and do not change the grade.";
+  intro.append(title, explanation); container.append(intro);
+  fishList.forEach((fish, index) => {
+    const supporting = uploadObject(analysisFor(fish).supporting_image_measurements); const regions = uploadObject(supporting.regions);
+    const fishId = fish?.id ?? index + 1; const card = document.createElement("article"); card.className = "upload-measurement-card";
+    const heading = document.createElement("h4"); heading.textContent = `Fish #${fishId} image measurements`; card.append(heading);
+    const usage = document.createElement("div"); usage.className = "upload-feature-usage";
+    const used = document.createElement("span"); used.className = "used"; used.textContent = `Used for grade: ${observedRegions(fish).join(", ") || "no Model 2 part evidence returned"}`;
+    const diagnostic = document.createElement("span"); diagnostic.className = "diagnostic"; diagnostic.textContent = "Not used for grade: color proxies and pixel dimensions";
+    usage.append(used, diagnostic); card.append(usage);
+    const facts = document.createElement("div"); facts.className = "upload-measurement-grid upload-measurement-facts";
+    appendUploadMeasurementDatum(facts, "Detected fish box", pixelBoxText(fish?.bbox));
+    appendUploadMeasurementDatum(facts, "Source image", uploadFrameSize(fish));
+    appendUploadMeasurementDatum(facts, "Physical size", "Not calibrated; pixels only");
+    card.append(facts);
+    const colors = document.createElement("div"); colors.className = "upload-color-regions";
+    ["Whole Fish", "Body", "Head", "Tail"].forEach((region) => appendUploadColorRegion(colors, fish, region, uploadObject(regions[region])));
+    card.append(colors);
+    const caveat = document.createElement("p"); caveat.className = "upload-measurement-caveat";
+    caveat.textContent = "Color regions are rectangular detection boxes and can include background. No fish mask or calibrated cm/mm scale is available; proxy values are not validated defect, freshness, or size measurements.";
+    card.append(caveat); container.append(card);
+  });
+}
 
 ensureHistoryVerdictFilter();
 elements.viewAll.addEventListener("click", () => showView("history")); elements.historyFilter.addEventListener("click", () => loadHistory(true)); elements.historySession.addEventListener("change", () => loadHistory(true)); elements.historyPrev.addEventListener("click", () => { if (historyState.page > 1) { historyState.page -= 1; loadHistory(); } }); elements.historyNext.addEventListener("click", () => { if (historyState.page < historyState.totalPages) { historyState.page += 1; loadHistory(); } });
@@ -1221,15 +1678,25 @@ elements.qualitySlider.addEventListener("input", () => setQualityConfidence(elem
 elements.debugRuntimeEnabled.addEventListener("change", () => postRuntimeDiagnostics({ enabled: elements.debugRuntimeEnabled.checked }));
 elements.debugPause.addEventListener("click", () => postRuntimeDiagnostics({ paused: !Boolean(latestStatus?.runtime_diagnostics?.paused) }));
 Object.entries(overlayControls).forEach(([name, controls]) => controls.filter(Boolean).forEach((control) => control.addEventListener("change", () => setOverlay(name, control.checked))));
-document.querySelectorAll("input[name=export-range]").forEach((input) => input.addEventListener("change", () => { elements.dateRange.classList.toggle("hidden", document.querySelector("input[name=export-range]:checked").value !== "custom"); }));
-function updateExportSelection() {
+function selectedExportRange() { return document.querySelector("input[name=export-range]:checked").value; }
+function syncExportRangeControls() {
+  const range = selectedExportRange();
+  elements.dateRange.classList.toggle("hidden", range !== "custom");
+  elements.exportSessionRange.classList.toggle("hidden", range !== "specific_session");
+  if (range === "specific_session" && !exportSessionsLoading && (elements.exportSession.disabled || !elements.exportSession.options.length)) void loadExportSessions();
+  updateExportSelection();
+}
+document.querySelectorAll("input[name=export-range]").forEach((input) => input.addEventListener("change", syncExportRangeControls));
+function updateExportSelection({ preserveFeedback = false } = {}) {
   const hasFields = $("export-all-evidence").checked || Boolean(document.querySelector(".export-fields input:checked"));
-  const custom = document.querySelector("input[name=export-range]:checked").value === "custom";
+  const range = selectedExportRange(); const custom = range === "custom"; const specificSession = range === "specific_session";
   const start = elements.exportStartDate.value, end = elements.exportEndDate.value;
   const datesValid = !custom || !start || !end || start <= end;
-  $("confirm-export-button").disabled = exportInFlight || !hasFields || !datesValid;
+  const sessionValid = !specificSession || (!exportSessionsLoading && !exportSessionsError && !elements.exportSession.disabled && Boolean(elements.exportSession.value));
+  $("confirm-export-button").disabled = exportInFlight || !hasFields || !datesValid || !sessionValid;
   $("export-fields-error").classList.toggle("hidden", hasFields);
-  $("export-feedback").textContent = !datesValid ? "Start date must be on or before end date." : "";
+  if (!preserveFeedback) $("export-feedback").textContent = !datesValid ? "Start date must be on or before end date."
+    : !sessionValid ? (exportSessionsLoading ? "Loading inspection runs…" : exportSessionsError || "Choose an inspection run.") : "";
 }
 elements.exportForm.addEventListener("change", updateExportSelection);
 elements.exportForm.addEventListener("input", updateExportSelection);
@@ -1242,16 +1709,18 @@ elements.exportForm.addEventListener("submit", async (event) => {
   const invalidSelection = !completeAnalysis && !fields.length;
   $("export-fields-error").classList.toggle("hidden", !invalidSelection);
   if (invalidSelection) return;
-  const isCustom = document.querySelector("input[name=export-range]:checked").value === "custom";
+  const exportRange = selectedExportRange(); const isCustom = exportRange === "custom"; const specificSession = exportRange === "specific_session";
+  if (specificSession && (exportSessionsLoading || exportSessionsError || elements.exportSession.disabled || !elements.exportSession.value)) { updateExportSelection(); return; }
   if (isCustom && elements.exportStartDate.value && elements.exportEndDate.value && elements.exportStartDate.value > elements.exportEndDate.value) { updateExportSelection(); return; }
   const payload = {
     format: document.querySelector("input[name=export-format]:checked").value,
-    range: document.querySelector("input[name=export-range]:checked").value,
+    range: specificSession ? "current_session" : exportRange,
     fields,
     complete_analysis: completeAnalysis,
     start_date: elements.exportStartDate.value || null,
     end_date: elements.exportEndDate.value || null,
   };
+  if (specificSession) payload.session_id = elements.exportSession.value;
   button.disabled = true;
   exportInFlight = true;
   $("export-feedback").textContent = "Preparing export…";
@@ -1267,9 +1736,7 @@ elements.exportForm.addEventListener("submit", async (event) => {
     $("export-feedback").textContent = error instanceof Error ? `Export unavailable: ${error.message}` : "Export unavailable.";
   } finally {
     exportInFlight = false;
-    const custom = document.querySelector("input[name=export-range]:checked").value === "custom";
-    const start = elements.exportStartDate.value, end = elements.exportEndDate.value;
-    button.disabled = !($("export-all-evidence").checked || document.querySelector(".export-fields input:checked")) || (custom && Boolean(start && end && start > end));
+    updateExportSelection({ preserveFeedback: true });
   }
 });
 
@@ -1377,7 +1844,7 @@ $("lan-logout").addEventListener("click", async () => {
   try {
     const response = await fetch("/api/auth/logout", { method: "POST" });
     if (!response.ok) throw new Error("Sign out failed.");
-    lanCsrf = null; elements.video.removeAttribute("src"); streamAttached = false; showLanLogin();
+    lanCsrf = null; detachStream(); showLanLogin();
   } catch (_) { $("lan-logout").textContent = "Sign out failed; try again"; }
 });
 async function initializeLanSecurity() {

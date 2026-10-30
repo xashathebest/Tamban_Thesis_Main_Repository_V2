@@ -10,6 +10,7 @@ from types import SimpleNamespace
 import numpy as np
 
 from src.api.domain import Detection
+from src.inference.association import ParentAnchor
 from src.inference.grading_engine import GradingConfig, WeightedGradingEngine
 from src.inference.yolo_fish_detector import YoloFishDetector, resolve_yolo_fish_detector_model_path
 from src.inference.yolo_quality_model import YoloQualityModel, resolve_yolo_quality_model_path, validate_yolo_quality_class_mapping
@@ -69,6 +70,16 @@ class _QualityModel:
         ]
 
 
+class _CrowdedQualityModel(_QualityModel):
+    def predict(self, **_kwargs):
+        return [SimpleNamespace(names=dict(SOURCE_CLASSES), boxes=[
+            _Box(0, 0.90, (50, 20, 75, 55)),  # ambiguous Body for the overlapping pair
+            _Box(3, 0.90, (240, 25, 280, 75)),
+            _Box(4, 0.90, (225, 30, 242, 65)),
+            _Box(5, 0.90, (280, 35, 302, 65)),
+        ])]
+
+
 class YoloTwoModelPipelineTests(unittest.TestCase):
     def setUp(self) -> None:
         self.directory = tempfile.TemporaryDirectory()
@@ -109,6 +120,23 @@ class YoloTwoModelPipelineTests(unittest.TestCase):
         self.assertGreaterEqual(second.quality_confidence or 0, 0.60)
         self.assertEqual({part.region for part in second.parts}, {"Head", "Body", "Tail"})
         self.assertFalse(quality.supports_masks)
+
+    def test_full_frame_ambiguous_pair_does_not_block_distant_fish(self) -> None:
+        engine = WeightedGradingEngine(GradingConfig(grading_mode="tail_optional_v1", minimum_track_observations=2))
+        quality = YoloQualityModel(self.quality_path, device="cpu", model_factory=lambda _path: _CrowdedQualityModel(), grading_engine=engine)
+        self.assertTrue(quality.load(), quality.error)
+        parents = [ParentAnchor(1, (0, 0, 120, 100)), ParentAnchor(2, (5, 0, 125, 100)), ParentAnchor(3, (220, 0, 320, 100))]
+        frame = np.full((120, 340, 3), 100, dtype=np.uint8)
+        quality.predict_full_frame(frame, parents, frame_id=1)
+        results = quality.predict_full_frame(frame, parents, frame_id=2)
+        for track_id in (1, 2):
+            observation = results[track_id][0]
+            self.assertIsNone(observation.quality)
+            self.assertIn("UG_ASSOCIATION_AMBIGUOUS", observation.analysis["reason_codes"])
+        distant = results[3][0]
+        self.assertEqual(distant.quality, "Class B")
+        self.assertEqual({part.source_class_id for part in distant.parts}, {3, 4, 5})
+        self.assertNotIn("UG_ASSOCIATION_AMBIGUOUS", distant.analysis["reason_codes"])
 
     def test_still_image_mode_reports_one_real_quality_observation(self) -> None:
         quality = YoloQualityModel(self.quality_path, device="cpu", model_factory=lambda _path: _QualityModel())

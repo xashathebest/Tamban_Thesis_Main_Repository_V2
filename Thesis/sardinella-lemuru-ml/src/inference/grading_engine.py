@@ -554,7 +554,9 @@ def _measurement_payload(image_bgr: np.ndarray, bbox: tuple[float, float, float,
     # never mistaken for a fish or part segmentation mask.
     rgb = region[..., ::-1]
     try:
-        features = extract_color_features(rgb, np.ones(region.shape[:2], dtype=bool), ColorSettings())
+        features = extract_color_features(
+            rgb, np.ones(region.shape[:2], dtype=bool), ColorSettings(), summary_only=True
+        )
     except Exception as exc:
         return {"status": "unavailable", "source": scope, "message": str(exc)}
     keys = {

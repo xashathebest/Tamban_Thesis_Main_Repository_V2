@@ -19,6 +19,7 @@ from src.api.domain import Detection, InspectionState, TrackingConfig
 from src.api.runtime_diagnostics import LatestFrameQueue, RuntimeDiagnostics
 from src.inference.grading_engine import GradingConfig, WeightedGradingEngine
 from src.inference.association import ParentAnchor
+from src.inference.yolo_fish_detector import FishDetection, YoloFishDetector
 from src.inference.yolo_quality_model import YoloQualityModel
 from src.evaluation.model2_schedule_benchmark import replay
 from src.preprocessing.audit_v7_exports import SOURCE_CLASSES
@@ -121,6 +122,45 @@ class RuntimeMetricsTests(unittest.TestCase):
         self.assertEqual(snapshot["counters"]["model2"], 3)
         self.assertEqual(snapshot["calls_per_second"]["model2"], 1)
 
+    def test_service_records_observational_persistence_and_stream_metrics(self) -> None:
+        service = CameraInspectionService(InspectionState(), _FishModel())
+
+        service.record_event_persistence(.012)
+        service.record_stream_dispatch(.034)
+
+        diagnostics = service.runtime_diagnostics()
+        performance = diagnostics["performance"]
+        self.assertEqual(performance["timings"]["event_persistence"]["count"], 1)
+        self.assertEqual(performance["timings"]["mjpeg_dispatch"]["count"], 1)
+        self.assertEqual(performance["counters"]["mjpeg_dispatch"], 1)
+        self.assertIn("capture_to_publish", diagnostics["timing_provenance"])
+        self.assertIn("first_detection_to_decision", diagnostics["timing_provenance"])
+
+    def test_crossing_records_first_detection_to_decision_metric(self) -> None:
+        class CrossingFish(_FishModel):
+            def __init__(self) -> None:
+                super().__init__()
+                self._detections = iter((
+                    [Detection(0, "Fish", .9, (20, 5, 40, 25), 7)],
+                    [Detection(0, "Fish", .9, (60, 5, 80, 25), 7)],
+                ))
+
+            def predict(self, _frame):
+                return next(self._detections)
+
+        state = InspectionState(TrackingConfig(line_position=.5))
+        service = CameraInspectionService(state, CrossingFish())
+        frame = np.zeros((40, 100, 3), dtype=np.uint8)
+
+        service.process_frame(frame, cv2)
+        service.process_frame(frame, cv2)
+
+        timing = service.runtime_diagnostics()["performance"]["timings"]["first_detection_to_decision"]
+        self.assertEqual(timing["count"], 1)
+        self.assertGreaterEqual(timing["p50"], 0.0)
+        event = state.tracking.archive_history()[0]
+        self.assertIn("conveyor_timing", event["analysis"])
+
 
 class Model2RuntimeTraceTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -191,7 +231,11 @@ class Model2RuntimeTraceTests(unittest.TestCase):
         service.reset_session()
         self.assertFalse(self.quality._grading_engine._tracks)
         service.process_frame(frame, cv2)
-        self.assertEqual(self.quality._grading_engine._tracks[7].candidate_frame_count, 1)
+        new_tracks = self.quality._grading_engine._tracks
+        self.assertEqual(len(new_tracks), 1)
+        new_id = next(iter(new_tracks))
+        self.assertNotEqual(new_id, 7)
+        self.assertEqual(new_tracks[new_id].candidate_frame_count, 1)
 
     def test_model2_failure_at_count_line_abstains_instead_of_reusing_grade(self) -> None:
         fish = _FishModel()
@@ -441,6 +485,28 @@ class Model2RuntimeTraceTests(unittest.TestCase):
                 self.assertEqual(summary["assigned_part_count"], 0)
                 self.assertEqual(set(self.quality._grading_engine._tracks), {7})
 
+    def test_unconfirmed_model1_detection_competes_in_real_full_frame_path(self) -> None:
+        class PartialTracker:
+            def update(self, detections, _frame):
+                return np.asarray([[*detections.xyxy[0], 7, detections.conf[0], 0, 0]])
+
+        detector = YoloFishDetector(None, device="cpu")
+        detector._tracker = PartialTracker()
+        detector.detect = lambda _frame: [
+            FishDetection((0, 0, 120, 100), .9), FishDetection((5, 0, 125, 100), .9),
+        ]
+        self.backend.predict = lambda **_kwargs: [SimpleNamespace(names=dict(SOURCE_CLASSES), boxes=[_Box(0, .9, (50, 20, 75, 55))])]
+        state = InspectionState()
+        service = CameraInspectionService(state, detector, quality_model=self.quality, quality_inference_mode="full_frame")
+        service.process_frame(np.zeros((120, 140, 3), dtype=np.uint8), cv2)
+        association = service._track_grades[7].analysis["quality_inference"]["association"]
+        self.assertTrue(association["ambiguous"])
+        self.assertEqual(association["assigned_part_count"], 0)
+        self.assertIsNone(service._track_grades[7].quality)
+        self.assertEqual([item.track_id for item in state.detections], [7, None])
+        self.assertEqual({item["track_id"] for item in state.tracking.active_tracks()}, {7})
+        self.assertEqual(state.snapshot()["counters"]["total"], 0)
+
     def test_duplicate_tracker_id_detection_still_competes_for_ownership(self) -> None:
         class DuplicateTrackFish(_FishModel):
             def predict(self, _frame):
@@ -530,6 +596,84 @@ class Model2RuntimeTraceTests(unittest.TestCase):
         service.process_frame(frame, cv2)
         self.assertEqual(self.backend.calls, calls_before)
         self.assertGreater(service.runtime_diagnostics()["skipped_model2_reasons"].get("finalized_track", 0), 0)
+
+    def _reset_identity_fixture(self):
+        class ReusingDetector(_FishModel):
+            def __init__(self):
+                super().__init__()
+                self.detections = []
+
+            def predict(self, _frame):
+                return self.detections
+
+        class FakeWorker:
+            def __init__(self, **_kwargs):
+                pass
+
+            def start(self):
+                pass
+
+            def join(self, timeout=None):
+                pass
+
+        detector = ReusingDetector()
+        state = InspectionState(TrackingConfig(line_position=.5))
+        self.quality._grading_engine = WeightedGradingEngine(
+            GradingConfig(grading_mode="tail_optional_v1", minimum_track_observations=1, image_diagnostics_enabled=False)
+        )
+        selected_class = [0]
+        self.backend.predict = lambda **_kwargs: [SimpleNamespace(names=dict(SOURCE_CLASSES), boxes=[
+            _Box(selected_class[0], .9, (4, 3, 15, 18)), _Box(selected_class[0] + 1, .9, (1, 3, 4, 18)),
+        ])]
+        service = CameraInspectionService(state, detector, quality_model=self.quality, quality_interval=1)
+        frame = np.full((40, 100, 3), 100, dtype=np.uint8)
+
+        def passage():
+            for bbox in ((20, 5, 40, 25), (55, 5, 75, 25)):
+                detector.detections = [Detection(0, "Fish", .9, bbox, 7)]
+                service.process_frame(frame, cv2)
+
+        return service, state, selected_class, FakeWorker, passage
+
+    def test_stop_restart_preserves_distinct_fish_ids_and_model2_results(self) -> None:
+        service, state, selected_class, FakeWorker, passage = self._reset_identity_fixture()
+        with patch("src.api.camera.Thread", FakeWorker):
+            self.assertTrue(service.start())
+            passage()
+            first = state.tracking.archive_history()[0]
+            self.assertEqual((first["track_id"], first["quality"]), (7, "Class A"))
+            self.assertTrue(service.stop())
+            self.assertTrue(service.start())
+            selected_class[0] = 3
+            passage()
+            second, original = state.tracking.archive_history()
+            self.assertNotEqual(second["track_id"], first["track_id"])
+            self.assertEqual((original["quality"], second["quality"]), ("Class A", "Class B"))
+            self.assertEqual(second["analysis"]["inference_debug"]["model1_detection"]["fish_id"], second["track_id"])
+            self.assertEqual(state.snapshot()["counters"]["total"], 2)
+            state.tracking.apply_manual_review(second["track_id"], "Class C")
+            reviewed, original = state.tracking.archive_history()
+            self.assertEqual(reviewed["manual_grade"], "Class C")
+            self.assertIsNone(original["manual_grade"])
+            self.assertTrue(service.stop())
+
+    def test_reset_while_inspecting_clears_history_and_scopes_new_model2_evidence(self) -> None:
+        service, state, selected_class, FakeWorker, passage = self._reset_identity_fixture()
+        with patch("src.api.camera.Thread", FakeWorker):
+            self.assertTrue(service.start())
+            passage()
+            first_id = state.tracking.archive_history()[0]["track_id"]
+            service.reset_session()
+            self.assertEqual(state.snapshot()["counters"]["total"], 0)
+            self.assertEqual(state.tracking.archive_history(), [])
+            selected_class[0] = 3
+            passage()
+            new_event = state.tracking.archive_history()[0]
+            self.assertNotEqual(new_event["track_id"], first_id)
+            self.assertEqual(new_event["quality"], "Class B")
+            self.assertEqual(new_event["analysis"]["inference_debug"]["model1_detection"]["fish_id"], new_event["track_id"])
+            self.assertEqual(state.snapshot()["counters"]["total"], 1)
+            self.assertTrue(service.stop())
 
     def test_not_fish_debug_capture_is_research_only_and_does_not_change_prediction(self) -> None:
         fish = _FishModel()

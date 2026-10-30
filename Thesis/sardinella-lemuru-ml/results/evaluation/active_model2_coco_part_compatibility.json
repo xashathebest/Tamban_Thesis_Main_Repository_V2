@@ -1,0 +1,948 @@
+{
+  "dataset": {
+    "exported_image_preprocessing": "640x640 fit/white edges plus adaptive equalization (per README.dataset.txt)",
+    "root": "C:\\Users\\User\\Downloads\\Tamban_Thesis_Main_Repository\\Thesis\\sardinella-lemuru-ml\\Dried Fish Quality Grading.v7i.coco-segmentation",
+    "selected_splits": [
+      "train",
+      "valid",
+      "test"
+    ],
+    "source_format": "Roboflow COCO segmentation export; COCO bbox fields evaluated",
+    "within_selected_export_source_groups_crossing_splits": {}
+  },
+  "evaluated_at_utc": "2026-10-30T07:37:01.738036+00:00",
+  "inference": {
+    "device_requested": "cpu",
+    "device_resolved": "cpu",
+    "nms": "Ultralytics default adapter settings (the production runtime path)",
+    "operating_confidence": 0.25,
+    "per_image_execution": true,
+    "prediction_floor": 0.001
+  },
+  "limitations": [
+    "COCO labels are independent anatomical-part instances, not adjudicated whole-fish identities or grades.",
+    "This report therefore cannot validate Model 1, part ownership, the weighted grading policy, or fish-level accuracy.",
+    "A supplied historical training manifest is checked by exact image SHA-256; any matching images make that split non-independent.",
+    "Sparse or absent classes in a split yield unstable or unavailable per-class estimates; macro values exclude unavailable classes.",
+    "The export's preprocessed 640x640 images are not a substitute for a prospective deployment-camera evaluation."
+  ],
+  "metrics_protocol": {
+    "ap_interpolation": "101-point",
+    "fixed_operating_point": {
+      "confidence": 0.25,
+      "iou": 0.5
+    },
+    "iou_thresholds": "0.50:0.05:0.95",
+    "matching": "class-aware greedy matching",
+    "name": "parts-box-101point-v1",
+    "undefined_classes": "excluded from macro means; never set to zero"
+  },
+  "model": {
+    "checkpoint_integrity": "verified",
+    "checkpoint_path": "C:\\Users\\User\\Downloads\\Tamban_Thesis_Main_Repository\\Thesis\\sardinella-lemuru-ml\\models\\yolov26\\model2_tamban_yolo26m_partdet_r03_devbest.pt",
+    "checkpoint_sha256": "f74cd336b6ba9274f3bbbad845f64d03d0d4cc78e79cf1c0392d0b07d1d53222",
+    "class_names": {
+      "0": "Grade_A_Body",
+      "1": "Grade_A_Head",
+      "10": "Rejected_Head",
+      "11": "Rejected_Tail",
+      "2": "Grade_A_Tail",
+      "3": "Grade_B_Body",
+      "4": "Grade_B_Head",
+      "5": "Grade_B_Tail",
+      "6": "Grade_C_Body",
+      "7": "Grade_C_Head",
+      "8": "Grade_C_Tail",
+      "9": "Rejected_Body"
+    },
+    "display_name": "YOLO26m Part Detector (r03 devbest)",
+    "id": "yolo26m_partdet",
+    "input_size": 768,
+    "runtime_adapter": "yolo_detection",
+    "task": "detect"
+  },
+  "result_label": "development_compatibility_part_detection_only",
+  "schema": "active-model2-coco-part-compatibility-v1",
+  "scope": {
+    "does_not_measure": [
+      "whole-fish detection",
+      "part-to-fish ownership association",
+      "final weighted fish grade",
+      "fish-level accuracy",
+      "specimen-independent generalization"
+    ],
+    "measures": "12-class part bounding-box detection"
+  },
+  "splits": {
+    "test": {
+      "annotation_path": "C:\\Users\\User\\Downloads\\Tamban_Thesis_Main_Repository\\Thesis\\sardinella-lemuru-ml\\Dried Fish Quality Grading.v7i.coco-segmentation\\test\\_annotations.coco.json",
+      "annotation_sha256": "762ac7674bba5d7758d250299c8c1cf6db6bb4720c3be4a1b27afca3d61438aa",
+      "annotations": 225,
+      "category_id_to_model_class_id": {
+        "1": 0,
+        "10": 9,
+        "11": 10,
+        "12": 11,
+        "2": 1,
+        "3": 2,
+        "4": 3,
+        "5": 4,
+        "6": 5,
+        "7": 6,
+        "8": 7,
+        "9": 8
+      },
+      "class_support": {
+        "Grade_A_Body": 0,
+        "Grade_A_Head": 0,
+        "Grade_A_Tail": 0,
+        "Grade_B_Body": 1,
+        "Grade_B_Head": 2,
+        "Grade_B_Tail": 1,
+        "Grade_C_Body": 43,
+        "Grade_C_Head": 30,
+        "Grade_C_Tail": 17,
+        "Rejected_Body": 56,
+        "Rejected_Head": 47,
+        "Rejected_Tail": 28
+      },
+      "historical_training_manifest_overlap": {
+        "evaluated_export_images": 17,
+        "independent": false,
+        "interpretation": "Any nonzero exact-byte overlap means this split is not an independent evaluation against that historical training manifest.",
+        "manifest_hash_field": "original_sha256",
+        "manifest_path": "C:\\Users\\User\\Downloads\\Tamban_Thesis_Main_Repository\\Other Files\\data\\training_manifest.csv",
+        "matching_export_images": 15
+      },
+      "images": 17,
+      "metrics": {
+        "errors": [
+          {
+            "class": "Grade_A_Body",
+            "class_id": 0,
+            "false_positives": 0,
+            "missed_instances": 0,
+            "true_positives": 0
+          },
+          {
+            "class": "Grade_A_Head",
+            "class_id": 1,
+            "false_positives": 0,
+            "missed_instances": 0,
+            "true_positives": 0
+          },
+          {
+            "class": "Grade_A_Tail",
+            "class_id": 2,
+            "false_positives": 0,
+            "missed_instances": 0,
+            "true_positives": 0
+          },
+          {
+            "class": "Grade_B_Body",
+            "class_id": 3,
+            "false_positives": 0,
+            "missed_instances": 1,
+            "true_positives": 0
+          },
+          {
+            "class": "Grade_B_Head",
+            "class_id": 4,
+            "false_positives": 0,
+            "missed_instances": 2,
+            "true_positives": 0
+          },
+          {
+            "class": "Grade_B_Tail",
+            "class_id": 5,
+            "false_positives": 0,
+            "missed_instances": 1,
+            "true_positives": 0
+          },
+          {
+            "class": "Grade_C_Body",
+            "class_id": 6,
+            "false_positives": 11,
+            "missed_instances": 5,
+            "true_positives": 38
+          },
+          {
+            "class": "Grade_C_Head",
+            "class_id": 7,
+            "false_positives": 10,
+            "missed_instances": 2,
+            "true_positives": 28
+          },
+          {
+            "class": "Grade_C_Tail",
+            "class_id": 8,
+            "false_positives": 9,
+            "missed_instances": 5,
+            "true_positives": 12
+          },
+          {
+            "class": "Rejected_Body",
+            "class_id": 9,
+            "false_positives": 9,
+            "missed_instances": 7,
+            "true_positives": 49
+          },
+          {
+            "class": "Rejected_Head",
+            "class_id": 10,
+            "false_positives": 7,
+            "missed_instances": 2,
+            "true_positives": 45
+          },
+          {
+            "class": "Rejected_Tail",
+            "class_id": 11,
+            "false_positives": 7,
+            "missed_instances": 10,
+            "true_positives": 18
+          }
+        ],
+        "groups_macro_mean": {
+          "Body": {
+            "Precision": 0.5401125967628431,
+            "Recall": 0.5862403100775194,
+            "mAP50": 0.5533288918741412,
+            "mAP50_95": 0.3248740841401801
+          },
+          "Class A": {
+            "Precision": null,
+            "Recall": null,
+            "mAP50": null,
+            "mAP50_95": null
+          },
+          "Class B": {
+            "Precision": 0.0,
+            "Recall": 0.0,
+            "mAP50": 0.0,
+            "mAP50_95": 0.0
+          },
+          "Class C": {
+            "Precision": 0.6945936269244539,
+            "Recall": 0.8409788721690227,
+            "mAP50": 0.7708820711144062,
+            "mAP50_95": 0.4417253113135587
+          },
+          "Head": {
+            "Precision": 0.5340755735492578,
+            "Recall": 0.6302600472813239,
+            "mAP50": 0.5913742597531143,
+            "mAP50_95": 0.36343365457787247
+          },
+          "Rejected": {
+            "Precision": 0.8100707338638373,
+            "Recall": 0.8251013171225937,
+            "mAP50": 0.8758267145675577,
+            "mAP50_95": 0.511659714142611
+          },
+          "Tail": {
+            "Precision": 0.43047619047619046,
+            "Recall": 0.4495798319327731,
+            "mAP50": 0.5020056340547084,
+            "mAP50_95": 0.2650772867381172
+          }
+        },
+        "overall": {
+          "Precision": 0.5015547869294305,
+          "Recall": 0.5553600630972055,
+          "mAP50": 0.5489029285606546,
+          "mAP50_95": 0.31779500848538994
+        },
+        "per_class": [
+          {
+            "Precision": null,
+            "Recall": null,
+            "class": "Grade_A_Body",
+            "class_id": 0,
+            "mAP50": null,
+            "mAP50_95": null,
+            "support": 0
+          },
+          {
+            "Precision": null,
+            "Recall": null,
+            "class": "Grade_A_Head",
+            "class_id": 1,
+            "mAP50": null,
+            "mAP50_95": null,
+            "support": 0
+          },
+          {
+            "Precision": null,
+            "Recall": null,
+            "class": "Grade_A_Tail",
+            "class_id": 2,
+            "mAP50": null,
+            "mAP50_95": null,
+            "support": 0
+          },
+          {
+            "Precision": 0.0,
+            "Recall": 0.0,
+            "class": "Grade_B_Body",
+            "class_id": 3,
+            "mAP50": 0.0,
+            "mAP50_95": 0.0,
+            "support": 1
+          },
+          {
+            "Precision": 0.0,
+            "Recall": 0.0,
+            "class": "Grade_B_Head",
+            "class_id": 4,
+            "mAP50": 0.0,
+            "mAP50_95": 0.0,
+            "support": 2
+          },
+          {
+            "Precision": 0.0,
+            "Recall": 0.0,
+            "class": "Grade_B_Tail",
+            "class_id": 5,
+            "mAP50": 0.0,
+            "mAP50_95": 0.0,
+            "support": 1
+          },
+          {
+            "Precision": 0.7755102040816326,
+            "Recall": 0.8837209302325582,
+            "class": "Grade_C_Body",
+            "class_id": 6,
+            "mAP50": 0.792040179627719,
+            "mAP50_95": 0.4208249446114265,
+            "support": 43
+          },
+          {
+            "Precision": 0.7368421052631579,
+            "Recall": 0.9333333333333333,
+            "class": "Grade_C_Head",
+            "class_id": 7,
+            "mAP50": 0.8061700248972267,
+            "mAP50_95": 0.4951061507946995,
+            "support": 30
+          },
+          {
+            "Precision": 0.5714285714285714,
+            "Recall": 0.7058823529411765,
+            "class": "Grade_C_Tail",
+            "class_id": 8,
+            "mAP50": 0.7144360088182731,
+            "mAP50_95": 0.4092448385345501,
+            "support": 17
+          },
+          {
+            "Precision": 0.8448275862068966,
+            "Recall": 0.875,
+            "class": "Rejected_Body",
+            "class_id": 9,
+            "mAP50": 0.8679464959947047,
+            "mAP50_95": 0.5537973078091138,
+            "support": 56
+          },
+          {
+            "Precision": 0.8653846153846154,
+            "Recall": 0.9574468085106383,
+            "class": "Rejected_Head",
+            "class_id": 10,
+            "mAP50": 0.9679527543621163,
+            "mAP50_95": 0.5951948129389178,
+            "support": 47
+          },
+          {
+            "Precision": 0.72,
+            "Recall": 0.6428571428571429,
+            "class": "Rejected_Tail",
+            "class_id": 11,
+            "mAP50": 0.7915808933458522,
+            "mAP50_95": 0.38598702167980137,
+            "support": 28
+          }
+        ]
+      }
+    },
+    "train": {
+      "annotation_path": "C:\\Users\\User\\Downloads\\Tamban_Thesis_Main_Repository\\Thesis\\sardinella-lemuru-ml\\Dried Fish Quality Grading.v7i.coco-segmentation\\train\\_annotations.coco.json",
+      "annotation_sha256": "198b7448e307265aa269d6993a2e2cbbf993a5ee66829d4e989dede5b115b20f",
+      "annotations": 9099,
+      "category_id_to_model_class_id": {
+        "1": 0,
+        "10": 9,
+        "11": 10,
+        "12": 11,
+        "2": 1,
+        "3": 2,
+        "4": 3,
+        "5": 4,
+        "6": 5,
+        "7": 6,
+        "8": 7,
+        "9": 8
+      },
+      "class_support": {
+        "Grade_A_Body": 594,
+        "Grade_A_Head": 520,
+        "Grade_A_Tail": 511,
+        "Grade_B_Body": 1214,
+        "Grade_B_Head": 1233,
+        "Grade_B_Tail": 734,
+        "Grade_C_Body": 683,
+        "Grade_C_Head": 503,
+        "Grade_C_Tail": 260,
+        "Rejected_Body": 1161,
+        "Rejected_Head": 1119,
+        "Rejected_Tail": 567
+      },
+      "historical_training_manifest_overlap": {
+        "evaluated_export_images": 861,
+        "independent": false,
+        "interpretation": "Any nonzero exact-byte overlap means this split is not an independent evaluation against that historical training manifest.",
+        "manifest_hash_field": "original_sha256",
+        "manifest_path": "C:\\Users\\User\\Downloads\\Tamban_Thesis_Main_Repository\\Other Files\\data\\training_manifest.csv",
+        "matching_export_images": 100
+      },
+      "images": 861,
+      "metrics": {
+        "errors": [
+          {
+            "class": "Grade_A_Body",
+            "class_id": 0,
+            "false_positives": 57,
+            "missed_instances": 21,
+            "true_positives": 573
+          },
+          {
+            "class": "Grade_A_Head",
+            "class_id": 1,
+            "false_positives": 12,
+            "missed_instances": 14,
+            "true_positives": 506
+          },
+          {
+            "class": "Grade_A_Tail",
+            "class_id": 2,
+            "false_positives": 67,
+            "missed_instances": 62,
+            "true_positives": 449
+          },
+          {
+            "class": "Grade_B_Body",
+            "class_id": 3,
+            "false_positives": 382,
+            "missed_instances": 39,
+            "true_positives": 1175
+          },
+          {
+            "class": "Grade_B_Head",
+            "class_id": 4,
+            "false_positives": 166,
+            "missed_instances": 33,
+            "true_positives": 1200
+          },
+          {
+            "class": "Grade_B_Tail",
+            "class_id": 5,
+            "false_positives": 384,
+            "missed_instances": 112,
+            "true_positives": 622
+          },
+          {
+            "class": "Grade_C_Body",
+            "class_id": 6,
+            "false_positives": 112,
+            "missed_instances": 17,
+            "true_positives": 666
+          },
+          {
+            "class": "Grade_C_Head",
+            "class_id": 7,
+            "false_positives": 118,
+            "missed_instances": 5,
+            "true_positives": 498
+          },
+          {
+            "class": "Grade_C_Tail",
+            "class_id": 8,
+            "false_positives": 99,
+            "missed_instances": 41,
+            "true_positives": 219
+          },
+          {
+            "class": "Rejected_Body",
+            "class_id": 9,
+            "false_positives": 153,
+            "missed_instances": 55,
+            "true_positives": 1106
+          },
+          {
+            "class": "Rejected_Head",
+            "class_id": 10,
+            "false_positives": 213,
+            "missed_instances": 55,
+            "true_positives": 1064
+          },
+          {
+            "class": "Rejected_Tail",
+            "class_id": 11,
+            "false_positives": 223,
+            "missed_instances": 99,
+            "true_positives": 468
+          }
+        ],
+        "groups_macro_mean": {
+          "Body": {
+            "Precision": 0.8496740778166798,
+            "Recall": 0.9650645285073023,
+            "mAP50": 0.9043194618696924,
+            "mAP50_95": 0.4974732431437622
+          },
+          "Class A": {
+            "Precision": 0.9188376083724922,
+            "Recall": 0.9387975545509791,
+            "mAP50": 0.9298161726474103,
+            "mAP50_95": 0.47330487400389515
+          },
+          "Class B": {
+            "Precision": 0.7504746516489244,
+            "Recall": 0.9295074159810808,
+            "mAP50": 0.8277424807909474,
+            "mAP50_95": 0.42992625406033635
+          },
+          "Class C": {
+            "Precision": 0.7843873116099919,
+            "Recall": 0.93582571470602,
+            "mAP50": 0.891697944791451,
+            "mAP50_95": 0.5276198897500962
+          },
+          "Head": {
+            "Precision": 0.8742389150964365,
+            "Recall": 0.9718053868132734,
+            "mAP50": 0.9350598162000497,
+            "mAP50_95": 0.5607461332206096
+          },
+          "Rejected": {
+            "Precision": 0.7963190348682706,
+            "Recall": 0.9096242811146068,
+            "mAP50": 0.8756461109990642,
+            "mAP50_95": 0.5078789021272963
+          },
+          "Tail": {
+            "Precision": 0.7136009619616429,
+            "Recall": 0.8484463094439392,
+            "mAP50": 0.8042977538519127,
+            "mAP50_95": 0.3958280635918462
+          }
+        },
+        "overall": {
+          "Precision": 0.8125046516249198,
+          "Recall": 0.9284387415881716,
+          "mAP50": 0.8812256773072181,
+          "mAP50_95": 0.484682479985406
+        },
+        "per_class": [
+          {
+            "Precision": 0.9095238095238095,
+            "Recall": 0.9646464646464646,
+            "class": "Grade_A_Body",
+            "class_id": 0,
+            "mAP50": 0.908879036638216,
+            "mAP50_95": 0.46126943735878134,
+            "support": 594
+          },
+          {
+            "Precision": 0.9768339768339769,
+            "Recall": 0.9730769230769231,
+            "class": "Grade_A_Head",
+            "class_id": 1,
+            "mAP50": 0.9669853076325667,
+            "mAP50_95": 0.567992780229942,
+            "support": 520
+          },
+          {
+            "Precision": 0.8701550387596899,
+            "Recall": 0.8786692759295499,
+            "class": "Grade_A_Tail",
+            "class_id": 2,
+            "mAP50": 0.9135841736714483,
+            "mAP50_95": 0.390652404422962,
+            "support": 511
+          },
+          {
+            "Precision": 0.7546563904945408,
+            "Recall": 0.9678747940691927,
+            "class": "Grade_B_Body",
+            "class_id": 3,
+            "mAP50": 0.8425324395978717,
+            "mAP50_95": 0.4343245122353118,
+            "support": 1214
+          },
+          {
+            "Precision": 0.8784773060029283,
+            "Recall": 0.9732360097323601,
+            "class": "Grade_B_Head",
+            "class_id": 4,
+            "mAP50": 0.9101534638117763,
+            "mAP50_95": 0.46860823825686426,
+            "support": 1233
+          },
+          {
+            "Precision": 0.6182902584493042,
+            "Recall": 0.8474114441416893,
+            "class": "Grade_B_Tail",
+            "class_id": 5,
+            "mAP50": 0.7305415389631941,
+            "mAP50_95": 0.38684601168883304,
+            "support": 734
+          },
+          {
+            "Precision": 0.8560411311053985,
+            "Recall": 0.9751098096632503,
+            "class": "Grade_C_Body",
+            "class_id": 6,
+            "mAP50": 0.9238987686291594,
+            "mAP50_95": 0.5352364327921662,
+            "support": 683
+          },
+          {
+            "Precision": 0.8084415584415584,
+            "Recall": 0.9900596421471173,
+            "class": "Grade_C_Head",
+            "class_id": 7,
+            "mAP50": 0.9330798486982048,
+            "mAP50_95": 0.612971721137636,
+            "support": 503
+          },
+          {
+            "Precision": 0.6886792452830188,
+            "Recall": 0.8423076923076923,
+            "class": "Grade_C_Tail",
+            "class_id": 8,
+            "mAP50": 0.8181152170469892,
+            "mAP50_95": 0.4346515153204863,
+            "support": 260
+          },
+          {
+            "Precision": 0.8784749801429707,
+            "Recall": 0.9526270456503014,
+            "class": "Rejected_Body",
+            "class_id": 9,
+            "mAP50": 0.9419676026135222,
+            "mAP50_95": 0.5590625901887895,
+            "support": 1161
+          },
+          {
+            "Precision": 0.8332028191072827,
+            "Recall": 0.9508489722966935,
+            "class": "Rejected_Head",
+            "class_id": 10,
+            "mAP50": 0.9300206446576512,
+            "mAP50_95": 0.5934117932579959,
+            "support": 1119
+          },
+          {
+            "Precision": 0.6772793053545586,
+            "Recall": 0.8253968253968254,
+            "class": "Rejected_Tail",
+            "class_id": 11,
+            "mAP50": 0.7549500857260192,
+            "mAP50_95": 0.37116232293510365,
+            "support": 567
+          }
+        ]
+      }
+    },
+    "valid": {
+      "annotation_path": "C:\\Users\\User\\Downloads\\Tamban_Thesis_Main_Repository\\Thesis\\sardinella-lemuru-ml\\Dried Fish Quality Grading.v7i.coco-segmentation\\valid\\_annotations.coco.json",
+      "annotation_sha256": "b48a3ac59ac8b7a5b96c048017089e76a655f03ff6b87621ecb38b8612e1bc0e",
+      "annotations": 399,
+      "category_id_to_model_class_id": {
+        "1": 0,
+        "10": 9,
+        "11": 10,
+        "12": 11,
+        "2": 1,
+        "3": 2,
+        "4": 3,
+        "5": 4,
+        "6": 5,
+        "7": 6,
+        "8": 7,
+        "9": 8
+      },
+      "class_support": {
+        "Grade_A_Body": 2,
+        "Grade_A_Head": 2,
+        "Grade_A_Tail": 1,
+        "Grade_B_Body": 0,
+        "Grade_B_Head": 0,
+        "Grade_B_Tail": 2,
+        "Grade_C_Body": 58,
+        "Grade_C_Head": 44,
+        "Grade_C_Tail": 25,
+        "Rejected_Body": 93,
+        "Rejected_Head": 110,
+        "Rejected_Tail": 62
+      },
+      "historical_training_manifest_overlap": {
+        "evaluated_export_images": 32,
+        "independent": false,
+        "interpretation": "Any nonzero exact-byte overlap means this split is not an independent evaluation against that historical training manifest.",
+        "manifest_hash_field": "original_sha256",
+        "manifest_path": "C:\\Users\\User\\Downloads\\Tamban_Thesis_Main_Repository\\Other Files\\data\\training_manifest.csv",
+        "matching_export_images": 29
+      },
+      "images": 32,
+      "metrics": {
+        "errors": [
+          {
+            "class": "Grade_A_Body",
+            "class_id": 0,
+            "false_positives": 1,
+            "missed_instances": 1,
+            "true_positives": 1
+          },
+          {
+            "class": "Grade_A_Head",
+            "class_id": 1,
+            "false_positives": 0,
+            "missed_instances": 0,
+            "true_positives": 2
+          },
+          {
+            "class": "Grade_A_Tail",
+            "class_id": 2,
+            "false_positives": 0,
+            "missed_instances": 0,
+            "true_positives": 1
+          },
+          {
+            "class": "Grade_B_Body",
+            "class_id": 3,
+            "false_positives": 0,
+            "missed_instances": 0,
+            "true_positives": 0
+          },
+          {
+            "class": "Grade_B_Head",
+            "class_id": 4,
+            "false_positives": 0,
+            "missed_instances": 0,
+            "true_positives": 0
+          },
+          {
+            "class": "Grade_B_Tail",
+            "class_id": 5,
+            "false_positives": 0,
+            "missed_instances": 2,
+            "true_positives": 0
+          },
+          {
+            "class": "Grade_C_Body",
+            "class_id": 6,
+            "false_positives": 10,
+            "missed_instances": 3,
+            "true_positives": 55
+          },
+          {
+            "class": "Grade_C_Head",
+            "class_id": 7,
+            "false_positives": 12,
+            "missed_instances": 0,
+            "true_positives": 44
+          },
+          {
+            "class": "Grade_C_Tail",
+            "class_id": 8,
+            "false_positives": 9,
+            "missed_instances": 8,
+            "true_positives": 17
+          },
+          {
+            "class": "Rejected_Body",
+            "class_id": 9,
+            "false_positives": 15,
+            "missed_instances": 2,
+            "true_positives": 91
+          },
+          {
+            "class": "Rejected_Head",
+            "class_id": 10,
+            "false_positives": 17,
+            "missed_instances": 2,
+            "true_positives": 108
+          },
+          {
+            "class": "Rejected_Tail",
+            "class_id": 11,
+            "false_positives": 10,
+            "missed_instances": 5,
+            "true_positives": 57
+          }
+        ],
+        "groups_macro_mean": {
+          "Body": {
+            "Precision": 0.7348814707305275,
+            "Recall": 0.8089234952416264,
+            "mAP50": 0.7565912911507441,
+            "mAP50_95": 0.34287051836269056
+          },
+          "Class A": {
+            "Precision": 0.8333333333333334,
+            "Recall": 0.8333333333333334,
+            "mAP50": 0.834983498349835,
+            "mAP50_95": 0.2838283828382839
+          },
+          "Class B": {
+            "Precision": 0.0,
+            "Recall": 0.0,
+            "mAP50": 0.0,
+            "mAP50_95": 0.0
+          },
+          "Class C": {
+            "Precision": 0.7619047619047619,
+            "Recall": 0.8760919540229885,
+            "mAP50": 0.8123449615560302,
+            "mAP50_95": 0.4765080919322198
+          },
+          "Head": {
+            "Precision": 0.8832380952380952,
+            "Recall": 0.993939393939394,
+            "mAP50": 0.9511669622474331,
+            "mAP50_95": 0.5808683598563326
+          },
+          "Rejected": {
+            "Precision": 0.8577456115648174,
+            "Recall": 0.9598892147279244,
+            "mAP50": 0.9196810555891727,
+            "mAP50_95": 0.5523858766496981
+          },
+          "Tail": {
+            "Precision": 0.6261481056257175,
+            "Recall": 0.6498387096774194,
+            "mAP50": 0.6444384465726455,
+            "mAP50_95": 0.29173760490088385
+          }
+        },
+        "overall": {
+          "Precision": 0.7358951120408739,
+          "Recall": 0.8007943506252738,
+          "mAP50": 0.7701028546485114,
+          "mAP50_95": 0.3938167054260605
+        },
+        "per_class": [
+          {
+            "Precision": 0.5,
+            "Recall": 0.5,
+            "class": "Grade_A_Body",
+            "class_id": 0,
+            "mAP50": 0.504950495049505,
+            "mAP50_95": 0.0504950495049505,
+            "support": 2
+          },
+          {
+            "Precision": 1.0,
+            "Recall": 1.0,
+            "class": "Grade_A_Head",
+            "class_id": 1,
+            "mAP50": 1.0,
+            "mAP50_95": 0.500990099009901,
+            "support": 2
+          },
+          {
+            "Precision": 1.0,
+            "Recall": 1.0,
+            "class": "Grade_A_Tail",
+            "class_id": 2,
+            "mAP50": 1.0,
+            "mAP50_95": 0.3,
+            "support": 1
+          },
+          {
+            "Precision": null,
+            "Recall": null,
+            "class": "Grade_B_Body",
+            "class_id": 3,
+            "mAP50": null,
+            "mAP50_95": null,
+            "support": 0
+          },
+          {
+            "Precision": null,
+            "Recall": null,
+            "class": "Grade_B_Head",
+            "class_id": 4,
+            "mAP50": null,
+            "mAP50_95": null,
+            "support": 0
+          },
+          {
+            "Precision": 0.0,
+            "Recall": 0.0,
+            "class": "Grade_B_Tail",
+            "class_id": 5,
+            "mAP50": 0.0,
+            "mAP50_95": 0.0,
+            "support": 2
+          },
+          {
+            "Precision": 0.8461538461538461,
+            "Recall": 0.9482758620689655,
+            "class": "Grade_C_Body",
+            "class_id": 6,
+            "mAP50": 0.8280074085468417,
+            "mAP50_95": 0.44140759448102357,
+            "support": 58
+          },
+          {
+            "Precision": 0.7857142857142857,
+            "Recall": 1.0,
+            "class": "Grade_C_Head",
+            "class_id": 7,
+            "mAP50": 0.9150245176021077,
+            "mAP50_95": 0.589222557887712,
+            "support": 44
+          },
+          {
+            "Precision": 0.6538461538461539,
+            "Recall": 0.68,
+            "class": "Grade_C_Tail",
+            "class_id": 8,
+            "mAP50": 0.6940029585191412,
+            "mAP50_95": 0.39889412342792385,
+            "support": 25
+          },
+          {
+            "Precision": 0.8584905660377359,
+            "Recall": 0.978494623655914,
+            "class": "Rejected_Body",
+            "class_id": 9,
+            "mAP50": 0.9368159698558854,
+            "mAP50_95": 0.5367089111020975,
+            "support": 93
+          },
+          {
+            "Precision": 0.864,
+            "Recall": 0.9818181818181818,
+            "class": "Rejected_Head",
+            "class_id": 10,
+            "mAP50": 0.9384763691401918,
+            "mAP50_95": 0.652392422671385,
+            "support": 110
+          },
+          {
+            "Precision": 0.8507462686567164,
+            "Recall": 0.9193548387096774,
+            "class": "Rejected_Tail",
+            "class_id": 11,
+            "mAP50": 0.8837508277714409,
+            "mAP50_95": 0.4680562961756117,
+            "support": 62
+          }
+        ]
+      }
+    }
+  }
+}

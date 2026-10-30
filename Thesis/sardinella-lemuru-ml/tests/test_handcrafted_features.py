@@ -41,6 +41,19 @@ class ColorFeatureTests(unittest.TestCase):
         self.assertAlmostEqual(float(result["yellow_ratio_proxy"]), 1.0)
         self.assertTrue(math.isnan(float(result["yellow_head_ratio_proxy"])))
 
+    def test_live_summary_matches_full_color_measurements(self) -> None:
+        # Exercise both chromatic and achromatic crops, including an irregular
+        # mask, so skipping unused component statistics cannot change the UI.
+        colors = np.random.default_rng(19).integers(0, 256, (12, 16, 3), dtype=np.uint8)
+        mask = np.ones((12, 16), dtype=bool)
+        mask[1:4, 2:7] = False
+        for image in (colors, np.full_like(colors, 128)):
+            full = extract_color_features(image, mask, ColorSettings())
+            summary = extract_color_features(image, mask, ColorSettings(), summary_only=True)
+            self.assertEqual(len(summary), 11)
+            for key, value in summary.items():
+                np.testing.assert_equal(value, full[key])
+
 
 class TextureAndStructureTests(unittest.TestCase):
     def test_uniform_surface_has_zero_glcm_contrast(self) -> None:

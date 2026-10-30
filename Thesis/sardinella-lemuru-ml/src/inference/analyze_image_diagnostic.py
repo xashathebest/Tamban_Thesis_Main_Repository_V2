@@ -26,6 +26,35 @@ logging.basicConfig(level=logging.DEBUG, format="%(levelname)s %(name)s: %(messa
 LOGGER = logging.getLogger("diagnostic")
 
 
+def _checkpoint_training_metadata(model: Any) -> dict[str, Any]:
+    """Return the checkpoint facts needed to compare training and runtime inputs.
+
+    The checkpoint records the Ultralytics training arguments, but not the
+    source dataset's pre-export transformations.  Reporting that distinction
+    prevents a diagnostic from silently treating a nearby legacy manifest as
+    the active checkpoint's preprocessing contract.
+    """
+
+    checkpoint = getattr(model, "ckpt", None)
+    train_args = checkpoint.get("train_args") if isinstance(checkpoint, dict) else None
+    if not isinstance(train_args, dict):
+        return {"available": False, "source_preprocessing_recorded": False}
+    fields = (
+        "model", "data", "epochs", "imgsz", "rect", "multi_scale", "augment",
+        "mosaic", "hsv_h", "hsv_s", "hsv_v", "degrees", "translate", "scale",
+        "shear", "flipud", "fliplr",
+    )
+    return {
+        "available": True,
+        "arguments": {key: train_args[key] for key in fields if key in train_args},
+        "source_preprocessing_recorded": False,
+        "source_preprocessing_note": (
+            "The checkpoint does not record source-image export transforms; "
+            "verify those from the exact training-pool archive or manifest."
+        ),
+    }
+
+
 def _sha256_hex(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -120,8 +149,21 @@ def run_diagnostic(
 
     # --- 2. Model 1 ---
     resolved_m1 = model1_path or resolve_yolo_fish_detector_model_path(repo_root)
-    report["model1"] = {"resolved_path": str(resolved_m1) if resolved_m1 else None}
-    detector = YoloFishDetector(resolved_m1, confidence_threshold=0.5)
+    model1_entry = registry.get_model(registry.get_default_model1_id())
+    # The diagnostic must reproduce the dashboard's registered Model 1 input
+    # size.  Using the adapter's generic 640 default here would diagnose a
+    # different inference path from the deployed 768-pixel checkpoint.
+    model1_image_size = model1_entry.input_size if model1_entry is not None else 640
+    report["model1"] = {
+        "model_id": model1_entry.id if model1_entry is not None else None,
+        "resolved_path": str(resolved_m1) if resolved_m1 else None,
+        "effective_inference": {
+            "confidence_threshold": 0.5,
+            "image_size": model1_image_size,
+            "resize_method": "Ultralytics letterbox inside model.predict",
+        },
+    }
+    detector = YoloFishDetector(resolved_m1, confidence_threshold=0.5, image_size=model1_image_size)
     LOGGER.info("[DIAG] Loading Model 1: %s", resolved_m1)
     t0 = perf_counter()
     loaded = detector.load()
@@ -187,6 +229,7 @@ def run_diagnostic(
     report["model2"]["checkpoint_classes"] = dict(quality_model.class_names)
     report["model2"]["checkpoint_sha256"] = quality_model.checkpoint_sha256
     report["model2"]["active_model_name"] = quality_model.active_model_name
+    report["model2"]["checkpoint_training"] = _checkpoint_training_metadata(quality_model.model)
     report["model2"]["effective_inference"] = {
         "confidence_threshold": quality_model.confidence_threshold,
         "raw_diagnostic_floor": 0.001,
@@ -284,13 +327,17 @@ def run_diagnostic(
         LOGGER.exception("[DIAG] Full-frame association/grading failed: %s", exc)
     report["integrated_full_frame"] = integrated_full_frame
 
-    # --- 7. Run Model 2 on each crop for architecture comparison ---
+    # --- 7. Run Model 2 on each crop only as a legacy architecture comparison ---
+    # The deployed Analyze Image flow uses the full-frame association above.
+    # Crop results remain useful for diagnosing scale/context regressions, but
+    # must never be presented as the production grades.
     fish_reports = []
     for index, detection in enumerate(raw_detections, start=1):
         fish_rep: dict[str, Any] = {
             "fish_index": index,
             "model1_bbox": list(detection.bbox),
             "model1_confidence": detection.confidence,
+            "comparison_only": "legacy_per_crop_inference_not_production_grade",
         }
         bounded = clamp_bbox(detection.bbox, w, h)
         if bounded is None:
@@ -378,7 +425,7 @@ def run_diagnostic(
                 det.get("class_name"), det.get("confidence"), det.get("bbox"),
             )
 
-        # Run the full grading pipeline on this crop
+        # Run the legacy crop grading pipeline for comparison only.
         try:
             quality_result = quality_model.predict(
                 crop,
@@ -411,7 +458,7 @@ def run_diagnostic(
                 "traceability": analysis.get("traceability"),
             }
             LOGGER.info(
-                "[DIAG]   Fish #%d grade=%s reason=%s",
+                "[DIAG]   Fish #%d legacy_crop_grade=%s reason=%s",
                 index, quality_result.quality, analysis.get("reason_codes"),
             )
         except Exception as exc:
@@ -443,16 +490,29 @@ def _print_summary(report: dict[str, Any]) -> None:
     if not m2.get("load_ok"):
         print(f"        ERROR: {m2.get('load_error')}")
     print(f"        full-frame detections >= 0.25: {m2.get('full_frame_above_threshold_count', 0)}")
-    for fish in report.get("fish", []):
-        idx = fish.get("fish_index")
-        raw = fish.get("model2_raw_count_at_0.001", 0)
-        above = fish.get("model2_above_threshold_count_at_0.25", 0)
-        gr = fish.get("grading_result") or {}
-        grade = gr.get("final_grade", "Ungraded")
-        reasons = gr.get("reason_codes", [])
-        regions = gr.get("observed_regions", [])
-        print(f"  Fish #{idx}: crop={fish.get('crop_size')}  model2_raw={raw}  >=0.25={above}")
-        print(f"             grade={grade}  regions={regions}  reasons={reasons}")
+    integrated = report.get("integrated_full_frame")
+    if isinstance(integrated, dict):
+        print("Production full-frame association and grading:")
+        if integrated.get("error"):
+            print(f"  ERROR: {integrated['error']}")
+        elif not integrated.get("fish"):
+            print("  No Model 1 parents were available for grading.")
+        else:
+            for fish in integrated["fish"]:
+                idx = fish.get("fish_index")
+                grade = fish.get("grade") or "Ungraded"
+                support = fish.get("quality_confidence")
+                support_text = f"{float(support):.3f}" if isinstance(support, (int, float)) else "-"
+                print(
+                    f"  Fish #{idx}: grade={grade} support={support_text} "
+                    f"regions={fish.get('observed_regions', [])} reasons={fish.get('reason_codes', [])}"
+                )
+    crop_reports = report.get("fish", [])
+    if crop_reports:
+        print(
+            "Legacy per-crop comparison artifacts were also saved for diagnosis; "
+            "their grades are not production results."
+        )
     print("=" * 72)
 
 

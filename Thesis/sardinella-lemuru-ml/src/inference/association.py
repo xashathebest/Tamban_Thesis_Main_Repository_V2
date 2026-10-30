@@ -98,6 +98,9 @@ class PartAssociation:
     margin: float | None
     candidates: tuple[AssociationScore, ...]
     reason: str | None = None
+    # Only parents within the configured margin of the strongest candidate
+    # participate in an ambiguity. Other scored parents are diagnostic only.
+    ambiguous_track_ids: tuple[int, ...] = ()
 
     @property
     def ambiguous(self) -> bool:
@@ -112,6 +115,7 @@ class PartAssociation:
             "association_margin": round(self.margin, 6) if self.margin is not None else None,
             "reason": self.reason,
             "candidates": [candidate.to_dict() for candidate in self.candidates],
+            "ambiguous_track_ids": list(self.ambiguous_track_ids),
         }
 
 
@@ -177,6 +181,10 @@ def associate_parts_to_parents(
             status, owner, confidence = "AMBIGUOUS", None, None
         else:
             status, owner, confidence = "ASSIGNED", top.track_id, top.score
+        ambiguous_track_ids = (
+            tuple(candidate.track_id for candidate in candidates if top.score - candidate.score < rules.minimum_association_margin)
+            if status == "AMBIGUOUS" and top is not None else ()
+        )
         results.append(
             PartAssociation(
                 part=part,
@@ -185,6 +193,7 @@ def associate_parts_to_parents(
                 confidence=confidence,
                 margin=margin,
                 candidates=tuple(candidates),
+                ambiguous_track_ids=ambiguous_track_ids,
             )
         )
     # A Model 2 full-frame detection can be geometrically plausible for a
@@ -226,9 +235,22 @@ def associate_parts_to_parents(
 def association_summary(associations: Iterable[PartAssociation], track_id: int) -> dict[str, object]:
     """Return JSON-safe per-track association diagnostics."""
 
-    relevant = [item for item in associations if item.track_id == track_id or any(candidate.track_id == track_id for candidate in item.candidates)]
+    def ambiguous_for(item: PartAssociation) -> bool:
+        if item.status != "AMBIGUOUS":
+            return False
+        if item.ambiguous_track_ids:
+            return track_id in item.ambiguous_track_ids
+        # Legacy callers can construct PartAssociation directly, without the
+        # new contender field. Retain their conservative all-candidate result.
+        return any(candidate.track_id == track_id for candidate in item.candidates)
+
+    relevant = [
+        item for item in associations
+        if (item.track_id == track_id or any(candidate.track_id == track_id for candidate in item.candidates))
+        and (item.status != "AMBIGUOUS" or ambiguous_for(item))
+    ]
     assigned = [item for item in relevant if item.track_id == track_id and item.status == "ASSIGNED"]
-    ambiguous = [item for item in relevant if item.status == "AMBIGUOUS" and any(candidate.track_id == track_id for candidate in item.candidates)]
+    ambiguous = [item for item in relevant if ambiguous_for(item)]
     return {
         "mode": "full_frame",
         "assigned_part_count": len(assigned),

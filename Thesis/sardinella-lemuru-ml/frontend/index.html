@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#FFFFFF">
     <title>Tamban Quality Inspection System | Live Inspection</title>
-    <link rel="stylesheet" href="/assets/styles.css?v=pushfix1">
+    <link rel="stylesheet" href="/assets/styles.css?v=featureui1">
   </head>
   <body>
     <svg class="icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -235,7 +235,7 @@
                     <button class="button primary" id="start-button" type="button" disabled>Start inspection</button>
                     <button class="button danger" id="stop-button" type="button" disabled>Stop inspection</button>
                     <button class="button quiet" id="reset-button" type="button" disabled>Reset session</button>
-                    <button class="button quiet" id="upload-mode-button" type="button">Analyze image</button>
+                    <button class="button quiet" id="upload-mode-button" type="button" aria-controls="upload-workspace" aria-expanded="false">Analyze a photo</button>
                   </div>
                   <p class="control-feedback" id="control-feedback" role="status" aria-live="polite">Start a session when the detector and camera are ready.</p>
                 </div>
@@ -283,6 +283,7 @@
                 <div class="kpi-grid" id="kpi-grid">
                   <p class="metric-waiting">Waiting for the local backend…</p>
                 </div>
+                <p class="muted">Totals are since Reset session. Analytics and default history cover the latest run; select an earlier run in History after restarting inspection or changing camera policy.</p>
                 <details class="session-details">
                   <summary>Session performance &amp; track details</summary>
                   <div class="secondary-kpi-grid" id="secondary-kpi-grid"></div>
@@ -364,27 +365,31 @@
                 <p class="result-note" id="classification-policy">Model 2 quality grading appears when available.</p>
               </aside>
             </section>
-            <section class="upload-workspace surface hidden" id="upload-workspace" aria-label="Manual image analysis">
+            <section class="upload-workspace surface hidden" id="upload-workspace" aria-labelledby="upload-title" aria-busy="false" tabindex="-1">
               <div class="section-head">
                 <div>
                   <p class="eyebrow">MANUAL ANALYSIS</p>
-                  <h2>Analyze image</h2>
+                  <h2 id="upload-title">Analyze a photo</h2>
                 </div>
-                <button class="icon-button" id="close-upload-button" type="button" aria-label="Close image analysis">×</button>
+                <button class="icon-button" id="close-upload-button" type="button" aria-label="Close photo analysis">×</button>
               </div>
               <div class="upload-controls">
-                <input id="upload-input" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" aria-label="Select a fish image for local analysis">
-                <button class="button primary" id="analyze-button" type="button" disabled>Analyze image</button>
-                <span class="soft-badge" id="upload-status">No image selected</span>
+                <input class="visually-hidden" id="upload-input" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" aria-label="Select a fish image for local analysis">
+                <button class="button quiet upload-file-button" id="select-upload-button" type="button" aria-describedby="upload-file-name">Choose photo</button>
+                <p class="upload-file-name" id="upload-file-name">No photo selected</p>
+                <button class="button primary" id="analyze-button" type="button" disabled>Run analysis</button>
+                <span class="soft-badge" id="upload-status" role="status" aria-live="polite" aria-atomic="true">No photo selected</span>
               </div>
-              <p class="muted" id="upload-note">Choose an image for a separate local analysis. It does not change this live session.</p>
-              <img id="upload-result-image" class="upload-image hidden" alt="Annotated uploaded fish image">
+              <p class="muted" id="upload-note">Choose a JPEG, PNG, or WebP photo for separate local analysis. It does not change this live session.</p>
+              <img id="upload-result-image" class="upload-image hidden" alt="Selected or annotated fish photo">
               <div class="upload-results hidden" id="upload-results">
                 <div class="mini-kpi">
                   <span id="upload-count-label">Fish found</span>
                   <strong id="upload-fish-count">0</strong>
                 </div>
                 <div class="feature-counter-grid" id="upload-quality-counter-grid"></div>
+                <div class="upload-evidence hidden" id="upload-fish-evidence" aria-live="polite"></div>
+                <section class="upload-measurements hidden" id="upload-fish-measurements" aria-labelledby="upload-measurements-title"></section>
               </div>
             </section>
             <section class="recent-section surface" id="recent-inspections">
@@ -436,7 +441,7 @@
                     <p class="eyebrow">ANALYTICS</p>
                     <h2 id="analytics-heading">Session analytics</h2>
                   </div>
-                  <span class="soft-badge" id="analytics-period">Current session</span>
+                  <span class="soft-badge" id="analytics-period">Latest run</span>
                 </div>
                 <div class="analytics-grid">
                   <article class="chart-card surface">
@@ -456,6 +461,11 @@
                     <h3>Detected features</h3>
                     <div class="chart-empty" id="feature-chart-empty">Waiting for inspection data</div>
                     <div class="bar-chart hidden" id="feature-chart"></div>
+                  </article>
+                  <article class="chart-card surface">
+                    <h3>Original AI Ungraded reasons</h3>
+                    <p class="muted">One fish may have multiple reasons, so counts can overlap.</p>
+                    <div class="chart-legend" id="ungraded-reasons">Waiting for inspection data</div>
                   </article>
                   <article class="chart-card surface wide-chart">
                     <div class="chart-title-row">
@@ -545,7 +555,7 @@
               <div class="history-filters">
                 <label>
                   Session
-                  <select id="history-session"><option value="">Current session</option></select>
+                  <select id="history-session"><option value="">Latest run</option></select>
                 </label>
                 <label>
                   Search fish ID
@@ -979,6 +989,10 @@
             Current session
           </label>
           <label>
+            <input type="radio" name="export-range" value="specific_session">
+            Specific inspection run
+          </label>
+          <label>
             <input type="radio" name="export-range" value="today">
             Today
           </label>
@@ -995,6 +1009,15 @@
               To
               <input id="export-end-date" type="date">
             </label>
+          </div>
+          <div class="export-session-range hidden" id="export-session-range">
+            <label>
+              Inspection run
+              <select id="export-session" disabled aria-describedby="export-session-status">
+                <option value="">Loading inspection runs…</option>
+              </select>
+            </label>
+            <p class="muted" id="export-session-status" role="status" aria-live="polite">Choose a durable inspection run to export its records and recorded configuration.</p>
           </div>
         </fieldset>
         <fieldset>
@@ -1048,6 +1071,18 @@
               <input type="checkbox" value="processing_time" checked>
               Processing time
             </label>
+            <label>
+              <input type="checkbox" value="decision_latency_ms" checked>
+              First detection to decision
+            </label>
+            <label>
+              <input type="checkbox" value="decision_deadline_seconds">
+              Decision deadline
+            </label>
+            <label>
+              <input type="checkbox" value="decision_deadline_status" checked>
+              Decision deadline status
+            </label>
           </div>
           <p class="hidden" id="export-fields-error" role="alert">Choose at least one field or select all evidence columns.</p>
         </fieldset>
@@ -1068,6 +1103,6 @@
         <button class="button primary" type="submit">Sign in</button>
       </form>
     </dialog>
-    <script src="/assets/app.js?v=deepqa19" defer></script>
+    <script src="/assets/app.js?v=featureui1" defer></script>
   </body>
 </html>

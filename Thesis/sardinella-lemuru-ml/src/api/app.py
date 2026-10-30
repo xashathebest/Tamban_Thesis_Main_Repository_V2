@@ -3,16 +3,18 @@
 from __future__ import annotations
 
 import os
+import asyncio
 import json
 import hashlib
 import logging
+import math
 from collections import deque
 from copy import deepcopy
 from pathlib import Path
 import subprocess
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, nullcontext
 from datetime import datetime
-from time import monotonic, sleep
+from time import monotonic
 from threading import RLock
 
 from fastapi import FastAPI, HTTPException, Request
@@ -23,11 +25,17 @@ from src.api.camera import CameraInspectionService
 from src.api import lan_security
 from src.api.camera_controls import CAMERA_PROPERTIES, CameraControlError
 from src.api.database import InspectionDatabase, InspectionSessionContext, grading_config_hash
+from src.api.event_persistence import OrderedPersistenceDispatcher
 from src.api.image_analysis import ImageUploadError, PartPreviewImageAnalyzer, StillImageAnalyzer, decode_uploaded_image
 from src.api.domain import FEATURE_CAPABILITIES, QUALITY_COUNTER_NAMES, InspectionState, TrackingConfig
 from src.api.export import DEFAULT_EXPORT_FIELDS, EXPORT_FIELDS, make_csv, make_xlsx
 from src.api.expert_library import router as expert_library_router
-from src.api.runtime import PART_PREVIEW_MODE, resolve_part_weights_path, resolve_runtime_mode
+from src.api.runtime import (
+    PART_PREVIEW_MODE,
+    resolve_part_weights_path,
+    resolve_quality_inference_mode,
+    resolve_runtime_mode,
+)
 from src.inference.yolo_fish_detector import YoloFishDetector, resolve_yolo_fish_detector_model_path
 from src.inference.yolo_quality_model import YoloQualityModel, resolve_yolo_quality_model_path
 from src.inference.model_registry import get_model_registry
@@ -39,23 +47,59 @@ from src.preprocessing.dataset_utils import load_yaml_file, project_root
 REPO_ROOT = project_root()
 FRONTEND_DIR = REPO_ROOT / "frontend"
 LOGGER = logging.getLogger(__name__)
+
+
+def _optional_positive_float_setting(name: str) -> float | None:
+    """Read an optional operator-supplied timing limit without inventing one."""
+
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return None
+    try:
+        value = float(raw)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be a positive number of seconds when set.") from exc
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError(f"{name} must be a positive finite number of seconds when set.")
+    return value
+
+
+def _positive_int_setting(name: str, default: int) -> int:
+    """Read one bounded-queue capacity without accepting an unsafe zero value."""
+
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be a positive integer when set.") from exc
+    if value <= 0:
+        raise ValueError(f"{name} must be a positive integer when set.")
+    return value
 # Serialize inspection start with changes to the shared model or grading policy.
 _model_change_lock = RLock()
 PART_CONFIG = load_yaml_file(REPO_ROOT / "configs" / "yolov8.yaml")
 FISH_DETECTION_CONFIDENCE = float(os.getenv("FISH_DETECTION_CONFIDENCE", "0.5"))
 FISH_DETECTOR_DEVICE = os.getenv("FISH_DETECTOR_DEVICE", "auto")
 FISH_DETECTOR_PATH = resolve_yolo_fish_detector_model_path(REPO_ROOT, os.getenv("FISH_DETECTOR_MODEL_PATH"))
-FISH_DETECTOR_IMAGE_SIZE = int(os.getenv("FISH_DETECTOR_IMAGE_SIZE", "640"))
+_model_registry = get_model_registry()
+# Keep Model 1 at the registered checkpoint's training resolution unless an
+# operator deliberately overrides it.  A stale 640-pixel application default
+# silently downscaled the active 768-pixel parent detector before it could
+# locate fish or establish Model 2 parent ownership.
+_active_model1_entry = _model_registry.get_model(_model_registry.get_default_model1_id())
+_default_detector_image_size = _active_model1_entry.input_size if _active_model1_entry is not None else 640
+FISH_DETECTOR_IMAGE_SIZE = int(os.getenv("FISH_DETECTOR_IMAGE_SIZE", str(_default_detector_image_size)))
 FISH_QUALITY_CONFIDENCE = float(os.getenv("FISH_QUALITY_CONFIDENCE", os.getenv("FISH_SEGMENTATION_CONFIDENCE", "0.25")))
 FISH_QUALITY_DEVICE = os.getenv("FISH_QUALITY_DEVICE", os.getenv("FISH_SEGMENTER_DEVICE", FISH_DETECTOR_DEVICE))
 FISH_QUALITY_PATH = resolve_yolo_quality_model_path(REPO_ROOT, os.getenv("FISH_QUALITY_MODEL_PATH", os.getenv("FISH_SEGMENTER_MODEL_PATH")))
-_model_registry = get_model_registry()
 _active_model_entry = _model_registry.get_model(_model_registry.get_persisted_model2_id())
 _default_quality_image_size = _active_model_entry.input_size if _active_model_entry is not None else 640
 FISH_QUALITY_IMAGE_SIZE = int(os.getenv("FISH_QUALITY_IMAGE_SIZE", str(_default_quality_image_size)))
 FISH_QUALITY_INTERVAL = int(os.getenv("FISH_QUALITY_INTERVAL", os.getenv("FISH_SEGMENTATION_INTERVAL", "3")))
 FISH_QUALITY_ROI_PADDING = int(os.getenv("FISH_QUALITY_ROI_PADDING", os.getenv("FISH_SEGMENTATION_ROI_PADDING", "0")))
-FISH_QUALITY_INFERENCE_MODE = os.getenv("FISH_QUALITY_INFERENCE_MODE", "full_frame").strip().lower()
+_REQUESTED_FISH_QUALITY_INFERENCE_MODE = os.getenv("FISH_QUALITY_INFERENCE_MODE", "full_frame").strip().lower()
 FISH_UPLOAD_MAX_BYTES = int(os.getenv("FISH_UPLOAD_MAX_BYTES", str(10 * 1024 * 1024)))
 FISH_UPLOAD_MAX_DIMENSION = int(os.getenv("FISH_UPLOAD_MAX_DIMENSION", "4096"))
 FISH_UPLOAD_MAX_PIXELS = int(os.getenv("FISH_UPLOAD_MAX_PIXELS", str(16 * 1024 * 1024)))
@@ -63,6 +107,15 @@ PART_CONFIDENCE = float(os.getenv("LEMURU_PART_CONFIDENCE", os.getenv("LEMURU_CO
 PART_IMAGE_SIZE = int(PART_CONFIG.get("imgsz", 640))
 CAMERA_INDEX = int(os.getenv("LEMURU_CAMERA_INDEX", "0"))
 RUNTIME_MODE = resolve_runtime_mode(os.getenv("LEMURU_MODE"))
+FISH_QUALITY_INFERENCE_MODE = resolve_quality_inference_mode(
+    _REQUESTED_FISH_QUALITY_INFERENCE_MODE,
+    RUNTIME_MODE,
+)
+if FISH_QUALITY_INFERENCE_MODE != _REQUESTED_FISH_QUALITY_INFERENCE_MODE:
+    LOGGER.warning(
+        "FISH_QUALITY_INFERENCE_MODE=%s is unsafe for whole-fish live grading; using full_frame association.",
+        _REQUESTED_FISH_QUALITY_INFERENCE_MODE,
+    )
 PART_WEIGHTS_PATH = resolve_part_weights_path(REPO_ROOT, os.getenv("LEMURU_PART_WEIGHTS"))
 UPLOAD_TEST_WEIGHTS_PATH = (REPO_ROOT / "models" / "yolo_parts" / "yolo26n_seg_exp4" / "weights" / "exp-4.pt").resolve()
 UPLOAD_TEST_CONFIDENCE = float(os.getenv("LEMURU_UPLOAD_TEST_CONFIDENCE", str(PART_CONFIDENCE)))
@@ -73,7 +126,10 @@ TRACKING_CONFIG = TrackingConfig(
     conveyor_direction=os.getenv("LEMURU_CONVEYOR_DIRECTION", "left_to_right").lower(),
     track_timeout=float(os.getenv("LEMURU_TRACK_TIMEOUT", "1.5")),
     history_limit=int(os.getenv("LEMURU_HISTORY_LIMIT", "25")),
+    decision_deadline_seconds=_optional_positive_float_setting("LEMURU_DECISION_DEADLINE_SECONDS"),
 )
+EVENT_PERSISTENCE_QUEUE_CAPACITY = _positive_int_setting("FISH_EVENT_PERSISTENCE_QUEUE_CAPACITY", 256)
+EVENT_PERSISTENCE_DRAIN_TIMEOUT_SECONDS = 3.0
 
 state = InspectionState(TRACKING_CONFIG, runtime_mode=RUNTIME_MODE)
 quality_model: YoloQualityModel | None = None
@@ -121,11 +177,11 @@ inspection_sessions = InspectionSessionContext(inspection_database)
 
 def _close_worker_session() -> None:
     """Finalize the durable session only after its camera worker has exited."""
-    if inspection_sessions.active:
-        camera_settings = _camera_settings_snapshot()
-        if camera_settings.get("available"):
-            inspection_database.update_session(inspection_sessions.session_id or "", {"camera_settings": camera_settings})
-        inspection_sessions.close()
+
+    # ``stop_inspection`` may still own the model-change lock while waiting for
+    # this finalizer.  The worker is already gone; the frame barrier alone is
+    # sufficient and avoids delaying the truthful final stop state.
+    _close_durable_session("camera worker finalization", timeout=None, acquire_model_lock=False)
 
 
 service.on_worker_exit = _close_worker_session
@@ -270,25 +326,223 @@ def _session_metadata() -> dict[str, object]:
     }
 
 
-def _persist_tracking_event(action: str, event: dict[str, object]) -> None:
-    """Persist create, late-grade, best-frame, and review updates without blocking counting."""
+def _persist_tracking_event(
+    action: str,
+    event: dict[str, object],
+    *,
+    session_id: str | None = None,
+    raise_on_failure: bool = False,
+) -> None:
+    """Write one immutable event snapshot to its captured durable session.
+
+    Direct callers retain the historical best-effort behavior. The background
+    dispatcher asks for failures to be raised so the FIFO head is retained.
+    """
+
+    persistence_started = monotonic()
+    try:
+        persisted_session_id = (
+            inspection_sessions.record_event_for(session_id, action, event)
+            if session_id is not None
+            else inspection_sessions.record_event(action, event)
+        )
+        if persisted_session_id is None:
+            message = f"Ignoring {action} for Fish #{event.get('track_id')} without an eligible session"
+            if raise_on_failure:
+                raise RuntimeError(message)
+            LOGGER.warning(message)
+            return
+        # Camera configuration is recorded at session start and close. Keeping
+        # camera-control I/O out of this worker preserves the frame-path split.
+    except Exception as exc:
+        LOGGER.exception("Could not persist %s for Fish #%s: %s", action, event.get("track_id"), exc)
+        if raise_on_failure:
+            raise
+    finally:
+        try:
+            service.record_event_persistence(max(0.0, monotonic() - persistence_started))
+        except Exception:  # pragma: no cover - diagnostics must not affect persistence
+            LOGGER.exception("Could not record event-persistence timing")
+
+
+def _persist_queued_tracking_event(record: dict[str, object]) -> None:
+    """Dispatcher callback; an exception keeps the current FIFO head visible."""
+
+    session_id = record.get("session_id")
+    action = record.get("action")
+    event = record.get("event")
+    if not isinstance(session_id, str) or not session_id:
+        raise ValueError("Queued event persistence requires a captured session ID.")
+    if not isinstance(action, str) or not isinstance(event, dict):
+        raise ValueError("Queued event persistence record is malformed.")
+    _persist_tracking_event(action, event, session_id=session_id, raise_on_failure=True)
+
+
+_event_persistence_dispatcher_lock = RLock()
+
+
+def _new_event_persistence_dispatcher() -> OrderedPersistenceDispatcher[dict[str, object]]:
+    return OrderedPersistenceDispatcher(
+        _persist_queued_tracking_event,
+        capacity=EVENT_PERSISTENCE_QUEUE_CAPACITY,
+        thread_name="inspection-event-persistence",
+    )
+
+
+event_persistence_dispatcher = _new_event_persistence_dispatcher()
+
+
+def _event_persistence_snapshot() -> dict[str, object]:
+    with _event_persistence_dispatcher_lock:
+        return dict(event_persistence_dispatcher.snapshot())
+
+
+def _event_persistence_dispatcher_for_submit() -> OrderedPersistenceDispatcher[dict[str, object]]:
+    """Recreate only a cleanly shut-down worker, never one with retained data."""
+
+    global event_persistence_dispatcher
+    with _event_persistence_dispatcher_lock:
+        snapshot = event_persistence_dispatcher.snapshot()
+        if snapshot["failed"] or (snapshot["worker_alive"] and snapshot["stopping"]):
+            return event_persistence_dispatcher
+        if snapshot["accepting"] and snapshot["worker_alive"]:
+            return event_persistence_dispatcher
+        if snapshot["pending"] or snapshot["in_flight"]:
+            return event_persistence_dispatcher
+        event_persistence_dispatcher = _new_event_persistence_dispatcher()
+        return event_persistence_dispatcher
+
+
+def _event_persistence_problem(context: str, snapshot: dict[str, object]) -> str:
+    failure = snapshot.get("failure")
+    if isinstance(failure, dict):
+        detail = f"{failure.get('exception_type', 'Persistence error')}: {failure.get('message', 'unknown error')}"
+        return f"Durable event persistence failed during {context}; the session remains open. {detail}"
+    if snapshot.get("pending") or snapshot.get("in_flight"):
+        return f"Durable event persistence is still flushing during {context}; the session remains open."
+    return f"Durable event persistence is unavailable during {context}; the session remains open."
+
+
+def _mark_event_persistence_failed(context: str, snapshot: dict[str, object]) -> None:
+    """Expose an unrecoverable durable-write failure and stop future counting."""
+
+    message = _event_persistence_problem(context, snapshot)
+    LOGGER.error("%s queue=%s", message, snapshot)
+    try:
+        request_stop = getattr(service, "request_stop_after_current_frame", None)
+        if callable(request_stop):
+            request_stop(message)
+        else:
+            state.mark_error(message)
+    except Exception:  # pragma: no cover - status handling cannot hide the stored failure
+        LOGGER.exception("Could not mark durable event persistence failure")
+
+
+def _drain_event_persistence(context: str, *, timeout: float | None) -> bool:
+    """Flush FIFO work before a session identity or direct durable write changes."""
+
+    with _event_persistence_dispatcher_lock:
+        dispatcher = event_persistence_dispatcher
+    if dispatcher.drain(timeout=timeout):
+        return True
+    snapshot = dict(dispatcher.snapshot())
+    LOGGER.error("%s queue=%s", _event_persistence_problem(context, snapshot), snapshot)
+    if snapshot.get("failed"):
+        _mark_event_persistence_failed(context, snapshot)
+    return False
+
+
+def _require_drained_event_persistence(context: str) -> None:
+    if _drain_event_persistence(context, timeout=EVENT_PERSISTENCE_DRAIN_TIMEOUT_SECONDS):
+        return
+    snapshot = _event_persistence_snapshot()
+    status_code = 503 if snapshot.get("failed") else 409
+    raise HTTPException(status_code=status_code, detail=_event_persistence_problem(context, snapshot))
+
+
+def _processing_guard():
+    """Use the real frame barrier, with a harmless fallback for narrow unit fakes."""
+
+    lock = getattr(service, "_processing_lock", None)
+    return lock if lock is not None else nullcontext()
+
+
+def _close_durable_session_locked(context: str, *, timeout: float | None) -> bool:
+    """Flush then close exactly one session without re-entering camera control."""
+
+    if not _drain_event_persistence(context, timeout=timeout):
+        return False
+    if not inspection_sessions.active:
+        return True
+    try:
+        # Session metadata is captured at start and whenever a camera policy
+        # rotates the session. Do not query a possibly blocked camera-control
+        # lock during finalization; durable events are already flushed above.
+        inspection_sessions.close()
+        return True
+    except Exception as exc:
+        LOGGER.exception("Could not close durable inspection session after %s: %s", context, exc)
+        _mark_event_persistence_failed(context, {**_event_persistence_snapshot(), "failure": {
+            "exception_type": type(exc).__name__, "message": str(exc),
+        }})
+        return False
+
+
+def _close_durable_session(
+    context: str,
+    *,
+    timeout: float | None,
+    acquire_model_lock: bool = True,
+) -> bool:
+    """Close only after queued writes and frame callbacks can no longer race it."""
+
+    model_guard = _model_change_lock if acquire_model_lock else nullcontext()
+    with model_guard, _processing_guard():
+        return _close_durable_session_locked(context, timeout=timeout)
+
+
+def _enqueue_tracking_event(action: str, event: dict[str, object]) -> None:
+    """Capture durable identity first, then hand an immutable copy to the worker."""
 
     try:
-        session_id = inspection_sessions.record_event(action, event)
-        if session_id is None:
-            LOGGER.warning("Ignoring %s for Fish #%s without an eligible session", action, event.get("track_id"))
-            return
-        camera_settings = _camera_settings_snapshot()
-        if camera_settings.get("available"):
-            inspection_database.update_session(session_id, {"camera_settings": camera_settings})
-    except Exception as exc:  # pragma: no cover - persistence must not stop a conveyor
-        LOGGER.exception("Could not persist %s for Fish #%s: %s", action, event.get("track_id"), exc)
+        session_id = inspection_sessions.capture_event_target(action, event)
+    except Exception as exc:
+        LOGGER.exception("Could not capture durable target for %s / Fish #%s: %s", action, event.get("track_id"), exc)
+        _mark_event_persistence_failed("event target capture", {"failed": True, "failure": {
+            "exception_type": type(exc).__name__, "message": str(exc),
+        }})
+        return
+    if session_id is None:
+        LOGGER.warning("Ignoring %s for Fish #%s without an eligible session", action, event.get("track_id"))
+        return
+    try:
+        dispatcher = _event_persistence_dispatcher_for_submit()
+        # Healthy submissions return immediately. Saturation applies FIFO
+        # producer backpressure instead of an unsafe direct write around older
+        # records.
+        accepted = dispatcher.submit({"session_id": session_id, "action": action, "event": event})
+        snapshot = dict(dispatcher.snapshot())
+    except Exception as exc:
+        LOGGER.exception("Could not enqueue durable event %s / Fish #%s: %s", action, event.get("track_id"), exc)
+        _mark_event_persistence_failed("event enqueue", {"failed": True, "failure": {
+            "exception_type": type(exc).__name__, "message": str(exc),
+        }})
+        return
+    if accepted:
+        return
+    _mark_event_persistence_failed("event enqueue", snapshot)
+
+
+def _rotate_durable_session_locked() -> str:
+    _require_drained_event_persistence("durable session rotation")
+    return inspection_sessions.rotate(_session_metadata())
 
 
 def rotate_durable_session() -> str:
-    """Start a new persisted policy version after an authorized runtime reset."""
+    """Start a new durable policy version only after the prior FIFO drains."""
 
-    return inspection_sessions.rotate(_session_metadata())
+    with _model_change_lock, _processing_guard():
+        return _rotate_durable_session_locked()
 
 
 def _durable_events(
@@ -315,7 +569,7 @@ def _durable_events(
     return events
 
 
-state.tracking.add_event_listener(_persist_tracking_event)
+state.tracking.add_event_listener(_enqueue_tracking_event)
 
 
 @asynccontextmanager
@@ -325,6 +579,7 @@ async def lifespan(_: FastAPI):
         mode_message = "Raw part preview ready; fish counting is disabled. " if RUNTIME_MODE == PART_PREVIEW_MODE else ""
         tracker_detail = f" Tracker: {model.tracker_backend}." if hasattr(model, "tracker_backend") else ""
         state.set_model("ready", model.name, str(model.weights_path), f"{mode_message}Model ready on {model.device}.{tracker_detail}")
+        state.mark_tracker_ready()
     else:
         state.set_model("unavailable", None, None, model.error or "Model is unavailable.")
     if quality_model is None:
@@ -340,11 +595,23 @@ async def lifespan(_: FastAPI):
     try:
         yield
     finally:
-        service.stop()
+        # API stop requests remain bounded; process shutdown waits for the
+        # worker/finalizer so accepted durable writes cannot be abandoned.
+        service.stop(timeout=None)
         if service.has_live_worker():
             LOGGER.error("Camera worker is still running at shutdown; its durable session remains open.")
         else:
-            inspection_sessions.close()
+            # Graceful shutdown never abandons an accepted FIFO record. A
+            # blocked write keeps shutdown pending; a recorded worker failure
+            # returns promptly and leaves the durable session open.
+            closed = _close_durable_session("application shutdown", timeout=None)
+            if closed:
+                with _event_persistence_dispatcher_lock:
+                    dispatcher = event_persistence_dispatcher
+                if not dispatcher.shutdown(timeout=None):
+                    LOGGER.critical("Event persistence dispatcher did not shut down cleanly: %s", dispatcher.snapshot())
+            else:
+                LOGGER.critical("Durable session remains open because event persistence did not flush before shutdown.")
 
 
 app = FastAPI(title="Sardinella Lemuru Fish Detection API", version="3.0.0", lifespan=lifespan)
@@ -422,6 +689,8 @@ def _analytics(events, snapshot: dict[str, object], *, chronological_input: bool
     grade_confidences = _RunningValues()
     detection_confidences = _RunningValues()
     processing_times = _RunningValues()
+    decision_latency_values = _RunningValues()
+    deadline_status_counts = {"not_configured": 0, "met": 0, "missed": 0}
     part_quality = {"Head": _RunningValues(), "Body": _RunningValues(), "Tail": _RunningValues()}
     color_trend = deque(maxlen=_ANALYTICS_TREND_LIMIT)
     hue_values = _RunningValues()
@@ -429,10 +698,12 @@ def _analytics(events, snapshot: dict[str, object], *, chronological_input: bool
     observed_region_counts = _RunningValues()
     model2_observation_counts = _RunningValues()
     feature_counts = _feature_counters([])
+    ungraded_reasons: dict[str, int] = {}
     event_count = 0
     automatic_count = 0
     needs_review_count = 0
     manual_review_count = 0
+    review_queue_count = 0
     body_only_count = 0
     two_region_count = 0
     complete_region_count = 0
@@ -447,10 +718,14 @@ def _analytics(events, snapshot: dict[str, object], *, chronological_input: bool
         quality_counters = saved["quality_counters"]
         throughput, confidence_over_time = saved["throughput"], saved["confidence_over_time"]
         grade_confidences, detection_confidences, processing_times = saved["grade_confidences"], saved["detection_confidences"], saved["processing_times"]
+        decision_latency_values = saved.get("decision_latency_values", decision_latency_values)
+        deadline_status_counts = saved.get("deadline_status_counts", deadline_status_counts)
         part_quality, color_trend, hue_values = saved["part_quality"], saved["color_trend"], saved["hue_values"]
         coverage_values, observed_region_counts, model2_observation_counts = saved["coverage_values"], saved["observed_region_counts"], saved["model2_observation_counts"]
         feature_counts, event_count = saved["feature_counts"], saved["event_count"]
+        ungraded_reasons = saved["ungraded_reasons"]
         automatic_count, needs_review_count, manual_review_count = saved["automatic_count"], saved["needs_review_count"], saved["manual_review_count"]
+        review_queue_count = saved["review_queue_count"]
         body_only_count, two_region_count, complete_region_count = saved["body_only_count"], saved["two_region_count"], saved["complete_region_count"]
         final_supports, best_supports, performance_values = saved["final_supports"], saved["best_supports"], saved["performance_values"]
     for event in chronological:
@@ -459,7 +734,8 @@ def _analytics(events, snapshot: dict[str, object], *, chronological_input: bool
         if quality not in quality_counters:
             event_analysis = event.get("analysis")
             quality = event_analysis.get("final_grade") if isinstance(event_analysis, dict) else None
-        quality_counters[quality if quality in quality_counters else "Ungraded"] += 1
+        quality_bucket = quality if quality in quality_counters else "Ungraded"
+        quality_counters[quality_bucket] += 1
         throughput.append({"timestamp": event.get("timestamp"), "total": event_count})
         if event.get("quality_confidence") is not None:
             confidence = float(event["quality_confidence"]) * 100
@@ -470,6 +746,27 @@ def _analytics(events, snapshot: dict[str, object], *, chronological_input: bool
         if event.get("processing_time_ms") is not None:
             processing_times.append(float(event["processing_time_ms"]))
         analysis = event.get("analysis")
+        conveyor_timing = analysis.get("conveyor_timing") if isinstance(analysis, dict) and isinstance(analysis.get("conveyor_timing"), dict) else {}
+        latency_ms = conveyor_timing.get("first_detection_to_decision_ms") if isinstance(conveyor_timing, dict) else None
+        if latency_ms is not None:
+            try:
+                parsed_latency = float(latency_ms)
+                if math.isfinite(parsed_latency) and parsed_latency >= 0:
+                    decision_latency_values.append(parsed_latency)
+            except (TypeError, ValueError):
+                pass
+        deadline_status = conveyor_timing.get("deadline_status") if isinstance(conveyor_timing, dict) else None
+        if deadline_status in deadline_status_counts:
+            deadline_status_counts[str(deadline_status)] += 1
+        if quality_bucket == "Ungraded":
+            reasons = analysis.get("reason_codes") if isinstance(analysis, dict) else None
+            codes = {code for code in reasons if isinstance(code, str) and code.strip()} if isinstance(reasons, (list, tuple)) else set()
+            if not codes and isinstance(analysis, dict):
+                reason = analysis.get("verdict_reason_code")
+                if isinstance(reason, str) and reason.strip():
+                    codes.add(reason)
+            for code in codes or {"Not recorded"}:
+                ungraded_reasons[code] = ungraded_reasons.get(code, 0) + 1
         part_results = analysis.get("part_results") if isinstance(analysis, dict) and isinstance(analysis.get("part_results"), dict) else {}
         for region, counter in feature_counts.items():
             result = part_results.get(region)
@@ -480,6 +777,7 @@ def _analytics(events, snapshot: dict[str, object], *, chronological_input: bool
             status = analysis.get("verdict_status")
             automatic_count += int(status == "AUTO_GRADED")
             needs_review_count += int(status == "NEEDS_REVIEW")
+            review_queue_count += int(status == "NEEDS_REVIEW" and not event.get("manual_override"))
             coverage = analysis.get("original_weight_coverage")
             if coverage is not None:
                 try:
@@ -487,12 +785,12 @@ def _analytics(events, snapshot: dict[str, object], *, chronological_input: bool
                 except (TypeError, ValueError):
                     pass
             regions = analysis.get("observed_regions")
-            region_count = len(regions) if isinstance(regions, list) else sum(
-                int(isinstance(part_results.get(region), dict) and part_results[region].get("present") is True)
-                for region in ("Body", "Head", "Tail")
-            )
+            if not isinstance(regions, list):
+                regions = [region for region in ("Body", "Head", "Tail")
+                           if isinstance(part_results.get(region), dict) and part_results[region].get("present") is True]
+            region_count = len(regions)
             observed_region_counts.append(region_count)
-            body_only_count += int(region_count == 1 and "Body" in (regions if isinstance(regions, list) else []))
+            body_only_count += int(region_count == 1 and "Body" in regions)
             two_region_count += int(region_count == 2)
             complete_region_count += int(region_count == 3)
             observations = analysis.get("observation_count")
@@ -540,6 +838,7 @@ def _analytics(events, snapshot: dict[str, object], *, chronological_input: bool
         "has_data": bool(event_count),
         "grade_distribution": {name: int(value) for name, value in quality_counters.items()},
         "grade_distribution_basis": "original_ai_verdict",
+        "ungraded_reasons": ungraded_reasons,
         "accuracy_available": False,
         "manual_reviewed_basis": "operator_reviewed_outcomes",
         "feature_counts": feature_counts,
@@ -550,6 +849,9 @@ def _analytics(events, snapshot: dict[str, object], *, chronological_input: bool
         "average_grade_confidence": round(sum(grade_confidences) / len(grade_confidences), 1) if grade_confidences else None,
         "average_detection_confidence": round(sum(detection_confidences) / len(detection_confidences), 1) if detection_confidences else None,
         "average_processing_time_ms": round(sum(processing_times) / len(processing_times), 1) if processing_times else None,
+        "average_first_detection_to_decision_ms": round(sum(decision_latency_values) / len(decision_latency_values), 1) if decision_latency_values else None,
+        "decision_deadline_status_counts": dict(deadline_status_counts),
+        "decision_timing_scope": "Elapsed time from first persistent Model 1 detection to virtual count-line decision; not physical entry or actuator confirmation.",
         "average_part_quality_scores": {
             region: round(sum(values) / len(values), 1) if values else None
             for region, values in part_quality.items()
@@ -559,7 +861,7 @@ def _analytics(events, snapshot: dict[str, object], *, chronological_input: bool
         "automatically_graded": automatic_count,
         "needs_review": needs_review_count,
         "manual_reviewed": manual_review_count,
-        "review_queue_count": max(0, needs_review_count - manual_review_count),
+        "review_queue_count": review_queue_count,
         "body_only_count": body_only_count,
         "two_region_count": two_region_count,
         "complete_region_count": complete_region_count,
@@ -577,9 +879,9 @@ def _analytics(events, snapshot: dict[str, object], *, chronological_input: bool
         return result
     saved = {name: value for name, value in locals().items() if name in {
         "quality_counters", "throughput", "confidence_over_time", "grade_confidences", "detection_confidences",
-        "processing_times", "part_quality", "color_trend", "hue_values", "coverage_values", "observed_region_counts",
-        "model2_observation_counts", "feature_counts", "event_count", "automatic_count", "needs_review_count",
-        "manual_review_count", "body_only_count", "two_region_count", "complete_region_count", "final_supports",
+        "processing_times", "decision_latency_values", "deadline_status_counts", "part_quality", "color_trend", "hue_values", "coverage_values", "observed_region_counts",
+        "model2_observation_counts", "feature_counts", "ungraded_reasons", "event_count", "automatic_count", "needs_review_count",
+        "manual_review_count", "review_queue_count", "body_only_count", "two_region_count", "complete_region_count", "final_supports",
         "best_supports", "performance_values",
     }}
     return result, saved
@@ -611,9 +913,12 @@ def _durable_analytics(range_name: str, session_id: str | None, start_date: str 
         if reviews is not None:
             result = deepcopy(_analytics_cache["value"])
             summary_state = deepcopy(_analytics_cache["state"])
-            summary_state["manual_review_count"] += sum(int(new) - int(old) for old, new in reviews)
+            summary_state["manual_review_count"] += sum(int(new) - int(old) for old, new, _ in reviews)
+            summary_state["review_queue_count"] += sum(
+                int(needs_review) * (int(old) - int(new)) for old, new, needs_review in reviews
+            )
             result["manual_reviewed"] = summary_state["manual_review_count"]
-            result["review_queue_count"] = max(0, result["needs_review"] - result["manual_reviewed"])
+            result["review_queue_count"] = summary_state["review_queue_count"]
         else:
             if events is None:
                 events = inspection_database.iter_events_chronological(
@@ -627,6 +932,18 @@ def _durable_analytics(range_name: str, session_id: str | None, start_date: str 
             _analytics_cache.clear()
             _analytics_cache.update(key=key, value=deepcopy(result), state=summary_state, marker=marker, last_key=last_key)
         return result, revision
+
+
+def _runtime_diagnostics_payload() -> dict[str, object]:
+    """Combine camera metrics with bounded, non-sensitive queue health."""
+
+    diagnostics = service.runtime_diagnostics()
+    persistence_queue = _event_persistence_snapshot()
+    diagnostics["event_persistence_queue"] = persistence_queue
+    diagnostics["event_persistence_drained"] = not bool(
+        persistence_queue.get("pending") or persistence_queue.get("in_flight") or persistence_queue.get("failed")
+    )
+    return diagnostics
 
 
 def _status_payload(*, include_analytics: bool = True) -> dict[str, object]:
@@ -679,7 +996,10 @@ def _status_payload(*, include_analytics: bool = True) -> dict[str, object]:
     })
     if include_analytics:
         snapshot["device_report"] = _device_report()
-    snapshot["runtime_diagnostics"] = service.runtime_diagnostics() if lan_security.diagnostics_allowed() else {"enabled": False}
+    if lan_security.diagnostics_allowed():
+        snapshot["runtime_diagnostics"] = _runtime_diagnostics_payload()
+    else:
+        snapshot["runtime_diagnostics"] = {"enabled": False}
     # Retain the old response member for clients on a prior dashboard build.
     snapshot["model_info"]["segmenter"] = snapshot["model_info"]["quality"]
     quality_diagnostics = snapshot["model_info"]["quality"].get("diagnostics", {})
@@ -701,10 +1021,15 @@ def _status_payload(*, include_analytics: bool = True) -> dict[str, object]:
     snapshot["model_info"]["quality"]["model_error"] = getattr(quality_model, "error", None)
     if include_analytics:
         snapshot["analytics"] = current_analytics
+    persistence_queue = _event_persistence_snapshot()
     snapshot["durable_session"] = {
         "session_id": inspection_sessions.session_id,
         "active": inspection_sessions.active,
         "database_ready": True,
+        "event_persistence_drained": not bool(
+            persistence_queue.get("pending") or persistence_queue.get("in_flight") or persistence_queue.get("failed")
+        ),
+        "event_persistence_failed": bool(persistence_queue.get("failed")),
     }
     if not include_analytics:
         snapshot["event_revision"] = inspection_database.event_revision(snapshot["durable_session"]["session_id"])
@@ -842,9 +1167,18 @@ def start_inspection() -> dict[str, object]:
     with _model_change_lock:
         if service.has_live_worker():
             return {"started": False, **_status_payload()}
+        persistence = _event_persistence_dispatcher_for_submit().snapshot()
+        if persistence["failed"]:
+            raise HTTPException(status_code=503, detail=_event_persistence_problem("inspection start", dict(persistence)))
+        if not persistence["accepting"] or not persistence["worker_alive"]:
+            raise HTTPException(status_code=409, detail=_event_persistence_problem("inspection start", dict(persistence)))
         # A worker that exited unexpectedly can leave its session open.
         if inspection_sessions.active:
-            inspection_sessions.close()
+            if not _close_durable_session("inspection restart", timeout=EVENT_PERSISTENCE_DRAIN_TIMEOUT_SECONDS):
+                raise HTTPException(
+                    status_code=503,
+                    detail=_event_persistence_problem("inspection restart", _event_persistence_snapshot()),
+                )
         if not service.prepare_models():
             return {"started": False, **_status_payload()}
         inspection_sessions.start(_session_metadata())
@@ -857,10 +1191,10 @@ def start_inspection() -> dict[str, object]:
                 except Exception:
                     LOGGER.exception("Could not stop worker after inspection startup failed")
             if not service.has_live_worker():
-                inspection_sessions.close()
+                _close_durable_session("failed inspection startup", timeout=EVENT_PERSISTENCE_DRAIN_TIMEOUT_SECONDS)
             raise
         if not started and not service.has_live_worker():
-            inspection_sessions.close()
+            _close_durable_session("cancelled inspection startup", timeout=EVENT_PERSISTENCE_DRAIN_TIMEOUT_SECONDS)
         return {"started": started, **_status_payload()}
 
 
@@ -869,11 +1203,12 @@ def stop_inspection() -> dict[str, object]:
     with _model_change_lock:
         service.stop()
         if inspection_sessions.active and not service.has_live_worker():
-            camera_settings = _camera_settings_snapshot()
-            if camera_settings.get("available"):
-                inspection_database.update_session(inspection_sessions.session_id or "", {"camera_settings": camera_settings})
-            inspection_sessions.close()
-        return {"stopped": not service.has_live_worker(), **_status_payload()}
+            _close_durable_session("inspection stop", timeout=EVENT_PERSISTENCE_DRAIN_TIMEOUT_SECONDS)
+        persistence = _event_persistence_snapshot()
+        stopped = not service.has_live_worker() and not inspection_sessions.active and not bool(
+            persistence.get("pending") or persistence.get("in_flight") or persistence.get("failed")
+        )
+        return {"stopped": stopped, **_status_payload()}
 
 
 @app.get("/api/camera/settings")
@@ -910,8 +1245,27 @@ def _record_camera_policy_change(result: dict[str, object]) -> str | None:
     )
     if not changed:
         return None
-    service.reset_active_policy_evidence()
-    return rotate_durable_session() if inspection_sessions.active else None
+    # One lock boundary prevents a just-finished frame from enqueueing an old
+    # policy record between clearing transient evidence and rotating sessions.
+    with _model_change_lock, _processing_guard():
+        try:
+            service.reset_active_policy_evidence()
+            if not inspection_sessions.active:
+                return None
+            return _rotate_durable_session_locked()
+        except Exception as exc:
+            # The physical setting has already changed. Continuing to process
+            # with the old session metadata would mix acquisition policies, so
+            # stop safely and leave the durable session open for recovery.
+            detail = exc.detail if isinstance(exc, HTTPException) else str(exc)
+            message = f"Camera policy changed but durable session rotation did not complete: {detail}"
+            LOGGER.error(message)
+            request_stop = getattr(service, "request_stop_after_current_frame", None)
+            if callable(request_stop):
+                request_stop(message)
+            else:
+                state.mark_error(message)
+            raise
 
 
 @app.post("/api/camera/settings")
@@ -936,8 +1290,11 @@ async def update_camera_settings(request: Request) -> dict[str, object]:
         if not values:
             status = service.camera_status()
             return {"success": True, "requested": {}, "actual": status.get("actual", {}), "camera": status}
-        result = service.update_camera_settings(values)
-        session_id = _record_camera_policy_change(result)
+        # Freeze frame callbacks across both the physical adjustment and its
+        # durable policy boundary; no fish can straddle the two configurations.
+        with _model_change_lock, _processing_guard():
+            result = service.update_camera_settings(values)
+            session_id = _record_camera_policy_change(result)
         return {**result, "policy_session_id": session_id, "camera": service.camera_status()}
     except CameraControlError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from None
@@ -946,8 +1303,9 @@ async def update_camera_settings(request: Request) -> dict[str, object]:
 @app.post("/api/camera/reset")
 def reset_camera_settings() -> dict[str, object]:
     try:
-        result = service.reset_camera_settings()
-        session_id = _record_camera_policy_change(result)
+        with _model_change_lock, _processing_guard():
+            result = service.reset_camera_settings()
+            session_id = _record_camera_policy_change(result)
         return {**result, "policy_session_id": session_id, "camera": service.camera_status()}
     except CameraControlError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from None
@@ -1003,8 +1361,9 @@ async def confirm_camera_profile(request: Request) -> dict[str, object]:
 @app.post("/api/camera/profile/load")
 def load_camera_profile() -> dict[str, object]:
     try:
-        result = service.load_camera_profile()
-        session_id = _record_camera_policy_change(result)
+        with _model_change_lock, _processing_guard():
+            result = service.load_camera_profile()
+            session_id = _record_camera_policy_change(result)
         return {**result, "policy_session_id": session_id, "camera": service.camera_status()}
     except CameraControlError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from None
@@ -1024,7 +1383,7 @@ async def lock_camera_settings(request: Request) -> dict[str, object]:
 def reset_session() -> dict[str, object]:
     # Block frame callbacks until both the durable identity and trackers change.
     with _model_change_lock, service._processing_lock:
-        rotate_durable_session()
+        _rotate_durable_session_locked()
         service.reset_session()
     return {"reset": True, **_status_payload()}
 
@@ -1191,6 +1550,7 @@ async def review_fish(track_id: int, request: Request) -> dict[str, object]:
     try:
         manual_grade = _canonical_manual_grade(payload.get("manual_grade"))
         with _model_change_lock, service._processing_lock:
+            _require_drained_event_persistence("manual review")
             current_session = inspection_sessions.session_id
             session_id = requested_session or current_session
             if session_id is not None:
@@ -1258,6 +1618,7 @@ async def add_structural_review(track_id: int, request: Request) -> dict[str, ob
         # review and session rotation. Otherwise an old event snapshot can
         # overwrite a newer verdict or the structural record can disappear.
         with _model_change_lock, service._processing_lock:
+            _require_drained_event_persistence("structural review")
             event = _structural_review_event(track_id)
             analysis = dict(event.get("analysis")) if isinstance(event.get("analysis"), dict) else {}
             existing = analysis.get("structural_evidence")
@@ -1316,7 +1677,7 @@ def get_settings() -> dict[str, object]:
 def get_runtime_diagnostics() -> dict[str, object]:
     """Developer-only bounded runtime telemetry and artifact locations."""
 
-    return service.runtime_diagnostics()
+    return _runtime_diagnostics_payload()
 
 
 @app.post("/api/debug/runtime")
@@ -1360,7 +1721,7 @@ def mark_hard_negative_not_fish(capture_id: str) -> dict[str, object]:
         record = service.mark_hard_negative(capture_id)
     except CameraControlError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    return {"updated": True, "record": record, "runtime_diagnostics": service.runtime_diagnostics()}
+    return {"updated": True, "record": record, "runtime_diagnostics": _runtime_diagnostics_payload()}
 
 
 @app.post("/api/settings")
@@ -1458,6 +1819,15 @@ def _update_settings_locked(payload: dict) -> dict[str, object]:
             quality_model.switch_model(model2_request)
         elif policy_requested and inspection_sessions.active:
             rotate_durable_session()
+    except HTTPException:
+        with state._lock:
+            (state.confidence_threshold, state.quality_confidence_threshold, state.display_settings,
+             state.segmenter_status, state.segmenter_name, state.segmenter_weights_path, state.segmenter_message) = previous_state
+        if detector_attr:
+            setattr(model, detector_attr, previous_detector)
+        if quality_model is not None:
+            quality_model.confidence_threshold = previous_quality
+        raise
     except Exception as exc:
         with state._lock:
             (state.confidence_threshold, state.quality_confidence_threshold, state.display_settings,
@@ -1516,16 +1886,20 @@ async def export_history(request: Request) -> Response:
     requested_session = payload.get("session_id")
     if requested_session is not None and (not isinstance(requested_session, str) or not requested_session):
         raise HTTPException(status_code=422, detail="session_id must be a non-empty string when supplied.")
-    requested_metadata = inspection_database.session(requested_session) if requested_session is not None else None
-    if requested_session is not None and requested_metadata is None:
-        raise HTTPException(status_code=404, detail="Inspection session not found.")
     try:
-        events = _durable_events(
-            range_name=range_name,
-            session_id=requested_session,
-            start_date=payload.get("start_date"),
-            end_date=payload.get("end_date"),
-        )
+        # An export is a durable snapshot, unlike live polling. Freeze new
+        # frame callbacks while accepted FIFO writes drain and rows are read.
+        with _model_change_lock, _processing_guard():
+            _require_drained_event_persistence("export")
+            requested_metadata = inspection_database.session(requested_session) if requested_session is not None else None
+            if requested_session is not None and requested_metadata is None:
+                raise HTTPException(status_code=404, detail="Inspection session not found.")
+            events = _durable_events(
+                range_name=range_name,
+                session_id=requested_session,
+                start_date=payload.get("start_date"),
+                end_date=payload.get("end_date"),
+            )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     session_ids = list(dict.fromkeys(event.get("session_id") for event in events))
@@ -1536,6 +1910,8 @@ async def export_history(request: Request) -> Response:
     analytics = _analytics(events, snapshot)
     quality = analytics["grade_distribution"]
     assert isinstance(quality, dict)
+    decision_deadline_counts = analytics["decision_deadline_status_counts"]
+    assert isinstance(decision_deadline_counts, dict)
     summary = {
         "Total Fish": len(events),
         "Average Final Support": f"{analytics['average_grade_confidence']:.1f}%" if analytics["average_grade_confidence"] is not None else "",
@@ -1550,6 +1926,15 @@ async def export_history(request: Request) -> Response:
         "Two-region Fish": analytics["two_region_count"],
         "Complete Three-region Fish": analytics["complete_region_count"],
         "Average Processing Time (ms)": analytics["average_processing_time_ms"] or "",
+        "Average First Detection to Decision (ms)": (
+            analytics["average_first_detection_to_decision_ms"]
+            if analytics["average_first_detection_to_decision_ms"] is not None
+            else ""
+        ),
+        "Decision Deadline Met": decision_deadline_counts.get("met", 0),
+        "Decision Deadline Missed": decision_deadline_counts.get("missed", 0),
+        "Decision Deadline Not Configured": decision_deadline_counts.get("not_configured", 0),
+        "Decision Timing Scope": analytics["decision_timing_scope"],
         "Average Whole-Fish Hue (deg)": analytics["average_whole_fish_hue"] if analytics["average_whole_fish_hue"] is not None else "",
     }
     part_averages = analytics["average_part_quality_scores"]
@@ -1664,7 +2049,7 @@ async def analyze_image(request: Request) -> dict[str, object]:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
-def _mjpeg_frames(request: Request):
+async def _mjpeg_frames(request: Request):
     last_version = -1
     while True:
         if not lan_security.stream_authorized(request):
@@ -1677,7 +2062,9 @@ def _mjpeg_frames(request: Request):
             # This is stream-consumer pacing (the API uses MJPEG, not a
             # WebSocket), not a claim of end-to-end browser paint time.
             service.record_stream_dispatch(max(0.0, monotonic() - dispatch_started))
-        sleep(0.025 if state.inspection_status == "running" else 0.2)
+        # Waiting asynchronously lets a disconnected client or server shutdown
+        # cancel the stream even when there are no new camera frames.
+        await asyncio.sleep(0.025 if state.inspection_status == "running" else 0.2)
 
 
 @app.get("/api/video-feed")
@@ -1685,7 +2072,7 @@ def video_feed(request: Request) -> StreamingResponse:
     return StreamingResponse(_mjpeg_frames(request), media_type="multipart/x-mixed-replace; boundary=frame")
 
 
-def _raw_mjpeg_frames(request: Request):
+async def _raw_mjpeg_frames(request: Request):
     preview = service.raw_preview
     preview.subscribe()
     try:
@@ -1695,7 +2082,7 @@ def _raw_mjpeg_frames(request: Request):
             if frame is not None and version != last_version:
                 last_version = version
                 yield b"--frame\r\nContent-Type: image/jpeg\r\nCache-Control: no-cache\r\n\r\n" + frame + b"\r\n"
-            sleep(0.025 if state.inspection_status == "running" else 0.2)
+            await asyncio.sleep(0.025 if state.inspection_status == "running" else 0.2)
     finally:
         preview.unsubscribe()
 

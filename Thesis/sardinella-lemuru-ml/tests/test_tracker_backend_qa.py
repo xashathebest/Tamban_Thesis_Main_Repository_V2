@@ -37,10 +37,36 @@ def test_strict_bytetrack_fails_without_lap(tmp_path, monkeypatch):
 def test_available_bytetrack_is_reported(tmp_path, monkeypatch):
     tracker = MagicMock()
     monkeypatch.setattr("src.inference.yolo_fish_detector.find_spec", lambda _: object())
+    monkeypatch.setattr("src.inference.yolo_fish_detector.import_module", lambda _: SimpleNamespace(lapjv=lambda *args, **kwargs: None))
     monkeypatch.setattr("src.inference.yolo_fish_detector._default_tracker_factory", lambda _: tracker)
     model = detector(tmp_path)
     assert model.load() and model._tracker is tracker
     assert model.tracker_backend == "ByteTrack" and model.tracker_warning is None
+
+
+def test_unloadable_lap_uses_visible_fallback_without_initializing_tracker(tmp_path, monkeypatch):
+    monkeypatch.setattr("src.inference.yolo_fish_detector.find_spec", lambda _: object())
+    def unavailable(_name):
+        raise ImportError("incompatible native wheel")
+    monkeypatch.setattr("src.inference.yolo_fish_detector.import_module", unavailable)
+    tracker_factory = MagicMock()
+    monkeypatch.setattr("src.inference.yolo_fish_detector._default_tracker_factory", tracker_factory)
+    model = detector(tmp_path)
+    assert model.load()
+    assert isinstance(model._tracker, _IoUTracker)
+    assert "failed to load" in model.tracker_backend
+    assert "incompatible native wheel" in model.tracker_warning
+    tracker_factory.assert_not_called()
+
+
+def test_strict_bytetrack_fails_when_lap_cannot_load(tmp_path, monkeypatch):
+    monkeypatch.setattr("src.inference.yolo_fish_detector.find_spec", lambda _: object())
+    def unavailable(_name):
+        raise ImportError("incompatible native wheel")
+    monkeypatch.setattr("src.inference.yolo_fish_detector.import_module", unavailable)
+    model = detector(tmp_path, require_bytetrack=True)
+    assert not model.load() and model.model is None
+    assert "lap" in model.error and "incompatible native wheel" in model.error
 
 
 def test_fallback_does_not_assign_one_id_twice_on_overlapping_boxes():
@@ -53,6 +79,30 @@ def test_fallback_does_not_assign_one_id_twice_on_overlapping_boxes():
     for frame in frames:
         ids = tracker.update(_ByteTrackInput(frame), np.zeros((32, 64, 3), dtype=np.uint8))[:, 4].tolist()
         assert len(ids) == len(set(ids)) == 2
+
+
+def test_tracker_returns_each_raw_detection_once_including_unconfirmed_fish(tmp_path):
+    model = detector(tmp_path)
+    raw = [FishDetection((0, 0, 20, 20), .9), FishDetection((5, 0, 25, 20), .8)]
+    model.detect = lambda _frame: raw
+    model._tracker = SimpleNamespace(update=lambda _detections, _frame: np.asarray([
+        [*raw[0].bbox, 7, .9, 0, 0], [*raw[0].bbox, 7, .9, 0, 0],
+    ]))
+    detections = model.predict(np.zeros((32, 32, 3), dtype=np.uint8))
+    assert [(item.bbox, item.track_id) for item in detections] == [(raw[0].bbox, 7), (raw[1].bbox, None)]
+
+
+def test_conflicting_tracker_assignments_are_left_untracked(tmp_path):
+    model = detector(tmp_path)
+    raw = [FishDetection((0, 0, 20, 20), .9), FishDetection((5, 0, 25, 20), .8)]
+    model.detect = lambda _frame: raw
+    frame = np.zeros((32, 32, 3), dtype=np.uint8)
+    for rows in (
+        [[*raw[0].bbox, 7, .9, 0, 0], [*raw[0].bbox, 8, .9, 0, 0]],
+        [[*raw[0].bbox, 7, .9, 0, 0], [*raw[1].bbox, 7, .8, 0, 1]],
+    ):
+        model._tracker = SimpleNamespace(update=lambda _detections, _frame: np.asarray(rows))
+        assert all(item.track_id is None for item in model.predict(frame))
 
 
 def test_live_status_contains_tracker_backend_and_warning(monkeypatch):

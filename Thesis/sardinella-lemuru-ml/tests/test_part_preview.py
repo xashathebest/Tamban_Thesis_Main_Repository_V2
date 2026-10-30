@@ -12,7 +12,13 @@ import numpy as np
 
 from src.api.camera import CameraInspectionService
 from src.api.domain import Detection, InspectionState
-from src.api.runtime import PART_PREVIEW_MODE, WHOLE_FISH_MODE, resolve_part_weights_path, resolve_runtime_mode
+from src.api.runtime import (
+    PART_PREVIEW_MODE,
+    WHOLE_FISH_MODE,
+    resolve_part_weights_path,
+    resolve_quality_inference_mode,
+    resolve_runtime_mode,
+)
 from src.inference.part_types import PartDetection
 from src.inference.part_model import YoloPartModel, validate_part_class_mapping
 from src.preprocessing.audit_v7_exports import SOURCE_CLASSES
@@ -55,6 +61,20 @@ class RuntimeModeTests(unittest.TestCase):
     def test_invalid_runtime_mode_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "Unsupported LEMURU_MODE"):
             resolve_runtime_mode("parts_as_fish")
+
+    def test_whole_fish_runtime_refuses_unsafe_crop_ownership_mode(self):
+        self.assertEqual(
+            resolve_quality_inference_mode("crop", WHOLE_FISH_MODE),
+            "full_frame",
+        )
+        self.assertEqual(
+            resolve_quality_inference_mode("crop", PART_PREVIEW_MODE),
+            "crop",
+        )
+
+    def test_invalid_quality_inference_mode_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "FISH_QUALITY_INFERENCE_MODE"):
+            resolve_quality_inference_mode("batch", WHOLE_FISH_MODE)
 
     def test_part_weights_resolve_separately(self):
         with tempfile.TemporaryDirectory() as directory:

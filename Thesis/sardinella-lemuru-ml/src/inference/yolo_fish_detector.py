@@ -8,6 +8,7 @@ persistent IDs only; grading is delegated to ``YoloQualityModel``.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from importlib import import_module
 from importlib.util import find_spec
 import logging
 import os
@@ -26,6 +27,24 @@ from src.inference.preprocessing import clamp_bbox, validate_image
 
 SUPPORTED_CHECKPOINT_SUFFIXES = (".pt", ".pth", ".ckpt")
 LOGGER = logging.getLogger(__name__)
+
+
+def _lap_dependency_error() -> str | None:
+    """Check the binary can be loaded before Ultralytics imports its tracker.
+
+    Merely finding a module on disk does not prove that its native extension
+    matches the active Python/NumPy installation. Ultralytics otherwise tries
+    an automatic package installation when importing an unavailable ``lap``.
+    """
+    try:
+        if find_spec("lap") is None:
+            return "missing"
+        module = import_module("lap")
+        if not callable(getattr(module, "lapjv", None)):
+            return "lap.lapjv is unavailable"
+    except Exception as exc:
+        return f"{type(exc).__name__}: {exc}"
+    return None
 
 
 class YoloFishDetectorError(RuntimeError):
@@ -262,12 +281,16 @@ class YoloFishDetector:
                 tracker = self._tracker_factory(self.tracker_config)
                 tracker_backend = "custom tracker"
                 tracker_warning = "A custom tracker is active; ByteTrack has not been verified."
-            elif find_spec("lap") is None:
+            elif (lap_error := _lap_dependency_error()) is not None:
                 if self.require_bytetrack:
-                    raise YoloFishDetectorLoadError("ByteTrack is required, but the lap dependency is unavailable. Install the optional ByteTrack requirements.")
+                    raise YoloFishDetectorLoadError(f"ByteTrack is required, but the lap dependency is unavailable ({lap_error}). Install the optional ByteTrack requirements for this Python environment.")
                 tracker = _IoUTracker()
-                tracker_backend = "IoU fallback (optional ByteTrack lap dependency unavailable)"
-                tracker_warning = "ByteTrack is unavailable because lap is missing. IoU fallback is active; tracking results may differ."
+                if lap_error == "missing":
+                    tracker_backend = "IoU fallback (optional ByteTrack lap dependency unavailable)"
+                    tracker_warning = "ByteTrack is unavailable because lap is missing. IoU fallback is active; tracking results may differ."
+                else:
+                    tracker_backend = "IoU fallback (ByteTrack lap dependency failed to load)"
+                    tracker_warning = f"ByteTrack is unavailable because lap could not be loaded ({lap_error}). IoU fallback is active; tracking results may differ."
             else:
                 tracker = self._tracker_factory(self.tracker_config)
                 tracker_backend = "ByteTrack"
@@ -343,14 +366,32 @@ class YoloFishDetector:
                 self.last_tracking_seconds = perf_counter() - started
         except Exception as exc:
             raise YoloFishDetectorInferenceError(f"Model 1 {self.tracker_backend} update failed: {exc}") from exc
-        detections: list[Detection] = []
+        # ByteTrack only emits confirmed tracks. Keep each unmatched raw fish
+        # box as untracked so it can compete for Model 2 part ownership while
+        # remaining ineligible for grading and line-crossing counts.
+        matched: dict[int, int] = {}
+        ambiguous_sources: set[int] = set()
+        sources_by_track: dict[int, set[int]] = {}
         for track in np.asarray(tracks, dtype=np.float64).reshape((-1, 8)) if len(tracks) else ():
             source_index = int(track[7])
             if not 0 <= source_index < len(raw):
                 continue
-            source = raw[source_index]
-            detections.append(Detection(FISH_CLASS_ID, FISH_CLASS_NAME, source.confidence, source.bbox, int(track[4])))
-        return detections
+            track_id = int(track[4])
+            if track_id < 0:
+                continue
+            if source_index in matched and matched[source_index] != track_id:
+                ambiguous_sources.add(source_index)
+            else:
+                matched[source_index] = track_id
+            sources_by_track.setdefault(track_id, set()).add(source_index)
+        for source_indices in sources_by_track.values():
+            if len(source_indices) > 1:
+                ambiguous_sources.update(source_indices)
+        return [
+            Detection(FISH_CLASS_ID, FISH_CLASS_NAME, source.confidence, source.bbox,
+                      None if index in ambiguous_sources else matched.get(index))
+            for index, source in enumerate(raw)
+        ]
 
     def reset_tracker(self) -> None:
         if self._tracker is not None:

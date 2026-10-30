@@ -6,6 +6,7 @@ from collections import deque
 from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime
 import logging
+from math import isfinite
 from threading import RLock
 from time import monotonic
 from typing import Callable, Iterable
@@ -91,6 +92,10 @@ class TrackingConfig:
     track_timeout: float = 1.5
     history_limit: int = 25
     evidence_limit: int = 120
+    # An acceptance limit is optional: there is no invented conveyor target.
+    # When configured by an operator, it is recorded with each counted event
+    # and never changes the count, class, or grade.
+    decision_deadline_seconds: float | None = None
 
     def __post_init__(self) -> None:
         if self.line_orientation not in {"vertical", "horizontal"}:
@@ -106,6 +111,12 @@ class TrackingConfig:
             raise ValueError("Track timeout must be greater than zero.")
         if self.history_limit <= 0 or self.evidence_limit <= 0:
             raise ValueError("History and evidence limits must be greater than zero.")
+        deadline = self.decision_deadline_seconds
+        if deadline is not None:
+            if isinstance(deadline, bool) or not isinstance(deadline, (int, float)):
+                raise ValueError("Decision deadline must be a positive finite number of seconds when set.")
+            if not isfinite(deadline) or deadline <= 0:
+                raise ValueError("Decision deadline must be a positive finite number of seconds when set.")
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -388,7 +399,11 @@ class TrackingManager:
         return previous[1] > line >= current[1]
 
     @staticmethod
-    def _event_analysis(track: TrackState) -> dict[str, object]:
+    def _event_analysis(
+        track: TrackState,
+        *,
+        conveyor_timing: dict[str, object] | None = None,
+    ) -> dict[str, object]:
         """Merge grade evidence with non-claiming persistent-track diagnostics."""
 
         result = dict(track.quality_analysis)
@@ -404,7 +419,32 @@ class TrackingManager:
             "finalized_state": "counted" if track.counted else "active",
             "id_switch_check": "No separate ID-switch classifier is configured; evidence remains keyed to the persistent Model 1 tracker ID.",
         }
+        if conveyor_timing is not None:
+            # The count-line decision is final. Later Model 2 refreshes may
+            # update quality evidence, but must never rewrite this elapsed time.
+            result["conveyor_timing"] = dict(conveyor_timing)
         return result
+
+    def _conveyor_timing(self, track: TrackState, decision_timestamp: float) -> dict[str, object]:
+        """Describe elapsed tracked time without claiming a physical conveyor SLA."""
+
+        elapsed_seconds = max(0.0, decision_timestamp - track.created_at)
+        deadline = self.config.decision_deadline_seconds
+        if deadline is None:
+            deadline_status = "not_configured"
+        elif elapsed_seconds <= deadline:
+            deadline_status = "met"
+        else:
+            deadline_status = "missed"
+        return {
+            "first_detection_to_decision_ms": round(elapsed_seconds * 1000.0, 1),
+            "decision_deadline_seconds": deadline,
+            "deadline_status": deadline_status,
+            "measurement_scope": (
+                "Elapsed monotonic time from the first persistent Model 1 detection "
+                "to the virtual count-line decision; not physical entry or actuator confirmation."
+            ),
+        }
 
     def update(
         self,
@@ -453,7 +493,21 @@ class TrackingManager:
                                 quality=track.quality,
                                 quality_confidence=track.quality_confidence,
                                 parts=track.quality_parts,
-                                analysis={**self._event_analysis(track), **({"structural_evidence": event.analysis["structural_evidence"]} if "structural_evidence" in event.analysis else {})},
+                                analysis={
+                                    **self._event_analysis(
+                                        track,
+                                        conveyor_timing=(
+                                            event.analysis.get("conveyor_timing")
+                                            if isinstance(event.analysis.get("conveyor_timing"), dict)
+                                            else None
+                                        ),
+                                    ),
+                                    **(
+                                        {"structural_evidence": event.analysis["structural_evidence"]}
+                                        if "structural_evidence" in event.analysis
+                                        else {}
+                                    ),
+                                },
                             )
                             if event.track_id == track_id
                             else event
@@ -468,7 +522,21 @@ class TrackingManager:
                                 quality=track.quality,
                                 quality_confidence=track.quality_confidence,
                                 parts=track.quality_parts,
-                                analysis={**self._event_analysis(track), **({"structural_evidence": event.analysis["structural_evidence"]} if "structural_evidence" in event.analysis else {})},
+                                analysis={
+                                    **self._event_analysis(
+                                        track,
+                                        conveyor_timing=(
+                                            event.analysis.get("conveyor_timing")
+                                            if isinstance(event.analysis.get("conveyor_timing"), dict)
+                                            else None
+                                        ),
+                                    ),
+                                    **(
+                                        {"structural_evidence": event.analysis["structural_evidence"]}
+                                        if "structural_evidence" in event.analysis
+                                        else {}
+                                    ),
+                                },
                             )
                             if event.track_id == track_id
                             else event
@@ -488,6 +556,7 @@ class TrackingManager:
                 track.counted = True
                 track.final_class = final_class
                 track.final_confidence = final_confidence
+                conveyor_timing = self._conveyor_timing(track, now)
                 event = InspectionEvent(
                     track_id=track.track_id,
                     timestamp=event_timestamp or datetime.now().astimezone().isoformat(timespec="seconds"),
@@ -499,7 +568,7 @@ class TrackingManager:
                     quality_confidence=track.quality_confidence,
                     parts=track.quality_parts,
                     processing_time_ms=processing_time_ms,
-                    analysis=self._event_analysis(track),
+                    analysis=self._event_analysis(track, conveyor_timing=conveyor_timing),
                 )
                 self._history.appendleft(event)
                 self._archive.appendleft(event)
@@ -658,6 +727,7 @@ class InspectionState:
         self.tracking = TrackingManager(tracking_config)
         self.frame_jpeg: bytes | None = None
         self.frame_version = 0
+        self._frame_generation = 0
         self.frame_size: tuple[int, int] | None = None
         self.session_started_at = datetime.now().astimezone().isoformat(timespec="seconds")
         self.display_settings = {
@@ -693,6 +763,13 @@ class InspectionState:
             self.segmenter_weights_path = weights_path
             self.segmenter_message = message
 
+    def mark_tracker_ready(self) -> None:
+        """Report a successfully initialized whole-fish tracker before capture starts."""
+
+        with self._lock:
+            if self.runtime_mode == WHOLE_FISH_MODE:
+                self.tracker_status = "ready"
+
     def begin_start(self) -> bool:
         with self._lock:
             if self.inspection_status in {"starting", "running", "stopping"}:
@@ -707,12 +784,14 @@ class InspectionState:
             )
             self.fps = 0.0
             self.detections = []
+            self.frame_jpeg = None
+            self.frame_size = None
             self.tracking.reset_active_tracks()
             return True
 
     def mark_running(self) -> None:
         with self._lock:
-            if self.inspection_status == "stopping":
+            if self.inspection_status != "starting":
                 return
             self.inspection_status = "running"
             self.camera_status = "connected"
@@ -728,6 +807,7 @@ class InspectionState:
             if self.inspection_status != "errored":
                 self.inspection_status = "stopping"
                 self.message = "Stop requested; waiting for the camera and inference worker to finish."
+                self.frame_jpeg = None
 
     def mark_stopped(self, message: str = "Inspection is stopped.") -> None:
         with self._lock:
@@ -737,6 +817,8 @@ class InspectionState:
             self.message = message
             self.fps = 0.0
             self.detections = []
+            self.frame_jpeg = None
+            self.frame_size = None
 
     def clear_transient_tracking(self) -> None:
         """Discard live-only IDs/detections while preserving completed counts and history."""
@@ -754,6 +836,8 @@ class InspectionState:
             self.message = message
             self.fps = 0.0
             self.detections = []
+            self.frame_jpeg = None
+            self.frame_size = None
 
     def report_tracker_error(self, message: str) -> None:
         with self._lock:
@@ -786,8 +870,17 @@ class InspectionState:
                 self.message = "Inspection is running."
             return events
 
-    def publish_frame(self, frame_jpeg: bytes, fps: float) -> None:
+    def frame_generation(self) -> int:
+        """Identify the current session's live-frame generation."""
         with self._lock:
+            return self._frame_generation
+
+    def publish_frame(self, frame_jpeg: bytes, fps: float, *, generation: int | None = None) -> None:
+        with self._lock:
+            # A stop or capture error can arrive while inference is completing.
+            # Never publish that old frame after the lifecycle has moved on.
+            if self.inspection_status != "running" or (generation is not None and generation != self._frame_generation):
+                return
             self.frame_jpeg = frame_jpeg
             self.frame_version += 1
             self.fps = fps
@@ -837,6 +930,8 @@ class InspectionState:
         with self._lock:
             self.tracking.reset_session()
             self.detections = []
+            self._frame_generation += 1
+            self.frame_jpeg = None
             self.session_started_at = datetime.now().astimezone().isoformat(timespec="seconds")
             self.message = (
                 "Part preview reset. Fish counting remains disabled."
