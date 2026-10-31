@@ -234,7 +234,6 @@ function renderCamera(data) {
   const running = ["starting", "running", "stopping"].includes(inspection);
   const preview = data.runtime_mode === "part_preview";
   setCompactStatus($("connection-pill"), "Server", "Online", "ready");
-  $("runtime-mode-label").textContent = preview ? "Research mode · Part preview" : "Local inspection · Whole fish";
   $("part-preview-banner").classList.toggle("hidden", !preview);
   elements.shell.dataset.runtimeMode = data.runtime_mode || "whole_fish";
   setCompactStatus(elements.cameraPill, "Camera", titleCase(data.camera_status), data.camera_status);
