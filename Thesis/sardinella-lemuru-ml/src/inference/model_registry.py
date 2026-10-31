@@ -23,6 +23,11 @@ DEFAULT_REGISTRY_PATH = "models/MODEL_REGISTRY.json"
 SETTINGS_FILE_PATH = "configs/active_model.json"
 DEFAULT_MODEL2_ID = "yolo26m_partdet"
 DEFAULT_MODEL1_ID = "fish_parent_detector"
+ALLOWED_MODEL2_IDS = frozenset({
+    "yolo26m_partdet",
+    "effnetv2m_retinanet",
+    "fasterrcnn_r50fpn_v2",
+})
 
 
 @dataclass(frozen=True)
@@ -147,11 +152,16 @@ class ModelRegistry:
         return [entry for entry in self._entries.values() if entry.role == role]
 
     def list_model2_candidates(self) -> list[ModelEntry]:
-        """Return all models suitable for Model 2 selection."""
+        """Return the approved Model 2 checkpoints for operator selection."""
         return [
             entry for entry in self._entries.values()
-            if entry.role in {"model2_part_quality", "part_preview"}
+            if entry.id in ALLOWED_MODEL2_IDS
+            and entry.role == "model2_part_quality"
         ]
+
+    def is_allowed_model2(self, model_id: str) -> bool:
+        """Return whether a registry entry is approved for Model 2 selection."""
+        return model_id in ALLOWED_MODEL2_IDS
 
     def get_default_model2_id(self) -> str:
         return self._default_model2_id
@@ -165,7 +175,7 @@ class ModelRegistry:
             try:
                 data = json.loads(self.settings_path.read_text(encoding="utf-8"))
                 selected = data.get("selected_model2")
-                if selected and selected in self._entries:
+                if selected and selected in self._entries and self.is_allowed_model2(str(selected)):
                     return str(selected)
             except Exception as exc:
                 LOGGER.warning("Could not read persisted model settings: %s", exc)

@@ -32,7 +32,7 @@ const elements = {
   reviewEmpty: $("review-empty"), reviewWrap: $("review-table-wrap"), reviewBody: $("review-body"), reviewPrev: $("review-prev"), reviewNext: $("review-next"), reviewPage: $("review-page"),
   exportButton: $("export-button"), sidebarExport: $("sidebar-export"), exportModal: $("export-modal"), exportForm: $("export-form"), closeExport: $("close-export-button"), cancelExport: $("cancel-export-button"), dateRange: $("date-range"), exportSessionRange: $("export-session-range"), exportSession: $("export-session"), exportSessionStatus: $("export-session-status"), exportStartDate: $("export-start-date"), exportEndDate: $("export-end-date"),
   settingsButton: $("settings-button"), sidebarSettings: $("sidebar-settings"), settingsDrawer: $("settings-drawer"), closeSettings: $("close-settings-button"), scrim: $("scrim"),
-  cameraSettingsButton: $("camera-settings-button"), cameraCalibrationDrawer: $("camera-calibration-drawer"), closeCameraCalibration: $("close-camera-calibration-button"),
+  cameraCalibrationDrawer: $("camera-calibration-drawer"), closeCameraCalibration: $("close-camera-calibration-button"),
   cameraDeviceName: $("camera-device-name"), cameraConnection: $("camera-connection"), cameraLockBadge: $("camera-lock-badge"), cameraCaptureResolution: $("camera-capture-resolution"), cameraProcessingResolution: $("camera-processing-resolution"), cameraHardwareFps: $("camera-hardware-fps"), cameraBackend: $("camera-backend"), cameraProfileName: $("camera-profile-name"), cameraLockState: $("camera-lock-state"),
   calibrationMode: $("calibration-mode-toggle"), cameraControlNote: $("camera-control-note"), cameraControlList: $("camera-control-list"), imageStatistics: $("image-statistics-section"), statFrameBrightness: $("stat-frame-brightness"), statFishBrightness: $("stat-fish-brightness"), statBackgroundBrightness: $("stat-background-brightness"), statContrast: $("stat-contrast"), cameraConditionWarning: $("camera-condition-warning"),
   cameraReset: $("camera-reset-button"), cameraLoadProfile: $("camera-load-profile-button"), cameraSaveProfile: $("camera-save-profile-button"), cameraLock: $("camera-lock-button"), cameraCalibrationMessage: $("camera-calibration-message"),
@@ -361,11 +361,16 @@ function topStatistics(part) {
   return temporal && typeof temporal === "object" && temporal.top_grade_statistics && typeof temporal.top_grade_statistics === "object" ? temporal.top_grade_statistics : {};
 }
 function latestFeatureRows(event) {
-  return ["Body", "Head", "Tail"].map((region) => {
+  const rows = ["Body", "Head", "Tail"].map((region) => {
     const part = partFor(event, region);
     if (!part.present) return [region, partStatus(part), "unmeasured"];
     return [region, `${part.grade || "Unknown"} · ${scoreText(part.grade_confidence)}`, "detected"];
   });
+  const wholeFishColor = analysisFor(event).color?.["Whole Fish"];
+  const brightness = wholeFishColor?.mean_value;
+  rows.push(["Brightness", brightness == null ? "Not measured" : `${scoreText(brightness)} (HSV value)`, brightness == null ? "unmeasured" : "detected"]);
+  rows.push(["Cracks", "Not measured", "unmeasured"]);
+  return rows;
 }
 function addAnalysisDatum(grid, label, value) {
   const item = document.createElement("span"); const name = document.createElement("small"); const detail = document.createElement("b");
@@ -771,7 +776,7 @@ function setModelSelectorStatus(message, isError = false) {
 }
 function modelOptionLabel(model) {
   const suffix = [model.is_default_model2 ? "default" : "", model.is_loaded ? "loaded" : "", modelCanGrade(model) ? "" : "unavailable"].filter(Boolean).join(", ");
-  return `${model.display_name || model.id}${suffix ? ` (${suffix})` : ""}`;
+  return `${model.name || model.display_name || model.id}${suffix ? ` (${suffix})` : ""}`;
 }
 function renderModelSelectorOptions(activeId = activeModel2Id()) {
   const select = elements.model2Selector;
@@ -781,23 +786,18 @@ function renderModelSelectorOptions(activeId = activeModel2Id()) {
     select.append(option); select.disabled = true;
     return;
   }
-  if (activeId && !modelSelectorModels.some((model) => model.id === activeId)) {
-    const current = document.createElement("option");
-    current.value = activeId;
-    current.textContent = `Current active model: ${activeId} (not in this comparison)`;
-    current.disabled = true;
-    current.selected = true;
-    select.append(current);
-  }
+  const selectedId = modelSelectorModels.some((model) => model.id === activeId)
+    ? activeId
+    : modelSelectorModels[0].id;
   modelSelectorModels.forEach((model) => {
     const option = document.createElement("option");
     option.value = model.id;
     option.textContent = modelOptionLabel(model);
     option.disabled = !modelCanGrade(model);
-    option.selected = model.id === activeId;
+    option.selected = model.id === selectedId;
     select.append(option);
   });
-  if (activeId && [...select.options].some((option) => option.value === activeId)) select.value = activeId;
+  select.value = selectedId;
 }
 function syncModelSelector(data = latestStatus) {
   const select = elements.model2Selector;
@@ -1189,18 +1189,22 @@ function showView(view) {
 }
 function motionPreference() { return window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"; }
 function updateScrim() {
-  const anyOpen = elements.settingsDrawer.classList.contains("open") || elements.cameraCalibrationDrawer.classList.contains("open") || !elements.exportModal.classList.contains("hidden");
+  const uploadOpen = !elements.uploadWorkspace.classList.contains("hidden");
+  const anyOpen = elements.settingsDrawer.classList.contains("open") || elements.cameraCalibrationDrawer.classList.contains("open") || !elements.exportModal.classList.contains("hidden") || uploadOpen;
   elements.scrim.classList.toggle("hidden", !anyOpen);
-  elements.shell.inert = anyOpen;
+  elements.shell.inert = anyOpen && !uploadOpen;
   document.body.classList.toggle("panel-open", anyOpen);
 }
 function openPanel(panel) {
   if (!activePanel) panelTrigger = document.activeElement;
-  [elements.settingsDrawer, elements.cameraCalibrationDrawer, elements.exportModal].forEach((candidate) => {
+  [elements.settingsDrawer, elements.cameraCalibrationDrawer, elements.exportModal, elements.uploadWorkspace].forEach((candidate) => {
     const selected = candidate === panel;
     candidate.inert = !selected;
     candidate.setAttribute("aria-hidden", String(!selected));
-    if (candidate === elements.exportModal) candidate.classList.toggle("hidden", !selected);
+    if (candidate === elements.exportModal || candidate === elements.uploadWorkspace) {
+      candidate.classList.toggle("hidden", !selected);
+      candidate.classList.toggle("open", selected);
+    }
     else candidate.classList.toggle("open", selected);
   });
   activePanel = panel;
@@ -1209,12 +1213,18 @@ function openPanel(panel) {
 }
 function closePanel(panel) {
   if (panel !== activePanel) return;
+  if (panel === elements.uploadWorkspace && uploadInFlight) return;
   panel.classList.remove("open");
-  if (panel === elements.exportModal) panel.classList.add("hidden");
+  if (panel === elements.exportModal || panel === elements.uploadWorkspace) panel.classList.add("hidden");
   panel.inert = true;
   panel.setAttribute("aria-hidden", "true");
   activePanel = null;
   updateScrim();
+  if (panel === elements.uploadWorkspace) {
+    resetUploadWorkspace();
+    elements.uploadMode.setAttribute("aria-expanded", "false");
+    elements.uploadMode.textContent = "Analyze a photo";
+  }
   panelTrigger?.focus();
 }
 function openSettings() { if (latestStatus) syncSettings(latestStatus); openPanel(elements.settingsDrawer); }
@@ -1565,13 +1575,13 @@ function setUploadSelection(file) {
 }
 function toggleUpload(show) {
   if (!show && uploadInFlight) return;
-  elements.uploadWorkspace.classList.toggle("hidden", !show);
   elements.uploadMode.setAttribute("aria-expanded", String(show));
   elements.uploadMode.textContent = show ? "Close photo analysis" : "Analyze a photo";
   if (show) {
-    elements.uploadWorkspace.scrollIntoView({ behavior: motionPreference(), block: "nearest" });
+    openPanel(elements.uploadWorkspace);
     requestAnimationFrame(() => elements.selectUpload.focus({ preventScroll: true }));
   } else {
+    closePanel(elements.uploadWorkspace);
     resetUploadWorkspace();
     elements.uploadMode.focus({ preventScroll: true });
   }
@@ -1798,7 +1808,7 @@ function renderUploadMeasurements(fishList = []) {
 ensureHistoryVerdictFilter();
 elements.viewAll.addEventListener("click", () => showView("history")); elements.historyFilter.addEventListener("click", () => loadHistory(true)); elements.historySession.addEventListener("change", () => loadHistory(true)); elements.historyPrev.addEventListener("click", () => { if (historyState.page > 1) { historyState.page -= 1; loadHistory(); } }); elements.historyNext.addEventListener("click", () => { if (historyState.page < historyState.totalPages) { historyState.page += 1; loadHistory(); } });
 elements.reviewPrev.addEventListener("click", () => { if (reviewState.page > 1) { reviewState.page -= 1; loadReviewQueue(); } }); elements.reviewNext.addEventListener("click", () => { if (reviewState.page < reviewState.totalPages) { reviewState.page += 1; loadReviewQueue(); } });
-elements.settingsButton.addEventListener("click", openSettings); elements.sidebarSettings.addEventListener("click", openSettings); elements.closeSettings.addEventListener("click", closeSettings); elements.openConfidence.addEventListener("click", openSettings); elements.cameraSettingsButton.addEventListener("click", openCameraCalibration); elements.closeCameraCalibration.addEventListener("click", closeCameraCalibration); elements.scrim.addEventListener("click", () => { closeSettings(); closeCameraCalibration(); closeExport(); });
+elements.settingsButton.addEventListener("click", openSettings); elements.sidebarSettings.addEventListener("click", openSettings); elements.closeSettings.addEventListener("click", closeSettings); elements.openConfidence.addEventListener("click", openSettings); elements.closeCameraCalibration.addEventListener("click", closeCameraCalibration); elements.scrim.addEventListener("click", () => { closeSettings(); closeCameraCalibration(); closeExport(); closePanel(elements.uploadWorkspace); });
 elements.exportButton.addEventListener("click", openExport); elements.sidebarExport.addEventListener("click", openExport); elements.closeExport.addEventListener("click", closeExport); elements.cancelExport.addEventListener("click", closeExport);
 elements.calibrationMode.addEventListener("change", () => postCameraSettings({ calibration_mode: elements.calibrationMode.checked }));
   elements.cameraReset.addEventListener("click", () => cameraRequest("/api/camera/reset")); elements.cameraLoadProfile.addEventListener("click", () => cameraRequest("/api/camera/profile/load")); elements.cameraSaveProfile.addEventListener("click", () => cameraRequest("/api/camera/profile/save", undefined, "Inspection profile saved. Record references and explicitly confirm when the physical setup is reviewed.")); elements.cameraLock.addEventListener("click", () => cameraRequest("/api/camera/lock", { locked: !Boolean(cameraCalibrationStatus?.locked) }));

@@ -13,6 +13,8 @@ def test_upload_launcher_and_picker_have_distinct_clear_actions():
     assert 'aria-controls="upload-workspace"' in html
     assert 'aria-expanded="false"' in html
     assert '>Analyze a photo</button>' in html
+    assert 'role="dialog"' in html
+    assert 'class="upload-workspace upload-modal surface hidden"' in html
     assert 'id="select-upload-button"' in html
     assert '>Choose photo</button>' in html
     assert 'id="upload-file-name"' in html
@@ -27,6 +29,7 @@ def test_upload_flow_focuses_the_picker_and_guards_selection_during_analysis():
         "uploadSelectionVersion",
         "uploadRequestVersion",
         "function updateUploadControls()",
+        "elements.shell.inert = anyOpen && !uploadOpen",
         "elements.selectUpload.disabled = uploadInFlight",
         'elements.uploadWorkspace.setAttribute("aria-busy", String(uploadInFlight))',
         "requestAnimationFrame(() => elements.selectUpload.focus({ preventScroll: true }))",
@@ -36,3 +39,10 @@ def test_upload_flow_focuses_the_picker_and_guards_selection_during_analysis():
         "revokeUploadPreview()",
     ):
         assert token in javascript
+
+
+def test_latest_feature_panel_reports_supported_brightness_and_unavailable_cracks():
+    javascript = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+
+    assert '["Brightness", brightness == null ? "Not measured" : `${scoreText(brightness)} (HSV value)`' in javascript
+    assert '["Cracks", "Not measured", "unmeasured"]' in javascript

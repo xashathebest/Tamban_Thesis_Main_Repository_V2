@@ -1059,7 +1059,12 @@ def list_available_models() -> dict[str, object]:
     registry = get_model_registry()
     active_m2_id = getattr(quality_model, "active_model_id", None) or registry.get_persisted_model2_id()
     models_list = []
+    allowed_model2_ids = {entry.id for entry in registry.list_model2_candidates()}
     for entry in registry.list_models():
+        if entry.role == "model2_part_quality" and entry.id not in allowed_model2_ids:
+            continue
+        if entry.role == "part_preview":
+            continue
         item = entry.to_dict()
         item["is_active"] = bool(
             (entry.role == "model1_fish_detector" and entry.id == registry.get_default_model1_id())
@@ -1106,6 +1111,8 @@ async def select_model(request: Request) -> dict[str, object]:
     entry = registry.get_model(model_id)
     if entry is None:
         raise HTTPException(status_code=404, detail=f"Model ID '{model_id}' was not found in the registry.")
+    if not registry.is_allowed_model2(model_id):
+        raise HTTPException(status_code=403, detail="Only the approved Model 2 checkpoints may be selected.")
 
     compatible, reason = registry.validate_compatibility(model_id, "model2_grading")
     if not compatible:
