@@ -1264,6 +1264,7 @@ function researchInstallationPayload() {
 function renderCameraControls(status) {
   const properties = status?.capabilities?.properties || {};
   const actual = status?.actual || {};
+  const requestedAutomatic = status?.requested_automatic || {};
   const editable = cameraEditable(status);
   elements.cameraControlList.replaceChildren();
   if (!Object.keys(properties).length) {
@@ -1276,13 +1277,16 @@ function renderCameraControls(status) {
     const row = document.createElement("div"); row.className = `camera-control${supported ? "" : " unsupported"}`;
     const head = document.createElement("div"); head.className = "camera-control-head";
     const label = document.createElement("label"); label.textContent = capability?.label || titleCase(key);
-    const output = document.createElement("output"); output.textContent = supported ? (capability?.control === "toggle" ? (actual[key] ? "ON" : "OFF") : cameraNumber(actual[key])) : "Not supported";
+    const output = document.createElement("output");
+    const knownAutomatic = typeof actual[key] === "boolean";
+    const requestedMode = requestedAutomatic[key];
+    output.textContent = supported ? (capability?.control === "toggle" ? (knownAutomatic ? (actual[key] ? "ON" : "OFF") : typeof requestedMode === "boolean" ? `Requested ${requestedMode ? "ON" : "OFF"} (readback unavailable)` : "State unavailable") : cameraNumber(actual[key])) : "Not supported";
     head.append(label, output); row.append(head);
     if (!supported) {
       const note = document.createElement("small"); note.textContent = capability?.reason || "Not supported by this camera/backend"; row.append(note);
     } else if (capability?.control === "toggle") {
       const control = document.createElement("label"); control.className = "camera-control-toggle"; control.append(document.createTextNode("Physical camera control"));
-      const input = document.createElement("input"); input.type = "checkbox"; input.checked = Boolean(actual[key]); input.disabled = !editable; input.setAttribute("aria-label", capability?.label || key);
+      const input = document.createElement("input"); input.type = "checkbox"; input.checked = knownAutomatic ? actual[key] : requestedMode === true; input.indeterminate = !knownAutomatic && typeof requestedMode !== "boolean"; input.disabled = !editable; input.setAttribute("aria-label", capability?.label || key);
       input.id = `camera-control-${key}`; label.htmlFor = input.id;
       input.addEventListener("change", () => postCameraSettings({ [key]: input.checked })); control.append(input); row.append(control);
     } else {

@@ -1,10 +1,9 @@
 """Hardware-backed controls for the single inspection camera.
 
-OpenCV does not expose a portable UVC capability/range API.  This module keeps
-that limitation explicit: a property is only offered after the active capture
-backend accepts a no-op write and returns a readable value.  It deliberately
-does not alter image pixels; the camera is calibrated before frames enter the
-vision pipeline.
+OpenCV does not expose a portable UVC capability/range API. Discovery is strictly
+read-only: writing even the current exposure or white balance can disable the
+driver's automatic adjustments. Write acceptance and readback verification are
+reported separately. This module never alters image pixels.
 """
 
 from __future__ import annotations
@@ -41,16 +40,22 @@ CAMERA_PROPERTIES = (
     CameraProperty("exposure", "Exposure", "CAP_PROP_EXPOSURE"),
     CameraProperty("gain", "Gain", "CAP_PROP_GAIN"),
     CameraProperty("brightness", "Brightness", "CAP_PROP_BRIGHTNESS"),
+    CameraProperty("gamma", "Gamma", "CAP_PROP_GAMMA"),
     CameraProperty("contrast", "Contrast", "CAP_PROP_CONTRAST"),
     CameraProperty("saturation", "Saturation", "CAP_PROP_SATURATION"),
     CameraProperty("sharpness", "Sharpness", "CAP_PROP_SHARPNESS"),
-    CameraProperty("white_balance", "White Balance", "CAP_PROP_WHITE_BALANCE_BLUE_U"),
+    CameraProperty("white_balance", "White Balance", "CAP_PROP_WB_TEMPERATURE"),
     CameraProperty("focus", "Focus", "CAP_PROP_FOCUS"),
     CameraProperty("auto_exposure", "Auto Exposure", "CAP_PROP_AUTO_EXPOSURE", automatic=True),
     CameraProperty("auto_white_balance", "Auto White Balance", "CAP_PROP_AUTO_WB", automatic=True),
     CameraProperty("autofocus", "Autofocus", "CAP_PROP_AUTOFOCUS", automatic=True),
 )
 PROPERTY_BY_KEY = {item.key: item for item in CAMERA_PROPERTIES}
+AUTOMATIC_PARTNERS = {
+    "exposure": "auto_exposure", "gain": "auto_exposure",
+    "white_balance": "auto_white_balance", "focus": "autofocus",
+}
+CONTROL_SCHEMA_VERSION = 2
 
 # These are operator-recorded installation facts, not inferred camera values.
 # Keeping the vocabulary fixed makes a saved profile useful in a future
@@ -85,6 +90,9 @@ class CameraHardwareController:
         self._backend = "Unavailable"
         self._capabilities: dict[str, dict[str, object]] = {}
         self._opened_settings: dict[str, object] = {}
+        self._property_ids: dict[str, int | None] = {}
+        self._auto_requests: dict[str, bool] = {}
+        self._startup: dict[str, object] = {}
         self._profile: dict[str, object] = self._read_profile()
 
     @property
@@ -99,8 +107,14 @@ class CameraHardwareController:
             self._capture = capture
             self._cv2 = cv2
             self._backend = backend or "OpenCV"
+            self._property_ids = {}
+            self._auto_requests = {}
+            self._startup = {}
             self._capabilities = self._probe_capabilities()
-            self._opened_settings = self._read_all_settings()
+            self._opened_settings = {
+                key: value for key, value in self._read_all_settings().items()
+                if value is not None and self._capabilities.get(key, {}).get("supported")
+            }
         LOGGER.info("[CAMERA] Device opened successfully")
         LOGGER.info("[CAMERA] Backend: %s", self._backend)
         details = self.camera_details()
@@ -116,8 +130,27 @@ class CameraHardwareController:
             self._capture = None
             self._cv2 = None
             self._capabilities = {}
+            self._auto_requests = {}
 
     def _property_id(self, item: CameraProperty) -> int | None:
+        if item.key in self._property_ids:
+            return self._property_ids[item.key]
+        # DirectShow changed its temperature property ID between OpenCV
+        # versions. Both constants may exist even when only one is implemented.
+        if item.key == "white_balance" and self._capture is not None:
+            for name in ("CAP_PROP_WB_TEMPERATURE", "CAP_PROP_TEMPERATURE", "CAP_PROP_WHITE_BALANCE_BLUE_U"):
+                candidate = getattr(self._cv2, name, None)
+                if not isinstance(candidate, (int, float)):
+                    continue
+                try:
+                    raw = float(self._capture.get(int(candidate)))
+                except Exception:
+                    continue
+                if isfinite(raw) and raw > 1:
+                    self._property_ids[item.key] = int(candidate)
+                    return int(candidate)
+            self._property_ids[item.key] = None
+            return None
         value = getattr(self._cv2, item.cv2_name, None) if self._cv2 is not None else None
         return int(value) if isinstance(value, (int, float)) else None
 
@@ -128,6 +161,10 @@ class CameraHardwareController:
         try:
             value = float(self._capture.get(prop_id))
         except Exception:
+            return None
+        # DirectShow returns -1 for unimplemented getters (including AE).
+        # Negative exposure itself is a valid log2 shutter value.
+        if (item.automatic and value < 0) or ("DSHOW" in self._backend.upper() and value == -1 and item.key != "exposure"):
             return None
         return value if isfinite(value) else None
 
@@ -141,10 +178,13 @@ class CameraHardwareController:
     def _auto_value(self, key: str, raw: float | None) -> bool | None:
         if raw is None:
             return None
-        # DirectShow typically uses 0.25=manual and 0.75=auto.  Other
-        # backends usually expose a conventional 0/1 flag.
-        if key == "auto_exposure" and "DSHOW" in self._backend.upper():
-            return raw >= 0.5
+        if raw < 0:
+            return None
+        if "DSHOW" in self._backend.upper() and key == "autofocus":
+            # IAMCameraControl flags, not a boolean: Auto=1, Manual=2.
+            return bool(int(raw) & 1)
+        if key == "auto_exposure" and "V4L" in self._backend.upper():
+            return raw == 0.75
         return raw > 0.5
 
     def _read_value(self, item: CameraProperty) -> object:
@@ -155,7 +195,12 @@ class CameraHardwareController:
         return {item.key: self._read_value(item) for item in CAMERA_PROPERTIES if item.key in self._capabilities or self._capture is not None}
 
     def _probe_capabilities(self) -> dict[str, dict[str, object]]:
-        """Use a no-op write/readback; OpenCV has no cross-backend range API."""
+        """Inspect getters only; even a same-value write can select manual mode.
+
+        A readable property is a candidate control, not proof of write support.
+        DirectShow AE is known to be write-only in OpenCV. Actual requests always
+        check the driver's return value and verify readback where available.
+        """
 
         capabilities: dict[str, dict[str, object]] = {}
         for item in CAMERA_PROPERTIES:
@@ -171,7 +216,8 @@ class CameraHardwareController:
                     "control": "toggle" if item.automatic else "number",
                 }
                 continue
-            if raw is None:
+            write_only_ae = item.key == "auto_exposure" and "DSHOW" in self._backend.upper()
+            if raw is None and not write_only_ae:
                 capabilities[item.key] = {
                     "label": item.label,
                     "supported": False,
@@ -181,15 +227,12 @@ class CameraHardwareController:
                     "control": "toggle" if item.automatic else "number",
                 }
                 continue
-            try:
-                accepted = bool(self._capture.set(prop_id, raw))
-                readback = self._read_raw(item)
-            except Exception:
-                accepted, readback = False, None
             capabilities[item.key] = {
                 "label": item.label,
-                "supported": bool(accepted and readback is not None),
-                "reason": None if accepted and readback is not None else "Not supported by this camera/backend",
+                "supported": True,
+                "readable": raw is not None,
+                "write_verified": False,
+                "reason": "Write support is checked when requested; OpenCV does not expose control ranges",
                 # These are intentionally null. OpenCV's VideoCapture API does
                 # not report property min/max/step reliably across UVC drivers.
                 "range": None,
@@ -202,7 +245,7 @@ class CameraHardwareController:
         with self.lock:
             width = self._read_raw(CameraProperty("width", "Width", "CAP_PROP_FRAME_WIDTH")) or 0
             height = self._read_raw(CameraProperty("height", "Height", "CAP_PROP_FRAME_HEIGHT")) or 0
-            fps = self._read_raw(CameraProperty("fps", "FPS", "CAP_PROP_FPS")) or 0
+            fps = self._read_raw(CameraProperty("fps", "FPS", "CAP_PROP_FPS"))
             return {
                 "device_index": self.camera_index,
                 # VideoCapture has no standard device-name getter. Do not claim
@@ -212,8 +255,19 @@ class CameraHardwareController:
                 "backend": self._backend,
                 "capture_resolution": [int(width), int(height)],
                 "fps": self._number(fps),
+                "pixel_format": self._pixel_format(),
+                "convert_rgb": self._read_raw(CameraProperty("convert_rgb", "Color conversion", "CAP_PROP_CONVERT_RGB")),
+                "output_color_order": "BGR (OpenCV decoded frames)",
                 "profile_name": self._profile.get("profile_name") or ("Inspection Profile" if self.profile_path.exists() else None),
             }
+
+    def _pixel_format(self) -> dict[str, object]:
+        raw = self._read_raw(CameraProperty("fourcc", "Pixel format", "CAP_PROP_FOURCC"))
+        if raw is None or raw <= 0:
+            return {"fourcc": None, "code": self._number(raw)}
+        code = int(raw)
+        label = "".join(chr((code >> (8 * index)) & 0xff) for index in range(4))
+        return {"fourcc": label if label.isprintable() else None, "code": code}
 
     def capabilities(self) -> dict[str, object]:
         with self.lock:
@@ -242,6 +296,8 @@ class CameraHardwareController:
             return {
                 "available": self._capture is not None,
                 "actual": self._read_all_settings() if self._capture is not None else {},
+                "requested_automatic": dict(self._auto_requests),
+                "startup": dict(self._startup),
                 "camera": self.camera_details(),
                 "profile_drift": self.profile_drift(),
             }
@@ -277,6 +333,10 @@ class CameraHardwareController:
                 raise CameraControlError(f"{item.label} must be finite.")
             prop_id = self._property_id(item)
             assert prop_id is not None
+            current = self._read_raw(item)
+            if key in {"frame_width", "frame_height", "fps"} and current is not None and self._same_setting(requested, current):
+                return {"success": True, "property": key, "requested": self._number(requested),
+                        "actual": self._number(current), "skipped": True, "reason": "Already at the requested acquisition setting"}
             try:
                 driver_accepted = bool(self._capture.set(prop_id, requested))
             except Exception:
@@ -284,6 +344,12 @@ class CameraHardwareController:
             actual_raw = self._read_raw(item)
             actual = self._number(actual_raw)
             accepted = bool(driver_accepted and actual_raw is not None and abs(actual_raw - requested) <= max(0.001, abs(requested) * 0.0001))
+            if driver_accepted:
+                self._capabilities[key]["write_verified"] = True
+                partner = AUTOMATIC_PARTNERS.get(key)
+                if partner:
+                    # A manual write invalidates any earlier automatic request.
+                    self._auto_requests.pop(partner, None)
             LOGGER.info("[CAMERA] %s requested=%s actual=%s accepted=%s", item.label, requested, actual, accepted)
             return {
                 "success": accepted,
@@ -302,20 +368,21 @@ class CameraHardwareController:
                 raise CameraControlError(f"{item.label} must be true or false.")
             prop_id = self._property_id(item)
             assert prop_id is not None
-            dshow_exposure = key == "auto_exposure" and "DSHOW" in self._backend.upper()
-            candidates = ([0.75, 1.0] if enabled else [0.25, 0.0]) if dshow_exposure else ([1.0, 0.75] if enabled else [0.0, 0.25])
+            # DSHOW/MSMF use 1/0. The fractional convention belongs to V4L2,
+            # not DirectShow. Do not try unrelated values on a rejected write.
+            candidate = (0.75 if enabled else 0.25) if key == "auto_exposure" and "V4L" in self._backend.upper() else float(enabled)
             driver_accepted = False
             raw: float | None = None
-            for candidate in candidates:
-                try:
-                    driver_accepted = bool(self._capture.set(prop_id, candidate))
-                except Exception:
-                    driver_accepted = False
-                raw = self._read_raw(item)
-                if driver_accepted and self._auto_value(key, raw) == enabled:
-                    break
+            try:
+                driver_accepted = bool(self._capture.set(prop_id, candidate))
+            except Exception:
+                driver_accepted = False
+            raw = self._read_raw(item)
             actual = self._auto_value(key, raw)
-            accepted = bool(driver_accepted and actual == enabled)
+            accepted = bool(driver_accepted and (actual is None or actual == enabled))
+            if accepted:
+                self._auto_requests[key] = enabled
+            self._capabilities[key]["write_verified"] = driver_accepted
             LOGGER.info("[CAMERA] %s requested=%s actual=%s raw=%s accepted=%s", item.label, enabled, actual, self._number(raw), accepted)
             return {
                 "success": accepted,
@@ -323,6 +390,8 @@ class CameraHardwareController:
                 "requested": enabled,
                 "actual": actual,
                 "actual_raw": self._number(raw),
+                "driver_accepted": driver_accepted,
+                "verified": actual is not None and actual == enabled,
                 "reason": None if accepted else "Camera/backend did not accept the requested automatic mode",
             }
 
@@ -363,7 +432,13 @@ class CameraHardwareController:
         with self.lock:
             requested = dict(values)
             before = self.settings()["actual"]
-            errors = self.validate_settings(values)
+            before_requests = dict(self._auto_requests)
+            # Auto-controlled numeric readings are observations, not setpoints.
+            # Replaying them disables the automatic mode on Windows drivers.
+            skipped = {key for key, partner in AUTOMATIC_PARTNERS.items()
+                       if key in values and values.get(partner) is True}
+            effective = {key: value for key, value in values.items() if key not in skipped}
+            errors = self.validate_settings(effective)
             results: dict[str, dict[str, object]] = {}
             rollback: dict[str, dict[str, object]] = {}
             if errors:
@@ -371,8 +446,15 @@ class CameraHardwareController:
                     results[key] = {"success": False, "property": key, "requested": value,
                                     "actual": before.get(key), "reason": errors.get(key, "Not applied because another setting is invalid.")}
             else:
+                for key in skipped:
+                    results[key] = {"success": True, "property": key, "requested": values[key],
+                                    "actual": before.get(key), "skipped": True,
+                                    "reason": "Managed by the requested automatic camera mode"}
                 attempted: list[str] = []
-                for key, value in values.items():
+                # Resolution/FPS and manual values can reset camera modes.
+                # Apply automatic flags last, independent of JSON/YAML order.
+                ordered = sorted(effective.items(), key=lambda entry: PROPERTY_BY_KEY[entry[0]].automatic)
+                for key, value in ordered:
                     item = PROPERTY_BY_KEY[key]
                     attempted.append(key)
                     try:
@@ -381,8 +463,16 @@ class CameraHardwareController:
                         result = {"success": False, "property": key, "requested": value, "actual": self._read_value(item), "reason": str(exc)}
                     results[key] = result
                     if not result["success"]:
-                        for prior in reversed(attempted):
+                        restore_keys = list(reversed(attempted))
+                        for manual in attempted:
+                            partner = AUTOMATIC_PARTNERS.get(manual)
+                            if partner and self._capabilities.get(partner, {}).get("supported") and partner not in restore_keys:
+                                restore_keys.append(partner)
+                        restore_keys.sort(key=lambda name: PROPERTY_BY_KEY[name].automatic)
+                        for prior in restore_keys:
                             previous = before.get(prior)
+                            if previous is None:
+                                previous = before_requests.get(prior)
                             if previous is None:
                                 rollback[prior] = {"success": False, "reason": "Previous readback unavailable."}
                                 continue
@@ -397,17 +487,64 @@ class CameraHardwareController:
                                                     "actual": before.get(pending), "reason": "Not applied after another setting failed."}
                         break
             actual = self.settings()["actual"]
-            changed = any(before.get(key) != actual.get(key) for key in values)
+            observed = set(values) | {AUTOMATIC_PARTNERS[key] for key in values if key in AUTOMATIC_PARTNERS}
+            changed = any(before.get(key) != actual.get(key) for key in observed)
+            changed = changed or before_requests != self._auto_requests
             return {"success": bool(results) and all(bool(result["success"]) for result in results.values()),
                     "requested": requested, "before": before, "actual": actual, "results": results,
                     "rollback": rollback, "changed": changed}
+
+    def initialize_camera_settings(self) -> dict[str, object]:
+        """Restore explicit calibration or request the driver's AE/AWB defaults.
+
+        Old unlocked, unconfirmed profiles were captured after destructive
+        probing and can contain invented 'auto off' states. They are not safe
+        startup setpoints. Locked/confirmed calibrations remain explicit policy;
+        newly saved profiles carry the corrected control schema version.
+        """
+
+        with self.lock:
+            profile = self._profile
+            confirmation = profile.get("operator_confirmation")
+            explicit = (profile.get("control_schema_version") == CONTROL_SCHEMA_VERSION
+                        or profile.get("locked") is True
+                        or isinstance(confirmation, Mapping) and confirmation.get("confirmed") is True)
+            same_device = profile.get("device_index", self.camera_index) == self.camera_index
+            explicit = explicit and same_device
+            if explicit and isinstance(profile.get("settings"), Mapping) and profile["settings"]:
+                result = self.load_camera_profile()
+                policy = "saved_profile"
+            else:
+                results = {}
+                for key in ("auto_exposure", "auto_white_balance"):
+                    if self._capabilities.get(key, {}).get("supported"):
+                        results[key] = self._set_auto_property(key, True)
+                    else:
+                        results[key] = {"success": False, "property": key,
+                                        "reason": "Automatic control is not exposed by this camera/backend"}
+                result = {"success": all(item["success"] for item in results.values()),
+                          "results": results, "actual": self._read_all_settings(), "profile": dict(profile)}
+                policy = ("automatic_defaults" if not profile else "different_device_automatic_defaults"
+                          if not same_device else "legacy_profile_automatic_defaults")
+            self._startup = {"policy": policy, "success": result["success"], "results": result["results"]}
+            LOGGER.info("[CAMERA] Startup adjustment policy: %s; results=%s", policy, result["results"])
+            return result
 
     def reset_camera_settings(self) -> dict[str, object]:
         """Restore the values reported when this camera was opened, never defaults."""
 
         if not self._opened_settings:
             raise CameraControlError("No camera values are available to restore yet.")
-        return self.apply_settings(dict(self._opened_settings))
+        values = dict(self._opened_settings)
+        for key, partner in AUTOMATIC_PARTNERS.items():
+            if key in values and partner not in values:
+                if partner in self._auto_requests:
+                    values[partner] = self._auto_requests[partner]
+                else:
+                    # The original automatic mode cannot be reconstructed.
+                    # Replaying its numeric observation would force manual mode.
+                    values.pop(key, None)
+        return self.apply_settings(values)
 
     @staticmethod
     def _profile_metadata(value: Mapping[str, object] | None, *, label: str) -> dict[str, object]:
@@ -572,7 +709,18 @@ class CameraHardwareController:
             if isinstance(expected_settings, Mapping):
                 for raw_key, expected in expected_settings.items():
                     key = str(raw_key)
+                    partner = AUTOMATIC_PARTNERS.get(key)
+                    if partner and expected_settings.get(partner) is True:
+                        # Exposure/gain/WB/focus naturally vary under automation.
+                        continue
                     actual = actual_settings.get(key)
+                    if key in self._auto_requests and actual is None and self._auto_requests[key] == expected:
+                        warnings.append({
+                            "code": "CAMERA_PROPERTY_UNVERIFIED", "property": key,
+                            "expected": expected, "actual": None,
+                            "message": f"The driver accepted {key!r}, but this backend cannot read its state back.",
+                        })
+                        continue
                     if actual is None:
                         warnings.append(
                             {
@@ -641,6 +789,15 @@ class CameraHardwareController:
                 for key, capability in self._capabilities.items()
                 if capability.get("supported") and actual.get(key) is not None
             }
+            setting_sources = {key: "hardware_readback" for key in settings}
+            for key, requested in self._auto_requests.items():
+                if actual.get(key) is None:
+                    settings[key] = requested
+                    setting_sources[key] = "driver_accepted_request"
+            for key, partner in AUTOMATIC_PARTNERS.items():
+                if settings.get(partner) is True:
+                    settings.pop(key, None)
+                    setting_sources.pop(key, None)
             unsupported_properties = {
                 key: str(capability.get("reason") or "Not supported by this camera/backend")
                 for key, capability in self._capabilities.items()
@@ -663,6 +820,7 @@ class CameraHardwareController:
                 prior_resolution = existing.get("processing_resolution")
                 resolved_processing_resolution = list(prior_resolution) if isinstance(prior_resolution, list) else None
             candidate = {
+                "control_schema_version": CONTROL_SCHEMA_VERSION,
                 "profile_id": str(existing.get("profile_id") or f"camera-{self.camera_index}-{uuid4().hex[:12]}"),
                 "profile_name": str(existing.get("profile_name") or "Inspection Profile"),
                 "device_index": self.camera_index,
@@ -674,6 +832,7 @@ class CameraHardwareController:
                 "processing_resolution": resolved_processing_resolution,
                 "fps": details.get("fps"),
                 "settings": settings,
+                "setting_sources": setting_sources,
                 "unsupported_properties": unsupported_properties,
                 "reference": dict(reference if reference is not None else existing_reference),
                 "reference_scenes": merged_scenes,
@@ -763,6 +922,8 @@ class CameraHardwareController:
         """Apply a saved profile to the attached camera and read every value back."""
 
         self._profile = self._read_profile()
+        if self._profile.get("device_index", self.camera_index) != self.camera_index:
+            raise CameraControlError("The saved inspection profile belongs to a different camera index. Save a profile for the active camera first.")
         values = self._profile.get("settings") if isinstance(self._profile.get("settings"), dict) else {}
         if not values:
             raise CameraControlError("No saved inspection profile was found.")

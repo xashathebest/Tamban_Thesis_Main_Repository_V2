@@ -230,6 +230,8 @@ def _camera_settings_snapshot() -> dict[str, object]:
     return {
         "available": bool(status.get("available")),
         "actual": status.get("actual", {}),
+        "requested_automatic": status.get("requested_automatic", {}),
+        "startup": status.get("startup", {}),
         "camera": status.get("camera", {}),
         "locked": status.get("locked"),
         "profile": status.get("profile", {}),

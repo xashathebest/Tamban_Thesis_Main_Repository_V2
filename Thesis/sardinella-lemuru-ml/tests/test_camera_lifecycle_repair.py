@@ -70,7 +70,7 @@ def test_running_and_feed_wait_for_first_frame_and_restart_discards_old_frame(mo
     monkeypatch.setattr(service, "_open_capture", open_capture)
     monkeypatch.setattr(service.camera_controls, "attach", lambda *args: None)
     monkeypatch.setattr(service.camera_controls, "detach", lambda *args: None)
-    monkeypatch.setattr(service.camera_controls, "load_camera_profile", lambda: {"success": True})
+    monkeypatch.setattr(service.camera_controls, "initialize_camera_settings", lambda: {"success": True})
     monkeypatch.setattr(service, "process_frame", lambda frame, _cv2: frame)
     try:
         assert service.start()
@@ -164,7 +164,7 @@ def test_reset_rejects_frame_encoded_from_previous_session(monkeypatch):
     monkeypatch.setattr(service, "_open_capture", lambda _cv2: (Capture(), "test camera"))
     monkeypatch.setattr(service.camera_controls, "attach", lambda *args: None)
     monkeypatch.setattr(service.camera_controls, "detach", lambda *args: None)
-    monkeypatch.setattr(service.camera_controls, "load_camera_profile", lambda: {"success": True})
+    monkeypatch.setattr(service.camera_controls, "initialize_camera_settings", lambda: {"success": True})
     monkeypatch.setattr(service, "process_frame", lambda frame, _cv2: frame)
     monkeypatch.setattr(cv2, "imencode", slow_encode)
     monkeypatch.setattr(state, "publish_frame", publish)

@@ -1,55 +1,15 @@
+﻿# Portable automatic policy. Do not replay manual readings from another camera.
+# Save a new profile only after calibrating the selected physical device.
 camera:
-  profile_id: camera-0-4bb468ce4d7c
-  profile_name: Inspection Profile
+  control_schema_version: 2
+  profile_name: Automatic camera adjustments
   device_index: 0
   preferred_backend: DSHOW
-  saved_at: '2026-10-31T09:48:37-04:00'
   locked: false
-  camera_identity:
-    device_index: 0
-    device_name: 'Camera #0'
-    device_name_reported: false
-    backend: DSHOW
-    capture_resolution:
-    - 640
-    - 480
-    fps: 120.0005
-    profile_name: Inspection Profile
-  capture_resolution:
-  - 640
-  - 480
-  processing_resolution:
-  - 640
-  - 480
-  fps: 120.0005
   settings:
-    frame_width: 640
-    frame_height: 480
-    fps: 120.0005
-    exposure: -4
-    gain: 0
-    brightness: 50
-    contrast: 50
-    saturation: 64
-    sharpness: 50
-    auto_exposure: false
-    auto_white_balance: false
-  unsupported_properties:
-    white_balance: Not supported by this camera/backend
-    focus: Not supported by this camera/backend
-    autofocus: Not supported by this camera/backend
-  reference:
-    frame_brightness: 48.8
-    fish_roi_brightness: null
-    background_brightness: 48.8
-    background_mean_brightness: 48.8
-    background_median_brightness: 48.0
-    background_std_brightness: 1.0
-    fish_background_contrast: null
-    frame_hsv_mean:
-      h: 23.42
-      s: 28.72
-      v: 50.13
+    auto_exposure: true
+    auto_white_balance: true
+  reference: {}
   reference_scenes: {}
   installation: {}
   operator_confirmation:

@@ -1554,7 +1554,7 @@ class CameraInspectionService:
                 return
             self.camera_controls.attach(capture, cv2, backend)
             try:
-                profile_result = self.camera_controls.load_camera_profile()
+                profile_result = self.camera_controls.initialize_camera_settings()
                 profile = profile_result.get("profile")
                 if isinstance(profile, dict):
                     with self._camera_state_lock:
