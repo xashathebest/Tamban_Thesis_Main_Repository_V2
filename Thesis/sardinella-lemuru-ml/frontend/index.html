@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#FFFFFF">
     <title>Tamban Quality Inspection System | Live Inspection</title>
-    <link rel="stylesheet" href="/assets/styles.css?v=webcamcontrol1">
+    <link rel="stylesheet" href="/assets/styles.css?v=resultsdashboard1">
   </head>
   <body>
     <svg class="icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -191,8 +191,10 @@
               <article class="camera-card surface">
                 <div class="camera-head">
                   <div>
-                    <p class="eyebrow">CAMERA</p>
-                    <h2>Inspection feed</h2>
+                    <p class="eyebrow">ACTIVE MODEL</p>
+                    <select class="live-model-selector" id="live-model-selector" disabled aria-describedby="model2-selector-status">
+                      <option>Loading models...</option>
+                    </select>
                   </div>
                   <div class="camera-readout">
                     <button class="button quiet webcam-switch" id="webcam-button" type="button" disabled>Use webcam</button>
@@ -377,9 +379,9 @@
                 <div class="upload-controls">
                   <input class="visually-hidden" id="upload-input" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" aria-label="Select a fish image for local analysis">
                   <button class="button quiet upload-file-button" id="select-upload-button" type="button" aria-describedby="upload-file-name">Choose photo</button>
-                  <p class="upload-file-name" id="upload-file-name">No photo selected</p>
+                  <p class="upload-file-name" id="upload-file-name"></p>
                   <button class="button primary" id="analyze-button" type="button" disabled>Run analysis</button>
-                  <span class="visually-hidden" id="upload-status" role="status" aria-live="polite" aria-atomic="true">No photo selected</span>
+                  <span class="visually-hidden" id="upload-status" role="status" aria-live="polite" aria-atomic="true">Choose a photo to begin.</span>
                 </div>
               </div>
               <div class="upload-analysis-progress hidden" id="upload-analysis-progress" role="status" aria-live="polite" aria-label="Photo analysis in progress">
@@ -401,30 +403,27 @@
                 <section class="upload-measurements hidden" id="upload-fish-measurements" aria-labelledby="upload-measurements-title"></section>
               </div>
             </section>
-            <section class="recent-section surface" id="recent-inspections">
+            <section class="results-dashboard surface" id="recent-inspections">
               <div class="section-head compact">
                 <div>
-                  <p class="eyebrow">RECENT INSPECTIONS</p>
-                  <h2>Latest completed fish</h2>
+                  <p class="eyebrow">FISH INSPECTION RESULTS</p>
+                  <h2>Results by final grade</h2>
                 </div>
-                <button class="text-button" id="view-all-button" type="button">View all →</button>
+                <div class="results-export-actions">
+                  <button class="button quiet" id="results-export-csv" type="button">Export CSV</button>
+                  <button class="button primary" id="results-export-pdf" type="button">Export PDF</button>
+                </div>
               </div>
-              <div class="history-empty" id="recent-empty">No completed inspections yet. Fish appear here after crossing the counting line.</div>
-              <div class="table-wrap hidden" id="recent-table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th scope="col">Fish ID</th>
-                      <th scope="col">Time</th>
-                      <th scope="col">Grade</th>
-                      <th scope="col">Final support</th>
-                      <th scope="col">Detected features</th>
-                      <th scope="col">Processing</th>
-                    </tr>
-                  </thead>
-                  <tbody id="recent-history-body"></tbody>
-                </table>
+              <div class="results-filter-tabs" id="results-filter-tabs" role="tablist" aria-label="Filter fish results">
+                <button class="results-filter active" type="button" role="tab" aria-selected="true" data-results-filter="All">All <b>0</b></button>
+                <button class="results-filter" type="button" role="tab" aria-selected="false" data-results-filter="Class A">Class A <b>0</b></button>
+                <button class="results-filter" type="button" role="tab" aria-selected="false" data-results-filter="Class B">Class B <b>0</b></button>
+                <button class="results-filter" type="button" role="tab" aria-selected="false" data-results-filter="Class C">Class C <b>0</b></button>
+                <button class="results-filter" type="button" role="tab" aria-selected="false" data-results-filter="Rejected">Rejected <b>0</b></button>
+                <button class="results-filter" type="button" role="tab" aria-selected="false" data-results-filter="Ungraded">Ungraded <b>0</b></button>
               </div>
+              <div class="results-summary" id="results-summary">Loading fish-level results…</div>
+              <div class="results-groups" id="results-groups"></div>
             </section>
             <section class="feature-section surface">
               <div class="section-head compact">
@@ -1086,6 +1085,6 @@
         <button class="button primary" type="submit">Sign in</button>
       </form>
     </dialog>
-    <script src="/assets/app.js?v=trackingidentity1" defer></script>
+    <script src="/assets/app.js?v=resultsdashboard1" defer></script>
   </body>
 </html>

@@ -14,7 +14,7 @@ window.fetch = (input, options = {}) => {
 const elements = {
   shell: $("app-shell"), sidebarToggle: $("sidebar-toggle"),
   pageTitle: $("page-title"), pageSubtitle: $("page-subtitle"),
-  cameraPill: $("camera-pill"), modelPill: $("model-pill"), devicePill: $("device-pill"),
+  cameraPill: $("camera-pill"), modelPill: $("model-pill"), devicePill: $("device-pill"), liveModelSelector: $("live-model-selector"),
   alert: $("alert"), alertTitle: $("alert-title"), alertCopy: $("alert-copy"), alertDetails: $("alert-details"),
   liveBadge: $("live-badge"), inspectionState: $("inspection-state"), webcam: $("webcam-button"), start: $("start-button"), emptyStart: $("empty-start-button"), stop: $("stop-button"), reset: $("reset-button"),
   video: $("video-feed"), placeholder: $("video-placeholder"), placeholderTitle: $("placeholder-title"), placeholderCopy: $("placeholder-copy"),
@@ -27,7 +27,7 @@ const elements = {
   gradeChartEmpty: $("grade-chart-empty"), gradeChart: $("grade-chart"), gradeDonut: $("grade-donut"), gradeTotal: $("grade-total"), gradeLegend: $("grade-legend"),
   featureChartEmpty: $("feature-chart-empty"), featureChart: $("feature-chart"), throughputChartEmpty: $("throughput-chart-empty"), throughputChart: $("throughput-chart"), throughputLine: $("throughput-line"), throughputCaption: $("throughput-caption"),
   confidenceChartEmpty: $("confidence-chart-empty"), confidenceChart: $("confidence-chart"), averageGradeConfidence: $("average-grade-confidence"),
-  recentEmpty: $("recent-empty"), recentWrap: $("recent-table-wrap"), recentHistoryBody: $("recent-history-body"), viewAll: $("view-all-button"),
+  recentEmpty: null, recentWrap: null, recentHistoryBody: null, viewAll: $("view-all-button"), resultsGroups: $("results-groups"), resultsSummary: $("results-summary"), resultsFilters: [...document.querySelectorAll(".results-filter")], resultsExportCsv: $("results-export-csv"), resultsExportPdf: $("results-export-pdf"),
   historyEmpty: $("history-empty"), historyWrap: $("history-table-wrap"), historyBody: $("history-body"), historySession: $("history-session"), historySearch: $("history-search"), historyGrade: $("history-grade"), historyFeature: $("history-feature"), historyConfidence: $("history-confidence"), historyFilter: $("history-filter-button"), historyPrev: $("history-prev"), historyNext: $("history-next"), historyPage: $("history-page"),
   reviewEmpty: $("review-empty"), reviewWrap: $("review-table-wrap"), reviewBody: $("review-body"), reviewPrev: $("review-prev"), reviewNext: $("review-next"), reviewPage: $("review-page"),
   exportButton: $("export-button"), sidebarExport: $("sidebar-export"), exportModal: $("export-modal"), exportForm: $("export-form"), closeExport: $("close-export-button"), cancelExport: $("cancel-export-button"), dateRange: $("date-range"), exportSessionRange: $("export-session-range"), exportSession: $("export-session"), exportSessionStatus: $("export-session-status"), exportStartDate: $("export-start-date"), exportEndDate: $("export-end-date"),
@@ -113,6 +113,9 @@ let cameraRenderKey = null;
 let alertRenderKey = null;
 let latestEvidenceKey = null;
 let recentHistoryKey = null;
+let resultsFilter = "All";
+let resultsEvents = [];
+let resultsRenderedFilter = null;
 let historyRowsKey = null;
 let reviewRowsKey = null;
 let modelSelectorModels = [];
@@ -712,16 +715,107 @@ function labelHistoryRows(body) {
     });
   });
 }
-function renderRecent(history) {
-  const rows = (history || []).slice(0, 10);
-  const key = JSON.stringify(rows);
-  if (key === recentHistoryKey) return;
-  recentHistoryKey = key;
-  elements.recentEmpty.classList.toggle("hidden", rows.length > 0); elements.recentWrap.classList.toggle("hidden", rows.length === 0); elements.recentHistoryBody.replaceChildren();
-  rows.forEach((event) => {
-    const row = document.createElement("tr"); row.append(fishHistoryCell(event), historyCell(formatTime(event.timestamp)), historyCell(aiFinalGrade(event), "grade-cell"), historyCell(scoreText(weightedFinalSupport(event))), historyCell(detectedFeatures(event), "status-note"), historyCell(formatMs(event.processing_time_ms))); elements.recentHistoryBody.append(row);
+function resultGrade(event) {
+  const grade = manualGrade(event) || aiFinalGrade(event);
+  return sessionGradeBuckets.includes(grade) ? grade : "Ungraded";
+}
+function resultValue(value) {
+  if (value == null || value === "") return "—";
+  if (typeof value === "number") return Number.isFinite(value) ? String(Math.round(value * 100) / 100) : "—";
+  return String(value);
+}
+function resultEvidenceRows(event) {
+  const analysis = event?.analysis && typeof event.analysis === "object" ? event.analysis : {};
+  const detection = analysis.model1_detection && typeof analysis.model1_detection === "object" ? analysis.model1_detection : {};
+  const weights = analysis.effective_weights || analysis.weighted_weights || {};
+  const parts = Array.isArray(event?.parts) ? event.parts : [];
+  return [
+    ["Model 1 detection", scoreText(detection.confidence ?? event?.final_confidence)],
+    ["Model 2 Body", partEvidenceText(parts, "Body")],
+    ["Model 2 Head", partEvidenceText(parts, "Head")],
+    ["Model 2 Tail", partEvidenceText(parts, "Tail")],
+    ["Effective weights", Object.keys(weights).length ? Object.entries(weights).map(([key, value]) => `${key}: ${resultValue(value)}`).join(" · ") : effectiveWeightText(event)],
+    ["Final support", scoreText(weightedFinalSupport(event))],
+    ["Ungraded reason", resultGrade(event) === "Ungraded" ? (verdictReason(event).text || analysis.verdict_reason_text || "Evidence was missing or unreliable.") : "—"],
+  ];
+}
+function partEvidenceText(parts, region) {
+  const matches = parts.filter((part) => String(part?.region || "").toLowerCase() === region.toLowerCase());
+  if (!matches.length) return "Not observed";
+  const best = matches.reduce((item, current) => Number(current?.evidence_score ?? current?.confidence ?? 0) > Number(item?.evidence_score ?? item?.confidence ?? 0) ? current : item);
+  return `${best.grade || best.source_class_name || "Observed"} · ${scoreText(best.evidence_score ?? best.confidence)}`;
+}
+function measurementRows(event) {
+  const regions = event?.analysis?.supporting_image_measurements?.regions;
+  if (!regions || typeof regions !== "object") return [];
+  return Object.entries(regions).map(([region, item]) => {
+    const values = item?.values && typeof item.values === "object" ? item.values : {};
+    return [region, item?.status === "measured" ? resultValue(values.mean_hue_deg) + "°" : "Unavailable", item?.status === "measured" ? resultValue(values.mean_saturation) : "—", item?.status === "measured" ? resultValue(values.mean_value) : "—", item?.status === "measured" ? resultValue(values.yellow_ratio_proxy) : "—"];
   });
-  labelHistoryRows(elements.recentHistoryBody);
+}
+function appendResultTable(parent, headers, rows) {
+  const table = document.createElement("table"); table.className = "compact-results-table";
+  const thead = document.createElement("thead"); const headRow = document.createElement("tr"); headers.forEach((header) => { const cell = document.createElement("th"); cell.textContent = header; headRow.append(cell); }); thead.append(headRow);
+  const body = document.createElement("tbody"); rows.forEach((values) => { const row = document.createElement("tr"); values.forEach((value) => { const cell = document.createElement("td"); cell.textContent = resultValue(value); row.append(cell); }); body.append(row); }); table.append(thead, body); parent.append(table);
+}
+function appendResultCard(parent, event) {
+  const grade = resultGrade(event); const details = document.createElement("details"); details.className = "result-fish-card";
+  const summary = document.createElement("summary"); const title = document.createElement("strong"); title.textContent = event.fish_label || `Fish #${event.track_id}`; const support = document.createElement("b"); support.textContent = scoreText(weightedFinalSupport(event)); const status = document.createElement("span"); status.textContent = grade === "Ungraded" ? "Evidence incomplete" : `${grade} final classification`; summary.append(title, support, status); details.append(summary);
+  const body = document.createElement("div"); body.className = "result-fish-details";
+  const evidenceSection = document.createElement("section"); evidenceSection.innerHTML = "<h4>Grading evidence</h4>"; appendResultTable(evidenceSection, ["Evidence", "Value"], resultEvidenceRows(event)); body.append(evidenceSection);
+  const measurements = document.createElement("details"); measurements.className = "result-measurements"; const measurementSummary = document.createElement("summary"); measurementSummary.textContent = "Diagnostic image measurements (not used for grading)"; measurements.append(measurementSummary);
+  const measurementRowsData = measurementRows(event); if (measurementRowsData.length) appendResultTable(measurements, ["Region", "Hue", "Saturation", "Brightness", "Yellow proxy"], measurementRowsData); else { const empty = document.createElement("p"); empty.className = "muted"; empty.textContent = "Measurements unavailable for this fish."; measurements.append(empty); } body.append(measurements);
+  details.append(body); parent.append(details);
+}
+function renderResultsDashboard(history) {
+  const rows = Array.isArray(history) ? history : []; const key = JSON.stringify(rows);
+  if (key === recentHistoryKey && resultsRenderedFilter === resultsFilter && elements.resultsGroups.childElementCount) return;
+  recentHistoryKey = key; resultsEvents = rows;
+  resultsRenderedFilter = resultsFilter;
+  const counts = Object.fromEntries(["All", ...sessionGradeBuckets].map((grade) => [grade, grade === "All" ? rows.length : rows.filter((event) => resultGrade(event) === grade).length]));
+  elements.resultsFilters.forEach((button) => { const category = button.dataset.resultsFilter; const count = button.querySelector("b"); if (count) count.textContent = counts[category] ?? 0; button.classList.toggle("active", category === resultsFilter); button.setAttribute("aria-selected", String(category === resultsFilter)); });
+  const visible = resultsFilter === "All" ? rows : rows.filter((event) => resultGrade(event) === resultsFilter); elements.resultsSummary.textContent = `${visible.length} fish shown · ${rows.length} fish in this inspection session. Evidence is grouped by final classification.`;
+  elements.resultsGroups.replaceChildren();
+  const groups = resultsFilter === "All" ? sessionGradeBuckets : [resultsFilter];
+  groups.forEach((grade) => { const groupRows = visible.filter((event) => resultGrade(event) === grade); if (!groupRows.length && resultsFilter === "All") return; const group = document.createElement("details"); group.className = "result-grade-group"; group.open = resultsFilter !== "All" || groupRows.length <= 8; const summary = document.createElement("summary"); summary.innerHTML = `<span>${grade}</span><b>${groupRows.length}</b>`; group.append(summary); const cards = document.createElement("div"); cards.className = "result-fish-cards"; groupRows.forEach((event) => appendResultCard(cards, event)); group.append(cards); elements.resultsGroups.append(group); });
+  if (!visible.length) { const empty = document.createElement("p"); empty.className = "history-empty"; empty.textContent = "No fish match this classification yet."; elements.resultsGroups.append(empty); }
+}
+let resultsRequestInFlight = false;
+async function loadResultsDashboard() {
+  if (resultsRequestInFlight || selectedView !== "live") return;
+  resultsRequestInFlight = true;
+  try {
+    const response = await fetch("/api/history?page=1&page_size=100&range_name=current_session");
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    let items = data.items || data.recent_history || [];
+    for (let page = 2; page <= Number(data.total_pages || 1); page += 1) {
+      const pageResponse = await fetch(`/api/history?page=${page}&page_size=100&range_name=current_session`);
+      if (!pageResponse.ok) throw new Error(`HTTP ${pageResponse.status}`);
+      const pageData = await pageResponse.json();
+      items = items.concat(pageData.items || []);
+    }
+    renderResultsDashboard(items);
+  } catch (error) {
+    elements.resultsSummary.textContent = `Unable to load fish-level results: ${error.message}`;
+  } finally {
+    resultsRequestInFlight = false;
+  }
+}
+function exportResultsCsv() {
+  const rows = resultsFilter === "All" ? resultsEvents : resultsEvents.filter((event) => resultGrade(event) === resultsFilter);
+  const headers = ["Fish ID", "Final classification", "Final support", "Model 1 detection", "Body evidence", "Head evidence", "Tail evidence", "Ungraded reason", "Timestamp", "Diagnostic measurements", "Complete fish event"];
+  const csvEscape = (value) => `"${String(value ?? "").replaceAll("\"", "\"\"")}"`;
+  const lines = [headers.map(csvEscape).join(",")];
+  rows.forEach((event) => { const evidence = Object.fromEntries(resultEvidenceRows(event)); lines.push([event.fish_label || `Fish #${event.track_id}`, resultGrade(event), scoreText(weightedFinalSupport(event)), evidence["Model 1 detection"], evidence["Model 2 Body"], evidence["Model 2 Head"], evidence["Model 2 Tail"], evidence["Ungraded reason"], event.timestamp || "", JSON.stringify(event.analysis?.supporting_image_measurements || {}), JSON.stringify(event)].map(csvEscape).join(",")); });
+  const blob = new Blob([`\ufeff${lines.join("\r\n")}`], { type: "text/csv;charset=utf-8" }); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `fish-inspection-${resultsFilter.toLowerCase().replaceAll(" ", "-")}.csv`; link.click(); URL.revokeObjectURL(link.href);
+}
+function exportResultsPdf() {
+  const rows = resultsFilter === "All" ? resultsEvents : resultsEvents.filter((event) => resultGrade(event) === resultsFilter);
+  const groups = sessionGradeBuckets.map((grade) => [grade, rows.filter((event) => resultGrade(event) === grade)]).filter(([, items]) => items.length);
+  const htmlEscape = (value) => String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll("\"", "&quot;");
+  const cards = groups.map(([grade, items]) => `<section><h2>${htmlEscape(grade)} (${items.length})</h2>${items.map((event) => { const evidence = Object.fromEntries(resultEvidenceRows(event)); const measurements = measurementRows(event).map((row) => row.join(": ")).join(" · ") || "Unavailable"; return `<article><h3>${htmlEscape(event.fish_label || `Fish #${event.track_id}`)} · ${htmlEscape(scoreText(weightedFinalSupport(event)))}</h3><p>Model 1: ${htmlEscape(evidence["Model 1 detection"])} · Body: ${htmlEscape(evidence["Model 2 Body"])} · Head: ${htmlEscape(evidence["Model 2 Head"])} · Tail: ${htmlEscape(evidence["Model 2 Tail"])}</p><p>Ungraded reason: ${htmlEscape(evidence["Ungraded reason"])}</p><p>Diagnostic measurements: ${htmlEscape(measurements)}</p></article>`; }).join("")}</section>`).join("");
+  const report = window.open("", "_blank"); if (!report) return; report.document.write(`<title>Fish Inspection Report</title><style>body{font:12px Arial;color:#17212b;margin:32px}h1{font-size:24px}h2{border-bottom:2px solid #197c7c;padding-bottom:6px;margin-top:24px}article{border:1px solid #ccd5d8;border-radius:6px;padding:8px 12px;margin:8px 0}h3{margin:0 0 5px}p{margin:3px 0;color:#46545a}</style><h1>Fish Inspection Report</h1><p>Filter: ${htmlEscape(resultsFilter)} · Fish: ${rows.length} · Generated: ${htmlEscape(new Date().toLocaleString())}</p>${cards}`); report.document.close(); report.focus(); setTimeout(() => report.print(), 250);
 }
 
 function manualChoiceForDisplay(value) { return String(value || "").replace(/^Class\s+/i, ""); }
@@ -780,43 +874,47 @@ function modelOptionLabel(model) {
   return `${model.name || model.display_name || model.id}${suffix ? ` (${suffix})` : ""}`;
 }
 function renderModelSelectorOptions(activeId = activeModel2Id()) {
-  const select = elements.model2Selector;
-  select.replaceChildren();
+  const selects = [elements.model2Selector, elements.liveModelSelector].filter(Boolean);
+  selects.forEach((select) => select.replaceChildren());
   if (!modelSelectorModels.length) {
     const option = document.createElement("option"); option.textContent = "No requested Model 2 checkpoints found"; option.disabled = true; option.selected = true;
-    select.append(option); select.disabled = true;
+    selects.forEach((select) => { select.append(option.cloneNode(true)); select.disabled = true; });
     return;
   }
   const selectedId = modelSelectorModels.some((model) => model.id === activeId)
     ? activeId
     : modelSelectorModels[0].id;
-  modelSelectorModels.forEach((model) => {
-    const option = document.createElement("option");
-    option.value = model.id;
-    option.textContent = modelOptionLabel(model);
-    option.disabled = !modelCanGrade(model);
-    option.selected = model.id === selectedId;
-    select.append(option);
+  selects.forEach((select) => {
+    modelSelectorModels.forEach((model) => {
+      const option = document.createElement("option");
+      option.value = model.id;
+      option.textContent = modelOptionLabel(model);
+      option.disabled = !modelCanGrade(model);
+      option.selected = model.id === selectedId;
+      select.append(option);
+    });
+    select.value = selectedId;
   });
-  select.value = selectedId;
 }
 function syncModelSelector(data = latestStatus) {
-  const select = elements.model2Selector;
+  const selects = [elements.model2Selector, elements.liveModelSelector].filter(Boolean);
   if (modelSelectorChanging) {
-    select.disabled = true;
-    select.title = "The selected model is loading.";
+    selects.forEach((select) => { select.disabled = true; select.title = "The selected model is loading."; });
     return;
   }
   if (!modelSelectorModels.length) {
-    select.disabled = true;
-    select.title = "The requested Model 2 checkpoints are unavailable.";
+    selects.forEach((select) => { select.disabled = true; select.title = "The requested Model 2 checkpoints are unavailable."; });
     return;
   }
   const activeId = activeModel2Id(data);
-  if (activeId && [...select.options].some((option) => option.value === activeId)) select.value = activeId;
+  selects.forEach((select) => {
+    if (activeId && [...select.options].some((option) => option.value === activeId)) select.value = activeId;
+  });
   const inspectionActive = Boolean(data?.policy_settings_locked) || ["starting", "running", "stopping"].includes(data?.inspection_status);
-  select.disabled = modelSelectorLoading || inspectionActive;
-  select.title = inspectionActive ? "Stop inspection before changing Model 2." : "";
+  selects.forEach((select) => {
+    select.disabled = modelSelectorLoading || inspectionActive;
+    select.title = inspectionActive ? "Stop inspection before changing Model 2." : "";
+  });
   const activeModel = modelSelectorModels.find((model) => model.id === activeId);
   const quality = data?.model_info?.quality || {};
   const readiness = quality.is_loaded === true ? "Loaded and ready." : quality.is_loaded === false ? "Not loaded." : "";
@@ -832,6 +930,7 @@ async function loadModelSelector() {
   let selectorStatus = null;
   modelSelectorLoading = true;
   elements.model2Selector.disabled = true;
+  if (elements.liveModelSelector) elements.liveModelSelector.disabled = true;
   setModelSelectorStatus("Loading the requested Model 2 checkpoints.");
   try {
     const response = await fetch("/api/models", { cache: "no-store" });
@@ -1030,7 +1129,7 @@ function render(data) {
   const cameraKey = JSON.stringify([data.inspection_status, data.camera_status, data.model_status, data.segmenter_status, data.runtime_mode, data.model_info?.quality?.status, data.model_info?.detector?.device, data.fps, data.frame_size, data.message, data.raw_preview_available, data.upload_analysis_available, Boolean(selectedUpload), uploadInFlight, streamReady, streamAttached, previewImageLoadFps == null ? null : previewImageLoadFps.toFixed(1), controlRequestInFlight]);
   if (cameraKey !== cameraRenderKey) { renderCamera(data); cameraRenderKey = cameraKey; }
   if (selectedView === "live") {
-    renderLatest(data); renderKpis(data); renderFeatureCounters(data); renderRecent(data.recent_history);
+    renderLatest(data); renderKpis(data); renderFeatureCounters(data); renderResultsDashboard(data.recent_history);
     Object.entries(overlayControls).forEach(([name, controls]) => controls.forEach((control) => { if (control) control.checked = Boolean(data.display_settings?.[name]); }));
     if ($("analytics-disclosure").open && data.analytics !== renderedAnalytics) {
       renderAnalytics(data.analytics); renderedAnalytics = data.analytics;
@@ -1044,12 +1143,11 @@ function render(data) {
   $("review-count").textContent = String(reviewCount);
   $("review-count").classList.toggle("hidden", reviewCount === 0);
   if (data.runtime_mode === "part_preview") {
-    elements.recentEmpty.textContent = "Fish counting is disabled in part preview.";
+    elements.resultsSummary.textContent = "Fish counting is disabled in part preview.";
     $("analytics-disclosure").classList.add("hidden");
     $("analytics-section").classList.add("hidden");
     elements.featureCounterGrid.closest(".feature-section").classList.add("hidden");
   } else {
-    elements.recentEmpty.textContent = "No completed inspections yet. Fish appear here after crossing the counting line.";
     $("analytics-disclosure").classList.remove("hidden");
     $("analytics-section").classList.remove("hidden");
     elements.featureCounterGrid.closest(".feature-section").classList.remove("hidden");
@@ -1540,8 +1638,7 @@ function resetUploadWorkspace() {
   uploadSelectionVersion += 1;
   selectedUpload = null;
   elements.uploadInput.value = "";
-  elements.uploadFileName.textContent = "No photo selected";
-  elements.uploadStatus.textContent = "No photo selected";
+  elements.uploadStatus.textContent = "Choose a photo to begin.";
   elements.uploadResults.classList.add("hidden");
   elements.uploadProgress.classList.add("hidden");
   elements.uploadProgress.setAttribute("aria-hidden", "true");
@@ -1595,6 +1692,7 @@ function toggleUpload(show) {
 
 document.querySelectorAll(".nav-item[data-view]").forEach((button) => button.addEventListener("click", () => showView(button.dataset.view)));
 elements.model2Selector.addEventListener("change", () => { void selectModel2(); });
+elements.liveModelSelector?.addEventListener("change", () => { elements.model2Selector.value = elements.liveModelSelector.value; void selectModel2(); });
 document.querySelectorAll(".nav-item[data-anchor]").forEach((button) => button.addEventListener("click", () => { showView("live"); $("analytics-disclosure").open = true; setTimeout(() => { $(button.dataset.anchor).scrollIntoView({ behavior: motionPreference(), block: "start" }); document.querySelectorAll(".nav-item").forEach((item) => item.classList.toggle("active", item === button)); }, 30); }));
 $("analytics-disclosure").addEventListener("toggle", () => { if (selectedView === "live" && $("analytics-disclosure").open && latestStatus) render(latestStatus); });
 $("advanced-diagnostics").addEventListener("toggle", () => { if (selectedView === "live" && $("advanced-diagnostics").open && latestStatus) render(latestStatus); });
@@ -1808,7 +1906,9 @@ function renderUploadMeasurements(fishList = []) {
 }
 
 ensureHistoryVerdictFilter();
-elements.viewAll.addEventListener("click", () => showView("history")); elements.historyFilter.addEventListener("click", () => loadHistory(true)); elements.historySession.addEventListener("change", () => loadHistory(true)); elements.historyPrev.addEventListener("click", () => { if (historyState.page > 1) { historyState.page -= 1; loadHistory(); } }); elements.historyNext.addEventListener("click", () => { if (historyState.page < historyState.totalPages) { historyState.page += 1; loadHistory(); } });
+if (elements.viewAll) elements.viewAll.addEventListener("click", () => showView("history")); elements.historyFilter.addEventListener("click", () => loadHistory(true)); elements.historySession.addEventListener("change", () => loadHistory(true)); elements.historyPrev.addEventListener("click", () => { if (historyState.page > 1) { historyState.page -= 1; loadHistory(); } }); elements.historyNext.addEventListener("click", () => { if (historyState.page < historyState.totalPages) { historyState.page += 1; loadHistory(); } });
+elements.resultsFilters.forEach((button) => button.addEventListener("click", () => { resultsFilter = button.dataset.resultsFilter || "All"; renderResultsDashboard(resultsEvents); }));
+elements.resultsExportCsv.addEventListener("click", exportResultsCsv); elements.resultsExportPdf.addEventListener("click", exportResultsPdf);
 elements.reviewPrev.addEventListener("click", () => { if (reviewState.page > 1) { reviewState.page -= 1; loadReviewQueue(); } }); elements.reviewNext.addEventListener("click", () => { if (reviewState.page < reviewState.totalPages) { reviewState.page += 1; loadReviewQueue(); } });
 elements.settingsButton.addEventListener("click", openSettings); elements.sidebarSettings.addEventListener("click", openSettings); elements.closeSettings.addEventListener("click", closeSettings); elements.openConfidence.addEventListener("click", openSettings); elements.closeCameraCalibration.addEventListener("click", closeCameraCalibration); elements.scrim.addEventListener("click", () => { closeSettings(); closeCameraCalibration(); closeExport(); closePanel(elements.uploadWorkspace); });
 elements.exportButton.addEventListener("click", openExport); elements.sidebarExport.addEventListener("click", openExport); elements.closeExport.addEventListener("click", closeExport); elements.cancelExport.addEventListener("click", closeExport);
@@ -1919,7 +2019,8 @@ async function initializeLanSecurity() {
       if (sessionResponse.ok) { const session = await sessionResponse.json(); lanCsrf = session.csrf_token; $("lan-logout").textContent = `Sign out (${session.role})`; $("lan-logout").classList.remove("hidden"); }
       else showLanLogin();
     }
+    void loadModelSelector();
     getStatus();
   } catch (_) { lanReady = false; setTimeout(initializeLanSecurity, 3000); }
 }
-initializeLanSecurity(); setInterval(getStatus, 900);
+initializeLanSecurity(); void loadModelSelector(); void loadResultsDashboard(); setInterval(getStatus, 900); setInterval(loadResultsDashboard, 2500);

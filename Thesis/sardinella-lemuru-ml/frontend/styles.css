@@ -123,6 +123,8 @@ summary::marker { color: var(--ocean-500); }
 .camera-head, .section-head, .drawer-head, .modal-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
 .camera-head { padding: 12px; }
 .camera-head > div:first-child { flex: 1; }
+.live-model-selector { width: min(100%, 620px); min-height: 36px; margin-top: 2px; padding: 7px 32px 7px 10px; color: var(--text-primary); background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); font: inherit; font-size: 15px; font-weight: 650; }
+.live-model-selector:disabled { color: var(--text-muted); opacity: .8; }
 .camera-readout { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; width: 100%; order: 3; color: var(--text-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 .webcam-switch { display: inline-flex !important; width: auto !important; min-height: 32px; white-space: nowrap; }
 .video-stage { position: relative; display: grid; place-items: center; width: 100%; aspect-ratio: 4 / 3; min-height: 250px; background: var(--navy-950); border-block: 1px solid var(--navy-900); overflow: hidden; }
@@ -344,6 +346,34 @@ summary::marker { color: var(--ocean-500); }
 
 /* History records become labelled cards; desktop tables retain every field. */
 .recent-section, .history-workspace { padding: 16px; }
+.results-dashboard { padding: 16px; }
+.results-export-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.results-filter-tabs { display: flex; gap: 6px; margin: 14px 0 10px; overflow-x: auto; }
+.results-filter { flex: 0 0 auto; padding: 7px 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-muted); color: var(--text-secondary); font: inherit; font-size: 12px; cursor: pointer; }
+.results-filter.active { border-color: var(--ocean-500); background: var(--ocean-50); color: var(--ocean-700); font-weight: 700; }
+.results-filter b { margin-left: 4px; font-size: 11px; }
+.results-summary { margin-bottom: 12px; color: var(--text-muted); font-size: 12px; }
+.results-groups { display: grid; gap: 10px; }
+.result-grade-group { border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); overflow: hidden; }
+.result-grade-group > summary { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; color: var(--ocean-700); font-weight: 750; cursor: pointer; }
+.result-grade-group > summary b { min-width: 24px; padding: 3px 7px; border-radius: 999px; background: var(--surface-muted); text-align: center; }
+.result-fish-cards { display: grid; gap: 8px; padding: 0 10px 10px; }
+.result-fish-card { border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-muted); }
+.result-fish-card > summary { display: grid; grid-template-columns: minmax(100px, 1fr) auto minmax(120px, 1.2fr); gap: 10px; align-items: center; padding: 10px 12px; cursor: pointer; }
+.result-fish-card > summary b { color: var(--ocean-700); }
+.result-fish-card > summary span { color: var(--text-muted); font-size: 11px; text-align: right; }
+.result-fish-details { display: grid; gap: 10px; padding: 0 12px 12px; }
+.result-fish-details h4 { margin: 0 0 6px; font-size: 12px; color: var(--text-secondary); }
+.compact-results-table { display: table; width: 100%; font-size: 11px; }
+.compact-results-table thead { position: static; width: auto; height: auto; clip-path: none; }
+.compact-results-table tbody { display: table-row-group; }
+.compact-results-table tr { display: table-row; padding: 0; border: 0; }
+.compact-results-table th, .compact-results-table td { display: table-cell; padding: 6px 7px; border-bottom: 1px solid var(--border); text-align: left; }
+.compact-results-table th { color: var(--text-muted); font-weight: 650; }
+.compact-results-table td { color: var(--text-secondary); }
+.compact-results-table td::before { display: none; }
+.result-measurements { border-top: 1px solid var(--border); padding-top: 8px; }
+.result-measurements summary { color: var(--text-muted); font-size: 11px; cursor: pointer; }
 .history-empty { padding: 28px 12px; color: var(--text-muted); text-align: center; font-size: 13px; }
 .table-wrap { min-width: 0; }
 table, tbody { display: block; width: 100%; border-collapse: collapse; }
