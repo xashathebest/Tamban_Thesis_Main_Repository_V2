@@ -1,4 +1,4 @@
-"""Exercise the export form and tracker warning in headless Chrome."""
+"""Exercise the export form and hidden tracker fallback in headless Chrome."""
 from __future__ import annotations
 
 import json
@@ -126,16 +126,14 @@ def main() -> None:
                 evaluate("document.querySelector('input[name=export-range][value=current_session]').click(); document.querySelector('#export-form').requestSubmit()")
                 time.sleep(.1)
                 assert "Test interception" in evaluate("document.querySelector('#export-feedback').textContent")
-                warning = json.loads(evaluate("""(() => {
+                fallback = json.loads(evaluate("""(() => {
                   const data = {...latestStatus, model_status: 'ready', segmenter_status: 'ready',
                     inspection_status: 'stopped', runtime_mode: 'whole_fish',
                     tracker_backend: 'IoU fallback', tracker_warning: 'ByteTrack is unavailable.'};
-                  renderAlert(data); renderModel(data);
-                  return JSON.stringify({visible: !elements.alert.classList.contains('hidden'),
-                    title: elements.alertTitle.textContent, detail: elements.alertDetails.textContent,
-                    tracker: elements.detectorTracker.textContent});
+                  renderAlert(data);
+                  return JSON.stringify({visible: !elements.alert.classList.contains('hidden')});
                 })()"""))
-                assert warning == {"visible": True, "title": "Tracker warning", "detail": "ByteTrack is unavailable.", "tracker": "IoU fallback"}
+                assert fallback == {"visible": False}
                 pending = json.loads(evaluate("""(() => {
                   window.__pendingExports = 0;
                   window.fetch = (url, options) => url === '/api/export'
@@ -148,7 +146,7 @@ def main() -> None:
                 })()"""))
                 assert pending == {"calls": 1, "disabled": True}
                 evaluate("window.__finishExport(new Response(JSON.stringify({detail:'test'}), {status:400,headers:{'Content-Type':'application/json'}})); true")
-                print("Selected-run export, export choices, validation, in-dialog failure and tracker warning passed")
+                print("Selected-run export, export choices, validation, in-dialog failure and hidden tracker fallback passed")
         finally:
             if browser is not None:
                 browser.terminate()

@@ -577,8 +577,7 @@ async def lifespan(_: FastAPI):
     inspection_database.initialize()
     if model.load():
         mode_message = "Raw part preview ready; fish counting is disabled. " if RUNTIME_MODE == PART_PREVIEW_MODE else ""
-        tracker_detail = f" Tracker: {model.tracker_backend}." if hasattr(model, "tracker_backend") else ""
-        state.set_model("ready", model.name, str(model.weights_path), f"{mode_message}Model ready on {model.device}.{tracker_detail}")
+        state.set_model("ready", model.name, str(model.weights_path), f"{mode_message}Model ready on {model.device}.")
         state.mark_tracker_ready()
     else:
         state.set_model("unavailable", None, None, model.error or "Model is unavailable.")

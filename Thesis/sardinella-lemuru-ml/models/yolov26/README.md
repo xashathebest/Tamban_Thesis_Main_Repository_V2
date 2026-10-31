@@ -36,7 +36,7 @@ independent fish-level validation before any biological performance claim.
 From the repository root, the registry selects this checkpoint automatically:
 
 ```powershell
-.\.venv\Scripts\python.exe -m src.api
+.\run_dashboard.ps1
 ```
 
 Set `FISH_QUALITY_MODEL_PATH` only when intentionally testing a different,

@@ -6,25 +6,23 @@ or enable debug capture. Use the inspection machine, the actual camera and
 installed checkpoints. Leave **Enable bounded debug capture** off: it changes
 Model 2 candidate collection and can save research artifacts.
 
-1. In PowerShell, change to the repository project directory and select the
-   Python executable normally used for inspection. The executable below exists
-   on the current machine, but its PyTorch is CPU-only; use your actual
-   inspection environment if different. Start the API:
+1. In PowerShell, change to the repository project directory and start the API
+   with the project launcher. It uses the project-local Python environment;
+   missing `lap` continues with IoU tracking and is recorded in backend logs:
 
    ```powershell
    Set-Location 'C:\Users\User\Downloads\Tamban_Thesis_Main_Repository\Thesis\sardinella-lemuru-ml'
-   $thesisPython = 'C:\Users\User\AppData\Local\Python\bin\python.exe'
-   & $thesisPython -m src.api
+   .\run_dashboard.ps1
    ```
 
    Open the dashboard, check both models are ready, and start an inspection
    using the normal production configuration.
-2. In a second PowerShell window, use the same directory and Python environment.
+2. In a second PowerShell window, use the same directory and project Python.
    Prepare the empty conveyor and run:
 
    ```powershell
    Set-Location 'C:\Users\User\Downloads\Tamban_Thesis_Main_Repository\Thesis\sardinella-lemuru-ml'
-   $thesisPython = 'C:\Users\User\AppData\Local\Python\bin\python.exe'
+   $thesisPython = '.\.venv\Scripts\python.exe'
    & $thesisPython -m src.evaluation.runtime_benchmark --scenario empty --warmup 15 --duration 90
    ```
 

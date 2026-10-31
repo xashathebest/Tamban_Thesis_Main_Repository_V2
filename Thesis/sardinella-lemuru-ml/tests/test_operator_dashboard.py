@@ -194,6 +194,18 @@ class TrackingManagerTests(unittest.TestCase):
         self.assertEqual(tracking.quality_counters()["Ungraded"], 1)
         self.assertEqual(sum(tracking.quality_counters().values()), tracking.counters()["total"])
 
+    def test_session_quality_buckets_partition_each_counted_fish_once(self) -> None:
+        tracking = manager(line_position=0.5)
+        for track_id, quality in enumerate(("Class A", "Class B", "Class C", "Rejected", "Ungraded"), start=1):
+            grade = QualitySummary(track_id, quality, 0.9)
+            tracking.update([detection(track_id, center_x=40)], self.frame_size, timestamp=track_id, grades={track_id: grade})
+            tracking.update([detection(track_id, center_x=60)], self.frame_size, timestamp=track_id + 0.1, grades={track_id: grade})
+
+        quality_counters = tracking.quality_counters()
+        self.assertEqual(tracking.counters()["total"], 5)
+        self.assertEqual(sum(quality_counters.values()), 5)
+        self.assertEqual(quality_counters, {"Class A": 1, "Class B": 1, "Class C": 1, "Rejected": 1, "Ungraded": 1})
+
 
 class StateTests(unittest.TestCase):
     def test_detection_serialization_includes_track_id(self) -> None:

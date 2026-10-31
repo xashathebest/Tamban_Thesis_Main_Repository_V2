@@ -2,7 +2,7 @@
 
 ## Operator quick-start
 
-1. Start the local API as described in `README.md`, open the dashboard and confirm the detector, quality model, camera and tracker status. A tracker fallback warning means overlap behavior may differ; do not assume it is equivalent to ByteTrack.
+1. Start the local API as described in `README.md`, open the dashboard and confirm the detector, quality model, and camera status. Tracker fallback diagnostics are retained in backend logs and session provenance, not shown as operator-facing dashboard warnings.
 2. Open Live Inspection and select Start. Monitor the feed, counted fish, grade and evidence; the optional raw preview is unannotated and does not represent faster AI inference.
 3. Use History for session records and Review for fish needing a manual decision. Manual decisions are stored separately from the original AI verdict. Use Export for the selected records and fields.
 4. Stop inspection when finished. Use camera settings/calibration deliberately, follow the profile confirmation and lock workflow, and verify physical readbacks on the actual device. Model and research settings should be changed only when allowed by the application.

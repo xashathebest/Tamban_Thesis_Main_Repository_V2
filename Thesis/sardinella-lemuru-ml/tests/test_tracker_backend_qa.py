@@ -1,4 +1,5 @@
-"""Tracker choice and its session provenance must be explicit."""
+"""Tracker choice, fallback behavior, and session provenance."""
+import logging
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -18,13 +19,15 @@ def detector(tmp_path, **options):
     return YoloFishDetector(weights, device="cpu", model_factory=lambda _: SimpleNamespace(task="detect", names={0: "item"}), **options)
 
 
-def test_missing_lap_uses_visible_warning(tmp_path, monkeypatch):
+def test_missing_lap_uses_iou_fallback_and_logs_warning(tmp_path, monkeypatch, caplog):
     monkeypatch.setattr("src.inference.yolo_fish_detector.find_spec", lambda _: None)
     model = detector(tmp_path)
-    assert model.load()
+    with caplog.at_level(logging.WARNING, logger="src.inference.yolo_fish_detector"):
+        assert model.load()
     assert isinstance(model._tracker, _IoUTracker)
     assert "fallback" in model.tracker_backend.lower()
     assert "ByteTrack" in model.tracker_warning
+    assert any("[TRACKER]" in record.message and "lap is missing" in record.message for record in caplog.records)
 
 
 def test_strict_bytetrack_fails_without_lap(tmp_path, monkeypatch):

@@ -39,8 +39,8 @@ const elements = {
   cameraProfileConfirmation: $("camera-profile-confirmation"), cameraRecordEmptyReference: $("camera-record-empty-reference-button"), cameraRecordFishReference: $("camera-record-fish-reference-button"), cameraOperatorName: $("camera-operator-name"), cameraInstallationDeviceIdentity: $("camera-install-device-identity"), cameraInstallationHeight: $("camera-install-camera-height"), cameraInstallationAngle: $("camera-install-camera-angle"), cameraInstallationConveyor: $("camera-install-conveyor-position"), cameraInstallationLighting: $("camera-install-lighting-position"), cameraConfirmProfile: $("camera-confirm-profile-button"),
   slider: $("confidence-slider"), settingsThreshold: $("settings-threshold"), confidenceMinus: $("confidence-minus"), confidencePlus: $("confidence-plus"), resetConfidence: $("reset-confidence-button"),
   qualitySlider: $("quality-confidence-slider"), settingsQualityThreshold: $("settings-quality-threshold"), qualityConfidenceMinus: $("quality-confidence-minus"), qualityConfidencePlus: $("quality-confidence-plus"), resetQualityConfidence: $("reset-quality-confidence-button"),
-  detectorModelName: $("detector-model-name"), detectorModelStatus: $("detector-model-status"), detectorCheckpoint: $("detector-checkpoint"), detectorDevice: $("detector-device"), detectorThreshold: $("detector-threshold"), detectorTracker: $("detector-tracker"),
-  segmenterModelName: $("segmenter-model-name"), segmenterModelStatus: $("segmenter-model-status"), segmenterCheckpoint: $("segmenter-checkpoint"), segmenterDevice: $("segmenter-device"), segmenterInference: $("segmenter-inference"),
+  detectorModelName: $("detector-model-name"), detectorModelStatus: $("detector-model-status"), detectorCheckpoint: $("detector-checkpoint"), detectorDevice: $("detector-device"), detectorThreshold: $("detector-threshold"),
+  segmenterModelName: $("segmenter-model-name"), segmenterModelStatus: $("segmenter-model-status"), segmenterCheckpoint: $("segmenter-checkpoint"), segmenterDevice: $("segmenter-device"), segmenterInference: $("segmenter-inference"), model2Selector: $("model2-selector"), model2SelectorStatus: $("model2-selector-status"),
   settingsResolution: $("settings-resolution"), settingsFps: $("settings-fps"), settingsQualityMode: $("settings-quality-mode"), settingsQualityInterval: $("settings-quality-interval"), settingsQualityRoiPadding: $("settings-quality-roi-padding"),
   runtimeDiagnostics: $("runtime-diagnostics"), runtimeDiagnosticsNote: $("runtime-diagnostics-note"), runtimeDiagnosticsValues: $("runtime-diagnostics-values"), debugRuntimeEnabled: $("debug-runtime-enabled"), debugPause: $("debug-pause-button"), hardNegativeList: $("hard-negative-list"),
   debugModel2Raw: $("debug-model2-raw"), debugModel2Associated: $("debug-model2-associated"), debugModel2Rejected: $("debug-model2-rejected"), debugModel2Labels: $("debug-model2-labels"), debugRoiBoundary: $("debug-roi-boundary"),
@@ -65,6 +65,8 @@ const gradeColors = Object.fromEntries(
   [["Class A", "--success"], ["Class B", "--warning"], ["Class C", "--coral"], ["Rejected", "--danger"], ["Ungraded", "--neutral"]]
     .map(([name, token]) => [name, theme.getPropertyValue(token).trim()])
 );
+// The backend treats these as an exclusive partition of every counted fish.
+const sessionGradeBuckets = ["Class A", "Class B", "Class C", "Rejected", "Ungraded"];
 
 let latestStatus = null;
 let analyticsSnapshot = null;
@@ -114,12 +116,18 @@ let latestEvidenceKey = null;
 let recentHistoryKey = null;
 let historyRowsKey = null;
 let reviewRowsKey = null;
+let modelSelectorModels = [];
+let modelSelectorLoading = false;
+let modelSelectorChanging = false;
 const cameraControlTimers = new Map();
 const kpiCards = new Map();
 const secondaryKpiCards = new Map();
 const featureCards = new Map();
 const PREVIEW_IMAGE_LOAD_WINDOW_MS = 5000;
 const PREVIEW_IMAGE_LOAD_SAMPLE_LIMIT = 300;
+// These are the three Model 2 checkpoints selected for the operator comparison.
+// Display names, compatibility, and availability always come from the model registry.
+const MODEL2_SELECTOR_IDS = ["yolo26m_partdet", "fasterrcnn_r50fpn_v2", "effnetv2m_retinanet"];
 // Match the shipped Model 2 operating point before the first status refresh.
 elements.qualitySlider.value = "25";
 elements.settingsQualityThreshold.textContent = "25%";
@@ -193,8 +201,7 @@ function renderAlert(data) {
   const modelIssue = data.model_status !== "ready";
   const segmenterIssue = data.runtime_mode !== "part_preview" && ["unavailable", "error"].includes(data.segmenter_status);
   const inspectionIssue = data.inspection_status === "errored";
-  const trackerWarning = data.runtime_mode !== "part_preview" && Boolean(data.tracker_warning);
-  const visible = modelIssue || segmenterIssue || inspectionIssue || trackerWarning;
+  const visible = modelIssue || segmenterIssue || inspectionIssue;
   elements.alert.classList.toggle("hidden", !visible);
   if (!visible) return;
   if (modelIssue) {
@@ -211,10 +218,6 @@ function renderAlert(data) {
     elements.alertTitle.textContent = "Inspection unavailable";
     elements.alertCopy.textContent = "The camera or inspection worker needs attention.";
     elements.alertDetails.textContent = data.message || "No diagnostic details supplied.";
-  } else {
-    elements.alertTitle.textContent = "Tracker warning";
-    elements.alertCopy.textContent = `Active tracker: ${data.tracker_backend || "unknown"}.`;
-    elements.alertDetails.textContent = data.tracker_warning;
   }
 }
 
@@ -535,12 +538,12 @@ function renderKpis(data) {
   const percentage = (name) => total ? `${((Number(grades[name] || 0) / total) * 100).toFixed(1)}% of inspected fish` : "No fish this session";
   const accepted = Number(grades["Class A"] || 0) + Number(grades["Class B"] || 0) + Number(grades["Class C"] || 0);
   const rejected = Number(grades.Rejected || 0); const live = data.current_detection || data.latest_event;
-  const graded = accepted + rejected;
-  const coverage = total ? `${((graded / total) * 100).toFixed(1)}% grading coverage` : "No graded fish yet";
   const liveGrade = live ? (aiFinalGrade(live) || "Ungraded") : "-";
   const averageSupport = data.analytics?.average_final_support ?? data.analytics?.average_best_evidence_support;
-  const cards = [["Fish detected", total, "Since reset", true], ["Graded fish", graded, coverage, false]];
-  Object.entries(grades).forEach(([name, count]) => cards.push([name, count || 0, percentage(name)]));
+  const cards = [
+    ["Fish detected", total, "Since reset", true],
+    ...sessionGradeBuckets.map((name) => [name, Number(grades[name] || 0), percentage(name)]),
+  ];
   const secondary = [
     ["Acceptance rate", total ? `${((accepted / total) * 100).toFixed(1)}%` : "-", "Grade A, B, or C final verdicts"],
     ["Rejection rate", total ? `${((rejected / total) * 100).toFixed(1)}%` : "-", "Real Rejected-class verdicts"],
@@ -756,6 +759,135 @@ function openHistoryAnalysis(event) {
   if (typeof dialog.showModal === "function") dialog.showModal(); else dialog.setAttribute("open", "");
 }
 
+function activeModel2Id(data = latestStatus) {
+  return data?.active_model2_id || data?.model_info?.quality?.model_id || "";
+}
+function modelCanGrade(model) {
+  return Boolean(model?.is_compatible_grading) && model?.availability === "available";
+}
+function setModelSelectorStatus(message, isError = false) {
+  if (elements.model2SelectorStatus.textContent !== message) elements.model2SelectorStatus.textContent = message;
+  if (elements.model2SelectorStatus.classList.contains("error") !== isError) elements.model2SelectorStatus.classList.toggle("error", isError);
+}
+function modelOptionLabel(model) {
+  const suffix = [model.is_default_model2 ? "default" : "", model.is_loaded ? "loaded" : "", modelCanGrade(model) ? "" : "unavailable"].filter(Boolean).join(", ");
+  return `${model.display_name || model.id}${suffix ? ` (${suffix})` : ""}`;
+}
+function renderModelSelectorOptions(activeId = activeModel2Id()) {
+  const select = elements.model2Selector;
+  select.replaceChildren();
+  if (!modelSelectorModels.length) {
+    const option = document.createElement("option"); option.textContent = "No requested Model 2 checkpoints found"; option.disabled = true; option.selected = true;
+    select.append(option); select.disabled = true;
+    return;
+  }
+  if (activeId && !modelSelectorModels.some((model) => model.id === activeId)) {
+    const current = document.createElement("option");
+    current.value = activeId;
+    current.textContent = `Current active model: ${activeId} (not in this comparison)`;
+    current.disabled = true;
+    current.selected = true;
+    select.append(current);
+  }
+  modelSelectorModels.forEach((model) => {
+    const option = document.createElement("option");
+    option.value = model.id;
+    option.textContent = modelOptionLabel(model);
+    option.disabled = !modelCanGrade(model);
+    option.selected = model.id === activeId;
+    select.append(option);
+  });
+  if (activeId && [...select.options].some((option) => option.value === activeId)) select.value = activeId;
+}
+function syncModelSelector(data = latestStatus) {
+  const select = elements.model2Selector;
+  if (modelSelectorChanging) {
+    select.disabled = true;
+    select.title = "The selected model is loading.";
+    return;
+  }
+  if (!modelSelectorModels.length) {
+    select.disabled = true;
+    select.title = "The requested Model 2 checkpoints are unavailable.";
+    return;
+  }
+  const activeId = activeModel2Id(data);
+  if (activeId && [...select.options].some((option) => option.value === activeId)) select.value = activeId;
+  const inspectionActive = Boolean(data?.policy_settings_locked) || ["starting", "running", "stopping"].includes(data?.inspection_status);
+  select.disabled = modelSelectorLoading || inspectionActive;
+  select.title = inspectionActive ? "Stop inspection before changing Model 2." : "";
+  const activeModel = modelSelectorModels.find((model) => model.id === activeId);
+  const quality = data?.model_info?.quality || {};
+  const readiness = quality.is_loaded === true ? "Loaded and ready." : quality.is_loaded === false ? "Not loaded." : "";
+  const blocked = modelSelectorModels.filter((model) => !modelCanGrade(model));
+  const blockedNote = blocked.length
+    ? ` ${blocked.map((model) => `${model.display_name || model.id} is unavailable: ${model.incompatibility_reason || "not compatible with the grading workflow"}.`).join(" ")}`
+    : "";
+  const lockNote = inspectionActive ? " Stop inspection before changing models." : "";
+  setModelSelectorStatus(`${activeModel?.display_name || data?.active_model2_name || "Active Model 2"} is selected. ${readiness}${lockNote}${blockedNote}`.trim());
+}
+async function loadModelSelector() {
+  if (modelSelectorLoading || modelSelectorModels.length) return;
+  let selectorStatus = null;
+  modelSelectorLoading = true;
+  elements.model2Selector.disabled = true;
+  setModelSelectorStatus("Loading the requested Model 2 checkpoints.");
+  try {
+    const response = await fetch("/api/models", { cache: "no-store" });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.detail || `HTTP ${response.status}`);
+    const registryModels = Array.isArray(payload.models) ? payload.models : [];
+    modelSelectorModels = MODEL2_SELECTOR_IDS
+      .map((modelId) => registryModels.find((model) => model?.id === modelId))
+      .filter(Boolean);
+    if (!modelSelectorModels.length) throw new Error("None of the requested Model 2 checkpoints are registered.");
+    const activeId = payload.active_model2_id || activeModel2Id();
+    renderModelSelectorOptions(activeId);
+    selectorStatus = { ...(latestStatus || {}), active_model2_id: activeId };
+    syncModelSelector(selectorStatus);
+  } catch (error) {
+    modelSelectorModels = [];
+    renderModelSelectorOptions();
+    setModelSelectorStatus(error instanceof Error ? `Model list unavailable: ${error.message}` : "Model list unavailable.", true);
+  } finally {
+    modelSelectorLoading = false;
+    if (modelSelectorModels.length) syncModelSelector(selectorStatus || latestStatus);
+  }
+}
+async function selectModel2() {
+  if (modelSelectorChanging) return;
+  const selectedId = elements.model2Selector.value;
+  const activeId = activeModel2Id();
+  const selectedModel = modelSelectorModels.find((model) => model.id === selectedId);
+  if (!selectedModel || !modelCanGrade(selectedModel) || selectedId === activeId) {
+    syncModelSelector(latestStatus);
+    return;
+  }
+  modelSelectorChanging = true;
+  elements.model2Selector.disabled = true;
+  setModelSelectorStatus(`Loading ${selectedModel.display_name || selectedId}.`);
+  try {
+    const response = await fetch("/api/models/select", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model_id: selectedId }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.detail || `HTTP ${response.status}`);
+    modelSelectorChanging = false;
+    modelSelectorModels = modelSelectorModels.map((model) => ({ ...model, is_loaded: model.id === payload.active_model2_id }));
+    renderModelSelectorOptions(payload.active_model2_id);
+    render(payload);
+    setModelSelectorStatus(`${payload.active_model2_name || selectedModel.display_name || selectedId} is now active. Loaded weights will be used for live inspection and photo analysis.`);
+  } catch (error) {
+    modelSelectorChanging = false;
+    syncModelSelector(latestStatus);
+    setModelSelectorStatus(error instanceof Error ? `Model was not changed: ${error.message}` : "Model was not changed.", true);
+  } finally {
+    modelSelectorChanging = false;
+  }
+}
+
 function renderModel(data) {
   const preview = data.runtime_mode === "part_preview";
   const intro = $("view-model").querySelector(".view-intro");
@@ -766,7 +898,7 @@ function renderModel(data) {
   elements.detectorModelName.closest(".model-card").querySelector(".eyebrow").textContent = preview ? "RESEARCH · PART MODEL" : "MODEL 1 · FISH DETECTION";
   const detector = data.model_info?.detector || {}; const segmenter = data.model_info?.quality || {}; const diagnostic = segmenter.diagnostics || {};
   elements.detectorModelName.textContent = detector.name || "Fish detector"; elements.detectorModelStatus.textContent = titleCase(detector.status); elements.detectorCheckpoint.textContent = detector.checkpoint_resolved ? "Resolved" : "Unresolved"; elements.detectorDevice.textContent = detector.device || "—"; elements.detectorThreshold.textContent = formatPercent(Number(detector.confidence_threshold) * 100);
-  elements.detectorTracker.textContent = preview ? "Not used" : (data.tracker_backend || "Checking");
+  syncModelSelector(data);
   elements.segmenterModelName.textContent = segmenter.name || "Quality Model"; elements.segmenterModelStatus.textContent = titleCase(segmenter.status); elements.segmenterCheckpoint.textContent = segmenter.checkpoint_resolved ? "Resolved" : "Unresolved"; elements.segmenterDevice.textContent = segmenter.device || "—"; elements.segmenterInference.textContent = diagnostic.last_inference_ms == null ? "No measurement" : `${diagnostic.last_inference_ms} ms`;
 }
 
@@ -790,8 +922,6 @@ function renderRuntimeDiagnostics(data) {
       : "Clean runtime counters remain active. Debug capture changes candidate collection and saves research artifacts; leave it off for baseline measurements.";
   elements.runtimeDiagnosticsValues.replaceChildren(
     diagnosticsRow("Camera", measured(data.camera_status)),
-    diagnosticsRow("Active tracker", data.runtime_mode === "part_preview" ? "Not used" : measured(data.tracker_backend)),
-    diagnosticsRow("Tracker fallback reason", data.tracker_warning || "None reported"),
     diagnosticsRow("Model 1 / device", `${measured(data.model_info?.detector?.name)} / ${measured(data.model_info?.detector?.device)}`),
     diagnosticsRow("Model 2 / device", `${measured(data.model_info?.quality?.name)} / ${measured(data.model_info?.quality?.device)}`),
     diagnosticsRow("Capture FPS", rate(performance.calls_per_second?.camera_capture)),
@@ -803,7 +933,6 @@ function renderRuntimeDiagnostics(data) {
     diagnosticsRow("Frame age at processing p50 / p95", timing("capture_to_process")),
     diagnosticsRow("Capture-to-server-publish p50 / p95", timing("capture_to_publish")),
     diagnosticsRow("Model 1 host time p50 / p95", timing("model1_inference")),
-    diagnosticsRow("Tracker p50 / p95", timing("tracker")),
     diagnosticsRow("Model 2 host time p50 / p95", timing("model2_inference")),
     diagnosticsRow("ROI extraction p50 / p95", timing("roi_extraction")),
     diagnosticsRow("Association p50 / p95", timing("association")),
@@ -893,7 +1022,7 @@ function syncSettings(data) {
 
 function render(data) {
   const renderStarted = performance.now(); latestStatus = data; defaultConfidence = Number(data.default_confidence_threshold ?? defaultConfidence); defaultQualityConfidence = Number(data.default_quality_confidence_threshold ?? defaultQualityConfidence);
-  const alertKey = JSON.stringify([data.model_status, data.segmenter_status, data.inspection_status, data.runtime_mode, data.message, data.segmenter_message, data.upload_analysis_available, data.tracker_backend, data.tracker_warning]);
+  const alertKey = JSON.stringify([data.model_status, data.segmenter_status, data.inspection_status, data.runtime_mode, data.message, data.segmenter_message, data.upload_analysis_available]);
   if (alertKey !== alertRenderKey) { renderAlert(data); alertRenderKey = alertKey; }
   const previewImageLoadFps = browserPreviewImageLoadFps();
   const cameraKey = JSON.stringify([data.inspection_status, data.camera_status, data.model_status, data.segmenter_status, data.runtime_mode, data.model_info?.quality?.status, data.model_info?.detector?.device, data.fps, data.frame_size, data.message, data.raw_preview_available, data.upload_analysis_available, Boolean(selectedUpload), uploadInFlight, streamReady, streamAttached, previewImageLoadFps == null ? null : previewImageLoadFps.toFixed(1), controlRequestInFlight]);
@@ -998,6 +1127,12 @@ async function refreshAnalytics(key) {
   }
 }
 async function postControl(path) {
+  if (modelSelectorChanging) {
+    const feedback = $("control-feedback");
+    feedback.textContent = "Wait for the selected Model 2 checkpoint to finish loading.";
+    feedback.classList.remove("error");
+    return;
+  }
   if (controlRequestInFlight) return;
   statusController?.abort();
   controlRequestInFlight = true;
@@ -1048,6 +1183,7 @@ function showView(view) {
   });
   if (view === "history") { loadHistorySessions(); loadHistory(true); }
   if (view === "review") loadReviewQueue(true);
+  if (view === "model") void loadModelSelector();
   if (latestStatus) render(latestStatus);
   window.scrollTo({ top: 0, behavior: motionPreference() });
 }
@@ -1442,6 +1578,7 @@ function toggleUpload(show) {
 }
 
 document.querySelectorAll(".nav-item[data-view]").forEach((button) => button.addEventListener("click", () => showView(button.dataset.view)));
+elements.model2Selector.addEventListener("change", () => { void selectModel2(); });
 document.querySelectorAll(".nav-item[data-anchor]").forEach((button) => button.addEventListener("click", () => { showView("live"); $("analytics-disclosure").open = true; setTimeout(() => { $(button.dataset.anchor).scrollIntoView({ behavior: motionPreference(), block: "start" }); document.querySelectorAll(".nav-item").forEach((item) => item.classList.toggle("active", item === button)); }, 30); }));
 $("analytics-disclosure").addEventListener("toggle", () => { if (selectedView === "live" && $("analytics-disclosure").open && latestStatus) render(latestStatus); });
 $("advanced-diagnostics").addEventListener("toggle", () => { if (selectedView === "live" && $("advanced-diagnostics").open && latestStatus) render(latestStatus); });

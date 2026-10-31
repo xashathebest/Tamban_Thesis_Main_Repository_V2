@@ -639,15 +639,18 @@
                     <dt>Detection confidence</dt>
                     <dd id="detector-threshold">—</dd>
                   </div>
-                  <div>
-                    <dt>Tracker</dt>
-                    <dd id="detector-tracker">Checking</dd>
-                  </div>
                 </dl>
               </article>
               <article class="surface model-card">
                 <p class="eyebrow">MODEL 2 · QUALITY</p>
                 <h3 id="segmenter-model-name">Quality model</h3>
+                <div class="model-selector">
+                  <label for="model2-selector">Choose Model 2</label>
+                  <select id="model2-selector" aria-describedby="model2-selector-status" disabled>
+                    <option>Loading available models…</option>
+                  </select>
+                  <p class="model-selector-status" id="model2-selector-status" role="status">Loading the available Model 2 checkpoints.</p>
+                </div>
                 <dl>
                   <div>
                     <dt>Status</dt>

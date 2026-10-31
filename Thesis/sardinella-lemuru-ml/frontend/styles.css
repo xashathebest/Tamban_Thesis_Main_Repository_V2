@@ -315,6 +315,10 @@ td:first-child { padding-bottom: 9px; margin-bottom: 3px; border-bottom: 1px sol
 .model-grid { display: grid; gap: 16px; }
 .model-card { padding: 20px; }
 .model-card h3 { margin-top: 8px; overflow-wrap: anywhere; }
+.model-selector { display: grid; gap: 6px; margin-top: 16px; }
+.model-selector label { color: var(--text-secondary); font-size: 12px; font-weight: 550; }
+.model-selector-status { color: var(--text-muted); font-size: 12px; }
+.model-selector-status.error { color: var(--danger); }
 .model-card dl, .settings-list { display: grid; margin-top: 12px; }
 .model-card dl div, .settings-list div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--border); }
 .model-card dt, .settings-list dt { color: var(--text-muted); font-size: 12px; }

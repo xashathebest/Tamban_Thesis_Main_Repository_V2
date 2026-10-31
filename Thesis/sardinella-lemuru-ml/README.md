@@ -65,25 +65,25 @@ The persisted selection and environment overrides can change the active checkpoi
 ## Quick start
 
 ```powershell
-# Create a project environment, then install its runtime and tracker dependencies.
+# Create a project environment, then install its runtime dependencies.
 py -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+
+# Optional: enable ByteTrack when a compatible lap wheel is available.
 .\.venv\Scripts\python.exe -m pip install --only-binary=:all: -r requirements-bytetrack.txt
 
-# Run the inspection dashboard (default: camera index 0). Require real ByteTrack
-# rather than silently accepting the IoU fallback for an operator session.
-$env:FISH_REQUIRE_BYTETRACK = '1'
-.\.venv\Scripts\python.exe -m src.api
+# Run the inspection dashboard (default: camera index 0) in the project environment.
+.\run_dashboard.ps1
 
 # Open the dashboard at http://localhost:8000
 ```
 
-Use the same project interpreter for installation and startup; installing
-`lap` into one Python does not enable ByteTrack in another running process.
+Use `run_dashboard.ps1` for operator sessions. It uses the same project
+interpreter for installation and startup; installing `lap` into one Python does
+not enable ByteTrack in another running process.
 If Windows' `py` launcher is unavailable, create the environment with the
-actual installed Python executable, for example the one identified in
-[the runtime baseline](docs/runtime_baseline.md). Restart the API using the
-project interpreter and check the active tracker in Runtime Diagnostics.
+actual installed Python executable, then use `run_dashboard.ps1` after the
+dependencies are installed.
 
 ---
 
@@ -102,7 +102,7 @@ remaining validation gates, see [the UI/FPS handoff](docs/ui_fps_handoff.md).
 | FISH_QUALITY_CONFIDENCE | 0.25 | Model 2 part evidence threshold |
 | FISH_QUALITY_INTERVAL | 3 | Run Model 2 every N processed frames |
 | FISH_QUALITY_INFERENCE_MODE | full_frame | Live whole-fish inspection always uses `full_frame` association. A stale `crop` request is safely promoted to `full_frame`; crop mode is retained only for isolated tooling/part-preview paths. |
-| FISH_REQUIRE_BYTETRACK | 0 | Set to `1` to refuse startup if ByteTrack is unavailable |
+| FISH_REQUIRE_BYTETRACK | 0 | Set to `1` only when ByteTrack is mandatory and fallback tracking must be refused |
 | FISH_STRICT_MODEL_INTEGRITY | 0 | Set to `1` to require verified registry checkpoints for Model 1 and Model 2 |
 | FISH_EVENT_PERSISTENCE_QUEUE_CAPACITY | 256 | Positive bounded FIFO capacity for durable fish-event writes. At capacity, the producer applies ordered backpressure rather than dropping or bypassing an older record; session close/reset/policy rotation flushes it first. |
 | FISH_UPLOAD_MAX_BYTES | 10485760 | Maximum encoded image upload size in bytes |
@@ -127,17 +127,15 @@ Image uploads accept JPEG, PNG, and WebP. Their encoded stream is bounded while
 reading, and image dimensions are checked before pixel decoding. Oversized
 encoded bodies return HTTP 413; invalid formats and dimensions return HTTP 400.
 
-Model 1 uses ByteTrack when its `lap` assignment dependency is available.
-Otherwise, the application uses an IoU tracker and displays a warning; the
-actual backend is recorded with the inspection session. The fallback can behave
-differently during overlap and has not been validated as equivalent to ByteTrack.
-To require ByteTrack, install the optional dependency and start the application
-with `FISH_REQUIRE_BYTETRACK=1`; if initialization fails, inspection will not
-start. For example, in PowerShell:
+Model 1 uses ByteTrack when its optional `lap` assignment dependency is
+available. If `lap` is missing or cannot load, fish tracking continues with the
+IoU fallback and the technical reason is recorded in backend logs. The fallback
+can behave differently during overlap and has not been validated as equivalent
+to ByteTrack. Set `FISH_REQUIRE_BYTETRACK=1` only when a strict failure is
+preferred. To enable ByteTrack in a project environment, install:
 
 ```powershell
-py -m pip install --only-binary=:all: -r requirements-bytetrack.txt
-$env:FISH_REQUIRE_BYTETRACK = '1'
+.\.venv\Scripts\python.exe -m pip install --only-binary=:all: -r requirements-bytetrack.txt
 ```
 
 The [lap 0.5.13 package](https://pypi.org/project/lap/0.5.13/) lists wheels for
