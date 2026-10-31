@@ -104,8 +104,10 @@ class YoloTwoModelPipelineTests(unittest.TestCase):
         self.assertEqual(len(str(detector.diagnostics()["checkpoint_sha256"])), 12)
         frame = np.zeros((35, 45, 3), dtype=np.uint8)
         detections = detector.predict(frame)
-        self.assertEqual(detections, [Detection(0, "Fish", 0.92, (0.0, 3.0, 40.0, 30.0), 24)])
-        detector.predict(frame)
+        self.assertEqual(detections, [Detection(0, "Fish", 0.92, (0.0, 3.0, 40.0, 30.0), None)])
+        confirmed = detector.predict(frame)
+        self.assertEqual(confirmed, [Detection(0, "Fish", 0.92, (0.0, 3.0, 40.0, 30.0), 1)])
+        self.assertIsNotNone(confirmed[0].confirmation)
         self.assertEqual(tracker.calls, 2)
 
     def test_model2_receives_only_a_fish_crop_and_stabilizes_a_track(self) -> None:

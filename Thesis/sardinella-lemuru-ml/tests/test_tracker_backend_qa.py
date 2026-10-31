@@ -92,7 +92,9 @@ def test_tracker_returns_each_raw_detection_once_including_unconfirmed_fish(tmp_
         [*raw[0].bbox, 7, .9, 0, 0], [*raw[0].bbox, 7, .9, 0, 0],
     ]))
     detections = model.predict(np.zeros((32, 32, 3), dtype=np.uint8))
-    assert [(item.bbox, item.track_id) for item in detections] == [(raw[0].bbox, 7), (raw[1].bbox, None)]
+    assert all(item.track_id is None for item in detections)
+    detections = model.predict(np.zeros((32, 32, 3), dtype=np.uint8))
+    assert [(item.bbox, item.track_id) for item in detections] == [(raw[0].bbox, 1), (raw[1].bbox, None)]
 
 
 def test_conflicting_tracker_assignments_are_left_untracked(tmp_path):

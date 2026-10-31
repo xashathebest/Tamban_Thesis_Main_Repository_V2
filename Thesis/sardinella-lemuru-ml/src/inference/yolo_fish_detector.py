@@ -21,6 +21,7 @@ import numpy as np
 
 from src.api.domain import Detection
 from src.inference.fish_detector import FISH_CLASS_ID, FISH_CLASS_NAME, _ByteTrackInput, _default_tracker_factory
+from src.inference.track_identity import ConfirmedFishIdentities
 from src.inference.model_traceability import full_sha256
 from src.inference.preprocessing import clamp_bbox, validate_image
 from src.inference.compute import resolve_compute, timed_elapsed, timed_start
@@ -76,41 +77,113 @@ def _iou(first: tuple[float, float, float, float], second: tuple[float, float, f
     return intersection / union if union > 0 else 0.0
 
 
+@dataclass(frozen=True)
+class _IoUTrack:
+    bbox: tuple[float, float, float, float]
+    missing: int = 0
+    velocity: tuple[float, float] = (0.0, 0.0)
+    observations: int = 1
+
+    def predicted_bbox(self) -> tuple[float, float, float, float]:
+        dx, dy = (value * (self.missing + 1) for value in self.velocity)
+        left, top, right, bottom = self.bbox
+        return left + dx, top + dy, right + dx, bottom + dy
+
+
+def _pairwise_iou(first: np.ndarray, second: np.ndarray) -> np.ndarray:
+    """Compute the small tracking matrix without a Python loop per box pair."""
+
+    overlap = np.maximum(0.0, np.minimum(first[:, None, 2:], second[None, :, 2:])
+                         - np.maximum(first[:, None, :2], second[None, :, :2]))
+    intersection = overlap[..., 0] * overlap[..., 1]
+    first_size = np.maximum(0.0, first[:, 2:] - first[:, :2])
+    second_size = np.maximum(0.0, second[:, 2:] - second[:, :2])
+    union = (first_size[:, 0] * first_size[:, 1])[:, None] + (second_size[:, 0] * second_size[:, 1])[None, :] - intersection
+    return np.divide(intersection, union, out=np.zeros_like(intersection), where=union > 0)
+
+
 class _IoUTracker:
-    """Small offline fallback when the optional ByteTrack ``lap`` dependency is absent."""
+    """Motion-aware fallback when the optional ByteTrack ``lap`` dependency is absent.
+
+    Prediction is used only for association. Every emitted box is a detection
+    from this update; missed tracks are retained internally without producing
+    synthetic fish. Global matching avoids consuming another fish's sole valid
+    match merely because the detector returned its rows in a different order.
+    """
 
     def __init__(self, minimum_iou: float = 0.30, max_missing_frames: int = 30) -> None:
         self.minimum_iou = minimum_iou
         self.max_missing_frames = max_missing_frames
         self._next_id = 1
-        self._tracks: dict[int, tuple[tuple[float, float, float, float], int]] = {}
+        self._tracks: dict[int, _IoUTrack] = {}
+
+    def _match(self, boxes: np.ndarray, source_order: list[int]) -> dict[int, int]:
+        if not self._tracks or not source_order:
+            return {}
+        track_ids = sorted(self._tracks)
+        tracks = [self._tracks[track_id] for track_id in track_ids]
+        candidates = boxes[source_order]
+        predicted = np.asarray([track.predicted_bbox() for track in tracks], dtype=np.float64)
+        predicted_iou = _pairwise_iou(predicted, candidates)
+        scores = np.where(predicted_iou >= self.minimum_iou, predicted_iou, -1.0)
+        # A newly stopped fish or a jittering box may overlap its last observed
+        # location better than its velocity estimate. Permit that fallback only
+        # for adjacent observations, not indefinitely across an occlusion.
+        observed_iou = _pairwise_iou(np.asarray([track.bbox for track in tracks]), candidates)
+        visible = np.asarray([track.missing == 0 for track in tracks])[:, None]
+        scores = np.maximum(scores, np.where(visible & (observed_iou >= self.minimum_iou), observed_iou * 0.9, -1.0))
+        valid = scores >= 0.0
+        active_rows = np.flatnonzero(valid.any(axis=1))
+        active_columns = np.flatnonzero(valid.any(axis=0))
+        if not len(active_rows) or not len(active_columns):
+            return {}
+
+        # SciPy is already required by scikit-learn; import the solver only when
+        # an actual association is needed. Zero-cost invalid edges allow a
+        # rectangular assignment without allocating one dummy column per track.
+        from scipy.optimize import linear_sum_assignment
+
+        selected = scores[np.ix_(active_rows, active_columns)]
+        cardinality_reward = min(selected.shape) + 1.0
+        costs = np.where(selected >= 0.0, -(cardinality_reward + selected), 0.0)
+        rows, columns = linear_sum_assignment(costs)
+        return {
+            source_order[int(active_columns[column])]: track_ids[int(active_rows[row])]
+            for row, column in zip(rows, columns)
+            if selected[row, column] >= 0.0
+        }
 
     def update(self, detections: _ByteTrackInput, _frame: Any) -> np.ndarray:
-        assignments: dict[int, int] = {}
-        available = set(self._tracks)
-        for source_index, box in enumerate(detections.xyxy):
-            candidate = tuple(float(value) for value in box)
-            matches = [
-                (track_id, _iou(candidate, self._tracks[track_id][0]))
-                for track_id in available
-                if _iou(candidate, self._tracks[track_id][0]) >= self.minimum_iou
-            ]
-            if matches:
-                track_id = max(matches, key=lambda item: item[1])[0]
-                available.remove(track_id)
-            else:
-                track_id = self._next_id
+        boxes = np.asarray(detections.xyxy, dtype=np.float64).reshape((-1, 4))
+        # Canonical geometry order gives both assignment ties and newly created
+        # IDs a stable meaning when the detector reorders otherwise equal rows.
+        source_order = sorted(range(len(boxes)), key=lambda index: (*boxes[index], float(detections.conf[index]), index))
+        assignments = self._match(boxes, source_order)
+        for source_index in source_order:
+            if source_index not in assignments:
+                assignments[source_index] = self._next_id
                 self._next_id += 1
-            assignments[source_index] = track_id
-            self._tracks[track_id] = (candidate, 0)
         assigned_ids = set(assignments.values())
-        self._tracks = {
-            track_id: (box, 0 if track_id in assigned_ids else missing + 1)
-            for track_id, (box, missing) in self._tracks.items()
-            if track_id in assigned_ids or missing + 1 <= self.max_missing_frames
+        updated = {
+            track_id: _IoUTrack(track.bbox, track.missing + 1, track.velocity, track.observations)
+            for track_id, track in self._tracks.items()
+            if track_id not in assigned_ids and track.missing < self.max_missing_frames
         }
+        for source_index, track_id in assignments.items():
+            candidate = tuple(float(value) for value in boxes[source_index])
+            previous = self._tracks.get(track_id)
+            if previous is None:
+                updated[track_id] = _IoUTrack(candidate)
+                continue
+            elapsed = previous.missing + 1
+            measured = tuple(((candidate[axis] + candidate[axis + 2]) - (previous.bbox[axis] + previous.bbox[axis + 2])) / (2 * elapsed)
+                             for axis in (0, 1))
+            velocity = (measured if previous.observations == 1
+                        else tuple(0.65 * fresh + 0.35 * old for fresh, old in zip(measured, previous.velocity)))
+            updated[track_id] = _IoUTrack(candidate, velocity=velocity, observations=previous.observations + 1)
+        self._tracks = updated
         return np.asarray(
-            [[*detections.xyxy[index], track_id, detections.conf[index], 0.0, index] for index, track_id in assignments.items()],
+            [[*detections.xyxy[index], assignments[index], detections.conf[index], 0.0, index] for index in range(len(boxes))],
             dtype=np.float32,
         ).reshape((-1, 8))
 
@@ -179,6 +252,7 @@ class YoloFishDetector:
         require_bytetrack: bool = False,
         model_factory: Callable[[str], Any] | None = None,
         tracker_factory: Callable[[str], Any] | None = None,
+        track_confirmation_frames: int = 2,
     ) -> None:
         if not 0.0 <= confidence_threshold <= 1.0:
             raise ValueError("FISH_DETECTION_CONFIDENCE must be between 0 and 1.")
@@ -195,6 +269,7 @@ class YoloFishDetector:
         self._tracker_factory = tracker_factory or _default_tracker_factory
         self.model: Any | None = None
         self._tracker: Any | None = None
+        self._fish_identities = ConfirmedFishIdentities(track_confirmation_frames)
         self.device: str | int = self.compute.device
         self.fp16 = self.compute.fp16_enabled
         self.error: str | None = None
@@ -320,20 +395,28 @@ class YoloFishDetector:
             return []
         values: list[FishDetection] = []
         for box in boxes:
-            class_id = int(box.cls.item()) if getattr(box, "cls", None) is not None else -1
-            confidence = float(box.conf.item()) if getattr(box, "conf", None) is not None else float("nan")
-            if class_id != FISH_CLASS_ID or not np.isfinite(confidence) or confidence < threshold:
+            try:
+                class_id = float(box.cls.item())
+                confidence = float(box.conf.item())
+                if class_id != FISH_CLASS_ID or not np.isfinite(confidence) or not 0.0 <= confidence <= 1.0 or confidence < threshold:
+                    continue
+                xyxy = np.asarray(box.xyxy[0].tolist(), dtype=float).reshape(-1)
+                if xyxy.size != 4:
+                    continue
+                bounded = clamp_bbox(tuple(float(value) for value in xyxy), width, height)
+            except (AttributeError, IndexError, TypeError, ValueError, OverflowError):
                 continue
-            xyxy = np.asarray(box.xyxy[0].tolist(), dtype=float).reshape(-1)
-            if xyxy.size != 4:
-                continue
-            bounded = clamp_bbox(tuple(float(value) for value in xyxy), width, height)
             if bounded is not None:
                 values.append(FishDetection(bounded, confidence))
         return values
 
     def detect(self, frame_bgr: Any) -> list[FishDetection]:
         """Run Model 1 without mutating ByteTrack or live counters."""
+
+        return self._detect(frame_bgr, self.confidence_threshold)
+
+    def _detect(self, frame_bgr: Any, threshold: float) -> list[FishDetection]:
+        """Collect safe detections at the threshold needed by the caller."""
 
         if self.model is None:
             raise YoloFishDetectorInferenceError(self.error or "Model 1 is not loaded.")
@@ -342,12 +425,12 @@ class YoloFishDetector:
             height, width = frame.shape[:2]
             with self._lock:
                 started = timed_start(str(self.device))
-                options = {"source": frame, "conf": self.confidence_threshold, "imgsz": self.image_size, "device": self.device, "verbose": False}
+                options = {"source": frame, "conf": threshold, "imgsz": self.image_size, "device": self.device, "verbose": False}
                 if self.fp16:
                     options["half"] = True
                 results = self.model.predict(**options)
                 self.last_inference_seconds = timed_elapsed(started, str(self.device))
-            return self._raw_detections(results[0], width, height, self.confidence_threshold) if results else []
+            return self._raw_detections(results[0], width, height, threshold) if results else []
         except YoloFishDetectorInferenceError:
             raise
         except Exception as exc:
@@ -356,45 +439,132 @@ class YoloFishDetector:
     def predict(self, frame_bgr: Any) -> list[Detection]:
         if self._tracker is None:
             raise YoloFishDetectorInferenceError(self.error or "Model 1 tracker is not initialized.")
-        raw = self.detect(frame_bgr)
+        if self.tracker_backend == "ByteTrack":
+            # ByteTrack's second association stage needs weak observations to
+            # maintain an existing identity. They remain internal evidence:
+            # only detections meeting the operator's threshold leave here.
+            try:
+                low_threshold = float(getattr(getattr(self._tracker, "args", None), "track_low_thresh", 0.1))
+            except (TypeError, ValueError, OverflowError):
+                low_threshold = 0.1
+            if not np.isfinite(low_threshold) or not 0.0 <= low_threshold <= 1.0:
+                low_threshold = 0.1
+            raw = self._detect(frame_bgr, min(self.confidence_threshold, low_threshold))
+        else:
+            raw = self.detect(frame_bgr)
+        current_track_ids: set[int] | None = None
+        observed_rows: list[Any] | None = None
         try:
             with self._lock:
+                missing_limit = getattr(self._tracker, "max_frames_lost",
+                                        getattr(self._tracker, "max_time_lost",
+                                                getattr(self._tracker, "max_missing_frames", 30)))
+                if isinstance(missing_limit, int) and not isinstance(missing_limit, bool) and missing_limit >= 0:
+                    self._fish_identities.max_missing_frames = missing_limit
+                if self.tracker_backend == "ByteTrack":
+                    tracker_args = getattr(self._tracker, "args", None)
+                    if tracker_args is not None:
+                        # Weak detections may recover an existing track, but
+                        # may not start new native candidates below the
+                        # operator's threshold. Retain the configured floor so
+                        # lowering the live threshold can lower it again.
+                        original_floor = getattr(self._tracker, "_lemuru_new_track_floor", None)
+                        if original_floor is None:
+                            try:
+                                original_floor = float(getattr(tracker_args, "new_track_thresh", 0.25))
+                            except (TypeError, ValueError, OverflowError):
+                                original_floor = 0.25
+                            if not np.isfinite(original_floor) or not 0.0 <= original_floor <= 1.0:
+                                original_floor = 0.25
+                            self._tracker._lemuru_new_track_floor = original_floor
+                        tracker_args.new_track_thresh = max(original_floor, self.confidence_threshold)
                 started = perf_counter()
                 tracks = self._tracker.update(_ByteTrackInput(raw), frame_bgr)
                 self.last_tracking_seconds = perf_counter() - started
+                # Native ByteTrack exposes the last actual observation frame.
+                # A predicted/lost track must never borrow a current raw box
+                # through its retained detection index.
+                tracker_frame = getattr(self._tracker, "frame_id", None)
+                active_tracks = getattr(self._tracker, "tracked_stracks", None)
+                if self.tracker_backend == "ByteTrack" and tracker_frame is not None and active_tracks is not None:
+                    current_observations = [
+                        track for track in active_tracks
+                        if track.frame_id == tracker_frame and track.state == 1
+                    ]
+                    current_track_ids = {
+                        int(track.track_id) for track in current_observations if track.is_activated
+                    }
+                    observed_rows = [getattr(track, "result", None) for track in current_observations]
         except Exception as exc:
             raise YoloFishDetectorInferenceError(f"Model 1 {self.tracker_backend} update failed: {exc}") from exc
         # ByteTrack only emits confirmed tracks. Keep each unmatched raw fish
         # box as untracked so it can compete for Model 2 part ownership while
         # remaining ineligible for grading and line-crossing counts.
-        matched: dict[int, int] = {}
-        ambiguous_sources: set[int] = set()
-        sources_by_track: dict[int, set[int]] = {}
-        for track in np.asarray(tracks, dtype=np.float64).reshape((-1, 8)) if len(tracks) else ():
-            source_index = int(track[7])
-            if not 0 <= source_index < len(raw):
-                continue
-            track_id = int(track[4])
-            if track_id < 0:
-                continue
-            if source_index in matched and matched[source_index] != track_id:
-                ambiguous_sources.add(source_index)
-            else:
-                matched[source_index] = track_id
-            sources_by_track.setdefault(track_id, set()).add(source_index)
-        for source_indices in sources_by_track.values():
-            if len(source_indices) > 1:
-                ambiguous_sources.update(source_indices)
-        return [
+        def assignments(values: Any, allowed_ids: set[int] | None = None) -> dict[int, int]:
+            matched: dict[int, int] = {}
+            ambiguous_sources: set[int] = set()
+            sources_by_track: dict[int, set[int]] = {}
+            try:
+                rows = np.asarray(values, dtype=np.float64)
+            except (TypeError, ValueError, OverflowError):
+                rows = np.empty((0, 8), dtype=np.float64)
+            if rows.ndim == 1 and rows.size == 8:
+                rows = rows.reshape((1, 8))
+            if rows.ndim != 2 or rows.shape[1] != 8:
+                rows = np.empty((0, 8), dtype=np.float64)
+            for track in rows:
+                if not np.isfinite(track).all() or not track[4].is_integer() or not track[7].is_integer():
+                    continue
+                source_index = int(track[7])
+                if not 0 <= source_index < len(raw):
+                    continue
+                track_id = int(track[4])
+                if track_id < 0 or track[6] != FISH_CLASS_ID or not 0.0 <= track[5] <= 1.0:
+                    continue
+                if allowed_ids is not None and track_id not in allowed_ids:
+                    continue
+                if track[2] <= track[0] or track[3] <= track[1]:
+                    continue
+                # Allow Kalman smoothing while rejecting a stale index that
+                # now points at a different fish elsewhere in the frame.
+                if _iou(tuple(track[:4]), raw[source_index].bbox) < 0.1:
+                    continue
+                if source_index in matched and matched[source_index] != track_id:
+                    ambiguous_sources.add(source_index)
+                else:
+                    matched[source_index] = track_id
+                sources_by_track.setdefault(track_id, set()).add(source_index)
+            for source_indices in sources_by_track.values():
+                if len(source_indices) > 1:
+                    ambiguous_sources.update(source_indices)
+            return {index: track_id for index, track_id in matched.items() if index not in ambiguous_sources}
+
+        matched = assignments(tracks, current_track_ids)
+        detections = [
             Detection(FISH_CLASS_ID, FISH_CLASS_NAME, source.confidence, source.bbox,
-                      None if index in ambiguous_sources else matched.get(index))
+                      matched.get(index))
             for index, source in enumerate(raw)
+            if source.confidence >= self.confidence_threshold
         ]
+        observed_tracks = None
+        if observed_rows is not None:
+            # Actual unconfirmed observations seed the first strong frame;
+            # weak observations only retain an already confirmed identity.
+            # Neither is published as a tracked fish by this separate seam.
+            observed_tracks = [
+                Detection(FISH_CLASS_ID, FISH_CLASS_NAME, raw[index].confidence, raw[index].bbox, track_id)
+                for index, track_id in assignments(observed_rows).items()
+            ]
+        with self._lock:
+            return self._fish_identities.update(
+                detections, minimum_confidence=self.confidence_threshold, observed_tracks=observed_tracks,
+            )
 
     def reset_tracker(self) -> None:
         if self._tracker is not None:
             with self._lock:
                 self._tracker.reset()
+                self._fish_identities.reset()
 
     def diagnostics(self) -> dict[str, float | str | int | None]:
         return {
@@ -405,6 +575,7 @@ class YoloFishDetector:
             "tracker": self.tracker_backend,
             "tracker_warning": self.tracker_warning,
             "bytetrack_required": self.require_bytetrack,
+            "fish_identity": self._fish_identities.diagnostics(),
             "last_inference_ms": round(self.last_inference_seconds * 1000, 2) if self.last_inference_seconds is not None else None,
             "last_tracking_ms": round(self.last_tracking_seconds * 1000, 2) if self.last_tracking_seconds is not None else None,
             "checkpoint_name": self.model_path.name if self.model_path else None,

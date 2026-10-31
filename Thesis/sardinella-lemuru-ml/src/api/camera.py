@@ -162,7 +162,7 @@ class CameraInspectionService:
         reset_tracker = getattr(self.model, "reset_tracker", None)
         if callable(reset_tracker):
             reset_tracker()
-        self._track_id_epoch_offset = self._highest_track_id + 1 if self._highest_track_id is not None else 0
+        self._track_id_epoch_offset = self._highest_track_id if self._highest_track_id is not None else 0
 
     def _scope_tracker_ids(self, detections: list[Any]) -> list[Any]:
         """Keep native tracker IDs stable and distinct across tracker resets."""
@@ -750,6 +750,10 @@ class CameraInspectionService:
         """Atomically reset tracker identities and all session event data."""
 
         with self._processing_lock:
+            # A deliberate session reset clears history and starts Fish #1
+            # again. Stop/calibration retain their collision-free ID range.
+            self._highest_track_id = None
+            self._track_id_epoch_offset = 0
             self._reset_model_tracker()
             self._frame_index = 0
             self._model2_failure_count = 0
@@ -1204,7 +1208,7 @@ class CameraInspectionService:
             # evidence at the count line. Retained legacy adapters permit a
             # documented late-grade compatibility path and are not the
             # production two-YOLO runtime.
-            if bool(existing_tracks.get(track_id, {}).get("counted")) and isinstance(self.quality_model, YoloQualityModel):
+            if (bool(existing_tracks.get(track_id, {}).get("counted")) or self.state.tracking.is_counted(track_id)) and isinstance(self.quality_model, YoloQualityModel):
                 self._record_model2_skip("finalized_track")
                 continue
             if track_id in scheduled_track_ids:

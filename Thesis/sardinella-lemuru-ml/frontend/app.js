@@ -556,7 +556,7 @@ function renderKpis(data) {
     ["Rejection rate", total ? `${((rejected / total) * 100).toFixed(1)}%` : "-", "Real Rejected-class verdicts"],
     ["Active fish", data.active_fish_count || 0, "Live tracks"],
     ["Inspection FPS", `${Number(data.fps || 0).toFixed(1)}`, "Frames per second"],
-    ["Current fish ID", live ? `Fish #${live.track_id}` : "-", live?.live_track ? "Current Model 1 track" : "No active track"],
+    ["Current fish ID", live?.live_track ? `Fish #${live.track_id}` : "-", live?.live_track ? "Current Model 1 track" : "No active track"],
     ["Current final grade", liveGrade, live?.live_track ? "Current Model 2 evidence" : "Latest completed fish"],
     ["Average support", averageSupport == null ? "-" : formatPercent(averageSupport), "Average weighted support"]
   ];

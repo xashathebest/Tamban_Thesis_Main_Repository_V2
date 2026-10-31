@@ -234,7 +234,7 @@ class Model2RuntimeTraceTests(unittest.TestCase):
         new_tracks = self.quality._grading_engine._tracks
         self.assertEqual(len(new_tracks), 1)
         new_id = next(iter(new_tracks))
-        self.assertNotEqual(new_id, 7)
+        self.assertEqual(new_id, 7)  # Session reset permits the first ID again.
         self.assertEqual(new_tracks[new_id].candidate_frame_count, 1)
 
     def test_model2_failure_at_count_line_abstains_instead_of_reusing_grade(self) -> None:
@@ -499,12 +499,14 @@ class Model2RuntimeTraceTests(unittest.TestCase):
         state = InspectionState()
         service = CameraInspectionService(state, detector, quality_model=self.quality, quality_inference_mode="full_frame")
         service.process_frame(np.zeros((120, 140, 3), dtype=np.uint8), cv2)
-        association = service._track_grades[7].analysis["quality_inference"]["association"]
+        self.assertEqual(service._track_grades, {})
+        service.process_frame(np.zeros((120, 140, 3), dtype=np.uint8), cv2)
+        association = service._track_grades[1].analysis["quality_inference"]["association"]
         self.assertTrue(association["ambiguous"])
         self.assertEqual(association["assigned_part_count"], 0)
-        self.assertIsNone(service._track_grades[7].quality)
-        self.assertEqual([item.track_id for item in state.detections], [7, None])
-        self.assertEqual({item["track_id"] for item in state.tracking.active_tracks()}, {7})
+        self.assertIsNone(service._track_grades[1].quality)
+        self.assertEqual([item.track_id for item in state.detections], [1, None])
+        self.assertEqual({item["track_id"] for item in state.tracking.active_tracks()}, {1})
         self.assertEqual(state.snapshot()["counters"]["total"], 0)
 
     def test_duplicate_tracker_id_detection_still_competes_for_ownership(self) -> None:
@@ -669,7 +671,7 @@ class Model2RuntimeTraceTests(unittest.TestCase):
             selected_class[0] = 3
             passage()
             new_event = state.tracking.archive_history()[0]
-            self.assertNotEqual(new_event["track_id"], first_id)
+            self.assertEqual(new_event["track_id"], first_id)
             self.assertEqual(new_event["quality"], "Class B")
             self.assertEqual(new_event["analysis"]["inference_debug"]["model1_detection"]["fish_id"], new_event["track_id"])
             self.assertEqual(state.snapshot()["counters"]["total"], 1)

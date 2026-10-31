@@ -7,6 +7,7 @@ from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime
 import logging
 from math import isfinite
+from numbers import Integral, Real
 from threading import RLock
 from time import monotonic
 from typing import Callable, Iterable
@@ -34,6 +35,15 @@ FEATURE_CAPABILITIES = {
 
 
 @dataclass(frozen=True)
+class DetectionConfirmation:
+    """First observed position retained while a camera track was confirmed."""
+
+    bbox: tuple[float, float, float, float]
+    confidence: float
+    timestamp: float
+
+
+@dataclass(frozen=True)
 class Detection:
     """One tracked model detection in pixel coordinates."""
 
@@ -42,6 +52,7 @@ class Detection:
     confidence: float
     bbox: tuple[float, float, float, float]
     track_id: int | None = None
+    confirmation: DetectionConfirmation | None = field(default=None, compare=False, repr=False)
 
     @property
     def center(self) -> tuple[float, float]:
@@ -53,6 +64,8 @@ class Detection:
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
+        if self.confirmation is None:
+            payload.pop("confirmation")
         payload["bbox"] = list(self.bbox)
         payload["confidence_percent"] = round(self.confidence * 100, 1)
         payload["decision"] = self.decision
@@ -152,17 +165,26 @@ class TrackState:
     def from_detection(cls, detection: Detection, timestamp: float, grade: QualitySummary | None = None) -> TrackState:
         if detection.track_id is None:
             raise ValueError("A persistent track ID is required.")
+        confirmation = detection.confirmation
+        previous_center = (
+            ((confirmation.bbox[0] + confirmation.bbox[2]) / 2,
+             (confirmation.bbox[1] + confirmation.bbox[3]) / 2)
+            if confirmation is not None else None
+        )
+        observations = [(detection.class_name, detection.confidence)]
+        if confirmation is not None:
+            observations.insert(0, (detection.class_name, confirmation.confidence))
         track = cls(
             track_id=detection.track_id,
             bbox=detection.bbox,
             current_class=detection.class_name,
             current_confidence=detection.confidence,
-            created_at=timestamp,
+            created_at=confirmation.timestamp if confirmation is not None else timestamp,
             last_seen=timestamp,
-            previous_center=None,
+            previous_center=previous_center,
             current_center=detection.center,
-            observations=[(detection.class_name, detection.confidence)],
-            lifetime_detection_frames=1,
+            observations=observations,
+            lifetime_detection_frames=len(observations),
         )
         if grade:
             track.set_grade(grade)
@@ -338,6 +360,9 @@ class TrackingManager:
         self.config = config or TrackingConfig()
         self._lock = RLock()
         self._tracks: dict[int, TrackState] = {}
+        # Expiring a live track must not make its completed event countable
+        # again. This identity guard outlives the bounded display archive.
+        self._counted_track_ids: set[int] = set()
         self._history: deque[InspectionEvent] = deque(maxlen=self.config.history_limit)
         # Keep a bounded session archive for the history page and file exports;
         # ``_history`` stays intentionally compact for the live dashboard.
@@ -376,6 +401,7 @@ class TrackingManager:
 
         with self._lock:
             self._tracks.clear()
+            self._counted_track_ids.clear()
             self._history.clear()
             self._archive.clear()
             self._statistics.reset()
@@ -446,6 +472,53 @@ class TrackingManager:
             ),
         }
 
+    @staticmethod
+    def _valid_detection(detection: Detection, timestamp: float) -> bool:
+        """Reject malformed tracker output before it can create domain state."""
+
+        def finite_number(value: object) -> bool:
+            return isinstance(value, Real) and not isinstance(value, bool) and isfinite(value)
+
+        def valid_box(value: object) -> bool:
+            return (
+                isinstance(value, (tuple, list)) and len(value) == 4
+                and all(finite_number(coordinate) for coordinate in value)
+                and value[2] > value[0] and value[3] > value[1]
+            )
+
+        if not isinstance(detection, Detection):
+            return False
+        if (not isinstance(detection.class_id, Integral) or isinstance(detection.class_id, bool)
+                or detection.class_id != 0 or detection.class_name != "Fish"):
+            return False
+        if (not isinstance(detection.track_id, Integral) or isinstance(detection.track_id, bool)
+                or detection.track_id <= 0):
+            return False
+        if not finite_number(detection.confidence) or not 0 <= detection.confidence <= 1:
+            return False
+        if not valid_box(detection.bbox):
+            return False
+        confirmation = detection.confirmation
+        return confirmation is None or (
+            isinstance(confirmation, DetectionConfirmation)
+            and valid_box(confirmation.bbox)
+            and finite_number(confirmation.confidence) and 0 <= confirmation.confidence <= 1
+            and finite_number(confirmation.timestamp) and confirmation.timestamp <= timestamp
+        )
+
+    def _restore_counted_track(self, track: TrackState) -> None:
+        """Keep a returning ID finalized even after its live state timed out."""
+
+        track.counted = True
+        event = next((item for item in self._archive if item.track_id == track.track_id), None)
+        if event is not None:
+            track.final_class = event.final_class
+            track.final_confidence = event.final_confidence
+            track.quality = event.quality
+            track.quality_confidence = event.quality_confidence
+            track.quality_parts = tuple(dict(part) for part in event.parts)
+            track.quality_analysis = dict(event.analysis)
+
     def update(
         self,
         detections: Iterable[Detection],
@@ -467,7 +540,7 @@ class TrackingManager:
             # ever emits the same identity more than once in one frame.
             tracked_detections: dict[int, Detection] = {}
             for detection in detections:
-                if detection.track_id is None or detection.class_name not in CLASS_NAMES:
+                if not self._valid_detection(detection, now):
                     continue
                 previous = tracked_detections.get(detection.track_id)
                 if previous is None or detection.confidence > previous.confidence:
@@ -477,13 +550,24 @@ class TrackingManager:
             for track_id, detection in tracked_detections.items():
                 grade = (grades or {}).get(track_id)
                 track = self._tracks.get(track_id)
+                new_track = track is None
                 if track is None:
-                    self._tracks[track_id] = TrackState.from_detection(detection, now, grade)
-                    continue
+                    track = TrackState.from_detection(detection, now, grade)
+                    self._tracks[track_id] = track
+                    if track_id in self._counted_track_ids:
+                        self._restore_counted_track(track)
+                        continue
+                else:
+                    if track.counted and grade is not None and not any(
+                        event.track_id == track_id for event in self._archive
+                    ):
+                        # Once the display archive evicts an event, there is no
+                        # retained quality bucket to revise safely.
+                        grade = None
+                    previous_quality = track.quality
+                    track.observe(detection, now, self.config.evidence_limit, grade)
 
-                previous_quality = track.quality
-                track.observe(detection, now, self.config.evidence_limit, grade)
-                if track.counted and grade is not None:
+                if not new_track and track.counted and grade is not None:
                     if previous_quality != track.quality:
                         self._statistics.reclassify(previous_quality, track.quality)
                     self._history = deque(
@@ -547,13 +631,14 @@ class TrackingManager:
                     updated_event = next((event for event in self._archive if event.track_id == track_id), None)
                     if updated_event is not None:
                         notifications.append(("updated", updated_event))
-                if track.counted or track.previous_center is None:
+                if track_id in self._counted_track_ids or track.counted or track.previous_center is None:
                     continue
                 if not self._crossed(track.previous_center, track.current_center, frame_size):
                     continue
 
                 final_class, final_confidence = track.aggregate_classification()
                 track.counted = True
+                self._counted_track_ids.add(track_id)
                 track.final_class = final_class
                 track.final_confidence = final_confidence
                 conveyor_timing = self._conveyor_timing(track, now)
@@ -690,6 +775,11 @@ class TrackingManager:
     def counters(self) -> dict[str, int]:
         with self._lock:
             return self._statistics.snapshot()
+
+    def is_counted(self, track_id: int) -> bool:
+        """Keep a finalized identity closed even when its live state expired."""
+        with self._lock:
+            return track_id in self._counted_track_ids
 
     def quality_counters(self) -> dict[str, int]:
         with self._lock:
