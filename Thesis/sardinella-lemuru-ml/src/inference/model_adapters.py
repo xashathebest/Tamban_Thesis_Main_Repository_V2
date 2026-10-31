@@ -49,10 +49,11 @@ class BasePartAdapter(ABC):
         self.device: str | int = "cpu"
         self.error: str | None = None
         self.last_inference_seconds: float | None = None
+        self.fp16 = False
         self._lock = RLock()
 
     @abstractmethod
-    def load(self, device: str | int = "cpu") -> bool:
+    def load(self, device: str | int = "cpu", fp16: bool = False) -> bool:
         """Load the model checkpoint into memory."""
 
     @abstractmethod
@@ -83,7 +84,7 @@ class YoloDetectionAdapter(BasePartAdapter):
         self._model_factory = model_factory
         self.model: Any | None = None
 
-    def load(self, device: str | int = "cpu") -> bool:
+    def load(self, device: str | int = "cpu", fp16: bool = False) -> bool:
         with self._lock:
             if self.is_loaded and self.model is not None:
                 return True
@@ -93,10 +94,15 @@ class YoloDetectionAdapter(BasePartAdapter):
                     from ultralytics import YOLO
                     factory = YOLO
                 self.device = device
+                self.fp16 = bool(fp16)
+                self.fp16 = bool(fp16)
                 model = factory(str(self.checkpoint_path))
                 if getattr(model, "task", None) != "detect":
                     raise ValueError(f"Expected detect task, got {getattr(model, 'task', None)!r}")
                 _validate_classes(getattr(model, "names", {}))
+                model_to = getattr(model, "to", None)
+                if callable(model_to):
+                    model_to(self.device)
                 self.model = model
                 self.is_loaded = True
                 self.error = None
@@ -121,13 +127,10 @@ class YoloDetectionAdapter(BasePartAdapter):
         eval_floor = 0.001 if debug_raw else conf_threshold
         with self._lock:
             started = perf_counter()
-            results = self.model.predict(
-                source=image,
-                conf=eval_floor,
-                imgsz=image_size,
-                device=self.device,
-                verbose=False,
-            )
+            options = {"source": image, "conf": eval_floor, "imgsz": image_size, "device": self.device, "verbose": False}
+            if self.fp16:
+                options["half"] = True
+            results = self.model.predict(**options)
             self.last_inference_seconds = perf_counter() - started
 
         raw: list[PartDetection] = []
@@ -168,7 +171,7 @@ class YoloSegmentationAdapter(BasePartAdapter):
         self._model_factory = model_factory
         self.model: Any | None = None
 
-    def load(self, device: str | int = "cpu") -> bool:
+    def load(self, device: str | int = "cpu", fp16: bool = False) -> bool:
         with self._lock:
             if self.is_loaded and self.model is not None:
                 return True
@@ -178,10 +181,14 @@ class YoloSegmentationAdapter(BasePartAdapter):
                     from ultralytics import YOLO
                     factory = YOLO
                 self.device = device
+                self.fp16 = bool(fp16)
                 model = factory(str(self.checkpoint_path))
                 if getattr(model, "task", None) != "segment":
                     raise ValueError(f"Expected segment task, got {getattr(model, 'task', None)!r}")
                 _validate_classes(getattr(model, "names", {}))
+                model_to = getattr(model, "to", None)
+                if callable(model_to):
+                    model_to(self.device)
                 self.model = model
                 self.is_loaded = True
                 self.error = None
@@ -206,13 +213,10 @@ class YoloSegmentationAdapter(BasePartAdapter):
         eval_floor = 0.001 if debug_raw else conf_threshold
         with self._lock:
             started = perf_counter()
-            results = self.model.predict(
-                source=image,
-                conf=eval_floor,
-                imgsz=image_size,
-                device=self.device,
-                verbose=False,
-            )
+            options = {"source": image, "conf": eval_floor, "imgsz": image_size, "device": self.device, "verbose": False}
+            if self.fp16:
+                options["half"] = True
+            results = self.model.predict(**options)
             self.last_inference_seconds = perf_counter() - started
 
         raw: list[PartDetection] = []
@@ -253,7 +257,7 @@ class TorchvisionFasterRCNNAdapter(BasePartAdapter):
         super().__init__(entry, checkpoint_path)
         self.model: Any | None = None
 
-    def load(self, device: str | int = "cpu") -> bool:
+    def load(self, device: str | int = "cpu", fp16: bool = False) -> bool:
         with self._lock:
             if self.is_loaded and self.model is not None:
                 return True
@@ -264,6 +268,7 @@ class TorchvisionFasterRCNNAdapter(BasePartAdapter):
 
                 torch_dev = torch.device(device if isinstance(device, str) and (device == "cpu" or device.startswith("cuda")) else "cpu")
                 self.device = str(torch_dev)
+                self.fp16 = bool(fp16 and torch_dev.type == "cuda")
 
                 ck = torch.load(self.checkpoint_path, map_location=torch_dev, weights_only=False)
                 classes = ck.get("classes", list(SOURCE_CLASSES.values()))
@@ -313,7 +318,11 @@ class TorchvisionFasterRCNNAdapter(BasePartAdapter):
 
         with self._lock:
             started = perf_counter()
-            with torch.inference_mode():
+            with torch.inference_mode(), torch.autocast(
+                device_type=torch_dev.type,
+                dtype=torch.float16,
+                enabled=self.fp16,
+            ):
                 output = self.model([tensor])[0]
             self.last_inference_seconds = perf_counter() - started
 
@@ -404,7 +413,7 @@ class TorchvisionRetinaNetAdapter(BasePartAdapter):
             detections_per_img=300,
         )
 
-    def load(self, device: str | int = "cpu") -> bool:
+    def load(self, device: str | int = "cpu", fp16: bool = False) -> bool:
         with self._lock:
             if self.is_loaded and self.model is not None:
                 return True
@@ -413,6 +422,7 @@ class TorchvisionRetinaNetAdapter(BasePartAdapter):
 
                 torch_dev = torch.device(device if isinstance(device, str) and (device == "cpu" or device.startswith("cuda")) else "cpu")
                 self.device = str(torch_dev)
+                self.fp16 = bool(fp16 and torch_dev.type == "cuda")
 
                 ck = torch.load(self.checkpoint_path, map_location=torch_dev, weights_only=False)
                 classes = ck.get("classes", list(SOURCE_CLASSES.values()))
@@ -453,7 +463,11 @@ class TorchvisionRetinaNetAdapter(BasePartAdapter):
 
         with self._lock:
             started = perf_counter()
-            with torch.inference_mode():
+            with torch.inference_mode(), torch.autocast(
+                device_type=torch_dev.type,
+                dtype=torch.float16,
+                enabled=self.fp16,
+            ):
                 output = self.model([tensor])[0]
             self.last_inference_seconds = perf_counter() - started
 

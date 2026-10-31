@@ -1,41 +1,42 @@
 # Run the Tamban inspection dashboard
 
-From PowerShell, start the dashboard with the project-local Python environment:
+From PowerShell, start the dashboard with the project launcher:
 
 ```powershell
 Set-Location 'C:\Users\User\Downloads\Tamban_Thesis_Main_Repository\Thesis\sardinella-lemuru-ml'
-$env:FISH_REQUIRE_BYTETRACK = '1'
-.\.venv\Scripts\python.exe -m src.api
+.\run_dashboard.ps1
 ```
 
-Open <http://127.0.0.1:8000>. `FISH_REQUIRE_BYTETRACK=1` makes startup fail
-instead of silently falling back to IoU tracking when `lap` cannot load.
-Check **Runtime Diagnostics** after startup; it must say `ByteTrack` before a
-live inspection is accepted.
+Open <http://127.0.0.1:8000>. The launcher uses the project `.venv`. If the
+optional `lap` package is unavailable, fish tracking continues with the IoU
+fallback and the technical warning is written to backend logs.
 
-If port 8000 is already occupied by a backend reporting the IoU fallback, stop
-that stopped backend and restart it with the command above. Do not run two
-backends on port 8000.
+If port 8000 is already occupied, stop that existing backend before restarting
+with the command above. Do not run two backends on port 8000.
 
 If `.venv\Scripts\python.exe` is missing, create a clean project environment
-with the Python that will run the dashboard, install the runtime requirements,
-then install the pinned tracker wheel:
+with an installed Python, then install the runtime requirements:
 
 ```powershell
-$python = 'C:\Users\User\AppData\Local\Python\bin\python.exe'
-& $python -m venv .venv
+py -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe -m pip install --only-binary=:all: -r requirements-bytetrack.txt
 ```
 
-For this repository's already prepared local environment, `lap==0.5.13` is
-installed in `.venv`; no package was installed into the global interpreter.
+If the `py` launcher is unavailable, replace `py` with an installed Python
+executable. Start the dashboard only through `run_dashboard.ps1` afterward.
+
+To enable ByteTrack, install the optional assignment dependency in that same
+environment. Otherwise the application uses IoU tracking:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install --only-binary=:all: -r requirements-bytetrack.txt
+```
 
 To verify the startup state from another PowerShell window:
 
 ```powershell
 Invoke-RestMethod http://127.0.0.1:8000/api/status |
-  Select-Object inspection_status, camera_status, fps, tracker_backend, tracker_warning
+  Select-Object inspection_status, camera_status, fps
 ```
 
 `stopped`, `disconnected`, and `0.0 FPS` are normal before **Start inspection**.

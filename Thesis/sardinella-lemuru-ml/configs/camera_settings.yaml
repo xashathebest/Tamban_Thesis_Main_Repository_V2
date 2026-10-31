@@ -1,19 +1,19 @@
 camera:
   profile_id: camera-0-4bb468ce4d7c
   profile_name: Inspection Profile
-  device_index: 0
+  device_index: 1
   preferred_backend: DSHOW
-  saved_at: '2026-10-31T04:53:51-04:00'
+  saved_at: '2026-10-31T09:09:09-04:00'
   locked: false
   camera_identity:
-    device_index: 0
-    device_name: 'Camera #0'
+    device_index: 1
+    device_name: 'Camera #1'
     device_name_reported: false
     backend: DSHOW
     capture_resolution:
     - 640
     - 480
-    fps: 3
+    fps: 120.0005
     profile_name: Inspection Profile
   capture_resolution:
   - 640
@@ -21,14 +21,14 @@ camera:
   processing_resolution:
   - 640
   - 480
-  fps: 3
+  fps: 120.0005
   settings:
     frame_width: 640
     frame_height: 480
-    fps: 3
-    exposure: -5
+    fps: 120.0005
+    exposure: -4
     gain: 0
-    brightness: 0
+    brightness: 50
     contrast: 50
     saturation: 64
     sharpness: 50
@@ -39,17 +39,17 @@ camera:
     focus: Not supported by this camera/backend
     autofocus: Not supported by this camera/backend
   reference:
-    frame_brightness: 6.0
+    frame_brightness: 4.2
     fish_roi_brightness: null
-    background_brightness: 6.0
-    background_mean_brightness: 6.0
-    background_median_brightness: 2.0
-    background_std_brightness: 7.2
+    background_brightness: 4.2
+    background_mean_brightness: 4.2
+    background_median_brightness: 4.0
+    background_std_brightness: 2.6
     fish_background_contrast: null
     frame_hsv_mean:
-      h: 76.13
-      s: 216.45
-      v: 11.49
+      h: 18.46
+      s: 242.81
+      v: 13.99
   reference_scenes: {}
   installation: {}
   operator_confirmation:

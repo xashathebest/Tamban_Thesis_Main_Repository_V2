@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#FFFFFF">
     <title>Tamban Quality Inspection System | Live Inspection</title>
-    <link rel="stylesheet" href="/assets/styles.css?v=featureui1">
+    <link rel="stylesheet" href="/assets/styles.css?v=webcamcontrol1">
   </head>
   <body>
     <svg class="icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -92,10 +92,6 @@
                 </svg>
               </span>
               <b>Model</b>
-            </button>
-            <button class="nav-item" type="button" data-view="expert" data-tooltip="Expert Validation" aria-label="Expert Validation">
-              <span aria-hidden="true"><svg class="icon" aria-hidden="true" viewBox="0 0 24 24"><use href="#icon-review"></use></svg></span>
-              <b>Expert</b>
             </button>
             <button class="nav-item nav-secondary" type="button" data-anchor="analytics-section" data-tooltip="Analytics in Live Inspection" aria-label="Analytics in Live Inspection">
               <span aria-hidden="true">
@@ -200,6 +196,7 @@
                     <h2>Inspection feed</h2>
                   </div>
                   <div class="camera-readout">
+                    <button class="button quiet webcam-switch" id="webcam-button" type="button" disabled>Use webcam</button>
                     <span class="live-badge neutral" id="live-badge">OFFLINE</span>
                     <span id="feed-fps">AI processing: 0.0 FPS</span>
                     <span id="feed-resolution">—</span>
@@ -360,21 +357,40 @@
               </aside>
             </section>
             <section class="upload-workspace upload-modal surface hidden" id="upload-workspace" aria-labelledby="upload-title" aria-busy="false" aria-hidden="true" aria-modal="true" role="dialog" inert tabindex="-1">
-              <div class="section-head">
+              <div class="section-head modal-head upload-modal-head">
                 <div>
                   <p class="eyebrow">MANUAL ANALYSIS</p>
                   <h2 id="upload-title">Analyze a photo</h2>
+                  <p class="upload-subtitle">Inspect a fish image without changing the live inspection session.</p>
                 </div>
                 <button class="icon-button" id="close-upload-button" type="button" aria-label="Close photo analysis">×</button>
               </div>
-              <div class="upload-controls">
-                <input class="visually-hidden" id="upload-input" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" aria-label="Select a fish image for local analysis">
-                <button class="button quiet upload-file-button" id="select-upload-button" type="button" aria-describedby="upload-file-name">Choose photo</button>
-                <p class="upload-file-name" id="upload-file-name">No photo selected</p>
-                <button class="button primary" id="analyze-button" type="button" disabled>Run analysis</button>
-                <span class="soft-badge" id="upload-status" role="status" aria-live="polite" aria-atomic="true">No photo selected</span>
+              <div class="upload-picker">
+                <div class="upload-picker-icon" aria-hidden="true">
+                  <svg class="icon" viewBox="0 0 24 24">
+                    <use href="#icon-camera"></use>
+                  </svg>
+                </div>
+                <div class="upload-picker-copy">
+                  <strong>Choose an image to inspect</strong>
+                  <span>Use a clear JPEG, PNG, or WebP photo with one or more visible fish.</span>
+                </div>
+                <div class="upload-controls">
+                  <input class="visually-hidden" id="upload-input" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" aria-label="Select a fish image for local analysis">
+                  <button class="button quiet upload-file-button" id="select-upload-button" type="button" aria-describedby="upload-file-name">Choose photo</button>
+                  <p class="upload-file-name" id="upload-file-name">No photo selected</p>
+                  <button class="button primary" id="analyze-button" type="button" disabled>Run analysis</button>
+                  <span class="visually-hidden" id="upload-status" role="status" aria-live="polite" aria-atomic="true">No photo selected</span>
+                </div>
               </div>
-              <p class="muted" id="upload-note">Choose a JPEG, PNG, or WebP photo for separate local analysis. It does not change this live session.</p>
+              <div class="upload-analysis-progress hidden" id="upload-analysis-progress" role="status" aria-live="polite" aria-label="Photo analysis in progress">
+                <span class="upload-progress-spinner" aria-hidden="true"></span>
+                <div>
+                  <strong>Analyzing your photo</strong>
+                  <span>Detecting fish and reading quality evidence...</span>
+                </div>
+                <div class="upload-progress-track" aria-hidden="true"><i></i></div>
+              </div>
               <img id="upload-result-image" class="upload-image hidden" alt="Selected or annotated fish photo">
               <div class="upload-results hidden" id="upload-results">
                 <div class="mini-kpi">
@@ -699,35 +715,6 @@
                 <button class="icon-button" id="review-prev" type="button" aria-label="Previous review page">‹</button>
                 <span id="review-page">Page 1</span>
                 <button class="icon-button" id="review-next" type="button" aria-label="Next review page">›</button>
-              </div>
-            </section>
-          </section>
-          <section class="view hidden" id="view-expert" aria-label="Expert validation library">
-            <div class="view-intro">
-              <p class="eyebrow">RESEARCH DOCUMENTATION</p>
-              <h2>Expert Validation</h2>
-              <p>Consultation clips record what an expert said. They do not prove that a mathematical weighting rule is optimal.</p>
-            </div>
-            <section class="surface expert-workspace">
-              <p>Topics: body emphasis and 50-30-20, missing head, missing tail, belly defects, and A/B/C distinctions. These are research topics; the current models do not detect belly defects.</p>
-              <form id="expert-access-form" class="expert-access-form">
-                <label for="expert-token">Research access token</label>
-                <input id="expert-token" type="password" autocomplete="off" required>
-                <button class="button primary" type="submit">Open library</button>
-              </form>
-              <p id="expert-message" role="status" aria-live="polite">The library is private and disabled until its access and recording scope have been verified.</p>
-              <div id="expert-content" class="hidden">
-                <label for="expert-category">Filter by topic</label>
-                <select id="expert-category">
-                  <option value="">All topics</option>
-                  <option value="body_weighting">Body emphasis / 50-30-20</option>
-                  <option value="missing_head">Physical missing head</option>
-                  <option value="missing_tail">Physical missing tail</option>
-                  <option value="belly_defects">Belly defects</option>
-                  <option value="grade_distinctions">A/B/C distinctions</option>
-                </select>
-                <div id="expert-list" class="expert-list"></div>
-                <article id="expert-detail" class="expert-detail" aria-live="polite"></article>
               </div>
             </section>
           </section>
@@ -1100,6 +1087,6 @@
         <button class="button primary" type="submit">Sign in</button>
       </form>
     </dialog>
-    <script src="/assets/app.js?v=camerasettingsremoved1" defer></script>
+    <script src="/assets/app.js?v=webcamcontrol1" defer></script>
   </body>
 </html>

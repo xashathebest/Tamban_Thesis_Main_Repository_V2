@@ -67,6 +67,24 @@ def _image_sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def _draw_readable_label(image, text, x, y, color, cv2) -> None:
+    height, width = image.shape[:2]
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    scale = 0.68
+    thickness = 2
+    padding = 6
+    (text_width, text_height), baseline = cv2.getTextSize(text, font, scale, thickness)
+    left = max(0, min(int(x), max(0, width - text_width - padding * 2)))
+    top = int(y) - text_height - baseline - padding * 2
+    if top < 0:
+        top = min(max(0, int(y)), max(0, height - text_height - baseline - padding * 2))
+    right = min(width - 1, left + text_width + padding * 2)
+    bottom = min(height - 1, top + text_height + baseline + padding * 2)
+    cv2.rectangle(image, (left, top), (right, bottom), (28, 35, 42), -1)
+    cv2.rectangle(image, (left, top), (right, bottom), color, 2)
+    cv2.putText(image, text, (left + padding, bottom - padding - baseline), font, scale, (255, 255, 255), thickness, cv2.LINE_AA)
+
+
 def _save_annotated(image, detections, output_path: Path) -> None:
     import cv2
 
@@ -76,7 +94,7 @@ def _save_annotated(image, detections, output_path: Path) -> None:
         conf = det.get("confidence", 0.0)
         label = f"Fish conf={conf:.2f}"
         cv2.rectangle(annotated, (x1, y1), (x2, y2), (0, 200, 0), 2)
-        cv2.putText(annotated, label, (x1, max(15, y1 - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 200, 0), 1)
+        _draw_readable_label(annotated, label, x1, y1, (0, 200, 0), cv2)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     cv2.imwrite(str(output_path), annotated)
 
@@ -102,7 +120,7 @@ def _save_crop_annotated(crop, parts, output_path: Path) -> None:
         color = colors.get(grade, (180, 180, 180))
         cv2.rectangle(annotated, (x1, y1), (x2, y2), color, 2)
         label = f"{region} {grade} {conf:.2f}"
-        cv2.putText(annotated, label, (x1, max(15, y1 - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
+        _draw_readable_label(annotated, label, x1, y1, color, cv2)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     cv2.imwrite(str(output_path), annotated)
 

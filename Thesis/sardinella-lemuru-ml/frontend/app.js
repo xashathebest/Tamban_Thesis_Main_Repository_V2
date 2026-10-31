@@ -16,13 +16,13 @@ const elements = {
   pageTitle: $("page-title"), pageSubtitle: $("page-subtitle"),
   cameraPill: $("camera-pill"), modelPill: $("model-pill"), devicePill: $("device-pill"),
   alert: $("alert"), alertTitle: $("alert-title"), alertCopy: $("alert-copy"), alertDetails: $("alert-details"),
-  liveBadge: $("live-badge"), inspectionState: $("inspection-state"), start: $("start-button"), emptyStart: $("empty-start-button"), stop: $("stop-button"), reset: $("reset-button"),
+  liveBadge: $("live-badge"), inspectionState: $("inspection-state"), webcam: $("webcam-button"), start: $("start-button"), emptyStart: $("empty-start-button"), stop: $("stop-button"), reset: $("reset-button"),
   video: $("video-feed"), placeholder: $("video-placeholder"), placeholderTitle: $("placeholder-title"), placeholderCopy: $("placeholder-copy"),
   feedFps: $("feed-fps"), feedResolution: $("feed-resolution"), previewMode: $("preview-mode-button"), previewDescription: $("preview-mode-description"),
   resultEmpty: $("result-empty"), resultActive: $("result-active"), resultEmptyTitle: $("result-empty-title"), resultEmptyCopy: $("result-empty-copy"),
   decision: $("decision"), resultFish: $("result-fish"), resultLabel: $("result-label"), confidence: $("confidence"), confidenceBar: $("confidence-bar"), resultProcessing: $("result-processing"), resultTime: $("result-time"), latestFeatures: $("latest-feature-list"), classificationPolicy: $("classification-policy"),
   latestVerdictDetails: $("latest-verdict-details"), latestVerdictStatus: $("latest-verdict-status"), latestVerdictReason: $("latest-verdict-reason"), latestDetectionConfidence: $("latest-detection-confidence"), latestModel2Evidence: $("latest-model2-evidence"), latestCoverage: $("latest-coverage"), latestEffectiveWeights: $("latest-effective-weights"),
-  uploadMode: $("upload-mode-button"), closeUpload: $("close-upload-button"), uploadWorkspace: $("upload-workspace"), uploadInput: $("upload-input"), selectUpload: $("select-upload-button"), uploadFileName: $("upload-file-name"), analyze: $("analyze-button"), uploadStatus: $("upload-status"), uploadNote: $("upload-note"), uploadImage: $("upload-result-image"), uploadResults: $("upload-results"), uploadFishCount: $("upload-fish-count"), uploadCountLabel: $("upload-count-label"), uploadEvidence: $("upload-fish-evidence"), uploadMeasurements: $("upload-fish-measurements"),
+  uploadMode: $("upload-mode-button"), closeUpload: $("close-upload-button"), uploadWorkspace: $("upload-workspace"), uploadInput: $("upload-input"), selectUpload: $("select-upload-button"), uploadFileName: $("upload-file-name"), analyze: $("analyze-button"), uploadStatus: $("upload-status"), uploadProgress: $("upload-analysis-progress"), uploadImage: $("upload-result-image"), uploadResults: $("upload-results"), uploadFishCount: $("upload-fish-count"), uploadCountLabel: $("upload-count-label"), uploadEvidence: $("upload-fish-evidence"), uploadMeasurements: $("upload-fish-measurements"),
   kpiGrid: $("kpi-grid"), featureCounterGrid: $("feature-counter-grid"), threshold: $("threshold"), openConfidence: $("open-confidence-button"),
   gradeChartEmpty: $("grade-chart-empty"), gradeChart: $("grade-chart"), gradeDonut: $("grade-donut"), gradeTotal: $("grade-total"), gradeLegend: $("grade-legend"),
   featureChartEmpty: $("feature-chart-empty"), featureChart: $("feature-chart"), throughputChartEmpty: $("throughput-chart-empty"), throughputChart: $("throughput-chart"), throughputLine: $("throughput-line"), throughputCaption: $("throughput-caption"),
@@ -58,7 +58,6 @@ const viewMeta = {
   history: ["Inspection History", "Fish inspection records by session"],
   review: ["Review Queue", "Ungraded fish that need an operator decision"],
   model: ["Model", "Local inference availability and operator-safe configuration"],
-  expert: ["Expert Validation", "Private research consultation library"],
 };
 const theme = getComputedStyle(document.documentElement);
 const gradeColors = Object.fromEntries(
@@ -252,6 +251,9 @@ function renderCamera(data) {
   elements.liveBadge.textContent = inspection === "running" ? "LIVE" : inspection === "starting" ? "STARTING" : inspection === "stopping" ? "STOPPING" : "OFFLINE";
   elements.start.disabled = controlRequestInFlight || running || data.model_status !== "ready";
   elements.emptyStart.disabled = elements.start.disabled;
+  elements.webcam.disabled = controlRequestInFlight || data.model_status !== "ready";
+  elements.webcam.textContent = running ? "Webcam active" : "Use webcam";
+  elements.webcam.setAttribute("aria-pressed", String(running));
   // Show one Start action: in the empty feed while stopped, or with the
   // other controls while an inspection is starting, running, or stopping.
   elements.start.classList.toggle("hidden", !running);
@@ -924,8 +926,9 @@ function renderRuntimeDiagnostics(data) {
     diagnosticsRow("Camera", measured(data.camera_status)),
     diagnosticsRow("Model 1 / device", `${measured(data.model_info?.detector?.name)} / ${measured(data.model_info?.detector?.device)}`),
     diagnosticsRow("Model 2 / device", `${measured(data.model_info?.quality?.name)} / ${measured(data.model_info?.quality?.device)}`),
+    diagnosticsRow("CUDA / FP16", `${data.device_report?.pytorch_cuda_available ? "available" : "CPU fallback"} / ${data.device_report?.model1_compute?.fp16_enabled || data.device_report?.model2_compute?.fp16_enabled ? "enabled" : "off"}`),
     diagnosticsRow("Capture FPS", rate(performance.calls_per_second?.camera_capture)),
-    diagnosticsRow("AI processing FPS", rate(performance.calls_per_second?.processed_frame)),
+    diagnosticsRow("AI processing FPS", rate(performance.processing_fps ?? performance.calls_per_second?.processed_frame)),
     diagnosticsRow("This browser's MJPEG image-load FPS", browserPreviewImageLoadText()),
     diagnosticsRow("Capture-to-display latency", "Not measured"),
     diagnosticsRow("Dropped stale frames", measured(queue.dropped_frames)), diagnosticsRow("Queue depth / capacity", `${measured(queue.depth)} / ${measured(queue.capacity)}`),
@@ -1168,7 +1171,6 @@ async function postSettings(payload) {
 
 function showView(view) {
   if (!viewMeta[view]) return;
-  if (selectedView === "expert" && view !== "expert") closeExpertLibrary();
   if (selectedView !== view) {
     historyController?.abort(); reviewController?.abort();
     historyRequestVersion++; reviewRequestVersion++; historyRequestKey = null; reviewRequestKey = null;
@@ -1523,6 +1525,8 @@ function updateUploadControls() {
   elements.closeUpload.disabled = uploadInFlight;
   elements.uploadMode.disabled = uploadInFlight;
   elements.uploadWorkspace.setAttribute("aria-busy", String(uploadInFlight));
+  elements.uploadProgress.classList.toggle("hidden", !uploadInFlight);
+  elements.uploadProgress.setAttribute("aria-hidden", String(!uploadInFlight));
 }
 function revokeUploadPreview() {
   if (uploadPreviewUrl) URL.revokeObjectURL(uploadPreviewUrl);
@@ -1535,8 +1539,9 @@ function resetUploadWorkspace() {
   elements.uploadInput.value = "";
   elements.uploadFileName.textContent = "No photo selected";
   elements.uploadStatus.textContent = "No photo selected";
-  elements.uploadNote.textContent = "Choose a JPEG, PNG, or WebP photo for separate local analysis. It does not change this live session.";
   elements.uploadResults.classList.add("hidden");
+  elements.uploadProgress.classList.add("hidden");
+  elements.uploadProgress.setAttribute("aria-hidden", "true");
   elements.uploadFishCount.textContent = "0";
   elements.uploadCountLabel.textContent = "Fish found";
   renderUploadEvidence();
@@ -1559,7 +1564,6 @@ function setUploadSelection(file) {
   }
   elements.uploadFileName.textContent = selectedUpload.name;
   elements.uploadStatus.textContent = "Ready to analyze";
-  elements.uploadNote.textContent = `${selectedUpload.name} is ready for separate local analysis.`;
   revokeUploadPreview();
   uploadPreviewUrl = URL.createObjectURL(selectedUpload);
   elements.uploadImage.src = uploadPreviewUrl;
@@ -1568,7 +1572,6 @@ function setUploadSelection(file) {
   elements.uploadImage.onerror = () => {
     if (selectionVersion !== uploadSelectionVersion) return;
     elements.uploadStatus.textContent = "Preview unavailable";
-    elements.uploadNote.textContent = "The selected file could not be previewed. Choose another JPEG, PNG, or WebP photo.";
     elements.uploadImage.classList.add("hidden");
   };
   updateUploadControls();
@@ -1606,6 +1609,10 @@ elements.sidebarToggle.addEventListener("click", () => {
   elements.sidebarToggle.setAttribute("aria-label", collapsed ? "Expand sidebar" : "Collapse sidebar");
 });
 elements.start.addEventListener("click", () => postControl("/api/inspection/start")); elements.emptyStart.addEventListener("click", () => postControl("/api/inspection/start")); elements.stop.addEventListener("click", () => postControl("/api/inspection/stop"));
+elements.webcam.addEventListener("click", () => {
+  if (!latestStatus || ["starting", "running"].includes(latestStatus.inspection_status)) return;
+  postControl("/api/inspection/start");
+});
 elements.previewMode.addEventListener("click", () => { rawPreview = !rawPreview; detachStream(); if (latestStatus) renderCamera(latestStatus); });
 elements.reset.addEventListener("click", () => { if (!hasEvents(latestStatus) || window.confirm("Reset this session? Live counters will reset. Saved inspection records will remain in the local database.")) postControl("/api/session/reset"); });
 elements.uploadMode.addEventListener("click", () => toggleUpload(elements.uploadWorkspace.classList.contains("hidden")));
@@ -1617,11 +1624,8 @@ elements.analyze.addEventListener("click", async () => {
   const upload = selectedUpload;
   const requestVersion = ++uploadRequestVersion;
   uploadInFlight = true;
-  elements.analyze.textContent = "Analyzing...";
+  elements.analyze.classList.add("is-analyzing");
   elements.uploadStatus.textContent = "Analyzing";
-  elements.uploadNote.textContent = latestStatus?.runtime_mode === "part_preview"
-    ? "Running the research part model. No fish grades or counts are produced."
-    : "Running Model 1, then full-frame Model 2 part evidence with fish ownership association.";
   updateUploadControls();
   try {
     const response = await fetch("/api/analyze-image", {
@@ -1644,19 +1648,14 @@ elements.analyze.addEventListener("click", async () => {
     renderUploadMeasurements(isPartPreview ? [] : payload.fish);
     elements.uploadResults.classList.remove("hidden");
     elements.uploadStatus.textContent = "Analysis complete";
-    elements.uploadNote.textContent = isPartPreview
-      ? "Raw part-preview test complete. It does not create fish counts or live inspection records."
-      : payload.model2_available
-        ? "Model 1 fish detections and Model 2 part/grade evidence are shown."
-        : "Detection complete; the Quality Model is unavailable.";
   } catch (error) {
     if (requestVersion !== uploadRequestVersion) return;
-    elements.uploadStatus.textContent = "Analysis failed";
-    elements.uploadNote.textContent = error instanceof Error ? error.message : "Image analysis failed.";
+    elements.uploadStatus.textContent = error instanceof Error ? error.message : "Image analysis failed.";
   } finally {
     if (requestVersion !== uploadRequestVersion) return;
     uploadInFlight = false;
     elements.analyze.textContent = "Run analysis";
+    elements.analyze.classList.remove("is-analyzing");
     updateUploadControls();
   }
 });
@@ -1886,92 +1885,6 @@ elements.exportForm.addEventListener("submit", async (event) => {
     updateExportSelection({ preserveFeedback: true });
   }
 });
-
-const expertState = { token: "", clips: [], controller: null, version: 0, videoUrl: null };
-function closeExpertLibrary() {
-  expertState.version += 1;
-  expertState.controller?.abort(); expertState.controller = null;
-  if (expertState.videoUrl) URL.revokeObjectURL(expertState.videoUrl);
-  expertState.videoUrl = null; expertState.token = ""; expertState.clips = [];
-  $("expert-token").value = ""; $("expert-category").value = "";
-  $("expert-list").replaceChildren(); $("expert-detail").replaceChildren();
-  $("expert-content").classList.add("hidden");
-  $("expert-message").textContent = "The library is private and disabled until its access and recording scope have been verified.";
-}
-function expertText(tag, text) { const element = document.createElement(tag); element.textContent = String(text); return element; }
-function expertTime(value) {
-  const seconds = Math.max(0, Math.floor(Number(value)));
-  return [Math.floor(seconds / 3600), Math.floor(seconds % 3600 / 60), seconds % 60].map((part) => String(part).padStart(2, "0")).join(":");
-}
-function expertRequest(path, token, signal) {
-  return fetch(path, { headers: { Authorization: `Bearer ${token}` }, credentials: "omit", cache: "no-store", signal });
-}
-function renderExpertList() {
-  expertState.controller?.abort(); expertState.controller = null; expertState.version += 1;
-  const list = $("expert-list"); list.replaceChildren(); $("expert-detail").replaceChildren();
-  if (expertState.videoUrl) URL.revokeObjectURL(expertState.videoUrl);
-  expertState.videoUrl = null;
-  const visible = expertState.clips.filter((clip) => !$("expert-category").value || clip.category === $("expert-category").value);
-  if (!visible.length) { list.append(expertText("p", "No clips are available for this topic.")); return; }
-  visible.forEach((clip) => {
-    const button = expertText("button", `${clip.title} · ${clip.validation_status}`);
-    button.type = "button"; button.className = "button quiet";
-    button.addEventListener("click", () => openExpertDetail(clip.id)); list.append(button);
-  });
-}
-async function openExpertDetail(id) {
-  expertState.controller?.abort(); const controller = new AbortController(); expertState.controller = controller;
-  const version = ++expertState.version;
-  try {
-    const response = await expertRequest(`/api/expert-library/clips/${encodeURIComponent(id)}`, expertState.token, controller.signal);
-    if (!response.ok) throw new Error("Clip details are unavailable.");
-    const clip = await response.json(); if (version !== expertState.version) return;
-    const detail = $("expert-detail"); detail.replaceChildren();
-    if (expertState.videoUrl) URL.revokeObjectURL(expertState.videoUrl);
-    expertState.videoUrl = null;
-    detail.append(expertText("h3", clip.title), expertText("p", `Rule: ${clip.rule_id} · ${clip.validation_status}`),
-      expertText("p", `Research question: ${clip.research_question}`),
-      expertText("p", `Consultation: ${clip.consultation_date} · Reviewer: ${clip.reviewer}`),
-      expertText("p", `Original recording: ${clip.original_filename} · ${expertTime(clip.original_start_seconds)}–${expertTime(clip.original_end_seconds)}`),
-      expertText("p", `Clip: ${clip.clipped_filename} · ${clip.clipped_length_seconds} seconds`),
-      expertText("p", `${clip.claim_kind === "exact_quote" ? "Exact expert quote" : "Expert claim (paraphrase)"}: ${clip.claim_text}`));
-    if (clip.researcher_interpretation) detail.append(expertText("p", `Researcher interpretation: ${clip.researcher_interpretation}`));
-    const load = expertText("button", clip.media_available ? "Load authorized clip" : "Clip file unavailable");
-    load.type = "button"; load.className = "button quiet"; load.disabled = !clip.media_available;
-    load.addEventListener("click", () => loadExpertVideo(id, detail, load)); detail.append(load);
-  } catch (error) { if (version === expertState.version && error.name !== "AbortError") $("expert-message").textContent = "Clip details are unavailable."; }
-}
-async function loadExpertVideo(id, detail, button) {
-  expertState.controller?.abort(); const controller = new AbortController(); expertState.controller = controller;
-  const version = ++expertState.version; button.disabled = true;
-  try {
-    const response = await expertRequest(`/api/expert-library/clips/${encodeURIComponent(id)}/media`, expertState.token, controller.signal);
-    if (!response.ok) throw new Error("Clip unavailable");
-    const blob = await response.blob(); if (version !== expertState.version) return;
-    if (expertState.videoUrl) URL.revokeObjectURL(expertState.videoUrl);
-    expertState.videoUrl = URL.createObjectURL(blob);
-    const video = document.createElement("video"); video.controls = true; video.preload = "metadata"; video.src = expertState.videoUrl;
-    detail.append(video); button.remove();
-  } catch (error) { if (version === expertState.version && error.name !== "AbortError") { button.disabled = false; $("expert-message").textContent = "Clip file is unavailable."; } }
-}
-$("expert-access-form").addEventListener("submit", async (event) => {
-  event.preventDefault(); const token = $("expert-token").value; $("expert-token").value = "";
-  expertState.controller?.abort(); const controller = new AbortController(); expertState.controller = controller;
-  const version = ++expertState.version;
-  try {
-    const response = await expertRequest("/api/expert-library/clips", token, controller.signal);
-    if (!response.ok) throw new Error("Access unavailable");
-    const data = await response.json(); if (version !== expertState.version) return;
-    expertState.token = token; expertState.clips = Array.isArray(data.clips) ? data.clips : [];
-    $("expert-content").classList.remove("hidden"); $("expert-message").textContent = "Authorized local research view.";
-    renderExpertList();
-  } catch (error) {
-    if (version === expertState.version && error.name !== "AbortError") {
-      closeExpertLibrary(); $("expert-message").textContent = "Library unavailable or access denied.";
-    }
-  }
-});
-$("expert-category").addEventListener("change", renderExpertList);
 
 function showLanLogin() {
   $("lan-logout").classList.add("hidden");

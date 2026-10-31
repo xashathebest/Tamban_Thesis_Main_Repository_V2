@@ -23,6 +23,7 @@ from src.api.domain import Detection
 from src.inference.fish_detector import FISH_CLASS_ID, FISH_CLASS_NAME, _ByteTrackInput, _default_tracker_factory
 from src.inference.model_traceability import full_sha256
 from src.inference.preprocessing import clamp_bbox, validate_image
+from src.inference.compute import resolve_compute, timed_elapsed, timed_start
 
 
 SUPPORTED_CHECKPOINT_SUFFIXES = (".pt", ".pth", ".ckpt")
@@ -186,6 +187,7 @@ class YoloFishDetector:
         self.model_path = model_path
         self.confidence_threshold = confidence_threshold
         self.requested_device = device
+        self.compute = resolve_compute(device, os.getenv("FISH_INFERENCE_FP16", "auto"))
         self.image_size = image_size
         self.tracker_config = tracker_config
         self.require_bytetrack = require_bytetrack
@@ -193,7 +195,8 @@ class YoloFishDetector:
         self._tracker_factory = tracker_factory or _default_tracker_factory
         self.model: Any | None = None
         self._tracker: Any | None = None
-        self.device: str | int = "unresolved"
+        self.device: str | int = self.compute.device
+        self.fp16 = self.compute.fp16_enabled
         self.error: str | None = None
         self.class_names: tuple[str, ...] = ()
         self.tracker_backend = "unresolved"
@@ -217,27 +220,16 @@ class YoloFishDetector:
     def _resolve_device(self) -> str | int:
         requested = self.requested_device.strip().lower()
         if requested in {"", "auto"}:
-            try:
-                import torch
-
-                return 0 if torch.cuda.is_available() else "cpu"
-            except Exception as exc:
-                raise YoloFishDetectorLoadError(f"Unable to determine a YOLO device: {exc}") from exc
+            return self.compute.device
         if requested == "cpu":
             return "cpu"
         if requested.startswith("cuda"):
             try:
-                import torch
-
-                if not torch.cuda.is_available():
-                    raise YoloFishDetectorLoadError(f"FISH_DETECTOR_DEVICE={self.requested_device!r} requires CUDA, but CUDA is unavailable.")
-            except YoloFishDetectorLoadError:
-                raise
-            except Exception as exc:
-                raise YoloFishDetectorLoadError(f"Unable to validate CUDA for Model 1: {exc}") from exc
-            return self.requested_device
+                return self.compute.device
+            except Exception:
+                return "cpu"
         if requested.isdigit():
-            return int(requested)
+            return self.compute.device if self.compute.device.startswith("cuda") else "cpu"
         raise YoloFishDetectorLoadError("FISH_DETECTOR_DEVICE must be 'auto', 'cpu', a CUDA device, or a numeric GPU index.")
 
     def load(self) -> bool:
@@ -275,6 +267,9 @@ class YoloFishDetector:
             if getattr(model, "task", None) != "detect":
                 raise YoloFishDetectorLoadError(f"Model 1 must be a YOLO detection checkpoint, got task={getattr(model, 'task', None)!r}.")
             labels = validate_yolo_fish_detector_class_mapping(getattr(model, "names", {}))
+            model_to = getattr(model, "to", None)
+            if callable(model_to):
+                model_to(self.device)
             if self._tracker_factory is not _default_tracker_factory:
                 if self.require_bytetrack:
                     raise YoloFishDetectorLoadError("Strict ByteTrack mode does not permit a custom tracker.")
@@ -346,9 +341,12 @@ class YoloFishDetector:
             frame = validate_image(frame_bgr, name="Camera frame")
             height, width = frame.shape[:2]
             with self._lock:
-                started = perf_counter()
-                results = self.model.predict(source=frame, conf=self.confidence_threshold, imgsz=self.image_size, device=self.device, verbose=False)
-                self.last_inference_seconds = perf_counter() - started
+                started = timed_start(str(self.device))
+                options = {"source": frame, "conf": self.confidence_threshold, "imgsz": self.image_size, "device": self.device, "verbose": False}
+                if self.fp16:
+                    options["half"] = True
+                results = self.model.predict(**options)
+                self.last_inference_seconds = timed_elapsed(started, str(self.device))
             return self._raw_detections(results[0], width, height, self.confidence_threshold) if results else []
         except YoloFishDetectorInferenceError:
             raise
@@ -401,6 +399,9 @@ class YoloFishDetector:
     def diagnostics(self) -> dict[str, float | str | int | None]:
         return {
             "device": self.device,
+            "backend": self.compute.backend,
+            "fp16_enabled": self.fp16,
+            "compute": self.compute.to_dict(),
             "tracker": self.tracker_backend,
             "tracker_warning": self.tracker_warning,
             "bytetrack_required": self.require_bytetrack,

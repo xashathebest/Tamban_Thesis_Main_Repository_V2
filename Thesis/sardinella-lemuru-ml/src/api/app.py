@@ -41,6 +41,7 @@ from src.inference.yolo_quality_model import YoloQualityModel, resolve_yolo_qual
 from src.inference.model_registry import get_model_registry
 from src.inference.structural_evidence import StructuralEvidence, summarize_structural_evidence
 from src.inference.part_model import YoloPartModel
+from src.inference.compute import resolve_compute
 from src.preprocessing.dataset_utils import load_yaml_file, project_root
 
 
@@ -252,6 +253,8 @@ def _device_report() -> dict[str, object]:
     try:
         import torch
 
+        model1_compute = getattr(model, "compute", resolve_compute(FISH_DETECTOR_DEVICE))
+        model2_compute = getattr(quality_model, "compute", resolve_compute(FISH_QUALITY_DEVICE)) if quality_model is not None else None
         return {
             "pytorch_cuda_available": bool(torch.cuda.is_available()),
             "pytorch_cuda_version": torch.version.cuda,
@@ -260,6 +263,8 @@ def _device_report() -> dict[str, object]:
             "requested_model2_device": FISH_QUALITY_DEVICE,
             "model1_device": getattr(model, "device", "unresolved"),
             "model2_device": getattr(quality_model, "device", "unresolved"),
+            "model1_compute": model1_compute.to_dict(),
+            "model2_compute": model2_compute.to_dict() if model2_compute is not None else None,
         }
     except Exception as exc:
         return {
@@ -270,6 +275,8 @@ def _device_report() -> dict[str, object]:
             "requested_model2_device": FISH_QUALITY_DEVICE,
             "model1_device": getattr(model, "device", "unresolved"),
             "model2_device": getattr(quality_model, "device", "unresolved"),
+            "model1_compute": resolve_compute(FISH_DETECTOR_DEVICE).to_dict(),
+            "model2_compute": resolve_compute(FISH_QUALITY_DEVICE).to_dict() if quality_model is not None else None,
             "device_probe_error": str(exc),
         }
 

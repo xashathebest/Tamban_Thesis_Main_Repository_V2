@@ -54,7 +54,7 @@ def main():
                 for width, height, label in ((1280, 900, "desktop"), (1366, 768, "laptop"), (1920, 1080, "wide"), (390, 844, "mobile"), (375, 812, "mobile375"), (768, 1024, "tablet")):
                     command("Emulation.setDeviceMetricsOverride", {"width": width, "height": height, "deviceScaleFactor": 1, "mobile": width < 600})
                     evaluate("document.querySelector('.overlay-settings').open = false")
-                    for view in ("history", "review", "model", "expert", "live"):
+                    for view in ("history", "review", "model", "live"):
                         evaluate(f"document.querySelector('[data-view={view}]').focus()")
                         command("Input.dispatchKeyEvent", {"type": "keyDown", "key": "Enter", "code": "Enter", "windowsVirtualKeyCode": 13, "text": "\r"})
                         command("Input.dispatchKeyEvent", {"type": "keyUp", "key": "Enter", "code": "Enter", "windowsVirtualKeyCode": 13})

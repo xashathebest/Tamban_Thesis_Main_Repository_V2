@@ -154,5 +154,6 @@ class RuntimeDiagnostics:
                 name: round(sum(now - 1.0 <= timestamp <= now for timestamp in samples), 2)
                 for name, samples in call_samples.items()
             },
+            "processing_fps": round(sum(now - 1.0 <= timestamp <= now for timestamp in call_samples.get("processed_frame", ())), 2),
             "counters": counters,
         }

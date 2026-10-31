@@ -20,6 +20,7 @@ from src.inference.grading_engine import FishVerdict, WeightedGradingEngine
 from src.inference.model_traceability import full_sha256
 from src.inference.part_types import PartDetection
 from src.inference.preprocessing import CropBounds, clamp_bbox, crop_fish, validate_image
+from src.inference.compute import resolve_compute, timed_elapsed, timed_start
 from src.preprocessing.audit_v7_exports import SOURCE_CLASSES
 from src.preprocessing.dataset_utils import project_root
 
@@ -189,6 +190,7 @@ class YoloQualityModel:
         self.model_path = model_path
         self.confidence_threshold = confidence_threshold
         self.requested_device = device
+        self.compute = resolve_compute(device, os.getenv("FISH_INFERENCE_FP16", "auto"))
         self.image_size = image_size
         self.quality_inference_mode = quality_inference_mode
         self.roi_padding = roi_padding
@@ -222,7 +224,8 @@ class YoloQualityModel:
         self.adapter: Any | None = None
         self.active_model_id: str = model_id or ""
         self.active_model_name: str = ""
-        self.device: str | int = "unresolved"
+        self.device: str | int = self.compute.device
+        self.fp16 = self.compute.fp16_enabled
         self.error: str | None = None
         self.class_names: dict[int, str] = {}
         self.last_inference_seconds: float | None = None
@@ -252,27 +255,13 @@ class YoloQualityModel:
     def _resolve_device(self) -> str | int:
         requested = self.requested_device.strip().lower()
         if requested in {"", "auto"}:
-            try:
-                import torch
-
-                return 0 if torch.cuda.is_available() else "cpu"
-            except Exception as exc:
-                raise YoloQualityModelLoadError(f"Unable to determine a YOLO device: {exc}") from exc
+            return self.compute.device
         if requested == "cpu":
             return "cpu"
         if requested.startswith("cuda"):
-            try:
-                import torch
-
-                if not torch.cuda.is_available():
-                    raise YoloQualityModelLoadError(f"FISH_QUALITY_DEVICE={self.requested_device!r} requires CUDA, but CUDA is unavailable.")
-            except YoloQualityModelLoadError:
-                raise
-            except Exception as exc:
-                raise YoloQualityModelLoadError(f"Unable to validate CUDA for Model 2: {exc}") from exc
-            return self.requested_device
+            return self.compute.device
         if requested.isdigit():
-            return int(requested)
+            return self.compute.device if self.compute.device.startswith("cuda") else "cpu"
         raise YoloQualityModelLoadError("FISH_QUALITY_DEVICE must be 'auto', 'cpu', a CUDA device, or a numeric GPU index.")
 
     def load(self) -> bool:
@@ -329,7 +318,7 @@ class YoloQualityModel:
                 )
             checksum, integrity = self._verify_checkpoint(entry, self.model_path)
             adapter = create_part_adapter(entry, self.model_path, model_factory=self._model_factory)
-            if not adapter.load(device=self.device):
+            if not adapter.load(device=self.device, fp16=self.fp16):
                 self.error = adapter.error
                 return False
 
@@ -488,15 +477,12 @@ class YoloQualityModel:
                 )
                 self.last_inference_seconds = self.adapter.last_inference_seconds
             elif self.model is not None:
-                started = perf_counter()
-                results = self.model.predict(
-                    source=image,
-                    conf=eval_floor,
-                    imgsz=self.image_size,
-                    device=self.device,
-                    verbose=False,
-                )
-                self.last_inference_seconds = perf_counter() - started
+                started = timed_start(str(self.device))
+                options = {"source": image, "conf": eval_floor, "imgsz": self.image_size, "device": self.device, "verbose": False}
+                if self.fp16:
+                    options["half"] = True
+                results = self.model.predict(**options)
+                self.last_inference_seconds = timed_elapsed(started, str(self.device))
                 raw = self._part_detections(results[0], width, height, eval_floor) if results else []
                 selected = [part for part in raw if part.confidence >= self.confidence_threshold]
             else:
@@ -918,6 +904,9 @@ class YoloQualityModel:
     def diagnostics(self) -> dict[str, object]:
         return {
             "device": self.device,
+            "backend": self.compute.backend,
+            "fp16_enabled": self.fp16,
+            "compute": self.compute.to_dict(),
             "active_model_id": self.active_model_id,
             "active_model_name": self.active_model_name or self.name,
             "adapter_type": self.adapter.__class__.__name__ if self.adapter else None,

@@ -35,6 +35,26 @@ PART_GRADE_COLORS = {
 }
 
 
+def _draw_readable_label(image: Any, text: str, x: int, y: int, color: tuple[int, int, int], cv2: Any) -> None:
+    """Draw a high-contrast label above a box, moving it inside the box when needed."""
+
+    height, width = image.shape[:2]
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    scale = 0.68
+    thickness = 2
+    padding = 6
+    (text_width, text_height), baseline = cv2.getTextSize(text, font, scale, thickness)
+    left = max(0, min(int(x), max(0, width - text_width - padding * 2)))
+    top = int(y) - text_height - baseline - padding * 2
+    if top < 0:
+        top = min(max(0, int(y)), max(0, height - text_height - baseline - padding * 2))
+    right = min(width - 1, left + text_width + padding * 2)
+    bottom = min(height - 1, top + text_height + baseline + padding * 2)
+    cv2.rectangle(image, (left, top), (right, bottom), (28, 35, 42), -1)
+    cv2.rectangle(image, (left, top), (right, bottom), color, 2)
+    cv2.putText(image, text, (left + padding, bottom - padding - baseline), font, scale, (255, 255, 255), thickness, cv2.LINE_AA)
+
+
 class CameraInspectionService:
     """Own exactly one camera reader and one inference loop."""
 
@@ -798,25 +818,7 @@ class CameraInspectionService:
             label = " | ".join(label_parts)
             if not label:
                 continue
-            text_y = max(20, top - 8)
-            (text_width, text_height), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-            cv2.rectangle(
-                annotated,
-                (left, text_y - text_height - 7),
-                (min(width - 1, left + text_width + 7), text_y + 3),
-                color,
-                -1,
-            )
-            cv2.putText(
-                annotated,
-                label,
-                (left + 3, text_y - 2),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.5,
-                (255, 255, 255),
-                1,
-                cv2.LINE_AA,
-            )
+            _draw_readable_label(annotated, label, left, top, color, cv2)
         return annotated
 
     def _annotate_debug_parts(self, annotated: Any, items: object, crop_bounds: CropBounds, color: tuple[int, int, int], prefix: str, cv2: Any) -> None:
@@ -876,7 +878,7 @@ class CameraInspectionService:
                     if display["features"]:
                         grade_label = str(part_grade).replace("Class ", "")
                         label = f"{part_region} {grade_label}" if not display["confidence"] else f"{part_region} {grade_label} {part.confidence * 100:.0f}%"
-                        cv2.putText(annotated, label, (max(0, int(left)), max(14, int(top) - 3)), cv2.FONT_HERSHEY_SIMPLEX, 0.42, color, 1, cv2.LINE_AA)
+                        _draw_readable_label(annotated, label, int(left), int(top), color, cv2)
             debug = result.analysis.get("model2_debug") if isinstance(result.analysis, Mapping) else None
             if self.debug_enabled and isinstance(debug, Mapping):
                 if display.get("model2_raw_boxes", False):
@@ -914,25 +916,7 @@ class CameraInspectionService:
                 polygon = None
             cv2.rectangle(annotated, (left, top), (right, bottom), color, 1 if polygon is not None else 2)
             label = f"{detection.source_class_name} {detection.confidence * 100:.1f}%"
-            text_y = max(20, top - 7)
-            (text_width, text_height), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.48, 1)
-            cv2.rectangle(
-                annotated,
-                (max(0, left), max(0, text_y - text_height - 7)),
-                (min(width - 1, max(0, left) + text_width + 7), min(height - 1, text_y + 3)),
-                color,
-                -1,
-            )
-            cv2.putText(
-                annotated,
-                label,
-                (max(0, left) + 3, text_y - 2),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.48,
-                (255, 255, 255),
-                1,
-                cv2.LINE_AA,
-            )
+            _draw_readable_label(annotated, label, left, top, color, cv2)
         cv2.rectangle(annotated, (0, 0), (min(width - 1, 430), 48), (25, 32, 42), -1)
         cv2.putText(annotated, "PART MODEL PREVIEW", (10, 19), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2, cv2.LINE_AA)
         cv2.putText(annotated, "Raw parts - fish counting disabled", (10, 39), cv2.FONT_HERSHEY_SIMPLEX, 0.43, (210, 220, 230), 1, cv2.LINE_AA)
@@ -1406,7 +1390,7 @@ class CameraInspectionService:
         """Open one capture, honoring a known saved backend before safe fallbacks."""
 
         candidates = self._capture_backend_candidates(cv2)
-        preferred = self._saved_preferred_backend()
+        preferred = self._requested_capture_backend() or self._saved_preferred_backend()
         if preferred is not None:
             candidates.sort(key=lambda candidate: 0 if candidate[2] == preferred else 1)
         with self._camera_state_lock:
@@ -1454,6 +1438,18 @@ class CameraInspectionService:
             candidates.append(("MSMF", cv2.CAP_MSMF, "msmf"))
         candidates.append(("OpenCV default", None, "default"))
         return candidates
+
+    @staticmethod
+    def _requested_capture_backend() -> str | None:
+        value = os.getenv("LEMURU_CAMERA_BACKEND", "").strip().casefold()
+        return {
+            "dshow": "dshow",
+            "directshow": "dshow",
+            "msmf": "msmf",
+            "media foundation": "msmf",
+            "default": "default",
+            "opencv default": "default",
+        }.get(value)
 
     def _saved_preferred_backend(self) -> str | None:
         """Map only known persisted backend names to safe candidate keys."""
@@ -1604,7 +1600,9 @@ class CameraInspectionService:
                         return
                     annotated = packet.frame
                 encode_started = monotonic()
-                encoded, buffer = cv2.imencode(".jpg", annotated, [cv2.IMWRITE_JPEG_QUALITY, 82])
+                # Keep the operator-facing camera feed raw. Inference still
+                # runs above for tracking, grading, and session totals.
+                encoded, buffer = cv2.imencode(".jpg", packet.frame, [cv2.IMWRITE_JPEG_QUALITY, 82])
                 self._runtime_metrics.record_latency("jpeg_encoding", monotonic() - encode_started)
                 if not encoded:
                     self._runtime_metrics.increment("jpeg_encode_failures")

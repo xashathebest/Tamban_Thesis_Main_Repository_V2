@@ -425,6 +425,7 @@
   "tests/test_verdict_acceptance.py::VerdictAcceptanceTests::test_two_part_policy_still_obeys_thresholds_and_temporal_eligibility",
   "tests/test_verdict_acceptance.py::VerdictAcceptanceTests::test_unknown_regions_are_not_reported_as_missing",
   "tests/test_yolo_two_model_pipeline.py::YoloTwoModelPipelineTests::test_checkpoint_layouts_and_exact_model2_mapping_are_enforced",
+  "tests/test_yolo_two_model_pipeline.py::YoloTwoModelPipelineTests::test_full_frame_ambiguous_pair_does_not_block_distant_fish",
   "tests/test_yolo_two_model_pipeline.py::YoloTwoModelPipelineTests::test_model1_normalizes_the_single_fish_class_and_reuses_bytetrack",
   "tests/test_yolo_two_model_pipeline.py::YoloTwoModelPipelineTests::test_model2_receives_only_a_fish_crop_and_stabilizes_a_track",
   "tests/test_yolo_two_model_pipeline.py::YoloTwoModelPipelineTests::test_optional_best_crop_saves_only_the_final_selected_candidate",

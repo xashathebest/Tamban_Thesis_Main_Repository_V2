@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from threading import RLock
 from typing import Any, Callable
 
 from src.inference.part_types import PartDetection
+from src.inference.compute import resolve_compute
 from src.preprocessing.audit_v7_exports import SOURCE_CLASSES
 
 
@@ -73,7 +75,9 @@ class YoloPartModel:
         self.confidence = confidence
         self.imgsz = imgsz
         self.model: Any | None = None
-        self.device: str | int = "cpu"
+        self.compute = resolve_compute("auto", os.getenv("FISH_INFERENCE_FP16", "auto"))
+        self.device: str | int = self.compute.device
+        self.fp16 = self.compute.fp16_enabled
         self.error: str | None = None
         self._model_factory = model_factory
         self._lock = RLock()
@@ -104,7 +108,8 @@ class YoloPartModel:
 
                 factory = YOLO
 
-            self.device = 0 if torch.cuda.is_available() else "cpu"
+            self.device = self.compute.device
+            self.fp16 = self.compute.fp16_enabled
             self.model = factory(str(self.weights_path))
             if getattr(self.model, "task", None) != "segment":
                 raise ValueError("Part-model weights must be a segmentation checkpoint.")
@@ -122,11 +127,8 @@ class YoloPartModel:
         if self.model is None:
             raise RuntimeError(self.error or "Part model is not loaded.")
         with self._lock:
-            results = self.model.predict(
-                source=frame,
-                conf=self.confidence,
-                imgsz=self.imgsz,
-                device=self.device,
-                verbose=False,
-            )
+            options = {"source": frame, "conf": self.confidence, "imgsz": self.imgsz, "device": self.device, "verbose": False}
+            if self.fp16:
+                options["half"] = True
+            results = self.model.predict(**options)
         return part_detections_from_result(results[0]) if results else []

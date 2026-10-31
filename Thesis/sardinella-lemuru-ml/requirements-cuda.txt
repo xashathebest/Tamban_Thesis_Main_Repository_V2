@@ -1,0 +1,6 @@
+# Install after requirements.txt when the machine has an NVIDIA driver.
+# CUDA 13.0 wheels support current NVIDIA drivers and are used by the
+# dashboard's automatic CUDA/CPU device probe.
+--extra-index-url https://download.pytorch.org/whl/cu130
+torch>=2.2,<3
+torchvision>=0.17,<1
