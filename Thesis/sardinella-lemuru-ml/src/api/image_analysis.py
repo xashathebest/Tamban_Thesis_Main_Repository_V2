@@ -17,7 +17,8 @@ from PIL import Image, JpegImagePlugin, PngImagePlugin
 from src.inference.yolo_fish_detector import FishDetection, YoloFishDetector
 from src.inference.yolo_quality_model import FishQualityObservation, YoloQualityModel
 from src.inference.association import ParentAnchor
-from src.inference.body_width import analyze_body_width, boxes_overlap
+from src.inference.body_width import BodyWidthConfig, boxes_overlap
+from src.inference.inspection_results import normalize_inspection_results
 from src.inference.part_types import PartDetection
 from src.inference.part_model import YoloPartModel
 from src.inference.preprocessing import (
@@ -26,14 +27,52 @@ from src.inference.preprocessing import (
     canonicalize_image,
     clamp_bbox,
     crop_fish,
+    generate_runtime_fish_mask,
     translate_bbox_to_frame,
     validate_image,
 )
+from src.features.damage import analyze_surface_damage
 
 
 ALLOWED_IMAGE_SUFFIXES = frozenset({".jpg", ".jpeg", ".png", ".webp"})
 ALLOWED_VIDEO_SUFFIXES = frozenset({".mp4", ".mov", ".webm"})
 DEFAULT_QUALITY_COUNTS = ("Class A", "Class B", "Class C", "Rejected", "Ungraded")
+RESULTS_SCHEMA_VERSION = "body_width_v3"
+
+
+def complete_inspection_payload(
+    payload: dict[str, object], *, source_metadata: dict[str, object] | None = None,
+    frame_shape: tuple[int, ...] | None = None, body_width_config: BodyWidthConfig | None = None,
+) -> dict[str, object]:
+    """Complete serialized fish evidence without another inference or pixel pass."""
+    if not isinstance(payload.get("fish"), list):
+        return payload
+    metadata = dict(payload.get("source_metadata") or {})
+    metadata.update(source_metadata or {})
+    if payload.get("analyzed_at") and not metadata.get("analyzed_at"):
+        metadata["analyzed_at"] = payload["analyzed_at"]
+    result = dict(payload)
+    complete = all(
+        isinstance(fish, dict) and isinstance(fish.get("analysis"), dict)
+        and isinstance(fish["analysis"].get("body_width"), dict) and bool(fish["analysis"]["body_width"])
+        and bool(fish["analysis"].get("geometric_support"))
+        and isinstance(fish["analysis"].get("fish_geometry"), dict) and bool(fish["analysis"]["fish_geometry"])
+        and bool(fish["analysis"]["body_width"].get("threshold_configuration"))
+        for fish in payload["fish"]
+    )
+    if payload.get("results_schema_version") != RESULTS_SCHEMA_VERSION or not complete:
+        result["fish"] = normalize_inspection_results(
+            payload["fish"], source_metadata=metadata, frame_shape=frame_shape,
+            body_width_config=body_width_config if isinstance(body_width_config, BodyWidthConfig) else None,
+        )
+        counters = dict.fromkeys(DEFAULT_QUALITY_COUNTS, 0)
+        for fish in result["fish"]:
+            grade = fish.get("quality") or "Ungraded"
+            counters[grade] = counters.get(grade, 0) + 1
+        result["quality_counters"] = counters
+    result["source_metadata"] = metadata
+    result["results_schema_version"] = RESULTS_SCHEMA_VERSION
+    return result
 
 
 class ImageUploadError(ValueError):
@@ -147,6 +186,8 @@ class _UploadFish:
     confidence: float
     quality_result: FishQualityObservation | None
     crop_bounds: CropBounds | None = None
+    damage_result: dict[str, object] | None = None
+    damage_bounds: CropBounds | None = None
 
     @property
     def quality(self) -> str:
@@ -167,7 +208,7 @@ class StillImageAnalyzer:
             return
         height, width = frame.shape[:2]
         colors = {"Class A": (76, 175, 80), "Class B": (255, 152, 0), "Class C": (170, 90, 205), "Rejected": (45, 45, 225)}
-        bounds = fish.crop_bounds
+        bounds = fish.damage_bounds
         if bounds is None:
             return
         for part in fish.quality_result.parts:
@@ -191,14 +232,6 @@ class StillImageAnalyzer:
                 payload["bbox"] = [round(value, 2) for value in translated]
                 parts.append(payload)
         analysis = dict(getattr(fish.quality_result, "analysis", {})) if fish.quality_result else {}
-        if not isinstance(analysis.get("body_width"), dict):
-            # Model 1 still supplies real dimensions when Model 2 is absent.
-            # Do not infer Body geometry from an incompatible legacy adapter.
-            analysis["body_width"] = analyze_body_width(
-                fish.bbox, (), detection_confidence=fish.confidence,
-                frame_shape=(frame_height, frame_width, 3),
-            )
-            analysis["body_width"]["coordinate_space"] = "original_frame"
         analysis["model1_detection"] = {
             "confidence": fish.confidence,
             "bbox": list(fish.bbox),
@@ -222,6 +255,10 @@ class StillImageAnalyzer:
                 "model2_checkpoint_sha256": getattr(self.quality_model, "checkpoint_sha256", None),
             })
         analysis["traceability"] = traceability
+        if fish.damage_result is not None:
+            analysis["surface_damage"] = {
+                key: value for key, value in fish.damage_result.items() if key != "overlay_mask"
+            }
         analysis["inspection_source"] = {
             "type": "uploaded_photo", "frame_width_px": frame_width, "frame_height_px": frame_height,
         }
@@ -234,6 +271,23 @@ class StillImageAnalyzer:
             "parts": parts,
             "analysis": analysis,
         }
+
+    @staticmethod
+    def _draw_damage(frame: np.ndarray, fish: _UploadFish) -> None:
+        if not fish.damage_result or fish.damage_result.get("status") != "suspected":
+            return
+        overlay = fish.damage_result.get("overlay_mask")
+        bounds = fish.crop_bounds
+        if not isinstance(overlay, np.ndarray) or bounds is None:
+            return
+        red = np.zeros_like(frame)
+        red[:, :, 2] = 220
+        height = min(overlay.shape[0], bounds.y2 - bounds.y1)
+        width = min(overlay.shape[1], bounds.x2 - bounds.x1)
+        region = overlay[:height, :width] > 0
+        target = red[bounds.y1:bounds.y1 + height, bounds.x1:bounds.x1 + width]
+        frame_region = frame[bounds.y1:bounds.y1 + height, bounds.x1:bounds.x1 + width]
+        frame_region[region] = (0.65 * frame_region[region] + 0.35 * target[region]).astype(np.uint8)
 
     def analyze(self, frame: np.ndarray) -> dict[str, object]:
         if self.detector.model is None:
@@ -288,6 +342,7 @@ class StillImageAnalyzer:
                     quality_result, crop_bounds = full_frame_results[index]
                 else:
                     crop, crop_bounds = crop_fish(frame, bounded, padding=self.roi_padding)
+                    fish_mask, fish_mask_metadata = generate_runtime_fish_mask(crop)
                     quality_result = self.quality_model.predict(
                         crop,
                         index,
@@ -300,18 +355,32 @@ class StillImageAnalyzer:
                             "crop_bounds": [crop_bounds.x1, crop_bounds.y1, crop_bounds.x2, crop_bounds.y2],
                             "overlapping": any(other is not detection and boxes_overlap(detection.bbox, other.bbox) for other in detections),
                         }},
+                        fish_mask=fish_mask,
+                        fish_mask_metadata=fish_mask_metadata,
+                        measurement_frame=frame,
                     )
             elif self.quality_model is not None and self.quality_model.model is not None:
                 # Compatibility for the prior experimental RF-DETR adapter.
                 crop, crop_bounds = crop_fish(frame, bounded, padding=self.roi_padding)
                 quality_result = self.quality_model.predict(crop, index)
-            fish = _UploadFish(index, bounded, detection.confidence, quality_result, crop_bounds)
+            damage_crop, damage_bounds = crop_fish(frame, bounded, padding=0)
+            damage_mask, damage_mask_metadata = generate_runtime_fish_mask(damage_crop)
+            if damage_mask is None:
+                damage_mask = np.zeros(damage_crop.shape[:2], dtype=bool)
+            damage_result = analyze_surface_damage(
+                cv2.cvtColor(damage_crop, cv2.COLOR_BGR2RGB),
+                damage_mask,
+                mask_source=str(damage_mask_metadata.get("source", "runtime_mask_unavailable")),
+            )
+            damage_result["mask_metadata"] = damage_mask_metadata
+            fish = _UploadFish(index, bounded, detection.confidence, quality_result, crop_bounds, damage_result, damage_bounds)
             results.append(fish)
 
         annotated = frame.copy()
         counts = {name: 0 for name in DEFAULT_QUALITY_COUNTS}
         for fish in results:
             self._draw_quality(annotated, fish)
+            self._draw_damage(annotated, fish)
             counts[fish.quality] = counts.get(fish.quality, 0) + 1
             left, top, right, bottom = (int(round(value)) for value in fish.bbox)
             color = {"Class A": (76, 175, 80), "Class B": (255, 152, 0), "Class C": (170, 90, 205), "Rejected": (45, 45, 225)}.get(fish.quality, (120, 120, 120))
@@ -325,7 +394,7 @@ class StillImageAnalyzer:
         payloads = [self._fish_payload(fish, frame.shape[1], frame.shape[0]) for fish in results]
         for payload in payloads:
             payload["timestamp"] = analyzed_at
-        return {
+        payload = {
             "fish_detected": len(results),
             "quality_counters": counts,
             "model2_available": bool(self.quality_model and self.quality_model.model is not None),
@@ -336,6 +405,11 @@ class StillImageAnalyzer:
             "inspection_source": {"type": "uploaded_photo", "frame_width_px": frame.shape[1], "frame_height_px": frame.shape[0]},
             "annotated_image": "data:image/jpeg;base64," + base64.b64encode(encoded.tobytes()).decode("ascii"),
         }
+        engine = getattr(self.quality_model, "_grading_engine", None)
+        return complete_inspection_payload(
+            payload, frame_shape=frame.shape,
+            body_width_config=getattr(engine, "body_width_config", None),
+        )
 
 
 class VideoUploadAnalyzer:

@@ -1,0 +1,8 @@
+﻿{
+    "candidate_launcher_process_id":  5160,
+    "candidate_server_process_id":  26660,
+    "candidate_stopped_after_verification":  true,
+    "active_dashboard_url":  "http://127.0.0.1:8000",
+    "model_1_status":  "ready",
+    "model_2_status":  "ready"
+}

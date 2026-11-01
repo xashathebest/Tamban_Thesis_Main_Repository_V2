@@ -829,6 +829,7 @@ class InspectionState:
             "grades": True,
             "confidence": True,
             "features": False,
+            "damage_overlays": False,
             "outlines": True,
             # Developer-only Model 2 trace layers. They are inert until the
             # runtime diagnostics endpoint explicitly enables debug capture.

@@ -12,6 +12,8 @@ from threading import Event, Lock, RLock, Thread, Thread as FinalizerThread, cur
 from time import monotonic
 from typing import Any, Mapping
 
+import numpy as np
+
 from src.api.camera_controls import CameraControlError, CameraHardwareController
 from src.api.domain import InspectionState, QualitySummary
 from src.api.runtime import PART_PREVIEW_MODE, WHOLE_FISH_MODE
@@ -23,7 +25,8 @@ from src.inference.yolo_fish_detector import YoloFishDetector
 from src.inference.yolo_quality_model import MAX_QUALITY_ROI_PADDING, QUALITY_INFERENCE_MODES, FishQualityObservation, YoloQualityModel
 from src.inference.part_types import PartDetection
 from src.inference.part_model import YoloPartModel
-from src.inference.preprocessing import CropBounds, crop_fish, translate_bbox_to_frame
+from src.inference.preprocessing import CropBounds, crop_fish, generate_runtime_fish_mask, translate_bbox_to_frame
+from src.features.damage import analyze_surface_damage
 
 
 LOGGER = logging.getLogger(__name__)
@@ -114,6 +117,7 @@ class CameraInspectionService:
         self.raw_preview = RawPreview(os.getenv("FISH_RAW_PREVIEW_ENABLED", "0").strip().lower() in {"1", "true", "yes", "on"})
         self._capture_thread: Thread | None = None
         self._latest_part_overlays: dict[int, tuple[FishQualityObservation, CropBounds, int]] = {}
+        self._latest_damage_evidence: dict[int, dict[str, object]] = {}
         self._skipped_model2_reasons: dict[str, int] = {}
         self._last_model1_debug: list[dict[str, object]] = []
         self._frame_index = 0
@@ -417,6 +421,12 @@ class CameraInspectionService:
             except OSError as exc:
                 raise CameraControlError(f"Could not save NOT_FISH label: {exc}") from exc
         return dict(record)
+
+    def surface_damage_evidence(self) -> dict[str, dict[str, object]]:
+        """Return the latest conservative, non-grading damage evidence by track."""
+
+        with self._processing_lock:
+            return {str(track_id): dict(evidence) for track_id, evidence in self._latest_damage_evidence.items()}
 
     def runtime_diagnostics(self) -> dict[str, object]:
         """Expose only bounded debug telemetry; it is never used for grading."""
@@ -742,6 +752,7 @@ class CameraInspectionService:
             self._last_segmented_frame.clear()
             self._track_grades.clear()
             self._latest_part_overlays.clear()
+            self._latest_damage_evidence.clear()
             self._latest_frames.clear()
             if self.quality_model is not None and hasattr(self.quality_model, "reset_tracks"):
                 self.quality_model.reset_tracks()
@@ -762,6 +773,7 @@ class CameraInspectionService:
             self._last_segmented_frame.clear()
             self._track_grades.clear()
             self._latest_part_overlays.clear()
+            self._latest_damage_evidence.clear()
             self._latest_frames.clear()
             if self.quality_model is not None and hasattr(self.quality_model, "reset_tracks"):
                 self.quality_model.reset_tracks()
@@ -799,6 +811,26 @@ class CameraInspectionService:
         active = {track["track_id"]: track for track in self.state.tracking.active_tracks()}
         for detection in detections:
             left, top, right, bottom = (int(value) for value in detection.bbox)
+            damage_crop, damage_bounds = crop_fish(frame, detection.bbox, padding=0)
+            damage_mask, damage_mask_metadata = generate_runtime_fish_mask(damage_crop)
+            damage = analyze_surface_damage(
+                cv2.cvtColor(damage_crop, cv2.COLOR_BGR2RGB),
+                damage_mask if damage_mask is not None else np.zeros(damage_crop.shape[:2], dtype=bool),
+                mask_source=str(damage_mask_metadata.get("source", "runtime_mask_unavailable")),
+            )
+            damage["mask_metadata"] = damage_mask_metadata
+            if detection.track_id is not None:
+                self._latest_damage_evidence[int(detection.track_id)] = {
+                    key: value for key, value in damage.items() if key != "overlay_mask"
+                }
+            if display.get("damage_overlays") and damage.get("status") == "suspected":
+                damage_overlay = damage.get("overlay_mask")
+                if isinstance(damage_overlay, np.ndarray):
+                    target = annotated[damage_bounds.y1:damage_bounds.y2, damage_bounds.x1:damage_bounds.x2]
+                    red = np.zeros_like(target)
+                    red[:, :, 2] = 220
+                    region = damage_overlay[:target.shape[0], :target.shape[1]] > 0
+                    target[region] = (0.65 * target[region] + 0.35 * red[region]).astype(np.uint8)
             track = active.get(detection.track_id)
             counted = bool(track and track["counted"])
             color = (43, 145, 87)
@@ -1079,6 +1111,19 @@ class CameraInspectionService:
             "usable_grading_frames": analysis.get("observation_count"),
             "note": "Candidate and usable grading-frame counts are keyed to the persistent Model 1 track ID.",
         }
+        if crop is not None:
+            import cv2
+
+            runtime_mask, mask_metadata = generate_runtime_fish_mask(crop)
+            damage = analyze_surface_damage(
+                cv2.cvtColor(crop, cv2.COLOR_BGR2RGB),
+                runtime_mask if runtime_mask is not None else np.zeros(crop.shape[:2], dtype=bool),
+                mask_source=str(mask_metadata.get("source", "runtime_mask_unavailable")),
+            )
+            damage.pop("overlay_mask", None)
+            damage["mask_metadata"] = mask_metadata
+            analysis["surface_damage"] = damage
+            self._latest_damage_evidence[int(detection.track_id)] = dict(damage)
         performance = analysis.get("performance") if isinstance(analysis.get("performance"), dict) else {}
         performance = dict(performance)
         detector_seconds = getattr(self.model, "last_inference_seconds", None)
@@ -1274,6 +1319,7 @@ class CameraInspectionService:
                     full_frame_results = self.quality_model.predict_full_frame(
                         frame, parents, frame_id=self._frame_index,
                         grade_track_ids={int(item.track_id) for item in eligible},
+                        source_context={"source_id": f"camera:{self.camera_index}"},
                     )
                     self._runtime_metrics.record_call("model2")
                     self._runtime_metrics.record_latency("model2_inference", self.quality_model.last_inference_seconds)
@@ -1300,6 +1346,7 @@ class CameraInspectionService:
                                 crop.shape[0],
                             )
                         if isinstance(self.quality_model, YoloQualityModel):
+                            fish_mask, mask_metadata = generate_runtime_fish_mask(crop)
                             result = self.quality_model.predict(
                                 crop,
                                 int(detection.track_id),
@@ -1310,7 +1357,18 @@ class CameraInspectionService:
                                 frame_quality={"width_context": {
                                     "crop_bounds": [bounds.x1, bounds.y1, bounds.x2, bounds.y2],
                                     "overlapping": any(other is not detection and boxes_overlap(detection.bbox, other.bbox) for other in detections),
+                                    "source_context": {"source_id": f"camera:{self.camera_index}"},
                                 }},
+                                fish_mask=fish_mask,
+                                fish_mask_metadata=mask_metadata,
+                                measurement_frame=frame,
+                            )
+                            result = replace(
+                                result,
+                                analysis={
+                                    **result.analysis,
+                                    "fish_mask": mask_metadata,
+                                },
                             )
                             self._runtime_metrics.record_call("model2")
                         else:

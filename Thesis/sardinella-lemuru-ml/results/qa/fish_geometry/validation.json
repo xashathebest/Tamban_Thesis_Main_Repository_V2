@@ -1,0 +1,389 @@
+{
+  "software_validation_only": true,
+  "anatomical_measurements_validated": false,
+  "physical_calibration_enabled": false,
+  "width_based_grading_enabled": false,
+  "source_csv": "tests/fixtures/fish-inspection-upload-all.csv",
+  "source_analysis_timestamp": "2026-11-01T00:20:20.811Z",
+  "historical_fish": [
+    {
+      "fish_id": 1,
+      "original_grade": "Class B",
+      "final_grade": "Class B",
+      "weighted_scores_unchanged": true,
+      "relative_bbox_proxy": 0.3855820105820106,
+      "silhouette_measurements": {
+        "fish_length_px": null,
+        "max_body_width_px": null,
+        "relative_width_ratio": null,
+        "fish_length_cm": null,
+        "max_body_width_cm": null,
+        "orientation_degrees": null,
+        "reliability": "Unreliable",
+        "status": "unreliable",
+        "reasons": [
+          "parent_association_uncertain",
+          "parent_touches_frame_boundary",
+          "per_fish_segmentation_unavailable",
+          "historical_image_unavailable"
+        ],
+        "method": "segmentation_centerline_profile_v1",
+        "measurement_validated": false,
+        "measurement_validation_status": "Not validated",
+        "used_for_grading": false,
+        "measurement_definition": "Silhouette centerline length and maximum transverse silhouette width within the associated Body region",
+        "mask_source": "supplied_per_fish_mask",
+        "body_region_source": null,
+        "candidate_measurements": {},
+        "physical_calibration": {
+          "validated": false,
+          "configured_validated": false,
+          "applied": false,
+          "status": "Not calibrated",
+          "reason": "physical_calibration_not_validated",
+          "calibration_id": null,
+          "pixels_per_cm": null,
+          "reference_frame_size": null,
+          "source_id": null
+        }
+      }
+    },
+    {
+      "fish_id": 2,
+      "original_grade": "Ungraded",
+      "final_grade": "Ungraded",
+      "weighted_scores_unchanged": true,
+      "relative_bbox_proxy": 0.480814408770556,
+      "silhouette_measurements": {
+        "fish_length_px": null,
+        "max_body_width_px": null,
+        "relative_width_ratio": null,
+        "fish_length_cm": null,
+        "max_body_width_cm": null,
+        "orientation_degrees": null,
+        "reliability": "Unreliable",
+        "status": "unreliable",
+        "reasons": [
+          "parent_association_uncertain",
+          "parent_touches_frame_boundary",
+          "per_fish_segmentation_unavailable",
+          "historical_image_unavailable"
+        ],
+        "method": "segmentation_centerline_profile_v1",
+        "measurement_validated": false,
+        "measurement_validation_status": "Not validated",
+        "used_for_grading": false,
+        "measurement_definition": "Silhouette centerline length and maximum transverse silhouette width within the associated Body region",
+        "mask_source": "supplied_per_fish_mask",
+        "body_region_source": null,
+        "candidate_measurements": {},
+        "physical_calibration": {
+          "validated": false,
+          "configured_validated": false,
+          "applied": false,
+          "status": "Not calibrated",
+          "reason": "physical_calibration_not_validated",
+          "calibration_id": null,
+          "pixels_per_cm": null,
+          "reference_frame_size": null,
+          "source_id": null
+        }
+      }
+    },
+    {
+      "fish_id": 3,
+      "original_grade": "Class B",
+      "final_grade": "Class B",
+      "weighted_scores_unchanged": true,
+      "relative_bbox_proxy": 0.2647690655209452,
+      "silhouette_measurements": {
+        "fish_length_px": null,
+        "max_body_width_px": null,
+        "relative_width_ratio": null,
+        "fish_length_cm": null,
+        "max_body_width_cm": null,
+        "orientation_degrees": null,
+        "reliability": "Unavailable",
+        "status": "unavailable",
+        "reasons": [
+          "parent_association_uncertain",
+          "per_fish_segmentation_unavailable",
+          "historical_image_unavailable"
+        ],
+        "method": "segmentation_centerline_profile_v1",
+        "measurement_validated": false,
+        "measurement_validation_status": "Not validated",
+        "used_for_grading": false,
+        "measurement_definition": "Silhouette centerline length and maximum transverse silhouette width within the associated Body region",
+        "mask_source": "supplied_per_fish_mask",
+        "body_region_source": null,
+        "candidate_measurements": {},
+        "physical_calibration": {
+          "validated": false,
+          "configured_validated": false,
+          "applied": false,
+          "status": "Not calibrated",
+          "reason": "physical_calibration_not_validated",
+          "calibration_id": null,
+          "pixels_per_cm": null,
+          "reference_frame_size": null,
+          "source_id": null
+        }
+      }
+    },
+    {
+      "fish_id": 4,
+      "original_grade": "Ungraded",
+      "final_grade": "Ungraded",
+      "weighted_scores_unchanged": true,
+      "relative_bbox_proxy": null,
+      "silhouette_measurements": {
+        "fish_length_px": null,
+        "max_body_width_px": null,
+        "relative_width_ratio": null,
+        "fish_length_cm": null,
+        "max_body_width_cm": null,
+        "orientation_degrees": null,
+        "reliability": "Unavailable",
+        "status": "unavailable",
+        "reasons": [
+          "parent_association_uncertain",
+          "per_fish_segmentation_unavailable",
+          "historical_image_unavailable"
+        ],
+        "method": "segmentation_centerline_profile_v1",
+        "measurement_validated": false,
+        "measurement_validation_status": "Not validated",
+        "used_for_grading": false,
+        "measurement_definition": "Silhouette centerline length and maximum transverse silhouette width within the associated Body region",
+        "mask_source": "supplied_per_fish_mask",
+        "body_region_source": null,
+        "candidate_measurements": {},
+        "physical_calibration": {
+          "validated": false,
+          "configured_validated": false,
+          "applied": false,
+          "status": "Not calibrated",
+          "reason": "physical_calibration_not_validated",
+          "calibration_id": null,
+          "pixels_per_cm": null,
+          "reference_frame_size": null,
+          "source_id": null
+        }
+      }
+    },
+    {
+      "fish_id": 5,
+      "original_grade": "Ungraded",
+      "final_grade": "Ungraded",
+      "weighted_scores_unchanged": true,
+      "relative_bbox_proxy": 0.30199252801992527,
+      "silhouette_measurements": {
+        "fish_length_px": null,
+        "max_body_width_px": null,
+        "relative_width_ratio": null,
+        "fish_length_cm": null,
+        "max_body_width_cm": null,
+        "orientation_degrees": null,
+        "reliability": "Unavailable",
+        "status": "unavailable",
+        "reasons": [
+          "parent_association_uncertain",
+          "per_fish_segmentation_unavailable",
+          "historical_image_unavailable"
+        ],
+        "method": "segmentation_centerline_profile_v1",
+        "measurement_validated": false,
+        "measurement_validation_status": "Not validated",
+        "used_for_grading": false,
+        "measurement_definition": "Silhouette centerline length and maximum transverse silhouette width within the associated Body region",
+        "mask_source": "supplied_per_fish_mask",
+        "body_region_source": null,
+        "candidate_measurements": {},
+        "physical_calibration": {
+          "validated": false,
+          "configured_validated": false,
+          "applied": false,
+          "status": "Not calibrated",
+          "reason": "physical_calibration_not_validated",
+          "calibration_id": null,
+          "pixels_per_cm": null,
+          "reference_frame_size": null,
+          "source_id": null
+        }
+      }
+    },
+    {
+      "fish_id": 6,
+      "original_grade": "Ungraded",
+      "final_grade": "Ungraded",
+      "weighted_scores_unchanged": true,
+      "relative_bbox_proxy": null,
+      "silhouette_measurements": {
+        "fish_length_px": null,
+        "max_body_width_px": null,
+        "relative_width_ratio": null,
+        "fish_length_cm": null,
+        "max_body_width_cm": null,
+        "orientation_degrees": null,
+        "reliability": "Unavailable",
+        "status": "unavailable",
+        "reasons": [
+          "parent_association_uncertain",
+          "per_fish_segmentation_unavailable",
+          "historical_image_unavailable"
+        ],
+        "method": "segmentation_centerline_profile_v1",
+        "measurement_validated": false,
+        "measurement_validation_status": "Not validated",
+        "used_for_grading": false,
+        "measurement_definition": "Silhouette centerline length and maximum transverse silhouette width within the associated Body region",
+        "mask_source": "supplied_per_fish_mask",
+        "body_region_source": null,
+        "candidate_measurements": {},
+        "physical_calibration": {
+          "validated": false,
+          "configured_validated": false,
+          "applied": false,
+          "status": "Not calibrated",
+          "reason": "physical_calibration_not_validated",
+          "calibration_id": null,
+          "pixels_per_cm": null,
+          "reference_frame_size": null,
+          "source_id": null
+        }
+      }
+    },
+    {
+      "fish_id": 7,
+      "original_grade": "Ungraded",
+      "final_grade": "Ungraded",
+      "weighted_scores_unchanged": true,
+      "relative_bbox_proxy": null,
+      "silhouette_measurements": {
+        "fish_length_px": null,
+        "max_body_width_px": null,
+        "relative_width_ratio": null,
+        "fish_length_cm": null,
+        "max_body_width_cm": null,
+        "orientation_degrees": null,
+        "reliability": "Unreliable",
+        "status": "unreliable",
+        "reasons": [
+          "parent_association_uncertain",
+          "parent_touches_frame_boundary",
+          "per_fish_segmentation_unavailable",
+          "historical_image_unavailable"
+        ],
+        "method": "segmentation_centerline_profile_v1",
+        "measurement_validated": false,
+        "measurement_validation_status": "Not validated",
+        "used_for_grading": false,
+        "measurement_definition": "Silhouette centerline length and maximum transverse silhouette width within the associated Body region",
+        "mask_source": "supplied_per_fish_mask",
+        "body_region_source": null,
+        "candidate_measurements": {},
+        "physical_calibration": {
+          "validated": false,
+          "configured_validated": false,
+          "applied": false,
+          "status": "Not calibrated",
+          "reason": "physical_calibration_not_validated",
+          "calibration_id": null,
+          "pixels_per_cm": null,
+          "reference_frame_size": null,
+          "source_id": null
+        }
+      }
+    }
+  ],
+  "synthetic_ellipse_reference_pixels": {
+    "length": 161,
+    "width": 51,
+    "tolerance_px": 3
+  },
+  "synthetic_ellipse_rotations": [
+    {
+      "status": "measured",
+      "fish_length_px": 161.0,
+      "max_body_width_px": 51.0,
+      "relative_width_ratio": 0.31677,
+      "orientation_degrees": 179.9997,
+      "input_angle_degrees": 0
+    },
+    {
+      "status": "measured",
+      "fish_length_px": 161.0002,
+      "max_body_width_px": 52.0,
+      "relative_width_ratio": 0.322981,
+      "orientation_degrees": 15.0708,
+      "input_angle_degrees": 15
+    },
+    {
+      "status": "measured",
+      "fish_length_px": 161.0001,
+      "max_body_width_px": 52.0,
+      "relative_width_ratio": 0.322981,
+      "orientation_degrees": 29.9752,
+      "input_angle_degrees": 30
+    },
+    {
+      "status": "measured",
+      "fish_length_px": 162.0004,
+      "max_body_width_px": 52.0,
+      "relative_width_ratio": 0.320987,
+      "orientation_degrees": 45.0199,
+      "input_angle_degrees": 45
+    },
+    {
+      "status": "measured",
+      "fish_length_px": 162.0003,
+      "max_body_width_px": 51.0,
+      "relative_width_ratio": 0.314814,
+      "orientation_degrees": 59.9809,
+      "input_angle_degrees": 60
+    },
+    {
+      "status": "measured",
+      "fish_length_px": 162.0005,
+      "max_body_width_px": 52.0,
+      "relative_width_ratio": 0.320987,
+      "orientation_degrees": 74.9353,
+      "input_angle_degrees": 75
+    },
+    {
+      "status": "measured",
+      "fish_length_px": 161.0,
+      "max_body_width_px": 51.0,
+      "relative_width_ratio": 0.31677,
+      "orientation_degrees": 90.0055,
+      "input_angle_degrees": 90
+    },
+    {
+      "status": "measured",
+      "fish_length_px": 162.0014,
+      "max_body_width_px": 52.0,
+      "relative_width_ratio": 0.320985,
+      "orientation_degrees": 120.0191,
+      "input_angle_degrees": 120
+    },
+    {
+      "status": "measured",
+      "fish_length_px": 162.0001,
+      "max_body_width_px": 52.0,
+      "relative_width_ratio": 0.320987,
+      "orientation_degrees": 164.9292,
+      "input_angle_degrees": 165
+    }
+  ],
+  "tests": {
+    "new_tests_passed": 88,
+    "full_passed": 981,
+    "full_skipped": 12,
+    "full_preexisting_failed": 11,
+    "subtests_passed": 127,
+    "full_seconds": 37.19,
+    "browser": "passed: measurements, cm gate, 7 records, grouped cards, timestamps, mobile layout, 48-page PDF",
+    "baseline_failure_evidence": "results/qa/body_width/upload_csv_baseline_failures.json"
+  }
+}

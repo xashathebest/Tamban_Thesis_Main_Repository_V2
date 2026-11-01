@@ -270,3 +270,78 @@ def translate_mask_to_frame(
     local_x1, local_y1 = x1 - crop_bounds.x1, y1 - crop_bounds.y1
     output[y1:y2, x1:x2] = local[local_y1 : local_y1 + (y2 - y1), local_x1 : local_x1 + (x2 - x1)]
     return output
+
+
+def generate_runtime_fish_mask(image: Any) -> tuple[np.ndarray | None, dict[str, object]]:
+    """Generate a bounded foreground mask for one detector crop.
+
+    The mask is validated for feature extraction geometry only. It is not a
+    crack annotation and must never be treated as validated damage evidence.
+    """
+
+    source = validate_image(image, name="Runtime fish crop")
+    height, width = source.shape[:2]
+    if height < 24 or width < 24:
+        return None, {"status": "unavailable", "reason": "Runtime fish crop is too small."}
+    import cv2
+
+    border = max(1, min(height, width) // 24)
+    background = np.zeros((1, 65), dtype=np.float64)
+    foreground = np.zeros((1, 65), dtype=np.float64)
+    try:
+        initial = np.zeros((height, width), dtype=np.uint8)
+        cv2.grabCut(
+            source,
+            initial,
+            (border, border, width - 2 * border, height - 2 * border),
+            background,
+            foreground,
+            3,
+            cv2.GC_INIT_WITH_RECT,
+        )
+    except cv2.error as error:
+        return None, {"status": "unavailable", "reason": f"Foreground mask inference failed: {error}"}
+    mask = np.logical_or(initial == cv2.GC_FGD, initial == cv2.GC_PR_FGD)
+    raw_rows, raw_columns = np.nonzero(mask)
+    raw_contact = bool(raw_rows.size and (
+        raw_columns.min() <= border + 1 or raw_columns.max() >= width - border - 2
+        or raw_rows.min() <= border + 1 or raw_rows.max() >= height - border - 2
+    ))
+    _, _, raw_stats, _ = cv2.connectedComponentsWithStats(mask.astype(np.uint8), 8)
+    raw_areas = sorted((int(value) for value in raw_stats[1:, cv2.CC_STAT_AREA]), reverse=True)
+    mask = cv2.morphologyEx(mask.astype(np.uint8), cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8))
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8)).astype(bool)
+    components, labels, stats, _ = cv2.connectedComponentsWithStats(mask.astype(np.uint8), 8)
+    if components <= 1:
+        return None, {"status": "unavailable", "reason": "Foreground mask has no connected component."}
+    # Keep segmentation evidence before selecting a component. Dropping these
+    # statistics would hide a second fish from downstream metrology checks.
+    foreground_total = sum(raw_areas)
+    mask_evidence = {
+        "source": "runtime_grabcut_detector_crop",
+        "raw_component_count": len(raw_areas),
+        "raw_largest_component_fraction": raw_areas[0] / foreground_total if foreground_total else 0.0,
+        "raw_second_component_fraction": raw_areas[1] / foreground_total if len(raw_areas) > 1 else 0.0,
+        "initialization_border_px": border,
+        "foreground_touches_initialization_boundary": raw_contact,
+        "measurement_validated": False,
+    }
+    largest = int(np.argmax(stats[1:, cv2.CC_STAT_AREA]) + 1)
+    mask = labels == largest
+    pixels = int(mask.sum())
+    fraction = pixels / float(height * width)
+    if pixels < 64 or not 0.05 <= fraction <= 0.98:
+        return None, {
+            **mask_evidence,
+            "status": "unavailable",
+            "reason": "Foreground mask failed area validation.",
+            "foreground_pixels": pixels,
+            "foreground_fraction": round(fraction, 6),
+        }
+    return mask, {
+        **mask_evidence,
+        "status": "validated_for_features",
+        "foreground_pixels": pixels,
+        "foreground_fraction": round(fraction, 6),
+        "mask_validated_for_cracks": False,
+    }

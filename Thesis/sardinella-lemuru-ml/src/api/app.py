@@ -28,7 +28,9 @@ from src.api import lan_security
 from src.api.camera_controls import CAMERA_PROPERTIES, CameraControlError
 from src.api.database import InspectionDatabase, InspectionSessionContext, grading_config_hash
 from src.api.event_persistence import OrderedPersistenceDispatcher
-from src.api.image_analysis import ALLOWED_VIDEO_SUFFIXES, ImageUploadError, PartPreviewImageAnalyzer, StillImageAnalyzer, VideoUploadAnalyzer, VideoUploadError, decode_uploaded_image
+from src.api.image_analysis import ALLOWED_VIDEO_SUFFIXES, ImageUploadError, PartPreviewImageAnalyzer, RESULTS_SCHEMA_VERSION, StillImageAnalyzer, VideoUploadAnalyzer, VideoUploadError, complete_inspection_payload, decode_uploaded_image
+from src.inference.body_width import BodyWidthConfig
+from src.inference.inspection_results import normalize_inspection_results
 from src.api.domain import FEATURE_CAPABILITIES, QUALITY_COUNTER_NAMES, InspectionState, TrackingConfig
 from src.api.export import DEFAULT_EXPORT_FIELDS, EXPORT_FIELDS, make_csv, make_xlsx
 from src.api.expert_library import router as expert_library_router
@@ -963,6 +965,7 @@ def _runtime_diagnostics_payload() -> dict[str, object]:
 
 def _status_payload(*, include_analytics: bool = True) -> dict[str, object]:
     snapshot = state.snapshot()
+    snapshot["surface_damage_evidence"] = service.surface_damage_evidence()
     snapshot["raw_preview_available"] = bool(getattr(getattr(service, "raw_preview", None), "enabled", False))
     snapshot["tracker_backend"] = getattr(model, "tracker_backend", None)
     snapshot["tracker_warning"] = getattr(model, "tracker_warning", None)
@@ -2015,6 +2018,35 @@ async def _read_bounded_upload(request: Request, max_bytes: int) -> bytes:
     return bytes(body)
 
 
+@app.post("/api/inspection-results/normalize")
+async def normalize_inspection_results_api(request: Request) -> dict[str, object]:
+    """Enrich captured structured results without inference or history writes."""
+    try:
+        def reject_nonfinite(value):
+            raise ValueError("Non-finite JSON numbers are not supported.")
+        payload = json.loads(await _read_bounded_upload(request, FISH_UPLOAD_MAX_BYTES), parse_constant=reject_nonfinite)
+    except (ValueError, UnicodeDecodeError) as exc:
+        raise HTTPException(status_code=400, detail="A valid JSON results object is required.") from exc
+    if not isinstance(payload, dict) or not isinstance(payload.get("fish"), list):
+        raise HTTPException(status_code=422, detail="fish must be an array of structured fish records.")
+    fish = payload["fish"]
+    metadata = payload.get("source_metadata", {})
+    if len(fish) > 1000 or any(not isinstance(item, dict) for item in fish):
+        raise HTTPException(status_code=422, detail="Provide at most 1000 fish objects per normalization request.")
+    if not isinstance(metadata, dict):
+        raise HTTPException(status_code=422, detail="source_metadata must be an object.")
+    engine = getattr(quality_model, "_grading_engine", None)
+    width_config = getattr(engine, "body_width_config", None)
+    try:
+        normalized = normalize_inspection_results(
+            fish, source_metadata=metadata,
+            body_width_config=width_config if isinstance(width_config, BodyWidthConfig) else None,
+        )
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid inspection results: {exc}") from exc
+    return {"fish": normalized, "source_metadata": metadata, "results_schema_version": RESULTS_SCHEMA_VERSION}
+
+
 @app.post("/api/analyze-image")
 async def analyze_image(request: Request) -> dict[str, object]:
     """Analyze one image using the active model without changing its selection."""
@@ -2059,7 +2091,12 @@ async def analyze_image(request: Request) -> dict[str, object]:
                 ):
                     raise HTTPException(status_code=503, detail="Strict model integrity requires both registered checkpoints to be verified before image analysis.")
                 if image_analyzer is not None and model.model is not None:
-                    return image_analyzer.analyze(frame)
+                    result = image_analyzer.analyze(frame)
+                    engine = getattr(quality_model, "_grading_engine", None)
+                    return complete_inspection_payload(
+                        result, source_metadata={"source_name": filename}, frame_shape=frame.shape,
+                        body_width_config=getattr(engine, "body_width_config", None),
+                    )
                 if upload_test_model is not None and upload_test_model.model is not None and upload_test_analyzer is not None:
                     return upload_test_analyzer.analyze(frame)
                 detail = (upload_test_model.error if upload_test_model is not None else None) or model.error or "No local upload-analysis model is available."

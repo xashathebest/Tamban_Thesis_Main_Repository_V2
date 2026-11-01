@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import csv
 import json
 import os
 from pathlib import Path
@@ -13,9 +14,12 @@ import tempfile
 import time
 
 from websockets.sync.client import connect
+import cv2
+import numpy as np
 
 from dashboard_status_smoke import free_port, wait_json
 from src.inference.body_width import analyze_body_width
+from src.inference.fish_geometry import measure_fish_geometry
 from src.inference.part_types import PartDetection
 
 
@@ -27,8 +31,16 @@ def main() -> None:
     part = PartDetection.from_source_class(0, 0.9, (40, 15, 150, 55))
     width = analyze_body_width((10, 10, 210, 60), [part], detection_confidence=0.9, frame_shape=(200, 300))
     assert width["relative_width_proxy"] == 0.2
+    mask = np.zeros((80, 240), dtype=np.uint8)
+    cv2.ellipse(mask, (110, 35), (90, 20), 0, 0, 360, 1, -1)
+    pixel_geometry = measure_fish_geometry(
+        mask, [part], parent_bbox=(10, 10, 210, 60), crop_bounds=(0, 0, 240, 80),
+        frame_shape=(200, 300), association_reliable=True,
+        mask_metadata={"source": "synthetic_browser_instance_mask"},
+    )
+    assert pixel_geometry["status"] == "measured"
     event = {"track_id": 7, "id": 7, "quality": "Class A", "final_confidence": 0.9, "bbox": [10, 10, 210, 60],
-             "parts": [part.to_dict()], "analysis": {"body_width": width, "final_grade": "Class A", "final_score": 0.8,
+             "parts": [part.to_dict()], "analysis": {"body_width": width, "fish_geometry": pixel_geometry, "final_grade": "Class A", "final_score": 0.8,
              "weighted_scores": {"Class A": 0.8, "Class B": 0.1, "Class C": 0.1, "Rejected": 0},
              "geometric_support": {"original_grade": "Class A", "original_support": 0.8, "width_changed_classification": False},
              "supporting_image_measurements": {"regions": {"Body": {"status": "measured", "values": {
@@ -56,7 +68,7 @@ def main() -> None:
             browser = subprocess.Popen([str(chrome), *chrome_args], stdout=subprocess.DEVNULL,
                                        stderr=subprocess.DEVNULL, creationflags=hidden)
             page = next(item for item in wait_json(f"http://127.0.0.1:{cdp_port}/json", browser) if item.get("type") == "page")
-            with connect(page["webSocketDebuggerUrl"], open_timeout=5) as ws:
+            with connect(page["webSocketDebuggerUrl"], open_timeout=5, max_size=16 * 1024 * 1024) as ws:
                 counter = 0
 
                 def call(method, params=None):
@@ -94,12 +106,14 @@ def main() -> None:
                   const output = {deduplicated: resultsEvents.length === 2, oneWorkspace: document.querySelectorAll('#results-groups').length === 1,
                     lazyGroups: elements.resultsGroups.querySelectorAll('.result-fish-card').length === 0,
                     noExternalMeasurements: !document.querySelector('#upload-fish-measurements, #upload-fish-evidence'),
-                    summaryCounts: elements.resultsCounts.textContent.includes('Total unique fish2') && elements.resultsCounts.textContent.includes('Graded fish1') && elements.resultsCounts.textContent.includes('Ungraded fish1')};
+                    summaryCounts: elements.resultsCounts.querySelector('.all strong')?.textContent === '2' && elements.resultsCounts.querySelector('.graded strong')?.textContent === '1' && elements.resultsCounts.querySelector('.ungraded strong')?.textContent === '1'};
                   const group = elements.resultsGroups.querySelector('[data-grade="Class A"]'); group.open=true; await delay();
                   const card = group.querySelector('.result-fish-card'); output.collapsedCard = !card.open && !card.querySelector('table'); card.open=true; await delay();
                   output.fourLazySections = card.querySelectorAll('.result-evidence-section').length === 4 && !card.querySelector('table');
                   const widthSection = card.querySelectorAll('.result-evidence-section')[1]; widthSection.open=true; await delay();
                   output.width = ['200 x 50 px','110 x 40 px','0.2','Reliable proxy','Not calibrated','No:'].every(value => widthSection.textContent.includes(value));
+                  output.silhouetteMeasurements = ['Measured fish length (px)','Maximum body width (px)','Relative body width ratio','Reliable pixel geometry','Not validated for anatomical measurement or width grading',String(sample.analysis.fish_geometry.fish_length_px),String(sample.analysis.fish_geometry.max_body_width_px)].every(value => widthSection.textContent.includes(value));
+                  output.noUncalibratedCentimeters = !widthSection.textContent.includes('Physical length (cm)');
                   const colorSection = card.querySelectorAll('.result-evidence-section')[2]; colorSection.open=true; await delay();
                   output.allMeasurements = ['Brown proxy','Dark-area proxy','Discoloration proxy','Highlight proxy','0.15','0.25','0.3','Not Detected'].every(value => colorSection.textContent.includes(value));
                   renderResultsDashboard([{...sample,track_id:99}], {source:'live'});
@@ -126,14 +140,38 @@ def main() -> None:
                 assert all(result.values()), result
                 call("Emulation.setDeviceMetricsOverride", {"width": 390, "height": 844, "deviceScaleFactor": 1, "mobile": True})
                 assert evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1"), "Mobile page overflows"
-                report = evaluate("resultReportHtml([window.__widthSample, {...window.__widthSample, track_id: 8}, {...window.__widthSample, track_id: 9}])")
+                with (root / "tests/fixtures/fish-inspection-upload-all.csv").open(encoding="utf-8-sig", newline="") as source:
+                    exported = list(csv.DictReader(source))
+                actual = [json.loads(row["Complete fish event"]) for row in exported]
+                metadata = json.loads(exported[0]["Source metadata"])
+                evaluate(f"window.__csvReproduction = {json.dumps({'fish': actual, 'metadata': metadata})}; true")
+                seven = evaluate("""(async () => {
+                  const input = window.__csvReproduction;
+                  const repaired = await normalizeInspectionFish(input.fish, input.metadata);
+                  resultsSource='upload'; resultsFilter='All';
+                  renderResultsDashboard(repaired,{source:'upload',scope:'actual-seven-csv',complete:true,metadata:input.metadata});
+                  for (const group of elements.resultsGroups.querySelectorAll('.result-grade-group')) group.open=true;
+                  await new Promise(resolve => setTimeout(resolve,50));
+                  return {count:resultsEvents.length,cards:elements.resultsGroups.querySelectorAll('.result-fish-card').length,
+                    groups:sessionGradeBuckets.map(grade => resultsEvents.filter(fish => resultGrade(fish)===grade).length),
+                    dates:resultsEvents.every(fish => recordedResultTimestamp(fish)===input.metadata.analyzed_at),
+                    proxies:[1,2,3,5].map(id => Number(resultsEvents.find(fish => fish.id===id).analysis.body_width.relative_width_proxy.toFixed(3))),
+                    uncalibrated:resultsEvents.every(fish => fish.analysis.body_width.score_status==='Not calibrated' && fish.analysis.geometric_support.applied_score_shift===0),
+                    silhouettesWithheld:resultsEvents.every(fish => fish.analysis.fish_geometry.fish_length_px===null && fish.analysis.fish_geometry.max_body_width_px===null && fish.analysis.fish_geometry.measurement_validated===false && fish.analysis.fish_geometry.used_for_grading===false)};
+                })()""")
+                assert seven == {"count": 7, "cards": 7, "groups": [0, 2, 0, 0, 5], "dates": True,
+                                 "proxies": [.386, .481, .265, .302], "uncalibrated": True, "silhouettesWithheld": True}, seven
+                report = evaluate("resultReportHtml()")
                 frame = call("Page.getFrameTree")["frameTree"]["frame"]["id"]
                 call("Page.setDocumentContent", {"frameId": frame, "html": report})
                 pdf = base64.b64decode(call("Page.printToPDF", {"printBackground": True, "preferCSSPageSize": True})["data"])
                 assert pdf.startswith(b"%PDF-")
                 pages = len(re.findall(rb"/Type\s*/Page\b", pdf))
-                assert pages >= 3, f"Multi-fish report did not paginate: {pages} pages"
-                print(f"Unified cards, identity updates, lazy sections, source isolation, mobile layout and {pages}-page PDF passed in headless Chrome")
+                assert pages >= 7, f"Seven-fish report did not paginate: {pages} pages"
+                output = os.getenv("TAMBAN_WIDTH_CSV_PDF_OUTPUT")
+                if output:
+                    Path(output).write_bytes(pdf)
+                print(f"Silhouette measurements, uncalibrated cm gate, all seven CSV records, API normalization, grouped cards, recorded dates, mobile layout and {pages}-page PDF passed in headless Chrome")
         finally:
             if browser is not None:
                 browser.terminate()

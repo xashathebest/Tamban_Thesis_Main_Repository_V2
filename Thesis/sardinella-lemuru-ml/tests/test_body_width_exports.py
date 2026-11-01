@@ -77,17 +77,19 @@ def test_browser_width_display_and_pdf_csv_reports_use_saved_evidence():
 const fs = require("fs"); const vm = require("vm");
 const source = fs.readFileSync("frontend/app.js", "utf8");
 function include(name) {
-  const start = source.indexOf(`function ${name}(`);
-  const end = source.indexOf("\nfunction ", start + 1);
+  const declaration = source.indexOf(`function ${name}(`);
+  const start = source.slice(declaration - 6, declaration) === "async " ? declaration - 6 : declaration;
+  const next = source.slice(start + 1).search(/\n(?:async )?function /);
+  const end = next < 0 ? -1 : start + 1 + next;
   vm.runInThisContext(source.slice(start, end < 0 ? source.length : end));
 }
-for (const name of ["bodyWidthRows", "resultGrade", "resultValue", "partEvidenceText", "measurementRegion", "measurementRows", "resultEvidenceRows", "finalExplanationRows", "resultIdentity", "mergeResultEvidence", "uniqueResultEvents", "selectedResultEvents", "flattenResultData", "resultExportRecord", "exportResultsCsv", "resultReportHtml", "exportResultsPdf"]) include(name);
+for (const name of ["bodyWidthRows", "resultGrade", "resultValue", "partEvidenceText", "measurementRegion", "measurementRows", "resultEvidenceRows", "finalExplanationRows", "resultIdentity", "mergeResultEvidence", "uniqueResultEvents", "selectedResultEvents", "recordedResultTimestamp", "hasBodyWidthExportEvidence", "hasCompleteInspectionAnalysis", "flattenResultData", "resultExportRecord", "exportResultsCsv", "resultReportHtml", "exportResultsPdf"]) include(name);
 const width = JSON.parse(process.argv[1]);
 width.reliability_reasons = ["manually checked <fish>"];
 width.threshold_configuration.calibration_id = "review <script>";
 global.resultsFilter = "All"; global.resultsSource = "upload";
 global.resultDatasets = {upload: {scope: "photo", metadata: {source_name: "test photo"}}};
-global.resultsEvents = [{id: 7, quality: "Class A", analysis: {body_width: width}}];
+global.resultsEvents = [{id: 7, quality: "Class A", analysis: {body_width: width, geometric_support: {original_grade: "Class A", final_grade: "Class A"}}}];
 global.sessionGradeBuckets = ["Class A", "Class B", "Class C", "Rejected", "Ungraded"];
 global.manualGrade = event => event.manual_grade || null;
 global.aiFinalGrade = event => event.quality || "Ungraded";

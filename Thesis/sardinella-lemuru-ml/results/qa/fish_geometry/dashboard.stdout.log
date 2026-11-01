@@ -1,0 +1,7 @@
+INFO:     127.0.0.1:63658 - "GET /api/status/live HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63659 - "POST /api/inspection-results/normalize HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63660 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63661 - "GET /assets/app.js?v=fishgeometry1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63662 - "GET /api/debug/runtime HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63670 - "GET /api/status/live HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63683 - "GET /api/status/live HTTP/1.1" 200 OK

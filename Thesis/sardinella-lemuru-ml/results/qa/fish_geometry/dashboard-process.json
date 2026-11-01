@@ -1,0 +1,13 @@
+{
+  "process_id": 5440,
+  "replaced_process_id": 7980,
+  "executable": "C:\\Users\\User\\Downloads\\Tamban_Thesis_Main_Repository\\Thesis\\sardinella-lemuru-ml\\.venv\\Scripts\\python.exe",
+  "url": "http://127.0.0.1:8000",
+  "project": "C:\\Users\\User\\Downloads\\Tamban_Thesis_Main_Repository\\Thesis\\sardinella-lemuru-ml",
+  "stdout": "results/qa/fish_geometry/dashboard.stdout.log",
+  "stderr": "results/qa/fish_geometry/dashboard.stderr.log",
+  "server_process_id": 15836,
+  "model_1_status": "ready",
+  "model_2_status": "ready",
+  "normalization_verified": true
+}

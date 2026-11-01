@@ -1,0 +1,33 @@
+{
+  "baseline": "isolated HEAD tracked sources, no checkpoint files",
+  "head": "27c1279de2f8266a3ff0d38ce7a6f961e883b273",
+  "exit_code": 1,
+  "result_summary": [
+    "FAILED tests/test_model_switch_safety.py::test_all_model_change_routes_reject_active_inspections[select-starting]",
+    "FAILED tests/test_model_switch_safety.py::test_all_model_change_routes_reject_active_inspections[select-running]",
+    "FAILED tests/test_model_switch_safety.py::test_all_model_change_routes_reject_active_inspections[select-stopping]",
+    "FAILED tests/test_model_switch_safety.py::test_model_switch_rejects_a_still_alive_worker[stopped]",
+    "FAILED tests/test_model_switch_safety.py::test_model_switch_rejects_a_still_alive_worker[errored]",
+    "FAILED tests/test_model_switch_safety.py::test_same_model_is_noop_while_stopped[select]",
+    "FAILED tests/test_model_switch_safety.py::test_same_model_selection_is_rejected_while_running[select]",
+    "FAILED tests/test_model_switch_safety.py::test_simultaneous_identical_selections_load_only_once",
+    "FAILED tests/test_model_switch_safety.py::test_start_and_model_switch_are_serialized",
+    "FAILED tests/test_feature_claims_qa.py::FeatureClaimsTests::test_interface_names_proxies_and_never_advertises_defect_capabilities",
+    "FAILED tests/test_session_totals_ui.py::test_session_totals_show_one_exclusive_bucket_per_counted_fish",
+    "11 failed, 20 passed, 3 warnings in 7.77s"
+  ],
+  "restored_tracked_files": [
+    "Thesis/sardinella-lemuru-ml/frontend/app.js",
+    "Thesis/sardinella-lemuru-ml/frontend/index.html",
+    "Thesis/sardinella-lemuru-ml/src/api/app.py",
+    "Thesis/sardinella-lemuru-ml/src/api/camera.py",
+    "Thesis/sardinella-lemuru-ml/src/api/domain.py",
+    "Thesis/sardinella-lemuru-ml/src/api/export.py",
+    "Thesis/sardinella-lemuru-ml/src/api/image_analysis.py",
+    "Thesis/sardinella-lemuru-ml/src/inference/grading_engine.py",
+    "Thesis/sardinella-lemuru-ml/src/inference/preprocessing.py",
+    "Thesis/sardinella-lemuru-ml/src/inference/yolo_quality_model.py",
+    "Thesis/sardinella-lemuru-ml/tests/body_width_browser_smoke.py",
+    "Thesis/sardinella-lemuru-ml/tests/test_body_width_exports.py"
+  ]
+}

@@ -16,6 +16,8 @@ import numpy as np
 from src.api.domain import QualitySummary
 from src.inference.association import ParentAnchor, associate_parts_to_parents, association_summary
 from src.inference.body_width import analyze_body_width, boxes_overlap
+from src.inference.fish_geometry import load_fish_geometry_config, load_physical_calibration, measure_fish_geometry
+from src.inference.fish_geometry_pipeline import analyze_fish_geometry
 from src.inference.frame_quality import BestFrameSelection, BestFrameSelector, FrameQualityAssessment, FrameQualityConfig, assess_frame_quality
 from src.inference.grading_engine import FishVerdict, WeightedGradingEngine
 from src.inference.model_traceability import full_sha256
@@ -197,6 +199,8 @@ class YoloQualityModel:
         self.roi_padding = roi_padding
         self._model_factory = model_factory
         self._grading_engine = grading_engine or WeightedGradingEngine()
+        self._fish_geometry_config = load_fish_geometry_config()
+        self._physical_calibration = load_physical_calibration()
         config = self._grading_engine.config
         self._frame_quality_config = FrameQualityConfig(
             use_frame_quality_filter=config.use_frame_quality_filter,
@@ -505,6 +509,9 @@ class YoloQualityModel:
         parent_bbox: tuple[float, float, float, float] | None,
         frame_shape: tuple[int, ...] | None,
         inference_metadata: Mapping[str, object],
+        fish_mask: np.ndarray | None = None,
+        fish_mask_metadata: Mapping[str, object] | None = None,
+        measurement_frame: np.ndarray | None = None,
         model2_available: bool = True,
         original_parts: Sequence[PartDetection] | None = None,
     ) -> FishQualityObservation:
@@ -612,10 +619,57 @@ class YoloQualityModel:
             best_frame=best_frame,
             model2_available=model2_available,
             body_width=width,
+            fish_mask=fish_mask,
         )
         self.last_grading_seconds = perf_counter() - grading_started
         votes = {name: round(value, 4) for name, value in verdict.weighted_scores.items()}
         analysis = verdict.to_dict()
+        # Silhouette metrology is evidence only. It never becomes an input to
+        # the legacy bounding-box score or the original weighted decision.
+        geometry_parts = list(parts)
+        if original_parts is not None and bounds is not None:
+            # Grading/rendering clamp boxes to their ROI. Metrology must still
+            # see a Body that crosses its parent boundary and reject ownership.
+            geometry_parts = [replace(
+                part, bbox=(part.bbox[0] - bounds[0], part.bbox[1] - bounds[1],
+                            part.bbox[2] - bounds[0], part.bbox[3] - bounds[1]),
+                mask=tuple((x - bounds[0], y - bounds[1]) for x, y in part.mask) if part.mask else None,
+            ) for part in original_parts]
+        geometry_context_reasons = []
+        if quality_payload.get("usable") is False:
+            geometry_context_reasons.append("source_frame_unusable")
+        if quality_payload.get("parent_usable") is False or quality_payload.get("parent_uncertain"):
+            geometry_context_reasons.append("parent_detection_unreliable")
+        geometry_confidence_threshold = self._grading_engine.config.minimum_detection_confidence
+        if detection_confidence is not None and geometry_confidence_threshold is not None and detection_confidence < geometry_confidence_threshold:
+            geometry_context_reasons.append("parent_detection_below_threshold")
+        geometry_mask_metadata = {
+            **(fish_mask_metadata or {}), "expected_parent_id": track_id,
+            "context_reliability_reasons": geometry_context_reasons,
+        }
+        if any(quality_payload.get(key) for key in (
+            "frame_clipped", "out_of_frame", "parent_frame_clipped", "parent_crop_clipped",
+        )):
+            geometry_mask_metadata["clipped"] = True
+        try:
+            analysis["fish_geometry"] = analyze_fish_geometry(
+                crop, geometry_parts, parent_bbox=parent_bbox, crop_bounds=bounds,
+                frame_shape=frame_shape, overlapping=bool(width_context.get("overlapping")),
+                association_reliable=coordinate_known and model2_available
+                and not bool(association.get("ambiguous") or quality_payload.get("association_ambiguous")),
+                fish_mask=fish_mask, fish_mask_metadata=geometry_mask_metadata,
+                measurement_frame=measurement_frame,
+                config=self._fish_geometry_config, physical_calibration=self._physical_calibration,
+                source_context=width_context.get("source_context"),
+            )
+        except Exception as error:
+            # Optional pixel diagnostics must never discard an already computed
+            # weighted verdict when segmentation or metrology fails.
+            LOGGER.warning("Fish %s silhouette measurement failed: %s", track_id, error, exc_info=True)
+            analysis["fish_geometry"] = measure_fish_geometry(None)
+            analysis["fish_geometry"]["reasons"].append("measurement_processing_failed")
+            analysis["fish_geometry"]["measurement_error_type"] = type(error).__name__
+        analysis["fish_geometry"].update(frame_id=frame_id, parent_track_id=track_id)
         analysis["performance"] = {
             "model2_inference_ms": round(self.last_inference_seconds * 1000, 3) if self.last_inference_seconds is not None else None,
             "grading_engine_ms": round(self.last_grading_seconds * 1000, 3) if self.last_grading_seconds is not None else None,
@@ -706,6 +760,9 @@ class YoloQualityModel:
         parent_bbox: tuple[float, float, float, float] | None = None,
         frame_shape: tuple[int, ...] | None = None,
         crop_bounds: CropBounds | Sequence[float] | None = None,
+        fish_mask: np.ndarray | None = None,
+        fish_mask_metadata: Mapping[str, object] | None = None,
+        measurement_frame: np.ndarray | None = None,
     ) -> FishQualityObservation:
         """Run Model 2 on one Model 1 crop and use the shared grading engine."""
 
@@ -734,6 +791,9 @@ class YoloQualityModel:
                     "model2_input_size": [self.image_size, self.image_size],
                     "resize_method": "Ultralytics letterbox inside model.predict",
                 },
+                fish_mask=fish_mask,
+                fish_mask_metadata=fish_mask_metadata,
+                measurement_frame=measurement_frame,
             )
         except YoloQualityModelInferenceError:
             raise
@@ -813,7 +873,10 @@ class YoloQualityModel:
         )
         if bounded is None:
             return None
-        return PartDetection.from_source_class(part.source_class_id, part.confidence, bounded)
+        return replace(
+            part, bbox=bounded,
+            mask=tuple((x - offset_x, y - offset_y) for x, y in part.mask) if part.mask else None,
+        )
 
     @_locked_model_operation
     def predict_full_frame(
@@ -824,6 +887,7 @@ class YoloQualityModel:
         stabilize: bool = True,
         frame_id: int | str | None = None,
         grade_track_ids: set[int] | None = None,
+        source_context: str | Mapping[str, object] | None = None,
     ) -> dict[int, tuple[FishQualityObservation, CropBounds]]:
         """Run Model 2 once on a frame and conservatively assign evidence.
 
@@ -877,7 +941,10 @@ class YoloQualityModel:
                 assignment_seconds += perf_counter() - assignment_started
                 quality_payload: dict[str, object] = {
                     "association": summary,
-                    "width_context": {"overlapping": any(other.track_id != parent.track_id and boxes_overlap(parent.bbox, other.bbox) for other in parents)},
+                    "width_context": {
+                        "overlapping": any(other.track_id != parent.track_id and boxes_overlap(parent.bbox, other.bbox) for other in parents),
+                        "source_context": source_context,
+                    },
                 }
                 if summary["ambiguous"]:
                     quality_payload["association_ambiguous"] = True
@@ -892,6 +959,7 @@ class YoloQualityModel:
                     parent_bbox=parent.bbox,
                     frame_shape=frame.shape,
                     original_parts=[item.part for item in associations if item.status == "ASSIGNED" and item.track_id == parent.track_id],
+                    measurement_frame=frame,
                     inference_metadata={
                         "mode": "full_frame",
                         "roi_padding": self.roi_padding,

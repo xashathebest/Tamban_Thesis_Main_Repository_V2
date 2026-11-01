@@ -1,0 +1,267 @@
+{
+  "input_sha256": "dc7e06acb4e767650fcb7dc36ff78ab288c6039b6501f5bec8e5c40efded31fd",
+  "record_count": 7,
+  "original_grade_counts": {
+    "Class B": 2,
+    "Ungraded": 5
+  },
+  "final_grade_counts": {
+    "Class B": 2,
+    "Ungraded": 5
+  },
+  "recorded_timestamp": "2026-11-01T00:20:20.811Z",
+  "all_original_scores_preserved": true,
+  "calibration_validated": false,
+  "scoring_enabled": false,
+  "records": [
+    {
+      "fish_id": 1,
+      "original_grade": "Class B",
+      "final_grade": "Class B",
+      "roi_relative_width_proxy": 0.3855820105820106,
+      "measurement_status": "Unreliable",
+      "reliability_reasons": [
+        "overlapping_fish",
+        "clipped_fish"
+      ],
+      "points_status": "Not calibrated",
+      "contribution": 0.0,
+      "timestamp": "2026-11-01T00:20:20.811Z"
+    },
+    {
+      "fish_id": 2,
+      "original_grade": "Ungraded",
+      "final_grade": "Ungraded",
+      "roi_relative_width_proxy": 0.480814408770556,
+      "measurement_status": "Unreliable",
+      "reliability_reasons": [
+        "overlapping_fish",
+        "clipped_fish",
+        "orientation_unconfirmed"
+      ],
+      "points_status": "Not calibrated",
+      "contribution": 0.0,
+      "timestamp": "2026-11-01T00:20:20.811Z"
+    },
+    {
+      "fish_id": 3,
+      "original_grade": "Class B",
+      "final_grade": "Class B",
+      "roi_relative_width_proxy": 0.2647690655209452,
+      "measurement_status": "Unreliable",
+      "reliability_reasons": [
+        "overlapping_fish",
+        "clipped_fish"
+      ],
+      "points_status": "Not calibrated",
+      "contribution": 0.0,
+      "timestamp": "2026-11-01T00:20:20.811Z"
+    },
+    {
+      "fish_id": 4,
+      "original_grade": "Ungraded",
+      "final_grade": "Ungraded",
+      "roi_relative_width_proxy": null,
+      "measurement_status": "Missing Detection",
+      "reliability_reasons": [
+        "body_evidence_unavailable",
+        "association_unreliable",
+        "overlapping_fish"
+      ],
+      "points_status": "Not calibrated",
+      "contribution": 0.0,
+      "timestamp": "2026-11-01T00:20:20.811Z"
+    },
+    {
+      "fish_id": 5,
+      "original_grade": "Ungraded",
+      "final_grade": "Ungraded",
+      "roi_relative_width_proxy": 0.30199252801992527,
+      "measurement_status": "Unreliable",
+      "reliability_reasons": [
+        "overlapping_fish",
+        "clipped_fish",
+        "orientation_unconfirmed"
+      ],
+      "points_status": "Not calibrated",
+      "contribution": 0.0,
+      "timestamp": "2026-11-01T00:20:20.811Z"
+    },
+    {
+      "fish_id": 6,
+      "original_grade": "Ungraded",
+      "final_grade": "Ungraded",
+      "roi_relative_width_proxy": null,
+      "measurement_status": "Missing Detection",
+      "reliability_reasons": [
+        "body_evidence_unavailable",
+        "overlapping_fish"
+      ],
+      "points_status": "Not calibrated",
+      "contribution": 0.0,
+      "timestamp": "2026-11-01T00:20:20.811Z"
+    },
+    {
+      "fish_id": 7,
+      "original_grade": "Ungraded",
+      "final_grade": "Ungraded",
+      "roi_relative_width_proxy": null,
+      "measurement_status": "Missing Detection",
+      "reliability_reasons": [
+        "body_evidence_unavailable",
+        "association_unreliable",
+        "overlapping_fish",
+        "clipped_fish"
+      ],
+      "points_status": "Not calibrated",
+      "contribution": 0.0,
+      "timestamp": "2026-11-01T00:20:20.811Z"
+    }
+  ],
+  "validation": {
+    "date": "2026-11-01",
+    "focused_passed": 49,
+    "full_suite": {
+      "passed": 893,
+      "skipped": 12,
+      "failed": 11,
+      "subtests_passed": 127
+    },
+    "failures_reproduced_on_isolated_HEAD": true,
+    "baseline_head": "27c1279de2f8266a3ff0d38ce7a6f961e883b273",
+    "browser": {
+      "actual_csv_rows": 7,
+      "grouped_cards": 7,
+      "class_b": 2,
+      "ungraded": 5,
+      "recorded_dates": "passed",
+      "proxy_values": "passed",
+      "mobile": "passed",
+      "pdf_pages": 47,
+      "models_invoked": false
+    },
+    "syntax_and_whitespace": "passed"
+  },
+  "fish_geometry_artifact_refresh": {
+    "script": "results/qa/fish_geometry/refresh_exports.py",
+    "source": "tests/fixtures/fish-inspection-upload-all.csv",
+    "input_sha256": "dc7e06acb4e767650fcb7dc36ff78ab288c6039b6501f5bec8e5c40efded31fd",
+    "frontend_source_sha256": "c29c91c60c7bba94ac4b2659e650052509c4337232cfa4ba5be77ae4ea0ff0ae",
+    "server_export_source_sha256": "9bfb1a923a68a0a6c06ffeae2dd20b765b709a74d6d1941227ceb8a93fa5d255",
+    "record_count": 7,
+    "browser_csv_column_count": 765,
+    "server_csv_column_count": 273,
+    "original_csv_columns_preserved": 607,
+    "source_scope": "upload:1",
+    "recorded_timestamp": "2026-11-01T00:20:20.811Z",
+    "final_grade_counts": {
+      "Class B": 2,
+      "Ungraded": 5
+    },
+    "original_fields_preserved": true,
+    "all_original_scores_preserved": true,
+    "identities_preserved": true,
+    "models_invoked": false,
+    "anatomical_measurements_validated": false,
+    "physical_calibration_enabled": false,
+    "silhouette_used_for_grading": false,
+    "actual_frontend_exporter_used": true,
+    "pdf_updated_by_this_script": false,
+    "historical_fish": [
+      {
+        "fish_id": 1,
+        "status": "unreliable",
+        "reliability": "Unreliable",
+        "reasons": [
+          "parent_association_uncertain",
+          "parent_touches_frame_boundary",
+          "per_fish_segmentation_unavailable",
+          "historical_image_unavailable"
+        ]
+      },
+      {
+        "fish_id": 2,
+        "status": "unreliable",
+        "reliability": "Unreliable",
+        "reasons": [
+          "parent_association_uncertain",
+          "parent_touches_frame_boundary",
+          "per_fish_segmentation_unavailable",
+          "historical_image_unavailable"
+        ]
+      },
+      {
+        "fish_id": 3,
+        "status": "unavailable",
+        "reliability": "Unavailable",
+        "reasons": [
+          "parent_association_uncertain",
+          "per_fish_segmentation_unavailable",
+          "historical_image_unavailable"
+        ]
+      },
+      {
+        "fish_id": 4,
+        "status": "unavailable",
+        "reliability": "Unavailable",
+        "reasons": [
+          "parent_association_uncertain",
+          "per_fish_segmentation_unavailable",
+          "historical_image_unavailable"
+        ]
+      },
+      {
+        "fish_id": 5,
+        "status": "unavailable",
+        "reliability": "Unavailable",
+        "reasons": [
+          "parent_association_uncertain",
+          "per_fish_segmentation_unavailable",
+          "historical_image_unavailable"
+        ]
+      },
+      {
+        "fish_id": 6,
+        "status": "unavailable",
+        "reliability": "Unavailable",
+        "reasons": [
+          "parent_association_uncertain",
+          "per_fish_segmentation_unavailable",
+          "historical_image_unavailable"
+        ]
+      },
+      {
+        "fish_id": 7,
+        "status": "unreliable",
+        "reliability": "Unreliable",
+        "reasons": [
+          "parent_association_uncertain",
+          "parent_touches_frame_boundary",
+          "per_fish_segmentation_unavailable",
+          "historical_image_unavailable"
+        ]
+      }
+    ],
+    "artifact_sha256": {
+      "fish-inspection-upload-all.repaired.csv": "b4dd02dcfebd4a43fcf0ab941d9ae3139104dc56fb6e96eb2efcf79b5522af2a",
+      "fish-inspection-upload-all.repaired.full-evidence.csv": "ac867ab9f0b409da2559999cb0379481eb66df16f87bf58b1da8db77df2cdda8",
+      "fish-inspection-upload-all.repaired.json": "9e76a19259c0c764c4923e13a0c06ba1231048f759f62d2f9e79290a01a2f897"
+    }
+  },
+  "fish_geometry_browser_and_runtime_verification": {
+    "repaired_pdf": "results/qa/body_width/fish-inspection-upload-all.repaired.pdf",
+    "repaired_pdf_sha256": "f69cb7765bd378a0069a9f183506c9858dde0c146edd808d48364dcc91f3bc93",
+    "repaired_pdf_pages": 48,
+    "focused_regression_tests_passed": 33,
+    "browser_smoke_passed": true,
+    "live_backend_evidence": "results/qa/fish_geometry/live_backend_verification.json",
+    "live_backend_url": "http://127.0.0.1:8000",
+    "model_1_status": "ready",
+    "model_2_status": "ready",
+    "normalization_records": 7,
+    "original_scores_preserved": true,
+    "inspection_status": "stopped",
+    "camera_status": "disconnected",
+    "temporary_candidate_stopped": true
+  }
+}

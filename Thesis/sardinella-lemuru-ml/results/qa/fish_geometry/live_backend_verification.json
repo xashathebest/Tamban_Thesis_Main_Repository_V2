@@ -1,0 +1,22 @@
+{
+  "url": "http://127.0.0.1:8000",
+  "frontend_asset": "/assets/app.js?v=fishgeometry1",
+  "inspection_status": "stopped",
+  "camera_status": "disconnected",
+  "model_1_status": "ready",
+  "model_2_status": "ready",
+  "model_1_name": "YOLO whole-fish detector (model1_fish_parent_detector.pt)",
+  "model_2_name": "YOLO26m Part Detector (r03 devbest)",
+  "normalized_records": 7,
+  "final_grade_counts": {
+    "Class B": 2,
+    "Ungraded": 5
+  },
+  "original_scores_preserved": true,
+  "recorded_timestamp": "2026-11-01T00:20:20.811Z",
+  "width_grading_applied": false,
+  "anatomical_measurements_validated": false,
+  "event_persistence_drained": true,
+  "camera_open_attempts": [],
+  "normalization_response_sha256": "0fd3f073eb67bfd3801241ed581f57ea45bdf686da01f46bd10e3daf04637989"
+}

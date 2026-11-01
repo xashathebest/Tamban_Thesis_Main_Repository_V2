@@ -19,6 +19,7 @@ from typing import Iterable, Mapping
 import numpy as np
 
 from src.features.color import ColorSettings, extract_color_features
+from src.features.texture import TextureSettings, extract_texture_features
 from src.inference.body_width import BodyWidthConfig, analyze_body_width, load_body_width_config, supplement_body_scores
 from src.inference.geometric_support import integrate_geometric_support
 from src.inference.part_types import PartDetection
@@ -544,7 +545,13 @@ class FishVerdict:
         }
 
 
-def _measurement_payload(image_bgr: np.ndarray, bbox: tuple[float, float, float, float] | None, scope: str) -> dict[str, object]:
+def _measurement_payload(
+    image_bgr: np.ndarray,
+    bbox: tuple[float, float, float, float] | None,
+    scope: str,
+    *,
+    mask: np.ndarray | None = None,
+) -> dict[str, object]:
     """Return measured HSV values without turning them into quality labels."""
 
     if not isinstance(image_bgr, np.ndarray) or image_bgr.ndim != 3 or image_bgr.shape[2] != 3 or image_bgr.size == 0:
@@ -563,7 +570,10 @@ def _measurement_payload(image_bgr: np.ndarray, bbox: tuple[float, float, float,
     rgb = region[..., ::-1]
     try:
         features = extract_color_features(
-            rgb, np.ones(region.shape[:2], dtype=bool), ColorSettings(), summary_only=True
+            rgb,
+            mask[top:bottom, left:right] if mask is not None and mask.shape == image_bgr.shape[:2] else np.ones(region.shape[:2], dtype=bool),
+            ColorSettings(),
+            summary_only=True,
         )
     except Exception as exc:
         return {"status": "unavailable", "source": scope, "message": str(exc)}
@@ -586,6 +596,21 @@ def _measurement_payload(image_bgr: np.ndarray, bbox: tuple[float, float, float,
     payload["grade_adjustment"] = 0.0
     payload["grade_adjustment_reason"] = "No validated HSV grading rule is active."
     return payload
+
+
+def _texture_payload(image_bgr: np.ndarray, mask: np.ndarray | None) -> dict[str, object]:
+    if mask is None or mask.shape != image_bgr.shape[:2] or not bool(mask.any()):
+        return {"status": "unavailable", "missing_value_reason": "no_validated_fish_mask_in_runtime"}
+    try:
+        values = extract_texture_features(image_bgr[..., ::-1], mask, TextureSettings())
+    except Exception as exc:
+        return {"status": "unavailable", "missing_value_reason": str(exc)}
+    return {
+        "status": "measured",
+        "source": "validated runtime foreground mask",
+        "mask_validated_for_cracks": False,
+        "values": values,
+    }
 
 
 def calculate_part_scores(parts: Iterable[PartDetection]) -> tuple[dict[str, dict[str, float]], dict[str, float], dict[str, PartDetection]]:
@@ -638,11 +663,21 @@ class WeightedGradingEngine:
         record = self._tracks.get(fish_id)
         return dict(record.best_frame) if record and record.best_frame else None
 
-    def _frame_evidence(self, crop_bgr: np.ndarray, parts: Iterable[PartDetection], *, frame_id: int | str | None, frame_quality: Mapping[str, object] | None) -> FrameEvidence:
+    def _frame_evidence(
+        self,
+        crop_bgr: np.ndarray,
+        parts: Iterable[PartDetection],
+        *,
+        frame_id: int | str | None,
+        frame_quality: Mapping[str, object] | None,
+        fish_mask: np.ndarray | None = None,
+    ) -> FrameEvidence:
         hsv_started = perf_counter()
         scores, presence, strongest = calculate_part_scores(parts)
         if self.config.image_diagnostics_enabled:
-            colors = {"Whole Fish": _measurement_payload(crop_bgr, None, "Model 1 fish crop rectangular ROI; no segmentation mask")}
+            whole_fish = _measurement_payload(crop_bgr, None, "Model 1 fish crop with validated runtime foreground mask", mask=fish_mask)
+            whole_fish["texture"] = _texture_payload(crop_bgr, fish_mask)
+            colors = {"Whole Fish": whole_fish}
             for region in PART_NAMES:
                 selected = strongest.get(region)
                 colors[region] = (
@@ -758,6 +793,7 @@ class WeightedGradingEngine:
         duplicate_frame_count: int = 0,
         evidence_bearing_frame_count: int | None = None,
         body_width: Mapping[str, object] | None = None,
+        fish_mask: np.ndarray | None = None,
         diagnostic_frame: FrameEvidence | None = None,
     ) -> FishVerdict:
         usable_count = len(evidence)
@@ -801,7 +837,9 @@ class WeightedGradingEngine:
             "aggregation": "arithmetic mean over measured evidence-bearing frames; still images use one frame" if evidence else "latest candidate-frame diagnostics only; excluded from grading evidence",
             "diagnostic_only_fallback": not bool(evidence) and bool(diagnostic_evidence),
             "regions": measurements,
-            "texture": {"status": "unavailable", "missing_value_reason": "no_validated_fish_mask_in_runtime"},
+            "texture": diagnostic_evidence[-1].colors["Whole Fish"].get(
+                "texture", {"status": "unavailable", "missing_value_reason": "no_validated_fish_mask_in_runtime"}
+            ) if diagnostic_evidence else {"status": "unavailable", "missing_value_reason": "no_validated_fish_mask_in_runtime"},
         }
 
         latest_quality = dict(latest_frame_quality or {})
@@ -1083,6 +1121,7 @@ class WeightedGradingEngine:
         association_status: str | None = None,
         model2_available: bool = True,
         body_width: Mapping[str, object] | None = None,
+        fish_mask: np.ndarray | None = None,
     ) -> FishVerdict:
         """Add one usable candidate crop (or explain why it was excluded).
 
@@ -1115,7 +1154,7 @@ class WeightedGradingEngine:
             or quality_payload.get("parent_crop_clipped", False)
             or quality_payload.get("crop_clipped", False)
         )
-        frame = self._frame_evidence(crop_bgr, parts, frame_id=frame_id, frame_quality=quality_payload)
+        frame = self._frame_evidence(crop_bgr, parts, frame_id=frame_id, frame_quality=quality_payload, fish_mask=fish_mask)
         reasons = quality_payload.get("reasons", ())
         rejection_reasons = [str(reason) for reason in reasons] if isinstance(reasons, (list, tuple, set)) else []
 

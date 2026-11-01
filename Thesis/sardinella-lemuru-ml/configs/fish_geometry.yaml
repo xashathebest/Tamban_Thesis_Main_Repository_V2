@@ -1,0 +1,24 @@
+# Pixel measurements use an individual foreground silhouette and associated Body.
+# These quality safeguards are engineering gates, not anatomical/class thresholds.
+# This module never contributes to grading; measurement validation is pending.
+measurement:
+  minimum_mask_pixels: 128
+  maximum_secondary_component_fraction: 0.02
+  maximum_hole_fraction: 0.03
+  minimum_axis_ratio: 2.0
+  maximum_centerline_tortuosity: 1.06
+  maximum_centerline_deviation_width_ratio: 0.25
+  maximum_profile_residual_width_ratio: 0.12
+  minimum_part_confidence: 0.25
+  minimum_part_inside_fraction: 0.95
+  minimum_body_profile_pixels: 8
+  minimum_transverse_pixels: 4
+
+# Do not substitute camera exposure/white balance or an assumed fish size.
+# A reviewed reference must be recorded for this exact camera/plane and frame size.
+physical_calibration:
+  validated: false
+  calibration_id: null
+  pixels_per_cm: null
+  reference_frame_size: null  # [full-frame width, full-frame height]
+  source_id: null            # identifier for camera/plane/acquisition context
