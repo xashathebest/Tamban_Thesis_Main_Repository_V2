@@ -8,6 +8,8 @@ import json
 import hashlib
 import logging
 import math
+import tempfile
+import uuid
 from collections import deque
 from copy import deepcopy
 from pathlib import Path
@@ -15,7 +17,7 @@ import subprocess
 from contextlib import asynccontextmanager, nullcontext
 from datetime import datetime
 from time import monotonic
-from threading import RLock
+from threading import RLock, Thread
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, Response, StreamingResponse
@@ -26,7 +28,7 @@ from src.api import lan_security
 from src.api.camera_controls import CAMERA_PROPERTIES, CameraControlError
 from src.api.database import InspectionDatabase, InspectionSessionContext, grading_config_hash
 from src.api.event_persistence import OrderedPersistenceDispatcher
-from src.api.image_analysis import ImageUploadError, PartPreviewImageAnalyzer, StillImageAnalyzer, decode_uploaded_image
+from src.api.image_analysis import ALLOWED_VIDEO_SUFFIXES, ImageUploadError, PartPreviewImageAnalyzer, StillImageAnalyzer, VideoUploadAnalyzer, VideoUploadError, decode_uploaded_image
 from src.api.domain import FEATURE_CAPABILITIES, QUALITY_COUNTER_NAMES, InspectionState, TrackingConfig
 from src.api.export import DEFAULT_EXPORT_FIELDS, EXPORT_FIELDS, make_csv, make_xlsx
 from src.api.expert_library import router as expert_library_router
@@ -82,7 +84,9 @@ def _positive_int_setting(name: str, default: int) -> int:
 _model_change_lock = RLock()
 PART_CONFIG = load_yaml_file(REPO_ROOT / "configs" / "yolov8.yaml")
 FISH_DETECTION_CONFIDENCE = float(os.getenv("FISH_DETECTION_CONFIDENCE", "0.5"))
-FISH_DETECTOR_DEVICE = os.getenv("FISH_DETECTOR_DEVICE", "auto")
+# Prefer the first CUDA device for live inference. ``resolve_compute`` keeps
+# startup reliable by falling back to CPU when CUDA is not available.
+FISH_DETECTOR_DEVICE = os.getenv("FISH_DETECTOR_DEVICE", "cuda:0")
 FISH_DETECTOR_PATH = resolve_yolo_fish_detector_model_path(REPO_ROOT, os.getenv("FISH_DETECTOR_MODEL_PATH"))
 _model_registry = get_model_registry()
 # Keep Model 1 at the registered checkpoint's training resolution unless an
@@ -102,6 +106,7 @@ FISH_QUALITY_INTERVAL = int(os.getenv("FISH_QUALITY_INTERVAL", os.getenv("FISH_S
 FISH_QUALITY_ROI_PADDING = int(os.getenv("FISH_QUALITY_ROI_PADDING", os.getenv("FISH_SEGMENTATION_ROI_PADDING", "0")))
 _REQUESTED_FISH_QUALITY_INFERENCE_MODE = os.getenv("FISH_QUALITY_INFERENCE_MODE", "full_frame").strip().lower()
 FISH_UPLOAD_MAX_BYTES = int(os.getenv("FISH_UPLOAD_MAX_BYTES", str(10 * 1024 * 1024)))
+FISH_VIDEO_MAX_BYTES = int(os.getenv("FISH_VIDEO_MAX_BYTES", str(100 * 1024 * 1024)))
 FISH_UPLOAD_MAX_DIMENSION = int(os.getenv("FISH_UPLOAD_MAX_DIMENSION", "4096"))
 FISH_UPLOAD_MAX_PIXELS = int(os.getenv("FISH_UPLOAD_MAX_PIXELS", str(16 * 1024 * 1024)))
 PART_CONFIDENCE = float(os.getenv("LEMURU_PART_CONFIDENCE", os.getenv("LEMURU_CONFIDENCE", "0.25")))
@@ -170,6 +175,8 @@ service = CameraInspectionService(
 image_analyzer = StillImageAnalyzer(model, quality_model, roi_padding=FISH_QUALITY_ROI_PADDING) if RUNTIME_MODE != PART_PREVIEW_MODE else None
 upload_test_model = YoloPartModel(UPLOAD_TEST_WEIGHTS_PATH, confidence=UPLOAD_TEST_CONFIDENCE, imgsz=PART_IMAGE_SIZE) if RUNTIME_MODE == PART_PREVIEW_MODE else None
 upload_test_analyzer = PartPreviewImageAnalyzer(upload_test_model) if upload_test_model is not None else None
+video_jobs: dict[str, dict[str, object]] = {}
+video_jobs_lock = RLock()
 _database_setting = os.getenv("FISH_INSPECTION_DB_PATH")
 INSPECTION_DATABASE_PATH = (Path(_database_setting) if _database_setting else REPO_ROOT / "results" / "inspection_history.sqlite3").resolve()
 inspection_database = InspectionDatabase(INSPECTION_DATABASE_PATH)
@@ -2062,6 +2069,67 @@ async def analyze_image(request: Request) -> dict[str, object]:
         raise HTTPException(status_code=status, detail=str(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+def _run_video_job(job_id: str, body: bytes, filename: str) -> None:
+    suffix = Path(filename).suffix.lower()
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(prefix="tamban-upload-", suffix=suffix, delete=False) as handle:
+            handle.write(body)
+            temporary_path = Path(handle.name)
+        with _model_change_lock, service._processing_lock:
+            if image_analyzer is None or model.model is None:
+                raise RuntimeError(model.error or "No local upload-analysis model is available.")
+            analyzer = VideoUploadAnalyzer(image_analyzer)
+
+            def update_progress(processed: int, total: int) -> None:
+                with video_jobs_lock:
+                    job = video_jobs.get(job_id)
+                    if job is not None:
+                        job["processed_frames"] = processed
+                        job["total_frames"] = total
+                        job["progress"] = min(99, round(processed / total * 100)) if total else 0
+
+            result = analyzer.analyze(temporary_path, update_progress)
+        with video_jobs_lock:
+            video_jobs[job_id].update({"status": "complete", "progress": 100, "result": result})
+    except (RuntimeError, VideoUploadError) as exc:
+        with video_jobs_lock:
+            video_jobs[job_id].update({"status": "error", "error": str(exc)})
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+
+
+@app.post("/api/analyze-video")
+async def analyze_video(request: Request) -> dict[str, object]:
+    """Queue an uploaded video for non-blocking sequential frame analysis."""
+
+    filename = request.headers.get("x-filename", "")
+    suffix = Path(filename).suffix.lower()
+    if suffix not in ALLOWED_VIDEO_SUFFIXES:
+        raise HTTPException(status_code=400, detail="Unsupported video format. Use MP4, MOV, or WebM.")
+    declared_length = request.headers.get("content-length")
+    if declared_length and declared_length.isdigit() and int(declared_length) > FISH_VIDEO_MAX_BYTES:
+        raise HTTPException(status_code=413, detail=f"The uploaded video exceeds the {FISH_VIDEO_MAX_BYTES} byte limit.")
+    body = await _read_bounded_upload(request, FISH_VIDEO_MAX_BYTES)
+    if not body:
+        raise HTTPException(status_code=400, detail="The uploaded video is empty.")
+    job_id = uuid.uuid4().hex
+    with video_jobs_lock:
+        video_jobs[job_id] = {"status": "queued", "progress": 0, "processed_frames": 0, "total_frames": 0}
+    Thread(target=_run_video_job, args=(job_id, body, filename), daemon=True).start()
+    return {"job_id": job_id, "status": "queued"}
+
+
+@app.get("/api/analyze-video/{job_id}")
+def analyze_video_status(job_id: str) -> dict[str, object]:
+    with video_jobs_lock:
+        job = video_jobs.get(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="Video analysis job was not found or has expired.")
+        return dict(job)
 
 
 async def _mjpeg_frames(request: Request):

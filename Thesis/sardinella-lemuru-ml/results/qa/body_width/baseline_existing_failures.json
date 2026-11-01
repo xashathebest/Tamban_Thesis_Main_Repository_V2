@@ -1,0 +1,107 @@
+{
+  "baseline": "HEAD tracked sources; checkpoint-free isolated copy",
+  "head": "6b15df713d8d5b936672072b23f6df15055996e2",
+  "restored_changed_sources": [
+    "Thesis/sardinella-lemuru-ml/configs/active_model.json",
+    "Thesis/sardinella-lemuru-ml/frontend/app.js",
+    "Thesis/sardinella-lemuru-ml/frontend/index.html",
+    "Thesis/sardinella-lemuru-ml/src/api/camera.py",
+    "Thesis/sardinella-lemuru-ml/src/api/export.py",
+    "Thesis/sardinella-lemuru-ml/src/api/image_analysis.py",
+    "Thesis/sardinella-lemuru-ml/src/evaluation/fish_level_validation.py",
+    "Thesis/sardinella-lemuru-ml/src/inference/grading_engine.py",
+    "Thesis/sardinella-lemuru-ml/src/inference/yolo_quality_model.py"
+  ],
+  "command": [
+    "C:\\Users\\User\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe",
+    "-B",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "tests/test_model_switch_safety.py",
+    "tests/test_feature_claims_qa.py::FeatureClaimsTests::test_interface_names_proxies_and_never_advertises_defect_capabilities",
+    "--tb=short",
+    "--basetemp=C:\\Users\\User\\Downloads\\Tamban_Thesis_Main_Repository\\Thesis\\sardinella-lemuru-ml\\tmp\\body-width-head-baseline-u1rut0gl\\pytest",
+    "--junitxml=C:\\Users\\User\\Downloads\\Tamban_Thesis_Main_Repository\\Thesis\\sardinella-lemuru-ml\\results\\qa\\body_width\\baseline_existing_failures.xml"
+  ],
+  "returncode": 1,
+  "checkpoint_files_copied": [],
+  "suites": [
+    {
+      "name": "pytest",
+      "errors": "0",
+      "failures": "10",
+      "skipped": "0",
+      "tests": "30",
+      "time": "10.641",
+      "timestamp": "2026-10-31T19:59:35.945138-04:00",
+      "hostname": "DESKTOP-UKUBM7A"
+    }
+  ],
+  "failures": [
+    {
+      "test": "tests.test_model_switch_safety::test_all_model_change_routes_reject_active_inspections[select-starting]",
+      "type": "failure",
+      "message": "AttributeError: 'types.SimpleNamespace' object has no attribute 'is_allowed_model2'"
+    },
+    {
+      "test": "tests.test_model_switch_safety::test_all_model_change_routes_reject_active_inspections[select-running]",
+      "type": "failure",
+      "message": "AttributeError: 'types.SimpleNamespace' object has no attribute 'is_allowed_model2'"
+    },
+    {
+      "test": "tests.test_model_switch_safety::test_all_model_change_routes_reject_active_inspections[select-stopping]",
+      "type": "failure",
+      "message": "AttributeError: 'types.SimpleNamespace' object has no attribute 'is_allowed_model2'"
+    },
+    {
+      "test": "tests.test_model_switch_safety::test_model_switch_rejects_a_still_alive_worker[stopped]",
+      "type": "failure",
+      "message": "AttributeError: 'types.SimpleNamespace' object has no attribute 'is_allowed_model2'"
+    },
+    {
+      "test": "tests.test_model_switch_safety::test_model_switch_rejects_a_still_alive_worker[errored]",
+      "type": "failure",
+      "message": "AttributeError: 'types.SimpleNamespace' object has no attribute 'is_allowed_model2'"
+    },
+    {
+      "test": "tests.test_model_switch_safety::test_same_model_is_noop_while_stopped[select]",
+      "type": "failure",
+      "message": "AttributeError: 'types.SimpleNamespace' object has no attribute 'is_allowed_model2'"
+    },
+    {
+      "test": "tests.test_model_switch_safety::test_same_model_selection_is_rejected_while_running[select]",
+      "type": "failure",
+      "message": "AttributeError: 'types.SimpleNamespace' object has no attribute 'is_allowed_model2'"
+    },
+    {
+      "test": "tests.test_model_switch_safety::test_simultaneous_identical_selections_load_only_once",
+      "type": "failure",
+      "message": "assert False\n +  where False = wait(5)\n +    where wait = <threading.Event at 0x2d65842e990: unset>.wait"
+    },
+    {
+      "test": "tests.test_model_switch_safety::test_start_and_model_switch_are_serialized",
+      "type": "failure",
+      "message": "assert [] == [409]\n  \n  Right contains one more item: 409\n  Use -v to get more diff"
+    },
+    {
+      "test": "tests.test_feature_claims_qa.FeatureClaimsTests::test_interface_names_proxies_and_never_advertises_defect_capabilities",
+      "type": "failure",
+      "message": "AssertionError: required phrase 'the current models do not detect belly defects' is absent from HEAD frontend/index.html"
+    }
+  ],
+  "result_summary": {
+    "tests": 30,
+    "passed": 20,
+    "failed": 10,
+    "errors": 0
+  },
+  "conclusion": "All 10 full-suite failures reported during body-width implementation reproduce against unchanged HEAD sources.",
+  "failure_causes": [
+    "Seven model-select test assertions call an unchanged select_model route with fake registry objects lacking is_allowed_model2.",
+    "Two concurrency tests fail because their model-select worker raises the same fake-registry AttributeError before setting the expected synchronization state.",
+    "One existing UI text assertion requires a belly-defects phrase absent from the HEAD frontend."
+  ]
+}

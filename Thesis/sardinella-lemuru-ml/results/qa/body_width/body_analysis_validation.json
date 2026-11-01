@@ -1,0 +1,28 @@
+{
+  "date": "2026-10-31",
+  "request": "Body_Analysis.md",
+  "full_suite": {
+    "command": "python -B -m pytest -q -p no:cacheprovider tests --tb=no --disable-warnings",
+    "passed": 855,
+    "skipped": 12,
+    "failed": 10,
+    "subtests_passed": 127,
+    "failures_match_recorded_baseline": true,
+    "baseline_evidence": "baseline_existing_failures.json"
+  },
+  "browser_checks": {
+    "unique_identity_and_reclassification": "passed",
+    "lazy_cards_and_complete_measurements": "passed",
+    "upload_live_source_isolation": "passed",
+    "coherent_measurement_updates": "passed",
+    "mobile_width_px": 390,
+    "actual_pdf_signature": "passed",
+    "pdf_pages_for_three_complete_fish": 9,
+    "historical_review": "passed",
+    "models_or_camera_started": false
+  },
+  "syntax_and_whitespace": "passed",
+  "calibration_validated": false,
+  "scoring_enabled": false,
+  "real_fish_calibration_and_class_c_comparison": "pending reviewed labeled specimens"
+}

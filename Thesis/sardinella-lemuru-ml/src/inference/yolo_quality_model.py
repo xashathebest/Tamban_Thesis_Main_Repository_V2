@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import wraps
 import logging
 import os
@@ -15,6 +15,7 @@ import numpy as np
 
 from src.api.domain import QualitySummary
 from src.inference.association import ParentAnchor, associate_parts_to_parents, association_summary
+from src.inference.body_width import analyze_body_width, boxes_overlap
 from src.inference.frame_quality import BestFrameSelection, BestFrameSelector, FrameQualityAssessment, FrameQualityConfig, assess_frame_quality
 from src.inference.grading_engine import FishVerdict, WeightedGradingEngine
 from src.inference.model_traceability import full_sha256
@@ -505,11 +506,14 @@ class YoloQualityModel:
         frame_shape: tuple[int, ...] | None,
         inference_metadata: Mapping[str, object],
         model2_available: bool = True,
+        original_parts: Sequence[PartDetection] | None = None,
     ) -> FishQualityObservation:
         """Apply the one canonical temporal grading engine to selected parts."""
 
         assessment: FrameQualityAssessment | None = None
         quality_payload: dict[str, object] = dict(frame_quality or {})
+        width_context = quality_payload.pop("width_context", {})
+        width_context = width_context if isinstance(width_context, Mapping) else {}
         # A caller may supply only association context (full-frame mode). Keep
         # measuring the parent crop in that case. An explicit usable/frame
         # quality payload remains authoritative for replay and tests.
@@ -540,6 +544,63 @@ class YoloQualityModel:
                     self._best_crop_data[track_id] = (crop.copy(), tuple(parts), selected)
         elif stabilize and track_id in self._finalized_best_frames:
             best_frame = dict(self._finalized_best_frames[track_id])
+        # Reuse detector boxes at original image scale. Crop padding and integer
+        # ROI bounds must never become the whole-fish dimensions in the ratio.
+        supplied_bounds = inference_metadata.get("crop_bounds", width_context.get("crop_bounds"))
+        bounds = self._validated_width_crop_bounds(supplied_bounds, crop.shape, frame_shape)
+        origin_source = "explicit_crop_bounds" if bounds is not None else "unverified"
+        if supplied_bounds is None and bounds is None and parent_bbox is not None and frame_shape is not None:
+            # Direct callers can omit redundant bounds when the exact existing
+            # crop_fish floor/ceil/padding geometry reproduces this ROI. A size
+            # mismatch remains unverified; no arbitrary origin is guessed.
+            bounded_parent = clamp_bbox(parent_bbox, frame_shape[1], frame_shape[0])
+            if bounded_parent is not None:
+                candidate_bounds = (
+                    max(0, int(np.floor(bounded_parent[0])) - self.roi_padding),
+                    max(0, int(np.floor(bounded_parent[1])) - self.roi_padding),
+                    min(frame_shape[1], int(np.ceil(bounded_parent[2])) + self.roi_padding),
+                    min(frame_shape[0], int(np.ceil(bounded_parent[3])) + self.roi_padding),
+                )
+                bounds = self._validated_width_crop_bounds(candidate_bounds, crop.shape, frame_shape)
+                if bounds is not None:
+                    origin_source = "verified_parent_crop_geometry"
+        coordinate_known = original_parts is not None or bounds is not None
+        if original_parts is not None:
+            width_parts = list(original_parts)
+            origin_source = "original_frame_detections"
+        elif bounds is not None:
+            offset_x, offset_y = float(bounds[0]), float(bounds[1])
+            width_parts = [replace(
+                part,
+                bbox=(part.bbox[0] + offset_x, part.bbox[1] + offset_y, part.bbox[2] + offset_x, part.bbox[3] + offset_y),
+                mask=tuple((x + offset_x, y + offset_y) for x, y in part.mask) if part.mask else None,
+            ) for part in parts]
+        else:
+            width_parts = list(parts)
+        association = quality_payload.get("association", {})
+        association = association if isinstance(association, Mapping) else {}
+        body_crop_clipped = any(
+            part.region == "Body" and (part.bbox[0] <= 0 or part.bbox[1] <= 0 or part.bbox[2] >= crop.shape[1] or part.bbox[3] >= crop.shape[0])
+            for part in parts
+        )
+        width = analyze_body_width(
+            parent_bbox, width_parts, config=self._grading_engine.body_width_config,
+            detection_confidence=detection_confidence,
+            parent_usable=model2_available and bool(quality_payload.get("usable", True))
+            and bool(quality_payload.get("parent_usable", True)) and not bool(quality_payload.get("parent_uncertain")),
+            association_reliable=coordinate_known and not bool(association.get("ambiguous") or quality_payload.get("association_ambiguous")),
+            association_status="ambiguous" if association.get("ambiguous") else quality_payload.get("association_status"),
+            frame_shape=frame_shape,
+            clipped=body_crop_clipped or bool(quality_payload.get("frame_clipped") or quality_payload.get("out_of_frame") or quality_payload.get("parent_frame_clipped") or quality_payload.get("parent_crop_clipped")),
+            overlapping=bool(width_context.get("overlapping")),
+            minimum_part_confidence=self._grading_engine.config.minimum_part_confidence,
+        )
+        width["frame_id"] = frame_id
+        width["coordinate_space"] = "original_frame" if coordinate_known else "unverified"
+        width["coordinate_origin_source"] = origin_source
+        width["crop_bounds"] = list(bounds) if bounds is not None else None
+        width["body_bbox_coordinate_space"] = "original_frame" if coordinate_known else "crop_local_unverified"
+        width["whole_bbox_coordinate_space"] = "original_frame" if parent_bbox is not None else "unavailable"
         grading_started = perf_counter()
         verdict: FishVerdict = self._grading_engine.evaluate(
             track_id,
@@ -550,6 +611,7 @@ class YoloQualityModel:
             frame_quality=quality_payload,
             best_frame=best_frame,
             model2_available=model2_available,
+            body_width=width,
         )
         self.last_grading_seconds = perf_counter() - grading_started
         votes = {name: round(value, 4) for name, value in verdict.weighted_scores.items()}
@@ -643,6 +705,7 @@ class YoloQualityModel:
         detection_confidence: float | None = None,
         parent_bbox: tuple[float, float, float, float] | None = None,
         frame_shape: tuple[int, ...] | None = None,
+        crop_bounds: CropBounds | Sequence[float] | None = None,
     ) -> FishQualityObservation:
         """Run Model 2 on one Model 1 crop and use the shared grading engine."""
 
@@ -663,6 +726,8 @@ class YoloQualityModel:
                 frame_shape=frame_shape,
                 inference_metadata={
                     "mode": "crop",
+                    **({"crop_bounds": [crop_bounds.x1, crop_bounds.y1, crop_bounds.x2, crop_bounds.y2]
+                         if isinstance(crop_bounds, CropBounds) else list(crop_bounds)} if crop_bounds is not None else {}),
                     "roi_padding": self.roi_padding,
                     "raw_detections": raw_parts,
                     "selected_detections": parts,
@@ -712,6 +777,28 @@ class YoloQualityModel:
             )
         except Exception as exc:
             raise YoloQualityModelInferenceError(f"Could not record Model 2 unavailability: {exc}") from exc
+
+    @staticmethod
+    def _validated_width_crop_bounds(
+        bounds: object, crop_shape: tuple[int, ...], frame_shape: tuple[int, ...] | None,
+    ) -> tuple[float, float, float, float] | None:
+        """Accept an ROI origin only when its bounds match the actual crop."""
+        if isinstance(bounds, CropBounds):
+            bounds = (bounds.x1, bounds.y1, bounds.x2, bounds.y2)
+        try:
+            values = np.asarray(bounds, dtype=np.float64)
+        except (TypeError, ValueError):
+            return None
+        if values.shape != (4,) or not np.isfinite(values).all():
+            return None
+        x1, y1, x2, y2 = values.tolist()
+        if x1 < 0 or y1 < 0 or x2 <= x1 or y2 <= y1:
+            return None
+        if not np.isclose(x2 - x1, crop_shape[1], rtol=0, atol=1e-8) or not np.isclose(y2 - y1, crop_shape[0], rtol=0, atol=1e-8):
+            return None
+        if frame_shape is not None and (x2 > frame_shape[1] or y2 > frame_shape[0]):
+            return None
+        return x1, y1, x2, y2
 
     @staticmethod
     def _part_to_crop(part: PartDetection, crop_origin: tuple[int, int], crop_shape: tuple[int, ...]) -> PartDetection | None:
@@ -788,7 +875,10 @@ class YoloQualityModel:
                 ]
                 summary = association_summary(associations, parent.track_id)
                 assignment_seconds += perf_counter() - assignment_started
-                quality_payload: dict[str, object] = {"association": summary}
+                quality_payload: dict[str, object] = {
+                    "association": summary,
+                    "width_context": {"overlapping": any(other.track_id != parent.track_id and boxes_overlap(parent.bbox, other.bbox) for other in parents)},
+                }
                 if summary["ambiguous"]:
                     quality_payload["association_ambiguous"] = True
                 observation = self._grade_parts(
@@ -801,6 +891,7 @@ class YoloQualityModel:
                     detection_confidence=parent.confidence,
                     parent_bbox=parent.bbox,
                     frame_shape=frame.shape,
+                    original_parts=[item.part for item in associations if item.status == "ASSIGNED" and item.track_id == parent.track_id],
                     inference_metadata={
                         "mode": "full_frame",
                         "roi_padding": self.roi_padding,
@@ -930,7 +1021,7 @@ class YoloQualityModel:
             "debug_raw_output": self.debug_raw_output,
             "last_raw_candidate_count": len(self.last_raw_parts),
             "last_selected_candidate_count": len(self.last_selected_parts),
-            "grading_config": self._grading_engine.config.to_dict(),
+            "grading_config": self._grading_engine.configuration_snapshot(),
             "frame_quality_config": self._frame_quality_config.to_dict(),
             "best_frame_tracks": len(self._best_frame_selector._best_by_track),
         }

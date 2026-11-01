@@ -1,0 +1,25 @@
+# Axis-aligned bounding-box diagnostic only; no biological thresholds invented.
+# Enable contribution only after an independently reviewed calibration and a
+# held-out Class C precision/recall/false-positive comparison have been recorded.
+scoring_enabled: false
+calibration_validated: false
+calibration_id: null
+validation_sample_count: 0
+normal_reference_min: null
+normal_reference_max: null
+extreme_reference: null
+
+# A separate bounded support stage follows the original weighted decision.
+# The original Body/Head/Tail evidence and weights remain intact for review.
+scoring_method: post_weighted_v2
+maximum_geometric_contribution: 0.10
+
+# Retained only to replay saved legacy body_component_v1 configurations.
+maximum_body_score_shift: 0.10
+minimum_class_c_evidence: 0.25
+
+# Engineering geometry safeguards, not scientific abnormal-width thresholds.
+geometry_max_axis_deviation_degrees: 15.0
+geometry_min_elongation: 4.0
+minimum_detection_confidence: 0.25
+minimum_part_inside_fraction: 0.95

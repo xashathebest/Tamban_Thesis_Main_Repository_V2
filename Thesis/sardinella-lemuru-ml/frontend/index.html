@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#FFFFFF">
     <title>Tamban Quality Inspection System | Live Inspection</title>
-    <link rel="stylesheet" href="/assets/styles.css?v=resultsdashboard1">
+    <link rel="stylesheet" href="/assets/styles.css?v=bodyanalysis2">
   </head>
   <body>
     <svg class="icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -93,7 +93,7 @@
               </span>
               <b>Model</b>
             </button>
-            <button class="nav-item nav-secondary" type="button" data-anchor="analytics-section" data-tooltip="Analytics in Live Inspection" aria-label="Analytics in Live Inspection">
+            <button class="nav-item nav-secondary hidden" type="button" data-anchor="analytics-section" data-tooltip="Analytics in Live Inspection" aria-label="Analytics in Live Inspection">
               <span aria-hidden="true">
                 <svg class="icon" aria-hidden="true" viewBox="0 0 24 24">
                   <use href="#icon-chart"></use>
@@ -101,7 +101,7 @@
               </span>
               <b>Analytics in Live</b>
             </button>
-            <button class="nav-item nav-secondary" type="button" id="sidebar-export" data-tooltip="Export" aria-label="Export">
+            <button class="nav-item nav-secondary hidden" type="button" id="sidebar-export" data-tooltip="Export" aria-label="Export" aria-hidden="true">
               <span aria-hidden="true">
                 <svg class="icon" aria-hidden="true" viewBox="0 0 24 24">
                   <use href="#icon-export"></use>
@@ -131,9 +131,6 @@
             <p class="eyebrow">TAMBAN · FISH INSPECTION SYSTEM</p>
             <h1 id="page-title">Live Inspection</h1>
             <p id="page-subtitle">Sardinella lemuru quality inspection</p>
-          </div>
-          <div class="header-actions">
-            <button class="button quiet hidden" id="lan-logout" type="button">Sign out</button>
             <div class="status-cluster" aria-label="Runtime status">
               <span class="compact-status neutral" id="connection-pill">
                 <i></i>
@@ -156,6 +153,9 @@
                 <em>—</em>
               </span>
             </div>
+          </div>
+          <div class="header-actions">
+            <button class="button quiet hidden" id="lan-logout" type="button">Sign out</button>
           </div>
           <div class="header-tools">
             <button class="button quiet" id="export-button" type="button" aria-label="Export inspection data">
@@ -211,25 +211,24 @@
                         <use href="#icon-camera"></use>
                       </svg>
                     </span>
-                    <strong id="placeholder-title">Camera is currently stopped.</strong>
-                    <p id="placeholder-copy">Start inspection to connect the camera and view live fish evidence.</p>
+                    <strong id="placeholder-title"></strong>
+                    <p id="placeholder-copy"></p>
                     <button class="button primary" id="empty-start-button" type="button" disabled>Start inspection</button>
                   </div>
                 </div>
                 <div class="camera-actions">
                   <button class="button quiet hidden" id="preview-mode-button" type="button" aria-pressed="false">View raw preview</button>
-                  <p id="preview-mode-description" role="status">Processed feed with AI annotations. Preview FPS and display latency are not measured.</p>
-                  <div class="inspection-state neutral" id="inspection-state">
+                  <p class="hidden" id="preview-mode-description" role="status" aria-hidden="true"></p>
+                  <div class="inspection-state neutral hidden" id="inspection-state">
                     <i></i>
                     Stopped
                   </div>
                   <div class="machine-controls">
                     <button class="button primary" id="start-button" type="button" disabled>Start inspection</button>
-                    <button class="button danger" id="stop-button" type="button" disabled>Stop inspection</button>
                     <button class="button quiet" id="reset-button" type="button" disabled>Reset session</button>
-                    <button class="button quiet" id="upload-mode-button" type="button" aria-controls="upload-workspace" aria-expanded="false">Analyze a photo</button>
+                    <button class="button quiet" id="upload-mode-button" type="button" aria-controls="upload-workspace" aria-expanded="false">Analyze Media</button>
                   </div>
-                  <p class="control-feedback" id="control-feedback" role="status" aria-live="polite">Start a session when the detector and camera are ready.</p>
+                  <p class="control-feedback hidden" id="control-feedback" role="status" aria-live="polite"></p>
                 </div>
                 <details class="overlay-settings">
                   <summary>Feed display options</summary>
@@ -261,25 +260,21 @@
                   </div>
                 </details>
               </article>
-              <section class="kpi-section" aria-label="Session totals">
+              <section class="kpi-section hidden" aria-label="Live session performance" aria-hidden="true">
                 <div class="section-head compact">
                   <div>
-                    <p class="eyebrow">SESSION TOTALS</p>
-                    <h2>Inspection at a glance</h2>
+                    <p class="eyebrow">LIVE SESSION</p>
+                    <h2>Inspection performance</h2>
                   </div>
                   <button class="text-button" id="open-confidence-button" type="button">
-                    Thresholds
+                    Detection threshold
                     <strong id="threshold">—</strong>
                   </button>
                 </div>
-                <div class="kpi-grid" id="kpi-grid">
+                <div class="kpi-grid live-session-bar" id="kpi-grid">
                   <p class="metric-waiting">Waiting for the local backend…</p>
                 </div>
-                <p class="muted">Totals are since Reset session. Analytics and default history cover the latest run; select an earlier run in History after restarting inspection or changing camera policy.</p>
-                <details class="session-details">
-                  <summary>Session performance &amp; track details</summary>
-                  <div class="secondary-kpi-grid" id="secondary-kpi-grid"></div>
-                </details>
+                <p class="muted">Live values update during the current camera session. Historical and selected-image classifications remain in Fish Inspection Results.</p>
               </section>
               <aside class="latest-card surface" id="result-panel">
                 <div class="section-head">
@@ -361,10 +356,10 @@
               <div class="section-head modal-head upload-modal-head">
                 <div>
                   <p class="eyebrow">MANUAL ANALYSIS</p>
-                  <h2 id="upload-title">Analyze a photo</h2>
-                  <p class="upload-subtitle">Inspect a fish image without changing the live inspection session.</p>
+                  <h2 id="upload-title">Analyze Media</h2>
+                  <p class="upload-subtitle">Inspect a fish image or video without changing the live inspection session.</p>
                 </div>
-                <button class="icon-button" id="close-upload-button" type="button" aria-label="Close photo analysis">×</button>
+                <button class="icon-button" id="close-upload-button" type="button" aria-label="Close media analysis">×</button>
               </div>
               <div class="upload-picker">
                 <div class="upload-picker-icon" aria-hidden="true">
@@ -373,35 +368,23 @@
                   </svg>
                 </div>
                 <div class="upload-picker-copy">
-                  <strong>Choose an image to inspect</strong>
-                  <span>Use a clear JPEG, PNG, or WebP photo with one or more visible fish.</span>
+                  <strong>Choose an image or video to inspect</strong>
+                  <span>Use JPG, PNG, MP4, MOV, or WebM media with one or more visible fish.</span>
                 </div>
                 <div class="upload-controls">
-                  <input class="visually-hidden" id="upload-input" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" aria-label="Select a fish image for local analysis">
-                  <button class="button quiet upload-file-button" id="select-upload-button" type="button" aria-describedby="upload-file-name">Choose photo</button>
+                  <input class="visually-hidden" id="upload-input" type="file" accept=".jpg,.jpeg,.png,.webp,.mp4,.mov,.webm,image/jpeg,image/png,video/mp4,video/quicktime,video/webm" aria-label="Select fish image or video for local analysis">
+                  <button class="button quiet upload-file-button" id="select-upload-button" type="button">Choose media</button>
                   <p class="upload-file-name" id="upload-file-name"></p>
                   <button class="button primary" id="analyze-button" type="button" disabled>Run analysis</button>
-                  <span class="visually-hidden" id="upload-status" role="status" aria-live="polite" aria-atomic="true">Choose a photo to begin.</span>
+                  <span class="upload-status" id="upload-status" role="status" aria-live="polite" aria-atomic="true"></span>
                 </div>
               </div>
-              <div class="upload-analysis-progress hidden" id="upload-analysis-progress" role="status" aria-live="polite" aria-label="Photo analysis in progress">
-                <span class="upload-progress-spinner" aria-hidden="true"></span>
-                <div>
-                  <strong>Analyzing your photo</strong>
-                  <span>Detecting fish and reading quality evidence...</span>
-                </div>
+              <div class="upload-analysis-progress hidden" id="upload-analysis-progress" role="status" aria-live="polite" aria-label="Media analysis in progress">
                 <div class="upload-progress-track" aria-hidden="true"><i></i></div>
               </div>
               <img id="upload-result-image" class="upload-image hidden" alt="Selected or annotated fish photo">
-              <div class="upload-results hidden" id="upload-results">
-                <div class="mini-kpi">
-                  <span id="upload-count-label">Fish found</span>
-                  <strong id="upload-fish-count">0</strong>
-                </div>
-                <div class="feature-counter-grid" id="upload-quality-counter-grid"></div>
-                <div class="upload-evidence hidden" id="upload-fish-evidence" aria-live="polite"></div>
-                <section class="upload-measurements hidden" id="upload-fish-measurements" aria-labelledby="upload-measurements-title"></section>
-              </div>
+              <video id="upload-result-video" class="upload-image upload-video hidden" controls muted playsinline></video>
+              <div class="upload-results hidden" id="upload-results"></div>
             </section>
             <section class="results-dashboard surface" id="recent-inspections">
               <div class="section-head compact">
@@ -414,14 +397,13 @@
                   <button class="button primary" id="results-export-pdf" type="button">Export PDF</button>
                 </div>
               </div>
-              <div class="results-filter-tabs" id="results-filter-tabs" role="tablist" aria-label="Filter fish results">
-                <button class="results-filter active" type="button" role="tab" aria-selected="true" data-results-filter="All">All <b>0</b></button>
-                <button class="results-filter" type="button" role="tab" aria-selected="false" data-results-filter="Class A">Class A <b>0</b></button>
-                <button class="results-filter" type="button" role="tab" aria-selected="false" data-results-filter="Class B">Class B <b>0</b></button>
-                <button class="results-filter" type="button" role="tab" aria-selected="false" data-results-filter="Class C">Class C <b>0</b></button>
-                <button class="results-filter" type="button" role="tab" aria-selected="false" data-results-filter="Rejected">Rejected <b>0</b></button>
-                <button class="results-filter" type="button" role="tab" aria-selected="false" data-results-filter="Ungraded">Ungraded <b>0</b></button>
-              </div>
+              <label class="results-source-label hidden">Inspection source
+                <select id="results-source" aria-label="Inspection results source">
+                  <option value="live">Live inspection session</option>
+                  <option value="upload" disabled>Uploaded photo</option>
+                </select>
+              </label>
+              <div class="results-counts" id="results-counts" aria-label="Unique fish counts"></div>
               <div class="results-summary" id="results-summary">Loading fish-level results…</div>
               <div class="results-groups" id="results-groups"></div>
             </section>
@@ -1065,6 +1047,10 @@
               <input type="checkbox" value="decision_deadline_status" checked>
               Decision deadline status
             </label>
+            <label>
+              <input type="checkbox" value="body_width_analysis" checked>
+              Body width analysis and scoring configuration
+            </label>
           </div>
           <p class="hidden" id="export-fields-error" role="alert">Choose at least one field or select all evidence columns.</p>
         </fieldset>
@@ -1085,6 +1071,6 @@
         <button class="button primary" type="submit">Sign in</button>
       </form>
     </dialog>
-    <script src="/assets/app.js?v=resultsdashboard1" defer></script>
+    <script src="/assets/app.js?v=inspection-toggle3" defer></script>
   </body>
 </html>

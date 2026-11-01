@@ -49,8 +49,8 @@ EXPORT_FIELDS = {
     "tail_class_c_contribution": "Tail Class C Contribution (%)", "tail_rejected_contribution": "Tail Rejected Contribution (%)",
     "tail_observation_count": "Tail Observation Count", "tail_mean_confidence": "Tail Mean Evidence (%)",
     "tail_max_confidence": "Tail Max Evidence (%)", "tail_std_dev": "Tail Evidence Std Dev (%)",
-    "class_a_weighted_score": "Class A Weighted Score (%)", "class_b_weighted_score": "Class B Weighted Score (%)",
-    "class_c_weighted_score": "Class C Weighted Score (%)", "rejected_weighted_score": "Rejected Weighted Score (%)",
+    "class_a_weighted_score": "Class A Final Competing Support (%)", "class_b_weighted_score": "Class B Final Competing Support (%)",
+    "class_c_weighted_score": "Class C Final Competing Support (%)", "rejected_weighted_score": "Rejected Final Competing Support (%)",
     "body_mean_hue": "Body Mean Hue (deg)", "body_median_hue": "Body Median Hue (deg)",
     "body_mean_saturation": "Body Mean Saturation (%)", "body_mean_value": "Body Mean Value (%)", "body_yellow_ratio": "Body Yellow Proxy (%)",
     "head_mean_hue": "Head Mean Hue (deg)", "head_median_hue": "Head Median Hue (deg)",
@@ -90,7 +90,68 @@ EXPORT_FIELDS = {
     "tail_class_c_evidence": "Tail Class C Evidence (%)", "tail_rejected_evidence": "Tail Rejected Evidence (%)",
     "model2_available": "Model 2 Available", "session_id": "Session ID",
     "weighting_method": "Weighting Method", "tail_evaluation_status": "Tail Evaluation Status",
+    "whole_fish_bbox_width_px": "Whole-fish Bounding-box Width (px)",
+    "whole_fish_bbox_height_px": "Whole-fish Bounding-box Height (px)",
+    "body_bbox_width_px": "Body Bounding-box Width (px)",
+    "body_bbox_height_px": "Body Bounding-box Height (px)",
+    "relative_body_width_proxy": "Relative Body Width (bounding-box proxy)",
+    "body_width_initial_proxy": "Initial Relative Body Width Proxy",
+    "body_width_measurement_method": "Body Width Measurement Method",
+    "body_width_orientation": "Body Width Orientation",
+    "body_width_reliability": "Body Width Measurement Reliability",
+    "body_width_reliability_reasons": "Body Width Reliability Reasons",
+    "body_width_normal_reference_range": "Body Width Normal Reference Range",
+    "body_width_abnormality": "Body Width Abnormality",
+    "body_width_score_status": "Body Width Score Status",
+    "body_width_class_c_points": "Body Width Class C Supporting Points (0-10)",
+    "body_width_scoring_enabled": "Body Width Scoring Enabled",
+    "body_width_score_contributed": "Body Width Score Contributed to Final Grade",
+    "body_width_applied_body_score_shift": "Body Width Applied Body Score Shift",
+    "body_width_contribution_reason": "Body Width Contribution Reason",
+    "body_width_threshold_configuration": "Body Width Threshold Configuration (JSON)",
+    "body_width_analysis": "Body Width Analysis (JSON; bounding-box proxy)",
+    "body_width_measurement_status": "Body Width Measurement Status",
+    "body_width_calibration_status": "Body Width Calibration Status",
+    "body_width_measurement_available": "Body Width Dimensions Available",
+    "body_width_reliable_for_scoring": "Body Width Reliable for Scoring",
+    "body_width_score_applied": "Width Score Applied to Classification Evidence",
+    "body_width_scoring_method": "Width Scoring Method",
+    "body_width_applied_geometric_score_shift": "Width Applied Geometric Support Shift (fraction)",
+    "original_weighted_grade": "Original Weighted Grade",
+    "original_weighted_support": "Original Weighted Support (%)",
+    "original_weighted_provisional_grade": "Original Weighted Provisional Grade",
+    "original_weighted_provisional_support": "Original Weighted Provisional Support (%)",
+    "original_weighted_scores": "Original Weighted Class Support (JSON; fractions)",
+    "final_combined_grade": "Final Combined Grade",
+    "final_combined_support": "Final Combined Support (%)",
+    "final_combined_scores": "Final Combined Class Support (JSON; fractions)",
+    "score_scale": "Final Support Scale (raw weighted or normalized combined)",
+    "geometric_class_c_points": "Geometric Class C Support (0-10 points; not percent)",
+    "geometric_applied_score_shift": "Geometric Class C Applied Support Shift (fraction)",
+    "width_changed_classification": "Width Changed Classification",
+    "geometric_support": "Geometric Support Calculation (JSON)",
+    "grading_configuration": "Per-fish Grading Configuration (JSON)",
+    "part_detections": "Original Model 2 Part Detections (JSON)",
+    "whole_fish_bbox": "Original Whole-fish Bounding Box (JSON)",
+    "inspection_source": "Inspection Source and Frame (JSON)",
+    "inspection_source_type": "Inspection Source Type",
+    "source_frame_width_px": "Source Frame Width (px)",
+    "source_frame_height_px": "Source Frame Height (px)",
+    "complete_analysis": "Complete Fish Analysis (JSON)",
+    "complete_fish_event": "Complete Structured Fish Event (JSON)",
 }
+for _grade, _prefix in (("Class A", "class_a"), ("Class B", "class_b"), ("Class C", "class_c"), ("Rejected", "rejected")):
+    EXPORT_FIELDS[f"{_prefix}_original_weighted_score"] = f"{_grade} Original Weighted Support (%)"
+    EXPORT_FIELDS[f"{_prefix}_final_combined_score"] = f"{_grade} Final Combined Support (%)"
+for _region in ("body", "head", "tail", "whole_fish"):
+    for _metric, _label in (("brown_ratio", "Brown Proxy"), ("dark_area_ratio", "Dark-area Proxy"),
+                            ("discoloration_ratio", "Discoloration Proxy"), ("highlight_ratio", "Highlight Proxy"),
+                            ("median_saturation", "Median Saturation"), ("median_value", "Median HSV Value")):
+        EXPORT_FIELDS[f"{_region}_{_metric}"] = f"{_region.replace('_', ' ').title()} {_label} (%) (diagnostic only; rectangular ROI)"
+    EXPORT_FIELDS.setdefault(f"{_region}_bbox_width_px", f"{_region.replace('_', ' ').title()} Bounding-box Width (px)")
+    EXPORT_FIELDS.setdefault(f"{_region}_bbox_height_px", f"{_region.replace('_', ' ').title()} Bounding-box Height (px)")
+    EXPORT_FIELDS[f"{_region}_measurement_rois"] = f"{_region.replace('_', ' ').title()} Measured ROIs and Frames (JSON)"
+    EXPORT_FIELDS[f"{_region}_measurement_status"] = f"{_region.replace('_', ' ').title()} Image Measurement Status"
 # These columns describe detector rectangles, not segmented fish or grading
 # inputs. Keep the API field keys stable while making standalone CSV/XLSX
 # headers carry the limitation even when other columns are omitted.
@@ -153,14 +214,29 @@ def _traceability(analysis: Mapping[str, object]) -> dict[str, object]:
     return dict(trace) if isinstance(trace, dict) else {}
 
 
+def _json(value: object) -> str:
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, allow_nan=False) if isinstance(value, (dict, list, tuple)) else ""
+
+
+def _box_dimensions(value: object) -> tuple[object, object]:
+    if not isinstance(value, (list, tuple)) or len(value) != 4:
+        return None, None
+    try:
+        width, height = float(value[2]) - float(value[0]), float(value[3]) - float(value[1])
+    except (TypeError, ValueError):
+        return None, None
+    return (width, height) if width > 0 and height > 0 else (None, None)
+
+
 def inspection_row(event: dict[str, object]) -> dict[str, object]:
     """Map one completed fish to numeric, reconstructable export values."""
 
     analysis = _analysis(event)
+    geometry = analysis.get("geometric_support") if isinstance(analysis.get("geometric_support"), dict) else {}
     weighted = analysis.get("weighted_scores") if isinstance(analysis.get("weighted_scores"), dict) else {}
     final_grade = event.get("quality") or analysis.get("final_grade") or "Ungraded"
-    best_grade = analysis.get("provisional_grade", analysis.get("best_evidence_class"))
-    best_score = analysis.get("provisional_score", analysis.get("best_evidence_score"))
+    best_grade = geometry.get("original_provisional_grade", analysis.get("best_evidence_class", analysis.get("provisional_grade")))
+    best_score = geometry.get("original_provisional_support", analysis.get("best_evidence_score", analysis.get("provisional_score")))
     final_score = analysis.get("final_score")
     reason_codes = analysis.get("reason_codes")
     if isinstance(reason_codes, (list, tuple)):
@@ -180,7 +256,7 @@ def inspection_row(event: dict[str, object]) -> dict[str, object]:
     best_frame = analysis.get("best_frame") if isinstance(analysis.get("best_frame"), dict) else {}
     conveyor_timing = analysis.get("conveyor_timing") if isinstance(analysis.get("conveyor_timing"), dict) else {}
     row: dict[str, object] = {
-        "fish_id": event.get("fish_label", f"Fish #{event.get('track_id', '')}"),
+        "fish_id": event.get("fish_label", f"Fish #{event.get('track_id', event.get('id', ''))}"),
         "session_id": event.get("session_id", ""),
         "timestamp": event.get("timestamp", ""),
         "grade": final_grade,
@@ -253,6 +329,67 @@ def inspection_row(event: dict[str, object]) -> dict[str, object]:
         "decision_timing_scope": conveyor_timing.get("measurement_scope") if isinstance(conveyor_timing.get("measurement_scope"), str) else "",
         "supporting_image_measurements": json.dumps(analysis.get("supporting_image_measurements"), ensure_ascii=False, sort_keys=True, allow_nan=False) if isinstance(analysis.get("supporting_image_measurements"), dict) else "",
     }
+    width = analysis.get("body_width") if isinstance(analysis.get("body_width"), dict) else {}
+    width_configuration = width.get("threshold_configuration") if isinstance(width.get("threshold_configuration"), dict) else {}
+    inspection_source = analysis.get("inspection_source") if isinstance(analysis.get("inspection_source"), dict) else {}
+    original_scores = geometry.get("original_scores") if isinstance(geometry.get("original_scores"), dict) else {}
+    final_scores = geometry.get("final_scores") if isinstance(geometry.get("final_scores"), dict) else weighted
+    row.update({
+        "original_weighted_grade": geometry.get("original_grade", ""),
+        "original_weighted_support": _number(geometry.get("original_support"), scale=100),
+        "original_weighted_provisional_grade": geometry.get("original_provisional_grade", ""),
+        "original_weighted_provisional_support": _number(geometry.get("original_provisional_support"), scale=100),
+        "original_weighted_scores": _json(original_scores) if original_scores else "",
+        "final_combined_grade": geometry.get("final_grade", final_grade),
+        "final_combined_support": _number(geometry.get("final_support", final_score), scale=100),
+        "final_combined_scores": _json(final_scores),
+        "score_scale": geometry.get("score_scale", "original_weighted_support" if weighted else "Unavailable"),
+        "geometric_class_c_points": _number(geometry.get("class_c_points", width.get("class_c_supporting_points"))),
+        "geometric_applied_score_shift": _number(geometry.get("applied_score_shift", width.get("applied_geometric_score_shift", width.get("applied_score_shift")))),
+        "width_changed_classification": "Yes" if geometry.get("width_changed_classification") is True else "No" if geometry.get("width_changed_classification") is False else "Unavailable",
+        "geometric_support": _json(geometry) if geometry else "",
+        "grading_configuration": _json(analysis.get("grading_config")),
+        "part_detections": _json(event.get("parts")),
+        "whole_fish_bbox": _json(event.get("bbox", width.get("whole_fish_bbox"))),
+        "complete_analysis": _json(analysis),
+        "complete_fish_event": _json(event),
+        "inspection_source": _json(inspection_source) if inspection_source else "",
+        "inspection_source_type": inspection_source.get("type", ""),
+        "source_frame_width_px": _number(inspection_source.get("frame_width_px")),
+        "source_frame_height_px": _number(inspection_source.get("frame_height_px")),
+        "body_width_scoring_method": geometry.get("scoring_method", width_configuration.get("scoring_method", "")),
+    })
+    for grade, prefix in (("Class A", "class_a"), ("Class B", "class_b"), ("Class C", "class_c"), ("Rejected", "rejected")):
+        row[f"{prefix}_original_weighted_score"] = _number(original_scores.get(grade), scale=100)
+        row[f"{prefix}_final_combined_score"] = _number(final_scores.get(grade), scale=100)
+    for field, source in (
+        ("whole_fish_bbox_width_px", "whole_fish_width_px"), ("whole_fish_bbox_height_px", "whole_fish_height_px"),
+        ("body_bbox_width_px", "body_width_px"), ("body_bbox_height_px", "body_height_px"),
+        ("relative_body_width_proxy", "relative_width_proxy"), ("body_width_initial_proxy", "initial_relative_width_proxy"),
+        ("body_width_class_c_points", "class_c_supporting_points"), ("body_width_applied_body_score_shift", "applied_body_score_shift"),
+        ("body_width_applied_geometric_score_shift", "applied_geometric_score_shift"),
+    ):
+        row[field] = _number(width.get(source))
+    for field, source in (
+        ("body_width_measurement_method", "measurement_method"), ("body_width_orientation", "orientation"),
+        ("body_width_reliability", "reliability"), ("body_width_abnormality", "width_abnormality"),
+        ("body_width_score_status", "score_status"), ("body_width_contribution_reason", "contribution_reason"),
+        ("body_width_measurement_status", "measurement_status"), ("body_width_calibration_status", "calibration_status"),
+    ):
+        row[field] = width.get(source) or "Unavailable"
+    reasons = width.get("reliability_reasons")
+    row["body_width_reliability_reasons"] = "; ".join(str(reason) for reason in reasons) if isinstance(reasons, (list, tuple)) else ""
+    for field, source in (("body_width_scoring_enabled", "scoring_enabled"), ("body_width_score_contributed", "score_contributed"),
+                          ("body_width_score_applied", "score_applied"), ("body_width_measurement_available", "measurement_available"),
+                          ("body_width_reliable_for_scoring", "reliable_for_scoring")):
+        row[field] = "Yes" if width.get(source) is True else "No" if width.get(source) is False else "Unavailable"
+    for field, source, expected in (
+        ("body_width_normal_reference_range", "normal_reference_range", (list, tuple)),
+        ("body_width_threshold_configuration", "threshold_configuration", (dict,)),
+    ):
+        value = width.get(source)
+        row[field] = json.dumps(value, ensure_ascii=False, sort_keys=True, allow_nan=False) if isinstance(value, expected) else ""
+    row["body_width_analysis"] = json.dumps(width, ensure_ascii=False, sort_keys=True, allow_nan=False) if width else ""
     winning_grade = str(final_grade if final_grade != "Ungraded" else (best_grade or ""))
     for region, prefix in (("Body", "body"), ("Head", "head"), ("Tail", "tail")):
         part, color, stats = _part_analysis(analysis, region), _color_analysis(analysis, region), _top_statistics(_part_analysis(analysis, region))
@@ -290,6 +427,38 @@ def inspection_row(event: dict[str, object]) -> dict[str, object]:
     row["whole_fish_mean_saturation"] = _number(whole.get("mean_saturation"), scale=100)
     row["whole_fish_mean_value"] = _number(whole.get("mean_value"), scale=100)
     row["whole_fish_yellow_ratio"] = _number(whole.get("yellow_ratio_proxy"), scale=100)
+    supporting = analysis.get("supporting_image_measurements")
+    regions = supporting.get("regions", {}) if isinstance(supporting, dict) else {}
+    detections = event.get("parts", [])
+    for region, prefix in (("Body", "body"), ("Head", "head"), ("Tail", "tail"), ("Whole Fish", "whole_fish")):
+        measured = regions.get(region, {}) if isinstance(regions, dict) else {}
+        measured = measured if isinstance(measured, dict) else {}
+        color = _color_analysis(analysis, region)
+        values = measured.get("values") if isinstance(measured.get("values"), dict) else color
+        # Diagnostic-only snapshots can exist even when the grading policy
+        # rejects the frame. Reuse their values rather than hiding valid data.
+        for metric, source, scale in (("mean_hue", "mean_hue_deg", 1), ("median_hue", "median_hue_deg", 1),
+                                      ("mean_saturation", "mean_saturation", 100), ("mean_value", "mean_value", 100),
+                                      ("yellow_ratio", "yellow_ratio_proxy", 100)):
+            row[f"{prefix}_{metric}"] = _number(values.get(source), scale=scale)
+        rois = measured.get("frame_rois")
+        row[f"{prefix}_measurement_rois"] = _json(rois)
+        row[f"{prefix}_measurement_status"] = measured.get("status", color.get("status", "Unavailable"))
+        for metric, source in (("brown_ratio", "brown_ratio_proxy"), ("dark_area_ratio", "dark_patch_ratio_proxy"),
+                               ("discoloration_ratio", "discoloration_coverage_proxy"), ("highlight_ratio", "specular_ratio_proxy"),
+                               ("median_saturation", "median_saturation"), ("median_value", "median_value")):
+            row[f"{prefix}_{metric}"] = _number(values.get(source), scale=100)
+        if row.get(f"{prefix}_bbox_width_px", "") == "":
+            if region == "Whole Fish":
+                bbox = event.get("bbox")
+            else:
+                candidates = [part for part in detections if isinstance(part, dict) and part.get("region") == region] if isinstance(detections, list) else []
+                # Select the same strongest detector rectangle used by the image diagnostics.
+                selected = max(candidates, key=lambda part: float(part.get("confidence") or 0), default={})
+                bbox = selected.get("bbox")
+            box_width, box_height = _box_dimensions(bbox)
+            row[f"{prefix}_bbox_width_px"] = _number(box_width)
+            row[f"{prefix}_bbox_height_px"] = _number(box_height)
     return row
 
 
@@ -423,6 +592,12 @@ def make_xlsx(
             rule_sheet.append([label, "" if value is None else value, "Recorded" if key in rules else "Not recorded"])
         threshold_key = "active_final_verdict_threshold" if "active_final_verdict_threshold" in rules else "final_verdict_threshold"
         rule_sheet.append(["Final verdict threshold", rules.get(threshold_key, ""), "Recorded" if threshold_key in rules else "Not recorded"])
+        width_rules = rules.get("body_width")
+        if isinstance(width_rules, Mapping):
+            rule_sheet.append(["Geometric scoring method", width_rules.get("scoring_method", "body_component_v1"), "Recorded"])
+            rule_sheet.append(["Width scoring enabled", width_rules.get("scoring_enabled", False), "Recorded"])
+            rule_sheet.append(["Width calibration validated", width_rules.get("calibration_validated", False), "Recorded"])
+            rule_sheet.append(["Complete width configuration", _json(dict(width_rules)), "Recorded"])
     rule_sheet.column_dimensions["A"].width, rule_sheet.column_dimensions["B"].width, rule_sheet.column_dimensions["C"].width = 30, 96, 42
 
     review_sheet = workbook.create_sheet("Review Queue")

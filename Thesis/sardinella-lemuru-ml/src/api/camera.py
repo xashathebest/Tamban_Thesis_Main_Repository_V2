@@ -18,6 +18,7 @@ from src.api.runtime import PART_PREVIEW_MODE, WHOLE_FISH_MODE
 from src.api.runtime_diagnostics import LatestFrameQueue, RuntimeDiagnostics
 from src.api.raw_preview import RawPreview
 from src.inference.association import ParentAnchor
+from src.inference.body_width import boxes_overlap
 from src.inference.yolo_fish_detector import YoloFishDetector
 from src.inference.yolo_quality_model import MAX_QUALITY_ROI_PADDING, QUALITY_INFERENCE_MODES, FishQualityObservation, YoloQualityModel
 from src.inference.part_types import PartDetection
@@ -40,9 +41,9 @@ def _draw_readable_label(image: Any, text: str, x: int, y: int, color: tuple[int
 
     height, width = image.shape[:2]
     font = cv2.FONT_HERSHEY_SIMPLEX
-    scale = 0.68
-    thickness = 2
-    padding = 6
+    scale = 1.5
+    thickness = 4
+    padding = 12
     (text_width, text_height), baseline = cv2.getTextSize(text, font, scale, thickness)
     left = max(0, min(int(x), max(0, width - text_width - padding * 2)))
     top = int(y) - text_height - baseline - padding * 2
@@ -1063,6 +1064,14 @@ class CameraInspectionService:
             "model2_usable_grading_frames": analysis.get("observation_count"),
         })
         analysis["traceability"] = traceability
+        quality_details = analysis.get("frame_quality")
+        latest_quality = quality_details.get("latest") if isinstance(quality_details, dict) else None
+        latest_quality = latest_quality if isinstance(latest_quality, dict) else {}
+        analysis["inspection_source"] = {
+            "type": "live_camera", "frame_id": self._frame_index,
+            "frame_width_px": frame.shape[1] if frame is not None else latest_quality.get("frame_width"),
+            "frame_height_px": frame.shape[0] if frame is not None else latest_quality.get("frame_height"),
+        }
         analysis["observation_accounting"] = {
             "model2_inference_interval_frames": self.quality_interval,
             "model2_inference_frame_id": self._frame_index,
@@ -1298,6 +1307,10 @@ class CameraInspectionService:
                                 detection_confidence=detection.confidence,
                                 parent_bbox=detection.bbox,
                                 frame_shape=frame.shape,
+                                frame_quality={"width_context": {
+                                    "crop_bounds": [bounds.x1, bounds.y1, bounds.x2, bounds.y2],
+                                    "overlapping": any(other is not detection and boxes_overlap(detection.bbox, other.bbox) for other in detections),
+                                }},
                             )
                             self._runtime_metrics.record_call("model2")
                         else:

@@ -19,6 +19,8 @@ from typing import Iterable, Mapping
 import numpy as np
 
 from src.features.color import ColorSettings, extract_color_features
+from src.inference.body_width import BodyWidthConfig, analyze_body_width, load_body_width_config, supplement_body_scores
+from src.inference.geometric_support import integrate_geometric_support
 from src.inference.part_types import PartDetection
 from src.inference.grading_policy import (
     GRADE_NAMES,
@@ -444,6 +446,8 @@ class _TrackEvidence:
     historical_uncertainty_counts: Counter[str] = field(default_factory=Counter)
     seen_frame_ids: set[int | str] = field(default_factory=set)
     duplicate_frame_count: int = 0
+    latest_body_width: dict[str, object] = field(default_factory=dict)
+    latest_diagnostic_frame: FrameEvidence | None = None
 
 
 @dataclass(frozen=True)
@@ -479,6 +483,8 @@ class FishVerdict:
     supporting_image_measurements: dict[str, object]
     explanation: tuple[str, ...]
     grading_config: dict[str, object]
+    body_width: dict[str, object] = field(default_factory=dict)
+    geometric_support: dict[str, object] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, object]:
         tail = self.part_results.get("Tail", {})
@@ -496,8 +502,8 @@ class FishVerdict:
             "fish_id": self.fish_id,
             "provisional_grade": self.provisional_grade,
             "provisional_score": self.provisional_score,
-            "best_evidence_class": self.provisional_grade,
-            "best_evidence_score": self.provisional_score,
+            "best_evidence_class": self.geometric_support.get("original_provisional_grade", self.provisional_grade),
+            "best_evidence_score": self.geometric_support.get("original_provisional_support", self.provisional_score),
             "top_grade": self.provisional_grade,
             "top_support": self.provisional_score,
             "second_grade": self.second_grade,
@@ -533,6 +539,8 @@ class FishVerdict:
             "supporting_image_measurements": dict(self.supporting_image_measurements),
             "explanation": list(self.explanation),
             "grading_config": dict(self.grading_config),
+            "body_width": dict(self.body_width),
+            "geometric_support": dict(self.geometric_support),
         }
 
 
@@ -604,11 +612,15 @@ def calculate_part_scores(parts: Iterable[PartDetection]) -> tuple[dict[str, dic
 class WeightedGradingEngine:
     """Track-aware part fusion with explicit evidence-acceptance gates."""
 
-    def __init__(self, config: GradingConfig | None = None) -> None:
+    def __init__(self, config: GradingConfig | None = None, *, body_width_config: BodyWidthConfig | None = None) -> None:
         self.config = config or load_grading_config()
+        self.body_width_config = body_width_config or load_body_width_config()
         self._tracks: dict[int, _TrackEvidence] = {}
         self.last_hsv_processing_seconds: float | None = None
         self.last_evaluation_seconds: float | None = None
+
+    def configuration_snapshot(self) -> dict[str, object]:
+        return {**self.config.to_dict(), "body_width": self.body_width_config.to_dict()}
 
     def reset(self) -> None:
         self._tracks.clear()
@@ -745,6 +757,8 @@ class WeightedGradingEngine:
         historical_uncertainty_counts: Mapping[str, int] | None = None,
         duplicate_frame_count: int = 0,
         evidence_bearing_frame_count: int | None = None,
+        body_width: Mapping[str, object] | None = None,
+        diagnostic_frame: FrameEvidence | None = None,
     ) -> FishVerdict:
         usable_count = len(evidence)
         quality_count = usable_count if quality_usable_count is None else quality_usable_count
@@ -753,6 +767,9 @@ class WeightedGradingEngine:
         presence = {region: 0.0 for region in PART_NAMES}
         region_frames_by_name: dict[str, list[FrameEvidence]] = {}
         colors: dict[str, dict[str, object]] = {}
+        # Descriptive pixels remain available when a real frame fails the
+        # grading evidence gates. Reuse its already extracted diagnostics.
+        diagnostic_evidence = evidence or ([diagnostic_frame] if diagnostic_frame is not None else [])
         for region in PART_NAMES:
             region_frames = [frame for frame in evidence if frame.presence_confidence[region] > 0 and frame.presence_confidence[region] >= self.config.minimum_part_confidence]
             region_frames_by_name[region] = region_frames
@@ -760,12 +777,12 @@ class WeightedGradingEngine:
                 presence[region] = _safe_mean(frame.presence_confidence[region] for frame in region_frames) or 0.0
                 for grade in GRADE_NAMES:
                     aggregate_scores[region][grade] = _safe_mean(frame.part_scores[region][grade] for frame in region_frames) or 0.0
-            colors[region] = self._aggregate_color(frame.colors[region] for frame in evidence)
-        colors["Whole Fish"] = self._aggregate_color(frame.colors["Whole Fish"] for frame in evidence)
+            colors[region] = self._aggregate_color(frame.colors[region] for frame in diagnostic_evidence)
+        colors["Whole Fish"] = self._aggregate_color(frame.colors["Whole Fish"] for frame in diagnostic_evidence)
         measurements: dict[str, object] = {}
         for region in (*PART_NAMES, "Whole Fish"):
             color = colors[region]
-            measured_frames = [frame for frame in evidence if frame.colors[region].get("status") == "measured"]
+            measured_frames = [frame for frame in diagnostic_evidence if frame.colors[region].get("status") == "measured"]
             missing_reason = None if measured_frames else ("diagnostics_disabled" if not self.config.image_diagnostics_enabled else color.get("reason", "no_eligible_measurement"))
             values = {key: color.get(key) for key in ("mean_hue_deg", "median_hue_deg", "mean_saturation", "median_saturation", "mean_value", "median_value", "yellow_ratio_proxy", "brown_ratio_proxy", "dark_patch_ratio_proxy", "discoloration_coverage_proxy", "specular_ratio_proxy")}
             measurements[region] = {
@@ -781,7 +798,8 @@ class WeightedGradingEngine:
             "algorithm_version": "rectangular_rgb_hsv_lab_proxies_v1",
             "used_for_final_grade": False,
             "enabled": self.config.image_diagnostics_enabled,
-            "aggregation": "arithmetic mean over measured evidence-bearing frames; still images use one frame",
+            "aggregation": "arithmetic mean over measured evidence-bearing frames; still images use one frame" if evidence else "latest candidate-frame diagnostics only; excluded from grading evidence",
+            "diagnostic_only_fallback": not bool(evidence) and bool(diagnostic_evidence),
             "regions": measurements,
             "texture": {"status": "unavailable", "missing_value_reason": "no_validated_fish_mask_in_runtime"},
         }
@@ -792,6 +810,15 @@ class WeightedGradingEngine:
             str(reason).lower() for reason in latest_reasons
         ) if not latest_quality.get("usable", True) and isinstance(latest_reasons, (list, tuple, set)) else Counter()
         inferred_out_of_frame = out_of_frame or any("clipp" in reason or "out_of_frame" in reason for reason in current_rejected_reasons)
+        # Retain the original Model 2 weighted classification. The old Body
+        # redistribution is available only for explicitly versioned replay.
+        raw_scores = {region: dict(scores) for region, scores in aggregate_scores.items()}
+        width = dict(body_width or analyze_body_width(None, (), config=self.body_width_config))
+        legacy_width = self.body_width_config.scoring_method == "body_component_v1"
+        if legacy_width:
+            aggregate_scores, width = supplement_body_scores(aggregate_scores, width, config=self.body_width_config)
+        else:
+            width.update(score_applied=False, score_contributed=False, applied_body_score_shift=0.0)
         policy = self.config.to_policy()
         decision = grade_fish(
             FishGradingInput(
@@ -840,7 +867,7 @@ class WeightedGradingEngine:
         part_results: dict[str, dict[str, object]] = {}
         for region in PART_NAMES:
             region_frames = region_frames_by_name[region]
-            part_grade = max(GRADE_NAMES, key=lambda grade: (aggregate_scores[region][grade], -GRADE_NAMES.index(grade))) if region_frames else None
+            part_grade = max(GRADE_NAMES, key=lambda grade: (raw_scores[region][grade], -GRADE_NAMES.index(grade))) if region_frames else None
             per_grade_stats = {
                 grade: _statistics((frame.part_scores[region][grade] for frame in region_frames), eligible_frames=usable_count)
                 for grade in GRADE_NAMES
@@ -862,8 +889,9 @@ class WeightedGradingEngine:
                 "visibility_state": visibility_for(status, observed=region in available_set),
                 "presence_confidence": presence[region],
                 "grade": part_grade,
-                "grade_confidence": aggregate_scores[region][part_grade] if part_grade else None,
-                "grade_evidence": dict(aggregate_scores[region]),
+                "grade_confidence": raw_scores[region][part_grade] if part_grade else None,
+                "grade_evidence": dict(raw_scores[region]),
+                "adjusted_grade_evidence": dict(aggregate_scores[region]),
                 "weight": self.config.weight(region),
                 "original_weight": self.config.weight(region),
                 "normalized_weight": normalized_weights_all[region],
@@ -938,6 +966,12 @@ class WeightedGradingEngine:
             ),
             policy,
         )
+        baseline_decision = decision
+        geometric_support: dict[str, object] = {}
+        if not legacy_width:
+            decision, width, geometric_support = integrate_geometric_support(
+                decision, width, self.body_width_config, policy, part_scores=raw_scores,
+            )
         available = list(decision.observed_regions)
         available_set = set(available)
         original_weight_coverage = decision.evidence_coverage
@@ -948,9 +982,18 @@ class WeightedGradingEngine:
         provisional_score = decision.top_support
         final_grade = decision.final_grade
         final_score = decision.final_support
+        if legacy_width:
+            width["score_applied"] = bool(width.get("score_contributed"))
+            width["score_contributed"] = bool(width.get("score_contributed") and final_grade is not None)
+            if width["score_applied"] and final_grade is None:
+                width["contribution_reason"] = "applied_to_provisional_support_only"
         verdict_status = decision.verdict_status
         reason_code = decision.reason_codes[0]
         reason_text = self._policy_reason_text(decision.reason_codes, decision.top_support, decision.grade_margin)
+        if geometric_support.get("contribution_applied"):
+            reason_text = f"Combined normalized {final_grade} support {float(final_score) * 100:.2f}% satisfies the configured support and margin gates; required Model 2 evidence was accepted before geometry."
+        if geometric_support.get("width_changed_classification"):
+            reason_text += f" Validated width support changed {baseline_decision.final_grade} to {final_grade}; the original evidence gates remain satisfied."
         override = decision.override
         for region in PART_NAMES:
             part_results[region]["normalized_weight"] = decision.effective_weights[region]
@@ -966,21 +1009,29 @@ class WeightedGradingEngine:
                 explanations.append("Tail is unavailable; its weight is redistributed proportionally between observed Body and Head. This does not establish physical tail absence.")
             elif len(available) < len(PART_NAMES):
                 explanations.append("Unobserved region contributions are zero; original part weights are not redistributed for this result.")
-            if provisional is not None:
+            original_provisional = baseline_decision.top_grade
+            if original_provisional is not None:
                 for region in available:
                     contributions = part_results[region].get("contributions")
-                    contribution = contributions.get(provisional) if isinstance(contributions, dict) else 0.0
+                    contribution = contributions.get(original_provisional) if isinstance(contributions, dict) else 0.0
                     explanations.append(
-                        f"{region}: {provisional} evidence {aggregate_scores[region][provisional] * 100:.2f}% × "
+                        f"{region}: {original_provisional} evidence {aggregate_scores[region][original_provisional] * 100:.2f}% × "
                         f"effective weight {normalized_weights_all[region] * 100:.2f}% = {float(contribution) * 100:.2f}% contribution."
                     )
-                explanations.append(f"Best weighted evidence: {provisional} {provisional_score * 100:.2f}%.")
+                explanations.append(f"Original weighted evidence: {original_provisional} {baseline_decision.top_support * 100:.2f}%.")
         else:
             explanations.append("No Model 2 evidence satisfied the configured part-confidence requirement.")
         explanations.append(reason_text)
         if self.config.grading_mode == "two_part_v1" and "Body" in available_set and "Tail" in available_set and "Head" not in available_set:
             explanations.append("Head was not detected; physical head integrity is unverified, and the experimental Body+Tail result is provisional for expert review.")
         explanations.append("HSV metrics are descriptive only; no validated HSV grading adjustment was applied.")
+        if width.get("score_applied"):
+            if legacy_width:
+                explanations.append("Legacy calibrated width redistributed bounded Body A/B support to Class C.")
+            else:
+                explanations.append(f"Validated width {float(width['class_c_supporting_points']):.2f}/10 transferred {float(width['applied_geometric_score_shift']):.4f} of normalized A/B support to C after weighted grading; original anatomy weights are retained.")
+        else:
+            explanations.append("Width contribution inactive: " + str(width.get("contribution_reason", "unavailable")).replace("_", " ") + ".")
         if self.config.color_adjustments_enabled or self.config.defect_adjustments_enabled:
             explanations.append("A feature-adjustment switch is enabled but no validated adjustment rule is configured; scores remain unchanged.")
 
@@ -1008,12 +1059,14 @@ class WeightedGradingEngine:
             temporal_stability=temporal_stability,
             frame_quality=frame_quality,
             best_frame=dict(best_frame) if best_frame else None,
-            adjustments=(),
+            adjustments=({"source": "validated_body_width", "stage": "post_weighted_v2", "applied_score_shift": width.get("applied_geometric_score_shift")},) if geometric_support.get("contribution_applied") else (),
             override=override,
             color=colors,
             supporting_image_measurements=supporting,
             explanation=tuple(explanations),
-            grading_config=self.config.to_dict(),
+            grading_config=self.configuration_snapshot(),
+            body_width=width,
+            geometric_support=geometric_support,
         )
 
     def evaluate(
@@ -1029,6 +1082,7 @@ class WeightedGradingEngine:
         parent_usable: bool | None = None,
         association_status: str | None = None,
         model2_available: bool = True,
+        body_width: Mapping[str, object] | None = None,
     ) -> FishVerdict:
         """Add one usable candidate crop (or explain why it was excluded).
 
@@ -1041,6 +1095,7 @@ class WeightedGradingEngine:
         if not isinstance(model2_available, bool):
             raise ValueError("model2_available must be a boolean.")
         quality_payload["model2_available"] = model2_available
+        width_payload = dict(body_width or analyze_body_width(None, (), config=self.body_width_config))
         evaluation_started = perf_counter()
         usable = bool(quality_payload.get("usable", True))
         inferred_parent_usable = (
@@ -1078,6 +1133,8 @@ class WeightedGradingEngine:
                 out_of_frame=inferred_out_of_frame,
                 model2_available=model2_available,
                 evidence_bearing_frame_count=int(usable and model2_available and inferred_parent_usable and str(inferred_association_status or "").strip().lower() not in {"ambiguous", "association_ambiguous"} and self._is_evidence_bearing(frame)),
+                body_width=width_payload,
+                diagnostic_frame=frame,
             )
             self.last_evaluation_seconds = perf_counter() - evaluation_started
             return result
@@ -1093,6 +1150,8 @@ class WeightedGradingEngine:
                 track.best_frame = dict(best_frame)
             track.candidate_frame_count += 1
             track.latest_frame_quality = quality_payload
+            track.latest_body_width = width_payload
+            track.latest_diagnostic_frame = frame
             track.parent_uncertain = not inferred_parent_usable
             track.association_ambiguous = str(inferred_association_status or "").strip().lower() in {"ambiguous", "association_ambiguous"}
             track.out_of_frame = inferred_out_of_frame
@@ -1133,6 +1192,8 @@ class WeightedGradingEngine:
             quality_usable_count=track.quality_usable_count,
             historical_uncertainty_counts=track.historical_uncertainty_counts,
             duplicate_frame_count=track.duplicate_frame_count,
+            body_width=track.latest_body_width,
+            diagnostic_frame=track.latest_diagnostic_frame,
         )
         self.last_evaluation_seconds = perf_counter() - evaluation_started
         return result

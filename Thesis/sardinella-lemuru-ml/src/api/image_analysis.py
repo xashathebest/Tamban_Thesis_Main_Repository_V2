@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import base64
 from dataclasses import dataclass
+from datetime import datetime
 from io import BytesIO
+from pathlib import Path
 from typing import Any
 import warnings
 
@@ -15,6 +17,7 @@ from PIL import Image, JpegImagePlugin, PngImagePlugin
 from src.inference.yolo_fish_detector import FishDetection, YoloFishDetector
 from src.inference.yolo_quality_model import FishQualityObservation, YoloQualityModel
 from src.inference.association import ParentAnchor
+from src.inference.body_width import analyze_body_width, boxes_overlap
 from src.inference.part_types import PartDetection
 from src.inference.part_model import YoloPartModel
 from src.inference.preprocessing import (
@@ -29,11 +32,30 @@ from src.inference.preprocessing import (
 
 
 ALLOWED_IMAGE_SUFFIXES = frozenset({".jpg", ".jpeg", ".png", ".webp"})
+ALLOWED_VIDEO_SUFFIXES = frozenset({".mp4", ".mov", ".webm"})
 DEFAULT_QUALITY_COUNTS = ("Class A", "Class B", "Class C", "Rejected", "Ungraded")
 
 
 class ImageUploadError(ValueError):
     """A client-safe upload validation error."""
+
+
+class VideoUploadError(ValueError):
+    """A client-safe video upload validation error."""
+
+
+def _box_iou(first: list[float], second: list[float]) -> float:
+    left = max(first[0], second[0])
+    top = max(first[1], second[1])
+    right = min(first[2], second[2])
+    bottom = min(first[3], second[3])
+    intersection = max(0.0, right - left) * max(0.0, bottom - top)
+    if intersection <= 0:
+        return 0.0
+    first_area = max(0.0, first[2] - first[0]) * max(0.0, first[3] - first[1])
+    second_area = max(0.0, second[2] - second[0]) * max(0.0, second[3] - second[1])
+    union = first_area + second_area - intersection
+    return intersection / union if union > 0 else 0.0
 
 
 def _webp_dimensions(data: bytes) -> tuple[int, int]:
@@ -169,8 +191,19 @@ class StillImageAnalyzer:
                 payload["bbox"] = [round(value, 2) for value in translated]
                 parts.append(payload)
         analysis = dict(getattr(fish.quality_result, "analysis", {})) if fish.quality_result else {}
+        if not isinstance(analysis.get("body_width"), dict):
+            # Model 1 still supplies real dimensions when Model 2 is absent.
+            # Do not infer Body geometry from an incompatible legacy adapter.
+            analysis["body_width"] = analyze_body_width(
+                fish.bbox, (), detection_confidence=fish.confidence,
+                frame_shape=(frame_height, frame_width, 3),
+            )
+            analysis["body_width"]["coordinate_space"] = "original_frame"
         analysis["model1_detection"] = {
             "confidence": fish.confidence,
+            "bbox": list(fish.bbox),
+            "width_px": fish.bbox[2] - fish.bbox[0],
+            "height_px": fish.bbox[3] - fish.bbox[1],
             "source": "Model 1 whole-fish detector",
             "note": "Detection confidence is retained for traceability and does not modify Model 2 grade scores.",
         }
@@ -189,6 +222,9 @@ class StillImageAnalyzer:
                 "model2_checkpoint_sha256": getattr(self.quality_model, "checkpoint_sha256", None),
             })
         analysis["traceability"] = traceability
+        analysis["inspection_source"] = {
+            "type": "uploaded_photo", "frame_width_px": frame_width, "frame_height_px": frame_height,
+        }
         return {
             "id": fish.index,
             "bbox": [round(value, 2) for value in fish.bbox],
@@ -218,7 +254,7 @@ class StillImageAnalyzer:
             for index, detection in enumerate(detections, start=1):
                 bounded_parent = clamp_bbox(detection.bbox, frame.shape[1], frame.shape[0])
                 if bounded_parent is not None:
-                    parents.append(ParentAnchor(index, bounded_parent, detection.confidence))
+                    parents.append(ParentAnchor(index, detection.bbox, detection.confidence))
             if parents:
                 full_frame_results = self.quality_model.predict_full_frame(
                     frame,
@@ -258,8 +294,12 @@ class StillImageAnalyzer:
                         stabilize=False,
                         frame_id=f"still-{index}",
                         detection_confidence=detection.confidence,
-                        parent_bbox=bounded,
+                        parent_bbox=detection.bbox,
                         frame_shape=frame.shape,
+                        frame_quality={"width_context": {
+                            "crop_bounds": [crop_bounds.x1, crop_bounds.y1, crop_bounds.x2, crop_bounds.y2],
+                            "overlapping": any(other is not detection and boxes_overlap(detection.bbox, other.bbox) for other in detections),
+                        }},
                     )
             elif self.quality_model is not None and self.quality_model.model is not None:
                 # Compatibility for the prior experimental RF-DETR adapter.
@@ -281,14 +321,88 @@ class StillImageAnalyzer:
         ok, encoded = cv2.imencode(".jpg", annotated, [cv2.IMWRITE_JPEG_QUALITY, 88])
         if not ok:
             raise RuntimeError("Unable to encode the annotated image.")
+        analyzed_at = datetime.now().astimezone().isoformat(timespec="seconds")
+        payloads = [self._fish_payload(fish, frame.shape[1], frame.shape[0]) for fish in results]
+        for payload in payloads:
+            payload["timestamp"] = analyzed_at
         return {
             "fish_detected": len(results),
             "quality_counters": counts,
             "model2_available": bool(self.quality_model and self.quality_model.model is not None),
             "model2_id": getattr(self.quality_model, "active_model_id", None),
             "model2_name": getattr(self.quality_model, "active_model_name", getattr(self.quality_model, "name", None)),
-            "fish": [self._fish_payload(fish, frame.shape[1], frame.shape[0]) for fish in results],
+            "fish": payloads,
+            "analyzed_at": analyzed_at,
+            "inspection_source": {"type": "uploaded_photo", "frame_width_px": frame.shape[1], "frame_height_px": frame.shape[0]},
             "annotated_image": "data:image/jpeg;base64," + base64.b64encode(encoded.tobytes()).decode("ascii"),
+        }
+
+
+class VideoUploadAnalyzer:
+    """Process uploaded video frames with the same still-image inference path."""
+
+    def __init__(self, analyzer: StillImageAnalyzer) -> None:
+        self.analyzer = analyzer
+
+    def analyze(self, path: Path, progress: Any) -> dict[str, object]:
+        capture = cv2.VideoCapture(str(path))
+        if not capture.isOpened():
+            raise VideoUploadError("The uploaded video could not be opened.")
+        total_frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+        fps = float(capture.get(cv2.CAP_PROP_FPS) or 0.0)
+        sample_every = max(1, total_frames // 90) if total_frames else 1
+        tracks: list[dict[str, Any]] = []
+        annotated_frames: list[str] = []
+        frame_index = 0
+        processed = 0
+        try:
+            while True:
+                ok, frame = capture.read()
+                if not ok:
+                    break
+                if frame_index % sample_every != 0:
+                    frame_index += 1
+                    continue
+                result = self.analyzer.analyze(frame)
+                processed += 1
+                for fish in result["fish"]:
+                    bbox = list(fish["bbox"])
+                    match = max(tracks, key=lambda item: _box_iou(item["bbox"], bbox), default=None)
+                    if match is None or _box_iou(match["bbox"], bbox) < 0.3:
+                        match = {"bbox": bbox, "fish": dict(fish), "hits": 0}
+                        match["fish"]["id"] = len(tracks) + 1
+                        tracks.append(match)
+                    match["hits"] += 1
+                    if (
+                        match["fish"].get("quality") == "Ungraded" and fish.get("quality") != "Ungraded"
+                    ) or float(fish.get("detector_confidence") or 0) > float(match["fish"].get("detector_confidence") or 0):
+                        match["fish"] = dict(fish)
+                        match["fish"]["id"] = tracks.index(match) + 1
+                    match["bbox"] = bbox
+                if len(annotated_frames) < 90 and (processed == 1 or processed % max(1, total_frames // 90) == 0):
+                    annotated_frames.append(str(result["annotated_image"]))
+                frame_index += 1
+                progress(processed, total_frames or processed)
+        finally:
+            capture.release()
+        if processed == 0:
+            raise VideoUploadError("The uploaded video contains no readable frames.")
+        fish = [track["fish"] for track in tracks]
+        counts = {name: 0 for name in DEFAULT_QUALITY_COUNTS}
+        for item in fish:
+            counts[item.get("quality", "Ungraded")] = counts.get(item.get("quality", "Ungraded"), 0) + 1
+        return {
+            "fish_detected": len(fish),
+            "quality_counters": counts,
+            "fish": fish,
+            "annotated_frames": annotated_frames,
+            "annotated_image": annotated_frames[-1] if annotated_frames else None,
+            "frames_processed": processed,
+            "total_frames": total_frames or frame_index,
+            "video_fps": fps,
+            "analysis_mode": "video",
+            "inspection_source": {"type": "uploaded_video", "frames_processed": processed, "total_frames": total_frames or frame_index},
+            "analyzed_at": datetime.now().astimezone().isoformat(timespec="seconds"),
         }
 
 

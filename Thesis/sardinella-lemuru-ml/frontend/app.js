@@ -16,18 +16,18 @@ const elements = {
   pageTitle: $("page-title"), pageSubtitle: $("page-subtitle"),
   cameraPill: $("camera-pill"), modelPill: $("model-pill"), devicePill: $("device-pill"), liveModelSelector: $("live-model-selector"),
   alert: $("alert"), alertTitle: $("alert-title"), alertCopy: $("alert-copy"), alertDetails: $("alert-details"),
-  liveBadge: $("live-badge"), inspectionState: $("inspection-state"), webcam: $("webcam-button"), start: $("start-button"), emptyStart: $("empty-start-button"), stop: $("stop-button"), reset: $("reset-button"),
+  liveBadge: $("live-badge"), inspectionState: $("inspection-state"), webcam: $("webcam-button"), start: $("start-button"), emptyStart: $("empty-start-button"), reset: $("reset-button"),
   video: $("video-feed"), placeholder: $("video-placeholder"), placeholderTitle: $("placeholder-title"), placeholderCopy: $("placeholder-copy"),
   feedFps: $("feed-fps"), feedResolution: $("feed-resolution"), previewMode: $("preview-mode-button"), previewDescription: $("preview-mode-description"),
   resultEmpty: $("result-empty"), resultActive: $("result-active"), resultEmptyTitle: $("result-empty-title"), resultEmptyCopy: $("result-empty-copy"),
   decision: $("decision"), resultFish: $("result-fish"), resultLabel: $("result-label"), confidence: $("confidence"), confidenceBar: $("confidence-bar"), resultProcessing: $("result-processing"), resultTime: $("result-time"), latestFeatures: $("latest-feature-list"), classificationPolicy: $("classification-policy"),
   latestVerdictDetails: $("latest-verdict-details"), latestVerdictStatus: $("latest-verdict-status"), latestVerdictReason: $("latest-verdict-reason"), latestDetectionConfidence: $("latest-detection-confidence"), latestModel2Evidence: $("latest-model2-evidence"), latestCoverage: $("latest-coverage"), latestEffectiveWeights: $("latest-effective-weights"),
-  uploadMode: $("upload-mode-button"), closeUpload: $("close-upload-button"), uploadWorkspace: $("upload-workspace"), uploadInput: $("upload-input"), selectUpload: $("select-upload-button"), uploadFileName: $("upload-file-name"), analyze: $("analyze-button"), uploadStatus: $("upload-status"), uploadProgress: $("upload-analysis-progress"), uploadImage: $("upload-result-image"), uploadResults: $("upload-results"), uploadFishCount: $("upload-fish-count"), uploadCountLabel: $("upload-count-label"), uploadEvidence: $("upload-fish-evidence"), uploadMeasurements: $("upload-fish-measurements"),
+  uploadMode: $("upload-mode-button"), closeUpload: $("close-upload-button"), uploadWorkspace: $("upload-workspace"), uploadInput: $("upload-input"), selectUpload: $("select-upload-button"), uploadFileName: $("upload-file-name"), analyze: $("analyze-button"), uploadStatus: $("upload-status"), uploadProgress: $("upload-analysis-progress"), uploadImage: $("upload-result-image"), uploadVideo: $("upload-result-video"), uploadResults: $("upload-results"),
   kpiGrid: $("kpi-grid"), featureCounterGrid: $("feature-counter-grid"), threshold: $("threshold"), openConfidence: $("open-confidence-button"),
   gradeChartEmpty: $("grade-chart-empty"), gradeChart: $("grade-chart"), gradeDonut: $("grade-donut"), gradeTotal: $("grade-total"), gradeLegend: $("grade-legend"),
   featureChartEmpty: $("feature-chart-empty"), featureChart: $("feature-chart"), throughputChartEmpty: $("throughput-chart-empty"), throughputChart: $("throughput-chart"), throughputLine: $("throughput-line"), throughputCaption: $("throughput-caption"),
   confidenceChartEmpty: $("confidence-chart-empty"), confidenceChart: $("confidence-chart"), averageGradeConfidence: $("average-grade-confidence"),
-  recentEmpty: null, recentWrap: null, recentHistoryBody: null, viewAll: $("view-all-button"), resultsGroups: $("results-groups"), resultsSummary: $("results-summary"), resultsFilters: [...document.querySelectorAll(".results-filter")], resultsExportCsv: $("results-export-csv"), resultsExportPdf: $("results-export-pdf"),
+  recentEmpty: null, recentWrap: null, recentHistoryBody: null, viewAll: $("view-all-button"), resultsDashboard: $("recent-inspections"), resultsSource: $("results-source"), resultsCounts: $("results-counts"), resultsGroups: $("results-groups"), resultsSummary: $("results-summary"), resultsExportCsv: $("results-export-csv"), resultsExportPdf: $("results-export-pdf"),
   historyEmpty: $("history-empty"), historyWrap: $("history-table-wrap"), historyBody: $("history-body"), historySession: $("history-session"), historySearch: $("history-search"), historyGrade: $("history-grade"), historyFeature: $("history-feature"), historyConfidence: $("history-confidence"), historyFilter: $("history-filter-button"), historyPrev: $("history-prev"), historyNext: $("history-next"), historyPage: $("history-page"),
   reviewEmpty: $("review-empty"), reviewWrap: $("review-table-wrap"), reviewBody: $("review-body"), reviewPrev: $("review-prev"), reviewNext: $("review-next"), reviewPage: $("review-page"),
   exportButton: $("export-button"), sidebarExport: $("sidebar-export"), exportModal: $("export-modal"), exportForm: $("export-form"), closeExport: $("close-export-button"), cancelExport: $("cancel-export-button"), dateRange: $("date-range"), exportSessionRange: $("export-session-range"), exportSession: $("export-session"), exportSessionStatus: $("export-session-status"), exportStartDate: $("export-start-date"), exportEndDate: $("export-end-date"),
@@ -80,6 +80,7 @@ let uploadInFlight = false;
 let uploadSelectionVersion = 0;
 let uploadRequestVersion = 0;
 let uploadPreviewUrl = null;
+ let uploadFrameTimer = null;
 let exportInFlight = false;
 let exportSessionsLoading = false;
 let exportSessionsError = "";
@@ -116,6 +117,12 @@ let recentHistoryKey = null;
 let resultsFilter = "All";
 let resultsEvents = [];
 let resultsRenderedFilter = null;
+let resultsSource = "live";
+let renderedResultsSource = "live";
+const resultDatasets = {live: {scope: "", rows: [], metadata: {}}, upload: {scope: "", rows: [], metadata: {}}};
+const resultDisclosureStates = new Map();
+const resultsHomeAnchor = document.createComment("Unified inspection results location");
+elements.resultsDashboard.before(resultsHomeAnchor);
 let historyRowsKey = null;
 let reviewRowsKey = null;
 let modelSelectorModels = [];
@@ -248,24 +255,31 @@ function renderCamera(data) {
   const recognizedDevice = deviceKey === "cpu" || deviceKey === "cuda" || /^\d+$/.test(deviceKey) || /^cuda:\d+$/.test(deviceKey);
   setCompactStatus(elements.devicePill, "Device", String(device).toUpperCase(), recognizedDevice ? "healthy" : "neutral");
   elements.inspectionState.className = `inspection-state ${stateClass(inspection)}`;
+  elements.inspectionState.classList.toggle("hidden", inspection === "stopped");
   elements.inspectionState.replaceChildren(document.createElement("i"), document.createTextNode(titleCase(inspection)));
   elements.liveBadge.className = `live-badge ${stateClass(inspection)}`;
   elements.liveBadge.textContent = inspection === "running" ? "LIVE" : inspection === "starting" ? "STARTING" : inspection === "stopping" ? "STOPPING" : "OFFLINE";
-  elements.start.disabled = controlRequestInFlight || running || data.model_status !== "ready";
+  elements.start.disabled = controlRequestInFlight || inspection === "stopping" || data.model_status !== "ready";
+  elements.start.textContent = running ? "Stop inspection" : "Start inspection";
+  elements.start.classList.toggle("danger", running);
+  elements.start.classList.toggle("primary", !running);
   elements.emptyStart.disabled = elements.start.disabled;
+  elements.emptyStart.textContent = running ? "Stop inspection" : "Start inspection";
+  elements.emptyStart.classList.toggle("danger", running);
+  elements.emptyStart.classList.toggle("primary", !running);
   elements.webcam.disabled = controlRequestInFlight || data.model_status !== "ready";
   elements.webcam.textContent = running ? "Webcam active" : "Use webcam";
   elements.webcam.setAttribute("aria-pressed", String(running));
-  // Show one Start action: in the empty feed while stopped, or with the
-  // other controls while an inspection is starting, running, or stopping.
-  elements.start.classList.toggle("hidden", !running);
+  // Keep the main control in the action row as a single start/stop toggle.
+  elements.start.classList.remove("hidden");
   elements.emptyStart.classList.toggle("hidden", running);
-  elements.stop.disabled = controlRequestInFlight || !["starting", "running"].includes(inspection);
   elements.reset.disabled = controlRequestInFlight || ["starting", "stopping"].includes(inspection);
   updateUploadControls();
   if (running) attachStream();
   else if (streamAttached) detachStream();
   elements.placeholder.classList.toggle("hidden", inspection === "running" && streamReady);
+  elements.placeholderTitle.classList.toggle("hidden", inspection === "stopped");
+  elements.placeholderCopy.classList.toggle("hidden", inspection === "stopped");
   if (inspection === "starting") {
     elements.placeholderTitle.textContent = "Starting inspection";
     elements.placeholderCopy.textContent = "Opening the local camera and preparing inference.";
@@ -279,7 +293,7 @@ function renderCamera(data) {
     elements.placeholderTitle.textContent = "Connecting to inspection camera…";
     elements.placeholderCopy.textContent = rawPreview ? "Waiting for the first raw camera frame." : "Waiting for the first processed camera frame.";
   } else {
-    elements.placeholderTitle.textContent = "Camera is currently stopped.";
+    elements.placeholderTitle.textContent = "";
     elements.placeholderCopy.textContent = data.model_status === "ready"
       ? "Start inspection to connect the camera and view live evidence."
       : "The local model is unavailable. See the status message above.";
@@ -376,115 +390,42 @@ function latestFeatureRows(event) {
   rows.push(["Cracks", "Not measured", "unmeasured"]);
   return rows;
 }
-function addAnalysisDatum(grid, label, value) {
-  const item = document.createElement("span"); const name = document.createElement("small"); const detail = document.createElement("b");
-  name.textContent = label; detail.textContent = value == null || value === "" ? "-" : String(value); item.append(name, detail); grid.append(item);
-}
-function appendAnalysisBlock(body, heading, build) {
-  const block = document.createElement("section"); block.className = "analysis-block"; const title = document.createElement("h3"); title.textContent = heading; block.append(title); build(block); body.append(block);
-}
-function appendFullAnalysis(container, event) {
-  if (!event) return;
-  const analysis = analysisFor(event); const details = document.createElement("details"); details.className = "full-analysis";
-  const summary = document.createElement("summary"); summary.textContent = "Why this verdict and full analysis"; details.append(summary);
-  const body = document.createElement("div"); body.className = "full-analysis-body";
-  const aiGrade = aiFinalGrade(event); const support = weightedFinalSupport(event); const evidence = model2BestEvidence(event); const manual = manualGrade(event); const reason = verdictReason(event);
-  appendAnalysisBlock(body, "Final verdict", (block) => {
-    const grid = document.createElement("div"); grid.className = "analysis-data-grid";
-    addAnalysisDatum(grid, "Original AI verdict", aiGrade); addAnalysisDatum(grid, "Weighted final support", scoreText(support)); addAnalysisDatum(grid, "Verdict status", readableVerdictStatus(verdictStatus(event))); addAnalysisDatum(grid, "Reason code(s)", reason.label || "-");
-    if (manual) addAnalysisDatum(grid, "Manual final grade", manual); block.append(grid);
-    if (reason.text) { const text = document.createElement("p"); text.textContent = reason.text; block.append(text); }
-  });
-  appendAnalysisBlock(body, "Evidence coverage", (block) => {
-    const grid = document.createElement("div"); grid.className = "analysis-data-grid";
-    const observed = observedRegions(event); addAnalysisDatum(grid, "Observed regions", observed.length ? observed.join(" / ") : "None"); addAnalysisDatum(grid, "Original coverage", coverageText(event)); addAnalysisDatum(grid, "Weighting method", titleCase(String(analysis.weighting_method || "not recorded").replaceAll("_", " "))); addAnalysisDatum(grid, "Tail evaluation", titleCase(String(analysis.tail_status || "not recorded").replaceAll("_", " "))); addAnalysisDatum(grid, "Effective calculation", effectiveWeightText(event)); addAnalysisDatum(grid, "Usable Model 2 frames", eventValue(event, "observation_count") ?? "-"); block.append(grid);
-  });
-  appendAnalysisBlock(body, "Confidence concepts", (block) => {
-    const grid = document.createElement("div"); grid.className = "analysis-data-grid";
-    addAnalysisDatum(grid, "Model 1 detection confidence", scoreText(model1Confidence(event))); addAnalysisDatum(grid, "Model 2 best evidence", `${evidence.grade || "-"} ${scoreText(evidence.score)}`); addAnalysisDatum(grid, "Final weighted support", scoreText(support)); addAnalysisDatum(grid, "Best evidence class", evidence.grade || "-"); block.append(grid);
-  });
-  const timing = conveyorTiming(event);
-  if (timing) appendAnalysisBlock(body, "Conveyor decision timing", (block) => {
-    const grid = document.createElement("div"); grid.className = "analysis-data-grid";
-    const deadlineSeconds = finiteNumber(timing.decision_deadline_seconds);
-    addAnalysisDatum(grid, "First detection to decision", formatMs(finiteNumber(timing.first_detection_to_decision_ms)));
-    addAnalysisDatum(grid, "Configured deadline", deadlineSeconds == null ? "Not configured" : formatMs(deadlineSeconds * 1000));
-    addAnalysisDatum(grid, "Deadline status", readableDecisionDeadlineStatus(timing.deadline_status));
-    block.append(grid);
-    const scope = typeof timing.measurement_scope === "string" && timing.measurement_scope.trim()
-      ? timing.measurement_scope.trim()
-      : "Elapsed time from first persistent Model 1 detection to the virtual count-line decision; it is not physical entry or actuator confirmation.";
-    block.append(Object.assign(document.createElement("p"), { textContent: scope }));
-  });
-  appendAnalysisBlock(body, "Part analysis", (block) => {
-    ["Body", "Head", "Tail"].forEach((region) => {
-      const part = partFor(event, region); const stats = topStatistics(part); const contribution = partContribution(part, analysis.provisional_grade || analysis.best_evidence_class);
-      const line = document.createElement("p");
-      if (!part.present) line.textContent = `${region}: ${partStatus(part)}. This is not a physical missing-part claim.`;
-      else line.textContent = `${region}: ${part.grade || "-"} evidence ${scoreText(part.grade_confidence)}; original weight ${scoreText(part.original_weight ?? part.weight)}; effective weight ${scoreText(part.effective_weight ?? part.normalized_weight)}; contribution ${scoreText(contribution)}; observations ${stats.number_of_valid_observations ?? "-"}; mean ${scoreText(stats.mean_confidence)}; max ${scoreText(stats.max_confidence)}; standard deviation ${scoreText(stats.standard_deviation)}.`;
-      block.append(line);
-    });
-  });
-  appendAnalysisBlock(body, "All weighted scores", (block) => {
-    const scores = analysis.weighted_scores && typeof analysis.weighted_scores === "object" ? analysis.weighted_scores : {};
-    const grid = document.createElement("div"); grid.className = "analysis-data-grid";
-    ["Class A", "Class B", "Class C", "Rejected"].forEach((grade) => addAnalysisDatum(grid, grade, scoreText(scores[grade]))); block.append(grid);
-  });
-  const inferenceDebug = analysis.inference_debug;
-  if (inferenceDebug && typeof inferenceDebug === "object") appendAnalysisBlock(body, "Inference debug", (block) => {
-    const model1 = inferenceDebug.model1_detection || {}; const decision = inferenceDebug.final_decision || {};
-    const grid = document.createElement("div"); grid.className = "analysis-data-grid";
-    const crop = inferenceDebug.fish_crop_dimensions || {};
-    addAnalysisDatum(grid, "Model 1 detection", `Fish #${model1.fish_id ?? event.track_id ?? "-"} ${scoreText(model1.confidence)}`);
-    addAnalysisDatum(grid, "Fish crop", crop.width && crop.height ? `${crop.width} x ${crop.height}` : "-");
-    addAnalysisDatum(grid, "Model 2 detections", Array.isArray(inferenceDebug.model2_detections) ? inferenceDebug.model2_detections.length : 0);
-    addAnalysisDatum(grid, "Final decision", `${decision.grade || "Ungraded"} ${scoreText(decision.support ?? decision.best_evidence_support)}`);
-    block.append(grid);
-    if (Array.isArray(inferenceDebug.model2_detections) && inferenceDebug.model2_detections.length) {
-      const line = document.createElement("p");
-      line.textContent = inferenceDebug.model2_detections.map((item) => `${item.region}: ${item.grade} ${scoreText(item.evidence_score)}`).join(" | ");
-      block.append(line);
-    }
-  });
-  const stability = analysis.temporal_stability;
-  if (stability && typeof stability === "object") appendAnalysisBlock(body, "Temporal stability", (block) => {
-    const grid = document.createElement("div"); grid.className = "analysis-data-grid"; addAnalysisDatum(grid, "Ready", stability.ready === true ? "Yes" : stability.ready === false ? "No" : "-"); addAnalysisDatum(grid, "Usable frames", stability.usable_frame_count ?? "-"); addAnalysisDatum(grid, "Candidate frames", stability.candidate_frame_count ?? "-"); addAnalysisDatum(grid, "Winning-grade std. dev.", scoreText(stability.winning_grade_max_standard_deviation)); block.append(grid);
-  });
-  const bestFrame = analysis.best_frame;
-  if (bestFrame && typeof bestFrame === "object") appendAnalysisBlock(body, "Best representative frame", (block) => {
-    const grid = document.createElement("div"); grid.className = "analysis-data-grid"; addAnalysisDatum(grid, "Frame", bestFrame.best_frame_id ?? bestFrame.frame_id ?? bestFrame.id ?? "-"); addAnalysisDatum(grid, "Frame score", scoreText(bestFrame.best_frame_score ?? bestFrame.score)); addAnalysisDatum(grid, "Sharpness", bestFrame.frame_quality?.sharpness_score ?? bestFrame.sharpness_score ?? "-"); addAnalysisDatum(grid, "Crop", bestFrame.best_crop_path || "Not saved"); block.append(grid);
-  });
-  const supporting = analysis.supporting_image_measurements;
-  appendAnalysisBlock(body, "Supporting Image Measurements", (block) => {
-    const note = document.createElement("p"); note.textContent = "Diagnostic only; not used for the final grade. Rectangular regions may include background; no fish mask is available. Yellow and highlight values are image proxies, not validated defect or shininess detection."; block.append(note);
-    if (!supporting || typeof supporting !== "object") { const line = document.createElement("p"); line.textContent = "Measurements are unavailable for this record."; block.append(line); return; }
-    ["Whole Fish", "Body", "Head", "Tail"].forEach((region) => {
-      const item = supporting.regions?.[region] || {}; const values = item.values || {}; const line = document.createElement("p");
-      if (item.status !== "measured") line.textContent = `${region}: unavailable (${item.missing_value_reason || "not measured"}).`;
-      else {
-        const hue = typeof values.mean_hue_deg === "number" && Number.isFinite(values.mean_hue_deg) ? `${values.mean_hue_deg.toFixed(1)}°` : "unavailable";
-        const frames = (item.frame_rois || []).map((frame) => frame.frame_id ?? "unknown").join(", ") || "unknown";
-        line.textContent = `${region}: hue ${hue}; saturation ${scoreText(values.mean_saturation)}; HSV value (brightness proxy) ${scoreText(values.mean_value)}; yellow proxy ${scoreText(values.yellow_ratio_proxy)}; highlight proxy ${scoreText(values.specular_ratio_proxy)}. Source: ${item.measurement_source || "unknown"}; frames: ${frames}.`;
-      }
-      block.append(line);
-    });
-    const texture = document.createElement("p"); texture.textContent = "Masked texture unavailable: no validated fish mask in the live pipeline."; block.append(texture);
-  });
-  (analysis.explanation || []).forEach((text) => { const line = document.createElement("p"); line.textContent = String(text); body.append(line); });
-  details.append(body); container.append(details);
+function bodyWidthRows(event) {
+  const width = event?.analysis?.body_width || {};
+  const wholeBox = pixelBox(event?.bbox || event?.analysis?.model1_detection?.bbox);
+  const bodyParts = (event?.parts || []).filter((part) => (part.region || part.part) === "Body");
+  const bodyPart = bodyParts.reduce((best, part) => !best || Number(part.confidence ?? part.evidence_score ?? 0) > Number(best.confidence ?? best.evidence_score ?? 0) ? part : best, null);
+  const bodyBox = pixelBox(bodyPart?.bbox);
+  const numberText = (value) => typeof value === "number" && Number.isFinite(value) ? String(Number(value.toFixed(4))) : "Unavailable";
+  const dimensions = (x, y) => typeof x === "number" && Number.isFinite(x) && typeof y === "number" && Number.isFinite(y) ? `${numberText(x)} x ${numberText(y)} px` : "Unavailable";
+  const reference = Array.isArray(width.normal_reference_range) && width.normal_reference_range.length === 2 ? width.normal_reference_range.map(numberText).join(" - ") : "Not calibrated";
+  const reasons = Array.isArray(width.reliability_reasons) ? width.reliability_reasons.filter(Boolean).map((reason) => String(reason).replaceAll("_", " ")).join("; ") : "";
+  const points = typeof width.class_c_supporting_points === "number" && Number.isFinite(width.class_c_supporting_points) ? `${numberText(width.class_c_supporting_points)} / 10` : width.score_status || "Unavailable";
+  const contributed = width.score_contributed === true ? "Yes" : width.score_contributed === false ? "No" : "Unavailable";
+  return [
+    ["Whole-fish bounding box", dimensions(width.whole_fish_width_px ?? wholeBox?.width, width.whole_fish_height_px ?? wholeBox?.height)],
+    ["Body bounding box", dimensions(width.body_width_px ?? bodyBox?.width, width.body_height_px ?? bodyBox?.height)],
+    ["Relative width proxy", numberText(width.relative_width_proxy)],
+    ["Measurement status", width.measurement_status || (width.status === "measured" ? "Measured" : "Missing Detection")],
+    ["Orientation", width.orientation || "Unknown"],
+    ["Measurement reliability", [width.reliability || "Unavailable", reasons].filter(Boolean).join(": ")],
+    ["Calibration status", width.calibration_status || (width.score_status === "Calibrated" ? "Calibrated" : "Not Calibrated")],
+    ["Normal reference range", reference],
+    ["Width abnormality", width.width_abnormality || "Unavailable"],
+    ["Class C supporting points", points],
+    ["Contributed to final grade", [contributed, width.contribution_reason ? String(width.contribution_reason).replaceAll("_", " ") : ""].filter(Boolean).join(": ")],
+    ["Actual combined-score contribution", numberText(event?.analysis?.geometric_support?.applied_score_shift ?? width.applied_body_score_shift)],
+  ];
 }
 function renderLatest(data) {
   const evidenceKey = JSON.stringify([data.current_detection, data.latest_event, data.runtime_mode]);
   if (latestEvidenceKey === evidenceKey) return;
-  const expanded = Boolean(elements.latestFeatures.querySelector("details")?.open);
   latestEvidenceKey = evidenceKey;
   const event = data.current_detection || data.latest_event; const hasEvent = Boolean(event); const liveTrack = Boolean(event?.live_track); const status = verdictStatus(event); const manual = manualGrade(event); const aiGrade = aiFinalGrade(event); const support = weightedFinalSupport(event); const evidence = model2BestEvidence(event); const reason = verdictReason(event);
   elements.resultEmpty.classList.toggle("hidden", hasEvent); elements.resultActive.classList.toggle("hidden", !hasEvent); elements.latestVerdictDetails.classList.toggle("hidden", !hasEvent);
   const verdictClass = aiGrade === "Rejected" ? "error" : aiGrade === "Ungraded" || needsReview(event) ? "warning" : "healthy";
   elements.decision.className = `decision ${hasEvent ? verdictClass : "neutral"}`; elements.decision.textContent = hasEvent ? (liveTrack ? "LIVE FISH" : readableVerdictStatus(status).toUpperCase()) : "WAITING";
-  elements.latestFeatures.replaceChildren(); latestFeatureRows(event).forEach(([label, value, className]) => { const row = document.createElement("div"); row.className = "feature-row"; const name = document.createElement("span"); name.textContent = label; const valueElement = document.createElement("b"); valueElement.textContent = value; valueElement.classList.add(className); row.append(name, valueElement); elements.latestFeatures.append(row); });
-  appendFullAnalysis(elements.latestFeatures, event);
-  if (expanded) elements.latestFeatures.querySelector("details")?.setAttribute("open", "");
+  elements.latestFeatures.replaceChildren(Object.assign(document.createElement("p"), {className: "muted", textContent: "Complete evidence and measurements appear once in the grouped fish results below."}));
   $("result-panel").style.setProperty("--grade-color", gradeColors[manual || aiGrade] || gradeColors.Ungraded);
   if (data.runtime_mode === "part_preview") {
     elements.resultEmpty.classList.remove("hidden");
@@ -537,6 +478,7 @@ function reconcileCards(container, cache, cards, makeCard) {
       cache.delete(name);
     }
   }
+  if (!container) return;
   cards.forEach((cardData, index) => {
     const card = makeCard(cardData);
     if (container.children[index] !== card) container.insertBefore(card, container.children[index] || null);
@@ -544,31 +486,20 @@ function reconcileCards(container, cache, cards, makeCard) {
 }
 function renderKpis(data) {
   const counters = data.counters || {}; const grades = data.quality_counters || {}; const total = Number(counters.total || 0);
-  const percentage = (name) => total ? `${((Number(grades[name] || 0) / total) * 100).toFixed(1)}% of inspected fish` : "No fish this session";
-  const accepted = Number(grades["Class A"] || 0) + Number(grades["Class B"] || 0) + Number(grades["Class C"] || 0);
-  const rejected = Number(grades.Rejected || 0); const live = data.current_detection || data.latest_event;
-  const liveGrade = live ? (aiFinalGrade(live) || "Ungraded") : "-";
-  const averageSupport = data.analytics?.average_final_support ?? data.analytics?.average_best_evidence_support;
+  const processingTiming = data.runtime_diagnostics?.timings?.total_processing;
+  const latency = processingTiming?.mean ?? data.analytics?.average_processing_time_ms;
   const cards = [
     ["Fish detected", total, "Since reset", true],
-    ...sessionGradeBuckets.map((name) => [name, Number(grades[name] || 0), percentage(name)]),
-  ];
-  const secondary = [
-    ["Acceptance rate", total ? `${((accepted / total) * 100).toFixed(1)}%` : "-", "Grade A, B, or C final verdicts"],
-    ["Rejection rate", total ? `${((rejected / total) * 100).toFixed(1)}%` : "-", "Real Rejected-class verdicts"],
-    ["Active fish", data.active_fish_count || 0, "Live tracks"],
-    ["Inspection FPS", `${Number(data.fps || 0).toFixed(1)}`, "Frames per second"],
-    ["Current fish ID", live?.live_track ? `Fish #${live.track_id}` : "-", live?.live_track ? "Current Model 1 track" : "No active track"],
-    ["Current final grade", liveGrade, live?.live_track ? "Current Model 2 evidence" : "Latest completed fish"],
-    ["Average support", averageSupport == null ? "-" : formatPercent(averageSupport), "Average weighted support"]
+    ["Processing FPS", `${Number(data.fps || 0).toFixed(1)}`, "AI-processed frames per second"],
+    ["Latency", latency == null ? "Not measured" : `${Number(latency).toFixed(0)} ms`, "Average frame processing time"],
+    ["Detection threshold", formatPercent(Number(data.detection_confidence_threshold) * 100), "Model 1 confidence"],
   ];
   elements.kpiGrid.querySelector(".metric-waiting")?.remove();
   if (data.runtime_mode === "part_preview") {
-    cards.splice(0, cards.length, ["Counting disabled", "—", "Research part preview"], ["Grading disabled", "—", "No whole-fish verdicts"]);
-    secondary.splice(0, secondary.length, ["Inspection FPS", `${Number(data.fps || 0).toFixed(1)}`, "AI processed frames per second"]);
+    cards[0] = ["Fish detected", "—", "Counting disabled in part preview", true];
   }
   reconcileCards(elements.kpiGrid, kpiCards, cards, ([label, value, note, emphasis]) => kpiCard(label, value, note, Boolean(emphasis)));
-  reconcileCards($("secondary-kpi-grid"), secondaryKpiCards, secondary, ([label, value, note]) => kpiCard(label, value, note, false, secondaryKpiCards));
+  reconcileCards($("secondary-kpi-grid"), secondaryKpiCards, [], ([label, value, note]) => kpiCard(label, value, note, false, secondaryKpiCards));
   elements.threshold.textContent = formatPercent(Number(data.detection_confidence_threshold) * 100);
 }
 
@@ -729,60 +660,227 @@ function resultEvidenceRows(event) {
   const detection = analysis.model1_detection && typeof analysis.model1_detection === "object" ? analysis.model1_detection : {};
   const weights = analysis.effective_weights || analysis.weighted_weights || {};
   const parts = Array.isArray(event?.parts) ? event.parts : [];
+  const geometry = analysis.geometric_support || {};
   return [
     ["Model 1 detection", scoreText(detection.confidence ?? event?.final_confidence)],
-    ["Model 2 Body", partEvidenceText(parts, "Body")],
-    ["Model 2 Head", partEvidenceText(parts, "Head")],
-    ["Model 2 Tail", partEvidenceText(parts, "Tail")],
+    ...["Body", "Head", "Tail"].map((region) => {
+      const part = analysis.part_results?.[region];
+      return [`Model 2 ${region}`, part?.present ? `${part.grade || "Observed"} · ${scoreText(part.grade_confidence)} part confidence` : partEvidenceText(parts, region)];
+    }),
     ["Effective weights", Object.keys(weights).length ? Object.entries(weights).map(([key, value]) => `${key}: ${resultValue(value)}`).join(" · ") : effectiveWeightText(event)],
-    ["Final support", scoreText(weightedFinalSupport(event))],
+    ["Original weighted classification", geometry.original_grade || "Not recorded"],
+    ["Original weighted support", scoreText(geometry.original_support)],
+    ["Final combined support", scoreText(weightedFinalSupport(event))],
     ["Ungraded reason", resultGrade(event) === "Ungraded" ? (verdictReason(event).text || analysis.verdict_reason_text || "Evidence was missing or unreliable.") : "—"],
   ];
 }
 function partEvidenceText(parts, region) {
   const matches = parts.filter((part) => String(part?.region || "").toLowerCase() === region.toLowerCase());
-  if (!matches.length) return "Not observed";
+  if (!matches.length) return "Not Detected";
   const best = matches.reduce((item, current) => Number(current?.evidence_score ?? current?.confidence ?? 0) > Number(item?.evidence_score ?? item?.confidence ?? 0) ? current : item);
   return `${best.grade || best.source_class_name || "Observed"} · ${scoreText(best.evidence_score ?? best.confidence)}`;
 }
+const measurementColumns = [["mean_hue_deg", "Hue (deg)"], ["mean_saturation", "Saturation (0–1)"], ["mean_value", "Brightness / HSV value (0–1)"], ["yellow_ratio_proxy", "Yellow proxy"], ["brown_ratio_proxy", "Brown proxy"], ["dark_patch_ratio_proxy", "Dark-area proxy"], ["discoloration_coverage_proxy", "Discoloration proxy"], ["specular_ratio_proxy", "Highlight proxy"]];
+function measurementRegion(event, region) {
+  const reading = event?.analysis?.supporting_image_measurements?.regions?.[region] || {};
+  const part = (event?.parts || []).find((value) => (value.region || value.part) === region);
+  const width = event?.analysis?.body_width || {};
+  const frame = Array.isArray(reading.frame_rois) ? reading.frame_rois.at(-1) : null;
+  const box = region === "Whole Fish" ? width.whole_fish_bbox || event.bbox || frame?.crop_local_bbox : region === "Body" ? width.body_bbox || part?.bbox || frame?.crop_local_bbox : part?.bbox || frame?.crop_local_bbox;
+  return {reading, box, dimensions: pixelBox(box), values: reading.values || {}, status: reading.status === "measured" ? "Measured" : part || region === "Whole Fish" && box ? "Not measured" : "Not Detected"};
+}
 function measurementRows(event) {
-  const regions = event?.analysis?.supporting_image_measurements?.regions;
-  if (!regions || typeof regions !== "object") return [];
-  return Object.entries(regions).map(([region, item]) => {
-    const values = item?.values && typeof item.values === "object" ? item.values : {};
-    return [region, item?.status === "measured" ? resultValue(values.mean_hue_deg) + "°" : "Unavailable", item?.status === "measured" ? resultValue(values.mean_saturation) : "—", item?.status === "measured" ? resultValue(values.mean_value) : "—", item?.status === "measured" ? resultValue(values.yellow_ratio_proxy) : "—"];
+  return ["Whole Fish", "Body", "Head", "Tail"].map((region) => {
+    const item = measurementRegion(event, region);
+    return [region, item.status, item.dimensions ? `${resultValue(item.dimensions.width)} x ${resultValue(item.dimensions.height)} px` : "Not Detected", ...measurementColumns.map(([key]) => item.reading.status === "measured" ? resultValue(item.values[key]) : "—")];
   });
 }
+function finalExplanationRows(event) {
+  const analysis = event.analysis || {}; const geometry = analysis.geometric_support || {}; const width = analysis.body_width || {};
+  const reason = verdictReason(event);
+  return [
+    ["Original weighted grade", geometry.original_grade || "Not recorded"],
+    ["Geometric support", typeof geometry.class_c_points === "number" ? `${resultValue(geometry.class_c_points)} / 10 points` : width.score_status || "Unavailable"],
+    ["Geometric contribution", String(geometry.contribution_reason || width.contribution_reason || "Not recorded").replaceAll("_", " ")],
+    ["Final combined AI grade", aiFinalGrade(event)],
+    ["Width changed classification", geometry.width_changed_classification === true ? "Yes" : geometry.width_changed_classification === false ? "No" : "Not recorded"],
+    ...(manualGrade(event) ? [["Operator-reviewed final grade", manualGrade(event)]] : []),
+    ["Decision reason", reason.text || (analysis.explanation || []).join(" ") || "Model 2 evidence and configured acceptance safeguards determine the final grade."],
+    ...(aiFinalGrade(event) === "Ungraded" ? [["Next step", "Review the reason above and acquire a clear view with reliable Model 2 Body evidence; geometric support cannot bypass missing evidence."]] : []),
+  ];
+}
 function appendResultTable(parent, headers, rows) {
+  const scroll = document.createElement("div"); scroll.className = "result-table-scroll"; scroll.tabIndex = 0;
   const table = document.createElement("table"); table.className = "compact-results-table";
   const thead = document.createElement("thead"); const headRow = document.createElement("tr"); headers.forEach((header) => { const cell = document.createElement("th"); cell.textContent = header; headRow.append(cell); }); thead.append(headRow);
-  const body = document.createElement("tbody"); rows.forEach((values) => { const row = document.createElement("tr"); values.forEach((value) => { const cell = document.createElement("td"); cell.textContent = resultValue(value); row.append(cell); }); body.append(row); }); table.append(thead, body); parent.append(table);
+  const body = document.createElement("tbody"); rows.forEach((values) => { const row = document.createElement("tr"); values.forEach((value) => { const cell = document.createElement("td"); cell.textContent = resultValue(value); row.append(cell); }); body.append(row); }); table.append(thead, body); scroll.append(table); parent.append(scroll);
+}
+function resultIdentity(event, scope = "current", index = 0) {
+  const identifier = event.track_id ?? event.id ?? event.fish_id;
+  return `${event.session_id || scope}:${identifier == null ? `detection-${index}` : identifier}`;
+}
+function mergeResultEvidence(previous, current) {
+  if (!previous) return {...current};
+  const merge = (left, right) => {
+    const result = {...left};
+    Object.entries(right || {}).forEach(([key, value]) => {
+      if (value && typeof value === "object" && !Array.isArray(value) && left?.[key] && typeof left[key] === "object" && !Array.isArray(left[key])) result[key] = merge(left[key], value);
+      else if (value !== undefined) result[key] = value;
+    });
+    return result;
+  };
+  const result = merge(previous, current);
+  const completeAnalysis = current.analysis && (Object.hasOwn(current.analysis, "final_grade") || Object.hasOwn(current.analysis, "weighted_scores"));
+  if (completeAnalysis) {
+    // Complete grading snapshots are coherent observations. Never carry old
+    // Body/width evidence into a newer missing or differently associated Body.
+    result.analysis = {...current.analysis};
+    result.parts = Array.isArray(current.parts) ? current.parts : [];
+    if (previous.analysis?.body_width?.relative_width_proxy != null && current.analysis.body_width?.relative_width_proxy == null) {
+      result._previous_measurement_evidence = {timestamp: previous.timestamp, frame_id: previous.analysis.body_width.frame_id, body_width: previous.analysis.body_width, supporting_image_measurements: previous.analysis.supporting_image_measurements};
+    }
+  }
+  return result;
+}
+function uniqueResultEvents(rows, scope = "current", previous = [], complete = true) {
+  const earlier = new Map(previous.map((event, index) => [resultIdentity(event, scope, index), event]));
+  const merged = complete ? new Map() : new Map(earlier);
+  (Array.isArray(rows) ? rows : []).forEach((event, index) => {
+    if (!event || typeof event !== "object") return;
+    const key = resultIdentity(event, scope, index); const prior = merged.get(key) || earlier.get(key);
+    // A response may contain repeated observations of one tracked fish. Keep
+    // the newest timestamp and merge partial evidence into that identity.
+    const previousTime = Date.parse(prior?.timestamp); const updateTime = Date.parse(event.timestamp);
+    const current = Number.isFinite(previousTime) && Number.isFinite(updateTime) && updateTime < previousTime ? mergeResultEvidence(event, prior) : mergeResultEvidence(prior, event);
+    merged.set(key, current);
+  });
+  return [...merged.values()];
+}
+function resultsScope() { return latestStatus?.durable_session?.session_id || "current"; }
+function rememberResultsDisclosures() {
+  const state = new Set(resultDisclosureStates.get(renderedResultsSource) || []);
+  elements.resultsGroups.querySelectorAll("details[data-disclosure-key]").forEach((item) => { state.delete(item.dataset.disclosureKey); if (item.open) state.add(item.dataset.disclosureKey); });
+  resultDisclosureStates.set(renderedResultsSource, state);
+}
+function lazyResultSection(parent, title, key, build, expanded = new Set()) {
+  const details = document.createElement("details"); details.className = "result-evidence-section"; details.dataset.disclosureKey = key;
+  const summary = document.createElement("summary"); summary.textContent = title; details.append(summary);
+  let built = false;
+  const populate = () => { if (!details.open || built) return; built = true; const body = document.createElement("div"); body.className = "result-section-body"; build(body); details.append(body); };
+  details.addEventListener("toggle", populate); details.open = expanded.has(key); parent.append(details); populate(); return details;
 }
 function appendResultCard(parent, event) {
   const grade = resultGrade(event); const details = document.createElement("details"); details.className = "result-fish-card";
-  const summary = document.createElement("summary"); const title = document.createElement("strong"); title.textContent = event.fish_label || `Fish #${event.track_id}`; const support = document.createElement("b"); support.textContent = scoreText(weightedFinalSupport(event)); const status = document.createElement("span"); status.textContent = grade === "Ungraded" ? "Evidence incomplete" : `${grade} final classification`; summary.append(title, support, status); details.append(summary);
-  const body = document.createElement("div"); body.className = "result-fish-details";
-  const evidenceSection = document.createElement("section"); evidenceSection.innerHTML = "<h4>Grading evidence</h4>"; appendResultTable(evidenceSection, ["Evidence", "Value"], resultEvidenceRows(event)); body.append(evidenceSection);
-  const measurements = document.createElement("details"); measurements.className = "result-measurements"; const measurementSummary = document.createElement("summary"); measurementSummary.textContent = "Diagnostic image measurements (not used for grading)"; measurements.append(measurementSummary);
-  const measurementRowsData = measurementRows(event); if (measurementRowsData.length) appendResultTable(measurements, ["Region", "Hue", "Saturation", "Brightness", "Yellow proxy"], measurementRowsData); else { const empty = document.createElement("p"); empty.className = "muted"; empty.textContent = "Measurements unavailable for this fish."; measurements.append(empty); } body.append(measurements);
-  details.append(body); parent.append(details);
+  const key = resultIdentity(event, resultDatasets[resultsSource].scope); const expanded = resultDisclosureStates.get(resultsSource) || new Set();
+  details.dataset.fishKey = key; details.dataset.disclosureKey = `fish:${key}`;
+  const summary = document.createElement("summary"); const title = document.createElement("strong"); title.textContent = event.fish_label || `Fish #${event.track_id ?? event.id ?? event.fish_id ?? "?"}`;
+  const support = document.createElement("b"); support.textContent = `Final support: ${scoreText(weightedFinalSupport(event))}`;
+  const status = document.createElement("span"); status.textContent = grade; summary.append(title, status, support); details.append(summary);
+  let built = false;
+  const populate = () => {
+    if (!details.open || built) return; built = true;
+    const body = document.createElement("div"); body.className = "result-fish-details";
+    lazyResultSection(body, "A. Grading Evidence", `${key}:A`, (section) => {
+      appendResultTable(section, ["Evidence", "Recorded value"], resultEvidenceRows(event));
+      const scores = event.analysis?.geometric_support?.original_scores || event.analysis?.weighted_scores || {};
+      appendResultTable(section, ["Class", "Original weighted support (0–1)"], sessionGradeBuckets.filter((name) => name !== "Ungraded").map((name) => [name, scores[name]]));
+      section.append(Object.assign(document.createElement("p"), {className: "muted", textContent: "Detection confidence, part confidence, weighted support and geometric points describe different evidence; support is not measured accuracy."}));
+    }, expanded);
+    lazyResultSection(body, "B. Body Width and Geometric Analysis", `${key}:B`, (section) => {
+      appendResultTable(section, ["Measurement / evidence", "Value"], bodyWidthRows(event));
+      section.append(Object.assign(document.createElement("p"), {className: "muted", textContent: "Bounding-box proxy, not anatomical width. Unreliable measurements remain visible and cannot contribute grading points."}));
+    }, expanded);
+    lazyResultSection(body, "C. Image Features and Measurements", `${key}:C`, (section) => {
+      appendResultTable(section, ["Region", "Status", "Bounding box", ...measurementColumns.map(([, label]) => label)], measurementRows(event));
+      section.append(Object.assign(document.createElement("p"), {className: "muted", textContent: "Color measurements are diagnostic only; rectangular ROIs can include background. Brightness uses HSV value (brightness proxy). No fish mask or calibrated cm/mm scale is available. Yellow and highlight values are not validated defect or shininess detection."}));
+    }, expanded);
+    lazyResultSection(body, "D. Final Grading Explanation", `${key}:D`, (section) => {
+      appendResultTable(section, ["Decision stage", "Recorded result"], finalExplanationRows(event));
+      const metadata = document.createElement("details"); const heading = document.createElement("summary"); heading.textContent = "Model, source and threshold configuration"; metadata.append(heading);
+      const pre = document.createElement("pre"); pre.textContent = JSON.stringify(event, null, 2); metadata.append(pre); section.append(metadata);
+      if (event._inspection_source !== "upload" && event._inspection_source !== "history") appendManualReviewPanel(section, event);
+    }, expanded);
+    details.append(body);
+  };
+  details.addEventListener("toggle", populate); details.open = expanded.has(`fish:${key}`); parent.append(details); populate(); return details;
 }
-function renderResultsDashboard(history) {
-  const rows = Array.isArray(history) ? history : []; const key = JSON.stringify(rows);
+function renderResultsDashboard(history, {source = "live", complete = false, metadata = {}, scope = null, renderOnly = false} = {}) {
+  if (!renderOnly) {
+    const dataset = resultDatasets[source]; const nextScope = scope || (source === "live" ? resultsScope() : dataset.scope || "photo");
+    if (dataset.scope !== nextScope) { dataset.rows = []; resultDisclosureStates.delete(source); dataset.scope = nextScope; }
+    dataset.rows = uniqueResultEvents(history, nextScope, dataset.rows, complete).map((event) => ({...event, _inspection_source: source}));
+    dataset.metadata = {...dataset.metadata, ...metadata};
+  }
+  if (!renderOnly && source !== resultsSource) return;
+  const dataset = resultDatasets[resultsSource]; const rows = dataset.rows; const key = JSON.stringify([resultsSource, dataset.scope, dataset.metadata, rows]);
   if (key === recentHistoryKey && resultsRenderedFilter === resultsFilter && elements.resultsGroups.childElementCount) return;
-  recentHistoryKey = key; resultsEvents = rows;
+  rememberResultsDisclosures(); renderedResultsSource = resultsSource; recentHistoryKey = key; resultsEvents = rows;
   resultsRenderedFilter = resultsFilter;
   const counts = Object.fromEntries(["All", ...sessionGradeBuckets].map((grade) => [grade, grade === "All" ? rows.length : rows.filter((event) => resultGrade(event) === grade).length]));
-  elements.resultsFilters.forEach((button) => { const category = button.dataset.resultsFilter; const count = button.querySelector("b"); if (count) count.textContent = counts[category] ?? 0; button.classList.toggle("active", category === resultsFilter); button.setAttribute("aria-selected", String(category === resultsFilter)); });
-  const visible = resultsFilter === "All" ? rows : rows.filter((event) => resultGrade(event) === resultsFilter); elements.resultsSummary.textContent = `${visible.length} fish shown · ${rows.length} fish in this inspection session. Evidence is grouped by final classification.`;
+  elements.resultsCounts.replaceChildren();
+  const countCards = [
+    ["All Fish", "All", counts.All, "all"],
+    ["Graded Fish", null, counts.All - counts.Ungraded, "graded"],
+    ["Class A", "Class A", counts["Class A"], "class-a"],
+    ["Class B", "Class B", counts["Class B"], "class-b"],
+    ["Class C", "Class C", counts["Class C"], "class-c"],
+    ["Rejected", "Rejected", counts.Rejected, "rejected"],
+    ["Ungraded", "Ungraded", counts.Ungraded, "ungraded"],
+  ];
+  countCards.forEach(([label, category, count, tone]) => {
+    const item = document.createElement(category ? "button" : "div");
+    item.className = `results-count-card ${tone}`;
+    if (category) {
+      item.type = "button";
+      item.dataset.resultsFilter = category;
+      item.setAttribute("aria-pressed", String(category === resultsFilter));
+      item.addEventListener("click", () => {
+        resultsFilter = category;
+        recentHistoryKey = null;
+        renderResultsDashboard(null, {renderOnly: true});
+      });
+      item.classList.toggle("active", category === resultsFilter);
+    } else {
+      item.setAttribute("aria-label", `${label}: ${count} fish`);
+    }
+    item.append(Object.assign(document.createElement("small"), {textContent: label}), Object.assign(document.createElement("strong"), {textContent: String(count)}));
+    elements.resultsCounts.append(item);
+  });
+  elements.resultsSource.value = resultsSource;
+  const visible = resultsFilter === "All" ? rows : rows.filter((event) => resultGrade(event) === resultsFilter); elements.resultsSummary.textContent = `${dataset.metadata.source_name || (resultsSource === "upload" ? "Uploaded photo" : "Live inspection session")} · ${visible.length} shown / ${rows.length} unique fish. Expand a class, then a fish, to inspect its evidence.`;
   elements.resultsGroups.replaceChildren();
   const groups = resultsFilter === "All" ? sessionGradeBuckets : [resultsFilter];
-  groups.forEach((grade) => { const groupRows = visible.filter((event) => resultGrade(event) === grade); if (!groupRows.length && resultsFilter === "All") return; const group = document.createElement("details"); group.className = "result-grade-group"; group.open = resultsFilter !== "All" || groupRows.length <= 8; const summary = document.createElement("summary"); summary.innerHTML = `<span>${grade}</span><b>${groupRows.length}</b>`; group.append(summary); const cards = document.createElement("div"); cards.className = "result-fish-cards"; groupRows.forEach((event) => appendResultCard(cards, event)); group.append(cards); elements.resultsGroups.append(group); });
+  const expanded = resultDisclosureStates.get(resultsSource) || new Set();
+  groups.forEach((grade) => {
+    const groupRows = visible.filter((event) => resultGrade(event) === grade); if (!groupRows.length && resultsFilter === "All") return;
+    const group = document.createElement("details"); group.className = "result-grade-group"; group.dataset.grade = grade; group.dataset.disclosureKey = `group:${grade}`;
+    const summary = document.createElement("summary"); summary.append(Object.assign(document.createElement("span"), {textContent: grade}), Object.assign(document.createElement("b"), {textContent: String(groupRows.length)})); group.append(summary);
+    let built = false;
+    const populate = () => {
+      if (!group.open || built) return; built = true; const cards = document.createElement("div"); cards.className = "result-fish-cards"; let rendered = 0;
+      const more = document.createElement("button"); more.type = "button"; more.className = "button quiet result-load-more";
+      const batch = () => { const end = Math.min(rendered + 50, groupRows.length); for (; rendered < end; rendered++) appendResultCard(cards, groupRows[rendered]); more.textContent = `Show next ${Math.min(50, groupRows.length - rendered)} fish (${rendered} / ${groupRows.length})`; more.hidden = rendered >= groupRows.length; };
+      more.addEventListener("click", batch); group.append(cards, more); batch();
+    };
+    group.addEventListener("toggle", populate); group.open = expanded.has(`group:${grade}`) || resultsFilter !== "All"; elements.resultsGroups.append(group); populate();
+  });
   if (!visible.length) { const empty = document.createElement("p"); empty.className = "history-empty"; empty.textContent = "No fish match this classification yet."; elements.resultsGroups.append(empty); }
 }
+function selectResultsSource(source) {
+  if (!resultDatasets[source] || source === "upload" && !resultDatasets.upload.scope) return;
+  rememberResultsDisclosures(); resultsSource = source; recentHistoryKey = null;
+  renderResultsDashboard(null, {renderOnly: true});
+  if (source === "live") void loadResultsDashboard();
+}
+function mountResultsDashboard(inUpload = false) {
+  if (inUpload) elements.uploadResults.append(elements.resultsDashboard);
+  else resultsHomeAnchor.after(elements.resultsDashboard);
+}
 let resultsRequestInFlight = false;
+let loadedResultsRevision = null;
 async function loadResultsDashboard() {
-  if (resultsRequestInFlight || selectedView !== "live") return;
+  const scope = resultsScope(); const revision = analyticsVersion(latestStatus);
+  if (resultsRequestInFlight || selectedView !== "live" || resultsSource !== "live" || loadedResultsRevision === revision) return;
   resultsRequestInFlight = true;
   try {
     const response = await fetch("/api/history?page=1&page_size=100&range_name=current_session");
@@ -795,27 +893,81 @@ async function loadResultsDashboard() {
       const pageData = await pageResponse.json();
       items = items.concat(pageData.items || []);
     }
-    renderResultsDashboard(items);
+    if (scope !== resultsScope() || revision !== analyticsVersion(latestStatus)) return;
+    renderResultsDashboard(items, {source: "live", scope, metadata: {source_name: "Live inspection session", session_id: scope, model_info: latestStatus?.model_info}});
+    loadedResultsRevision = revision;
   } catch (error) {
-    elements.resultsSummary.textContent = `Unable to load fish-level results: ${error.message}`;
+    if (resultsSource === "live") elements.resultsSummary.textContent = `Unable to load fish-level results: ${error.message}`;
   } finally {
     resultsRequestInFlight = false;
   }
 }
+function selectedResultEvents() { return uniqueResultEvents(resultsEvents, resultDatasets[resultsSource].scope).filter((event) => resultsFilter === "All" || resultGrade(event) === resultsFilter); }
+function flattenResultData(value, prefix = "", output = {}) {
+  Object.entries(value || {}).forEach(([key, item]) => {
+    const name = prefix ? `${prefix}.${key}` : key;
+    if (item && typeof item === "object" && !Array.isArray(item)) flattenResultData(item, name, output);
+    else output[name] = Array.isArray(item) ? JSON.stringify(item) : item ?? "";
+  });
+  return output;
+}
+function resultExportRecord(event) {
+  const analysis = event.analysis || {}; const geometry = analysis.geometric_support || {};
+  const record = {
+    "Fish ID": event.fish_label || `Fish #${event.track_id ?? event.id ?? event.fish_id ?? "?"}`,
+    "Unique identity": resultIdentity(event, resultDatasets[resultsSource].scope),
+    "Source": resultDatasets[resultsSource].metadata.source_name || resultsSource,
+    "Timestamp": event.timestamp || "", "Original weighted grade": geometry.original_grade || "Not recorded",
+    "Original weighted support (0-1)": geometry.original_support ?? "", "Final AI grade": aiFinalGrade(event),
+    "Final classification": resultGrade(event), "Final combined support (0-1)": weightedFinalSupport(event) ?? "",
+    "Width changed classification": geometry.width_changed_classification ?? "",
+    "Class C width points (0-10)": geometry.class_c_points ?? analysis.body_width?.class_c_supporting_points ?? "",
+    "Geometric score contribution": geometry.applied_score_shift ?? 0,
+    "Ungraded reason": aiFinalGrade(event) === "Ungraded" ? verdictReason(event).text || analysis.verdict_reason_code || "Insufficient reliable evidence" : "",
+    "Body Width Analysis": JSON.stringify(analysis.body_width || {}),
+    "Body Width Threshold Configuration": JSON.stringify(analysis.body_width?.threshold_configuration || {}),
+    "Source metadata": JSON.stringify(resultDatasets[resultsSource].metadata),
+    "Complete fish event": JSON.stringify(event),
+  };
+  return {...record, ...flattenResultData(event, "record")};
+}
 function exportResultsCsv() {
-  const rows = resultsFilter === "All" ? resultsEvents : resultsEvents.filter((event) => resultGrade(event) === resultsFilter);
-  const headers = ["Fish ID", "Final classification", "Final support", "Model 1 detection", "Body evidence", "Head evidence", "Tail evidence", "Ungraded reason", "Timestamp", "Diagnostic measurements", "Complete fish event"];
-  const csvEscape = (value) => `"${String(value ?? "").replaceAll("\"", "\"\"")}"`;
-  const lines = [headers.map(csvEscape).join(",")];
-  rows.forEach((event) => { const evidence = Object.fromEntries(resultEvidenceRows(event)); lines.push([event.fish_label || `Fish #${event.track_id}`, resultGrade(event), scoreText(weightedFinalSupport(event)), evidence["Model 1 detection"], evidence["Model 2 Body"], evidence["Model 2 Head"], evidence["Model 2 Tail"], evidence["Ungraded reason"], event.timestamp || "", JSON.stringify(event.analysis?.supporting_image_measurements || {}), JSON.stringify(event)].map(csvEscape).join(",")); });
-  const blob = new Blob([`\ufeff${lines.join("\r\n")}`], { type: "text/csv;charset=utf-8" }); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `fish-inspection-${resultsFilter.toLowerCase().replaceAll(" ", "-")}.csv`; link.click(); URL.revokeObjectURL(link.href);
+  const records = selectedResultEvents().map(resultExportRecord);
+  const headers = [...new Set(records.flatMap((record) => Object.keys(record)))];
+  if (!headers.length) headers.push("Fish ID", "Final classification", "Complete fish event");
+  const csvEscape = (value) => {
+    let text = String(value ?? "");
+    if (typeof value === "string" && (/^[\t\r\n]/.test(text) || /^[=+\-@]/.test(text.trimStart()))) text = "'" + text;
+    return `"${text.replaceAll("\"", "\"\"")}"`;
+  };
+  const lines = [headers.map(csvEscape).join(","), ...records.map((record) => headers.map((field) => csvEscape(record[field])).join(","))];
+  const blob = new Blob([`\ufeff${lines.join("\r\n")}`], {type: "text/csv;charset=utf-8"}); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `fish-inspection-${resultsSource}-${resultsFilter.toLowerCase().replaceAll(" ", "-")}.csv`; link.click(); URL.revokeObjectURL(link.href);
+}
+function resultReportHtml(rows = selectedResultEvents()) {
+  const htmlEscape = (value) => String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll("\"", "&quot;");
+  const table = (headers, values) => `<table><thead><tr>${headers.map((header) => `<th>${htmlEscape(header)}</th>`).join("")}</tr></thead><tbody>${values.map((row) => `<tr>${row.map((value) => `<td>${htmlEscape(value == null || value === "" ? "Not recorded" : value)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+  const jsonTable = (value) => table(["Recorded field", "Value"], Object.entries(flattenResultData(value)).map(([key, item]) => [key, typeof item === "string" ? item : String(item)]));
+  const distribution = sessionGradeBuckets.map((grade) => [grade, rows.filter((event) => resultGrade(event) === grade).length]);
+  const groups = sessionGradeBuckets.map((grade) => [grade, rows.filter((event) => resultGrade(event) === grade)]).filter(([, items]) => items.length);
+  const cards = groups.map(([grade, items]) => `<section><h2>${htmlEscape(grade)} (${items.length})</h2>${items.map((event) => {
+    const analysis = event.analysis || {}; const geometry = analysis.geometric_support || {};
+    const scores = sessionGradeBuckets.filter((name) => name !== "Ungraded").map((name) => [name, geometry.original_scores?.[name] ?? "Not recorded", analysis.weighted_scores?.[name] ?? geometry.final_scores?.[name] ?? "Not recorded"]);
+    const measurements = ["Whole Fish", "Body", "Head", "Tail"].map((region) => {
+      const reading = measurementRegion(event, region);
+      return `<h4>${htmlEscape(region)} ROI — ${htmlEscape(reading.status)}</h4>${jsonTable({bbox: reading.box || null, ...reading.reading})}`;
+    }).join("");
+    const detections = (event.parts || []).map((part) => [part.source_class_name || "Not recorded", part.region || part.part, part.grade, part.confidence ?? part.evidence_score, JSON.stringify(part.bbox || null)]);
+    const gradingConfig = {...analysis.grading_config}; delete gradingConfig.body_width;
+    return `<article><h3>${htmlEscape(event.fish_label || `Fish #${event.track_id ?? event.id ?? "?"}`)} · ${htmlEscape(resultGrade(event))} · Final support ${htmlEscape(scoreText(weightedFinalSupport(event)))}</h3><h4>A. Grading Evidence</h4>${table(["Evidence", "Value"], resultEvidenceRows(event))}${table(["Class", "Original weighted support", "Final combined support"], scores)}${detections.length ? table(["Model 2 label", "Region", "Class", "Confidence (0–1)", "Original bbox (px)"], detections) : "<p>Model 2 detections: Not Detected</p>"}<h4>B. Body Width and Geometric Analysis</h4>${table(["Measurement", "Value"], bodyWidthRows(event))}<h4>C. Image Features and Measurements</h4>${measurements}<h4>D. Final Grading Explanation</h4>${table(["Decision stage", "Result"], finalExplanationRows(event))}<h4>Model, source and threshold configuration</h4>${jsonTable({session_id: event.session_id || null, timestamp: event.timestamp || null, inspection_source: analysis.inspection_source || {}, traceability: analysis.traceability || {}, grading_config: gradingConfig, width_threshold_configuration: analysis.body_width?.threshold_configuration || {}})}</article>`;
+  }).join("")}</section>`).join("");
+  const metadata = resultDatasets[resultsSource].metadata;
+  const dates = rows.map((event) => event.timestamp).filter(Boolean).sort();
+  const dateRange = dates.length ? dates[0] === dates.at(-1) ? dates[0] : `${dates[0]} to ${dates.at(-1)}` : metadata.analyzed_at || "Not recorded";
+  return `<!doctype html><html><head><meta charset="UTF-8"><title>Tamban Fish Inspection Report</title><style>@page{size:A4;margin:16mm 14mm;@bottom-right{content:"Page " counter(page) " of " counter(pages);font:9px Arial}}body{font:10px/1.45 Arial,sans-serif;color:#172b29;margin:0}h1{font-size:22px;color:#0e5a78;margin:0 0 8px}h2{font-size:16px;border-bottom:2px solid #137c9e;padding-bottom:5px;break-after:avoid}h3{font-size:13px;background:#edf8f4;padding:8px;break-after:avoid}h4{font-size:11px;margin:12px 0 5px;break-after:avoid}p{margin:5px 0}article+article{break-before:page}table{border-collapse:collapse;width:100%;table-layout:fixed;margin:5px 0 12px}thead{display:table-header-group}tr{break-inside:avoid}th,td{border:1px solid #d4dcd5;padding:5px;text-align:left;vertical-align:top;overflow-wrap:anywhere;white-space:pre-wrap}th{background:#f1f7f5}header{border-bottom:1px solid #d4dcd5;padding-bottom:12px}footer{font-size:9px;color:#68756d;margin-top:12px}@media screen{body{max-width:900px;padding:24px;margin:auto}}</style></head><body><header><h1>Tamban Fish Inspection Report</h1><p>Inspection source: ${htmlEscape(metadata.source_name || resultsSource)}</p><p>Inspection dates: ${htmlEscape(dateRange)}</p><p>Export filter: ${htmlEscape(resultsFilter)} · Unique fish: ${rows.length} · Generated: ${htmlEscape(new Date().toLocaleString())}</p></header><h2>Class distribution</h2>${table(["Final classification", "Unique fish"], distribution)}<h2>Grading methodology</h2><p>Model 1 locates each fish. Model 2 provides Body / Head / Tail classification evidence with original weights 50% / 30% / 20%. The recorded policy determines effective weights and acceptance safeguards. Validated Class C geometric support is bounded and applied once after weighted classification. Width is a bounding-box proxy; uncalibrated or unreliable width cannot contribute. Detection confidence, part confidence, weighted support and 0–10 geometric points are separate quantities.</p>${cards}<footer>Rectangular ROI colour measurements are diagnostics and may include background; no calibrated physical size or fish mask is implied. Original AI verdicts remain separate from operator reviews.</footer></body></html>`;
 }
 function exportResultsPdf() {
-  const rows = resultsFilter === "All" ? resultsEvents : resultsEvents.filter((event) => resultGrade(event) === resultsFilter);
-  const groups = sessionGradeBuckets.map((grade) => [grade, rows.filter((event) => resultGrade(event) === grade)]).filter(([, items]) => items.length);
-  const htmlEscape = (value) => String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll("\"", "&quot;");
-  const cards = groups.map(([grade, items]) => `<section><h2>${htmlEscape(grade)} (${items.length})</h2>${items.map((event) => { const evidence = Object.fromEntries(resultEvidenceRows(event)); const measurements = measurementRows(event).map((row) => row.join(": ")).join(" · ") || "Unavailable"; return `<article><h3>${htmlEscape(event.fish_label || `Fish #${event.track_id}`)} · ${htmlEscape(scoreText(weightedFinalSupport(event)))}</h3><p>Model 1: ${htmlEscape(evidence["Model 1 detection"])} · Body: ${htmlEscape(evidence["Model 2 Body"])} · Head: ${htmlEscape(evidence["Model 2 Head"])} · Tail: ${htmlEscape(evidence["Model 2 Tail"])}</p><p>Ungraded reason: ${htmlEscape(evidence["Ungraded reason"])}</p><p>Diagnostic measurements: ${htmlEscape(measurements)}</p></article>`; }).join("")}</section>`).join("");
-  const report = window.open("", "_blank"); if (!report) return; report.document.write(`<title>Fish Inspection Report</title><style>body{font:12px Arial;color:#17212b;margin:32px}h1{font-size:24px}h2{border-bottom:2px solid #197c7c;padding-bottom:6px;margin-top:24px}article{border:1px solid #ccd5d8;border-radius:6px;padding:8px 12px;margin:8px 0}h3{margin:0 0 5px}p{margin:3px 0;color:#46545a}</style><h1>Fish Inspection Report</h1><p>Filter: ${htmlEscape(resultsFilter)} · Fish: ${rows.length} · Generated: ${htmlEscape(new Date().toLocaleString())}</p>${cards}`); report.document.close(); report.focus(); setTimeout(() => report.print(), 250);
+  const report = window.open("", "_blank"); if (!report) return;
+  report.document.write(resultReportHtml()); report.document.close(); report.focus(); setTimeout(() => report.print(), 250);
 }
 
 function manualChoiceForDisplay(value) { return String(value || "").replace(/^Class\s+/i, ""); }
@@ -853,7 +1005,7 @@ function openHistoryAnalysis(event) {
   let dialog = $("history-analysis-dialog");
   if (!dialog) { dialog = document.createElement("dialog"); dialog.id = "history-analysis-dialog"; dialog.className = "history-analysis-dialog"; document.body.append(dialog); }
   dialog.replaceChildren(); const close = document.createElement("button"); close.className = "icon-button"; close.type = "button"; close.textContent = "x"; close.setAttribute("aria-label", "Close analysis"); close.addEventListener("click", () => dialog.close());
-  const title = document.createElement("h2"); title.textContent = `${event.fish_label || `Fish #${event.track_id}`} full analysis`; const content = document.createElement("div"); appendFullAnalysis(content, event); content.querySelector("details")?.setAttribute("open", ""); appendManualReviewPanel(content, event); dialog.append(close, title, content);
+  const title = document.createElement("h2"); title.textContent = `${event.fish_label || `Fish #${event.track_id}`} full analysis`; const content = document.createElement("div"); appendResultCard(content, {...event, _inspection_source: "history"}); content.querySelector("details")?.setAttribute("open", ""); appendManualReviewPanel(content, event); dialog.append(close, title, content);
   title.id = "history-analysis-title";
   dialog.setAttribute("aria-labelledby", title.id);
   if (typeof dialog.showModal === "function") dialog.showModal(); else dialog.setAttribute("open", "");
@@ -978,7 +1130,7 @@ async function selectModel2() {
     modelSelectorModels = modelSelectorModels.map((model) => ({ ...model, is_loaded: model.id === payload.active_model2_id }));
     renderModelSelectorOptions(payload.active_model2_id);
     render(payload);
-    setModelSelectorStatus(`${payload.active_model2_name || selectedModel.display_name || selectedId} is now active. Loaded weights will be used for live inspection and photo analysis.`);
+    setModelSelectorStatus(`${payload.active_model2_name || selectedModel.display_name || selectedId} is now active. Loaded weights will be used for live inspection and media analysis.`);
   } catch (error) {
     modelSelectorChanging = false;
     syncModelSelector(latestStatus);
@@ -1129,7 +1281,7 @@ function render(data) {
   const cameraKey = JSON.stringify([data.inspection_status, data.camera_status, data.model_status, data.segmenter_status, data.runtime_mode, data.model_info?.quality?.status, data.model_info?.detector?.device, data.fps, data.frame_size, data.message, data.raw_preview_available, data.upload_analysis_available, Boolean(selectedUpload), uploadInFlight, streamReady, streamAttached, previewImageLoadFps == null ? null : previewImageLoadFps.toFixed(1), controlRequestInFlight]);
   if (cameraKey !== cameraRenderKey) { renderCamera(data); cameraRenderKey = cameraKey; }
   if (selectedView === "live") {
-    renderLatest(data); renderKpis(data); renderFeatureCounters(data); renderResultsDashboard(data.recent_history);
+    renderLatest(data); renderKpis(data); renderFeatureCounters(data); renderResultsDashboard([...(data.active_tracks || []).filter((track) => track.finalized_state !== "counted"), ...(data.recent_history || [])], {metadata: {source_name: "Live inspection session", model_info: data.model_info, session_id: data.durable_session?.session_id}});
     Object.entries(overlayControls).forEach(([name, controls]) => controls.forEach((control) => { if (control) control.checked = Boolean(data.display_settings?.[name]); }));
     if ($("analytics-disclosure").open && data.analytics !== renderedAnalytics) {
       renderAnalytics(data.analytics); renderedAnalytics = data.analytics;
@@ -1143,7 +1295,7 @@ function render(data) {
   $("review-count").textContent = String(reviewCount);
   $("review-count").classList.toggle("hidden", reviewCount === 0);
   if (data.runtime_mode === "part_preview") {
-    elements.resultsSummary.textContent = "Fish counting is disabled in part preview.";
+    if (resultsSource === "live") elements.resultsSummary.textContent = "Fish counting is disabled in part preview.";
     $("analytics-disclosure").classList.add("hidden");
     $("analytics-section").classList.add("hidden");
     elements.featureCounterGrid.closest(".feature-section").classList.add("hidden");
@@ -1168,7 +1320,7 @@ function renderBackendUnavailable() {
   elements.placeholder.classList.remove("hidden");
   elements.placeholderTitle.textContent = "Waiting for the local server";
   elements.placeholderCopy.textContent = "The feed will reconnect when the backend is available.";
-  [elements.start, elements.emptyStart, elements.stop, elements.reset, elements.analyze].forEach((button) => { button.disabled = true; });
+  [elements.start, elements.emptyStart, elements.reset, elements.analyze].forEach((button) => { button.disabled = true; });
 }
 async function getStatus() {
   // A slow response must never overtake the next poll and redraw stale UI.
@@ -1230,6 +1382,7 @@ async function postControl(path) {
   if (modelSelectorChanging) {
     const feedback = $("control-feedback");
     feedback.textContent = "Wait for the selected Model 2 checkpoint to finish loading.";
+    feedback.classList.remove("hidden");
     feedback.classList.remove("error");
     return;
   }
@@ -1240,19 +1393,22 @@ async function postControl(path) {
   const feedback = $("control-feedback");
   const activity = path.endsWith("/start") ? "Starting inspection…" : path.endsWith("/stop") ? "Stopping inspection…" : "Resetting session…";
   feedback.textContent = activity;
+  feedback.classList.remove("hidden");
   feedback.classList.remove("error");
   elements.inspectionState.setAttribute("aria-busy", "true");
-  [elements.start, elements.emptyStart, elements.stop, elements.reset].forEach((button) => { button.disabled = true; });
+  [elements.start, elements.emptyStart, elements.reset].forEach((button) => { button.disabled = true; });
   try {
     const response = await fetch(path, { method: "POST" });
     const data = await response.json();
     if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
     controlRequestInFlight = false;
     render(data);
-    feedback.textContent = data.inspection_status === "errored" ? (data.message || "Inspection needs attention.") : path.endsWith("/reset") ? "New session ready. Previous records remain in local history." : path.endsWith("/stop") ? (data.inspection_status === "stopped" ? "Inspection stopped. Camera released." : "Stop requested. Waiting for the camera to be released.") : "Inspection requested. Waiting for the camera.";
+    feedback.textContent = data.inspection_status === "errored" ? (data.message || "Inspection needs attention.") : path.endsWith("/reset") ? "New session ready. Previous records remain in local history." : path.endsWith("/stop") ? "" : "Inspection requested. Waiting for the camera.";
+    feedback.classList.toggle("hidden", !feedback.textContent);
     feedback.classList.toggle("error", data.inspection_status === "errored");
   } catch (error) {
     feedback.textContent = error instanceof Error ? error.message : "Inspection request failed.";
+    feedback.classList.remove("hidden");
     feedback.classList.add("error");
     controlRequestInFlight = false;
     await getStatus();
@@ -1320,9 +1476,10 @@ function closePanel(panel) {
   activePanel = null;
   updateScrim();
   if (panel === elements.uploadWorkspace) {
+    mountResultsDashboard(false);
     resetUploadWorkspace();
     elements.uploadMode.setAttribute("aria-expanded", "false");
-    elements.uploadMode.textContent = "Analyze a photo";
+    elements.uploadMode.textContent = "Analyze Media";
   }
   panelTrigger?.focus();
 }
@@ -1629,57 +1786,68 @@ function updateUploadControls() {
   elements.uploadProgress.classList.toggle("hidden", !uploadInFlight);
   elements.uploadProgress.setAttribute("aria-hidden", String(!uploadInFlight));
 }
+function isVideoUpload(file) { return Boolean(file && (file.type.startsWith("video/") || /\.(mp4|mov|webm)$/i.test(file.name))); }
 function revokeUploadPreview() {
   if (uploadPreviewUrl) URL.revokeObjectURL(uploadPreviewUrl);
   uploadPreviewUrl = null;
   elements.uploadImage.onerror = null;
+  if (uploadFrameTimer) { clearInterval(uploadFrameTimer); uploadFrameTimer = null; }
+  elements.uploadVideo.pause();
+  elements.uploadVideo.removeAttribute("src");
+  elements.uploadVideo.load();
 }
 function resetUploadWorkspace() {
   uploadSelectionVersion += 1;
   selectedUpload = null;
   elements.uploadInput.value = "";
-  elements.uploadStatus.textContent = "Choose a photo to begin.";
+  elements.uploadStatus.textContent = "";
   elements.uploadResults.classList.add("hidden");
   elements.uploadProgress.classList.add("hidden");
   elements.uploadProgress.setAttribute("aria-hidden", "true");
-  elements.uploadFishCount.textContent = "0";
-  elements.uploadCountLabel.textContent = "Fish found";
-  renderUploadEvidence();
-  renderUploadMeasurements();
+  mountResultsDashboard(false);
   revokeUploadPreview();
   elements.uploadImage.removeAttribute("src");
   elements.uploadImage.alt = "Selected or annotated fish photo";
   elements.uploadImage.classList.add("hidden");
+  elements.uploadVideo.classList.add("hidden");
   updateUploadControls();
 }
 function setUploadSelection(file) {
   const selectionVersion = ++uploadSelectionVersion;
   selectedUpload = file || null;
   elements.uploadResults.classList.add("hidden");
-  renderUploadEvidence();
-  renderUploadMeasurements();
+  mountResultsDashboard(false);
   if (!selectedUpload) {
     resetUploadWorkspace();
     return;
   }
-  elements.uploadFileName.textContent = selectedUpload.name;
   elements.uploadStatus.textContent = "Ready to analyze";
   revokeUploadPreview();
   uploadPreviewUrl = URL.createObjectURL(selectedUpload);
-  elements.uploadImage.src = uploadPreviewUrl;
-  elements.uploadImage.alt = `Selected photo preview: ${selectedUpload.name}`;
-  elements.uploadImage.classList.remove("hidden");
+  const videoUpload = isVideoUpload(selectedUpload);
+  if (videoUpload) {
+    elements.uploadImage.classList.add("hidden");
+    elements.uploadVideo.src = uploadPreviewUrl;
+    elements.uploadVideo.classList.remove("hidden");
+    elements.uploadVideo.load();
+  } else {
+    elements.uploadVideo.classList.add("hidden");
+    elements.uploadImage.src = uploadPreviewUrl;
+    elements.uploadImage.alt = `Selected image preview: ${selectedUpload.name}`;
+    elements.uploadImage.classList.remove("hidden");
+  }
   elements.uploadImage.onerror = () => {
     if (selectionVersion !== uploadSelectionVersion) return;
     elements.uploadStatus.textContent = "Preview unavailable";
     elements.uploadImage.classList.add("hidden");
+    elements.uploadVideo.classList.add("hidden");
   };
   updateUploadControls();
 }
 function toggleUpload(show) {
   if (!show && uploadInFlight) return;
   elements.uploadMode.setAttribute("aria-expanded", String(show));
-  elements.uploadMode.textContent = show ? "Close photo analysis" : "Analyze a photo";
+  elements.uploadMode.textContent = show ? "Close media analysis" : "Analyze Media";
   if (show) {
     openPanel(elements.uploadWorkspace);
     requestAnimationFrame(() => elements.selectUpload.focus({ preventScroll: true }));
@@ -1709,7 +1877,7 @@ elements.sidebarToggle.addEventListener("click", () => {
   elements.sidebarToggle.setAttribute("aria-expanded", String(!collapsed));
   elements.sidebarToggle.setAttribute("aria-label", collapsed ? "Expand sidebar" : "Collapse sidebar");
 });
-elements.start.addEventListener("click", () => postControl("/api/inspection/start")); elements.emptyStart.addEventListener("click", () => postControl("/api/inspection/start")); elements.stop.addEventListener("click", () => postControl("/api/inspection/stop"));
+elements.start.addEventListener("click", () => postControl(latestStatus && ["starting", "running"].includes(latestStatus.inspection_status) ? "/api/inspection/stop" : "/api/inspection/start")); elements.emptyStart.addEventListener("click", () => postControl(latestStatus && ["starting", "running"].includes(latestStatus.inspection_status) ? "/api/inspection/stop" : "/api/inspection/start"));
 elements.webcam.addEventListener("click", () => {
   if (!latestStatus || ["starting", "running"].includes(latestStatus.inspection_status)) return;
   postControl("/api/inspection/start");
@@ -1720,16 +1888,31 @@ elements.uploadMode.addEventListener("click", () => toggleUpload(elements.upload
 elements.closeUpload.addEventListener("click", () => toggleUpload(false));
 elements.selectUpload.addEventListener("click", () => { if (!uploadInFlight) elements.uploadInput.click(); });
 elements.uploadInput.addEventListener("change", () => setUploadSelection(elements.uploadInput.files?.[0] || null));
+async function waitForVideoAnalysis(jobId, requestVersion, upload) {
+  while (requestVersion === uploadRequestVersion && upload === selectedUpload) {
+    const response = await fetch(`/api/analyze-video/${encodeURIComponent(jobId)}`);
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.detail || `HTTP ${response.status}`);
+    elements.uploadStatus.textContent = payload.status === "complete"
+      ? "Video analysis complete"
+      : `Processing video: ${payload.progress || 0}% (${payload.processed_frames || 0} frames)`;
+    if (payload.status === "error") throw new Error(payload.error || "Video analysis failed.");
+    if (payload.status === "complete") return payload.result;
+    await new Promise((resolve) => setTimeout(resolve, 450));
+  }
+  return null;
+}
 elements.analyze.addEventListener("click", async () => {
   if (!selectedUpload || uploadInFlight) return;
   const upload = selectedUpload;
   const requestVersion = ++uploadRequestVersion;
   uploadInFlight = true;
   elements.analyze.classList.add("is-analyzing");
-  elements.uploadStatus.textContent = "Analyzing";
+  const videoUpload = isVideoUpload(upload);
+  elements.uploadStatus.textContent = videoUpload ? "Uploading video" : "";
   updateUploadControls();
   try {
-    const response = await fetch("/api/analyze-image", {
+    const response = await fetch(videoUpload ? "/api/analyze-video" : "/api/analyze-image", {
       method: "POST",
       headers: { "Content-Type": upload.type || "application/octet-stream", "X-Filename": upload.name },
       body: upload,
@@ -1737,21 +1920,33 @@ elements.analyze.addEventListener("click", async () => {
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.detail || `HTTP ${response.status}`);
     if (requestVersion !== uploadRequestVersion || upload !== selectedUpload) return;
-    const isPartPreview = payload.analysis_mode === "part_preview";
+    const analysis = videoUpload ? await waitForVideoAnalysis(payload.job_id, requestVersion, upload) : payload;
+    if (!analysis) return;
+    const isVideo = videoUpload;
+    const isPartPreview = analysis.analysis_mode === "part_preview";
     revokeUploadPreview();
-    elements.uploadImage.src = payload.annotated_image;
-    elements.uploadImage.alt = `Annotated analysis result: ${upload.name}`;
-    elements.uploadImage.classList.remove("hidden");
-    elements.uploadFishCount.textContent = String(isPartPreview ? payload.parts_detected : payload.fish_detected);
-    elements.uploadCountLabel.textContent = isPartPreview ? "Parts detected" : "Fish found";
-    renderUploadQuality(payload.quality_counters);
-    renderUploadEvidence(isPartPreview ? [] : payload.fish);
-    renderUploadMeasurements(isPartPreview ? [] : payload.fish);
+    if (isVideo && Array.isArray(analysis.annotated_frames) && analysis.annotated_frames.length) {
+      let frameIndex = 0;
+      elements.uploadImage.src = analysis.annotated_frames[0];
+      elements.uploadImage.alt = `Annotated video analysis result: ${upload.name}`;
+      elements.uploadImage.classList.remove("hidden");
+      uploadFrameTimer = setInterval(() => {
+        frameIndex = (frameIndex + 1) % analysis.annotated_frames.length;
+        elements.uploadImage.src = analysis.annotated_frames[frameIndex];
+      }, 120);
+    } else {
+      elements.uploadImage.src = analysis.annotated_image;
+      elements.uploadImage.alt = `Annotated analysis result: ${upload.name}`;
+      elements.uploadImage.classList.remove("hidden");
+    }
+    renderResultsDashboard(isPartPreview ? [] : analysis.fish, {source: "upload", complete: true, scope: `upload:${requestVersion}`, metadata: {source_name: upload.name, analyzed_at: analysis.analyzed_at || new Date().toISOString(), analysis_mode: analysis.analysis_mode || "whole_fish", model_info: latestStatus?.model_info}});
+    elements.resultsSource.querySelector('option[value="upload"]').disabled = false;
+    resultsFilter = "All"; selectResultsSource("upload"); mountResultsDashboard(true);
     elements.uploadResults.classList.remove("hidden");
-    elements.uploadStatus.textContent = "Analysis complete";
+    elements.uploadStatus.textContent = isPartPreview ? `Part preview: ${analysis.parts_detected || 0} parts; individual fish grading is unavailable.` : "";
   } catch (error) {
     if (requestVersion !== uploadRequestVersion) return;
-    elements.uploadStatus.textContent = error instanceof Error ? error.message : "Image analysis failed.";
+    elements.uploadStatus.textContent = error instanceof Error ? error.message : `${videoUpload ? "Video" : "Image"} analysis failed.`;
   } finally {
     if (requestVersion !== uploadRequestVersion) return;
     uploadInFlight = false;
@@ -1760,63 +1955,6 @@ elements.analyze.addEventListener("click", async () => {
     updateUploadControls();
   }
 });
-function renderUploadQuality(counters) { const grid = $("upload-quality-counter-grid"); grid.replaceChildren(); Object.entries(counters || {}).forEach(([name, value]) => { const card = document.createElement("article"); card.className = "feature-counter"; card.append(Object.assign(document.createElement("span"), { textContent: name }), Object.assign(document.createElement("strong"), { textContent: String(value) }), Object.assign(document.createElement("small"), { textContent: "Image analysis only" })); grid.append(card); }); }
-function uploadPartWeight(part) {
-  const original = scoreText(part?.original_weight ?? part?.weight);
-  if (part?.present !== true) return original === "-" ? "No weight used" : `No weight used (original ${original})`;
-  const effective = scoreText(part?.effective_weight);
-  if (effective === "-") return "Weight unavailable";
-  if (effective === "0.0%") return original === "-" ? "Not used in the grade" : `Not used (original ${original})`;
-  return original !== "-" && original !== effective ? `${effective} used (original ${original})` : `${effective} used`;
-}
-function renderUploadEvidence(fishList = []) {
-  const container = elements.uploadEvidence;
-  container.replaceChildren();
-  if (!Array.isArray(fishList) || !fishList.length) { container.classList.add("hidden"); return; }
-  container.classList.remove("hidden");
-  fishList.forEach((fish, index) => {
-    const grade = aiFinalGrade(fish); const fishId = fish?.id ?? index + 1;
-    const ungraded = grade === "Ungraded"; const rejected = grade === "Rejected";
-    const card = document.createElement("details"); card.className = `upload-evidence-card ${ungraded ? "needs-evidence" : rejected ? "rejected" : "graded"}`;
-    card.open = fishList.length === 1;
-    const toggle = document.createElement("summary"); toggle.className = "upload-evidence-toggle";
-    const identity = document.createElement("span"); identity.className = "upload-evidence-fish";
-    const fishLabel = document.createElement("strong"); fishLabel.textContent = `Fish #${fishId}`;
-    const gradeLabel = document.createElement("span"); gradeLabel.className = "upload-evidence-grade"; gradeLabel.textContent = grade;
-    identity.append(fishLabel, gradeLabel);
-    const status = document.createElement("span"); status.className = "upload-evidence-summary-status";
-    status.textContent = ungraded ? "Needs more reliable part evidence" : rejected ? "Rejected by Model 2 evidence" : "Grade evidence available";
-    const support = document.createElement("span"); support.className = "upload-evidence-summary-metric";
-    support.append(Object.assign(document.createElement("small"), { textContent: "Final support" }), Object.assign(document.createElement("b"), { textContent: scoreText(weightedFinalSupport(fish)) }));
-    const action = document.createElement("span"); action.className = "upload-evidence-action"; action.textContent = "Expand evidence";
-    card.addEventListener("toggle", () => { action.textContent = card.open ? "Hide evidence" : "Expand evidence"; });
-    toggle.append(identity, status, support, action); card.append(toggle);
-    const body = document.createElement("div"); body.className = "upload-evidence-body";
-    const metricsHeading = document.createElement("h4"); metricsHeading.textContent = "Grading inputs"; body.append(metricsHeading);
-    const metrics = document.createElement("div"); metrics.className = "upload-evidence-metrics";
-    [["Final weighted support", scoreText(weightedFinalSupport(fish))], ["Effective weights", effectiveWeightText(fish)], ["Model 1 detection", scoreText(model1Confidence(fish))]].forEach(([label, value]) => {
-      const item = document.createElement("span"); item.append(Object.assign(document.createElement("small"), { textContent: label }), Object.assign(document.createElement("b"), { textContent: value })); metrics.append(item);
-    });
-    body.append(metrics);
-    const partsHeading = document.createElement("h4"); partsHeading.textContent = "Model 2 part evidence"; body.append(partsHeading);
-    const parts = document.createElement("div"); parts.className = "upload-part-evidence";
-    ["Body", "Head", "Tail"].forEach((region) => {
-      const part = partFor(fish, region); const row = document.createElement("div");
-      const name = document.createElement("strong"); name.textContent = region;
-      const observation = document.createElement("span"); observation.textContent = part?.present ? `${part.grade || "Observed"} - ${scoreText(part.grade_confidence)}` : partStatus(part);
-      const weight = document.createElement("small"); weight.textContent = uploadPartWeight(part);
-      row.append(name, observation, weight); parts.append(row);
-    });
-    body.append(parts);
-    if (ungraded) {
-      const reason = verdictReason(fish); const note = document.createElement("p"); note.className = "upload-evidence-reason";
-      note.textContent = `Ungraded reason: ${reason.text || reason.label || "No reason was returned."}`; body.append(note);
-    }
-    card.append(body);
-    container.append(card);
-  });
-}
-function uploadObject(value) { return value && typeof value === "object" && !Array.isArray(value) ? value : {}; }
 function pixelBox(box) {
   if (!Array.isArray(box) || box.length < 4) return null;
   const [left, top, right, bottom] = box.slice(0, 4).map(finiteNumber);
@@ -1828,86 +1966,10 @@ function pixelBoxText(box) {
   const dimensions = pixelBox(box);
   return dimensions ? `${Math.round(dimensions.width)} x ${Math.round(dimensions.height)} px` : "Not available";
 }
-function measurementPercent(value) {
-  const fraction = asFraction(value);
-  return fraction == null ? "Not measured" : formatPercent(fraction * 100);
-}
-function measurementHue(value) {
-  const number = finiteNumber(value);
-  return number == null ? "Not measured" : `${number.toFixed(1)} deg`;
-}
-function uploadPartDetection(fish, region) {
-  const expected = String(region).toLowerCase();
-  return (Array.isArray(fish?.parts) ? fish.parts : []).find((part) => String(part?.region || part?.part || "").toLowerCase() === expected) || null;
-}
-function uploadFrameSize(fish) {
-  const latest = uploadObject(uploadObject(analysisFor(fish).frame_quality).latest);
-  const width = finiteNumber(latest.frame_width); const height = finiteNumber(latest.frame_height);
-  return width != null && height != null && width > 0 && height > 0 ? `${Math.round(width)} x ${Math.round(height)} px` : "Not returned";
-}
-function appendUploadMeasurementDatum(grid, label, value) {
-  const item = document.createElement("div"); const name = document.createElement("small"); const detail = document.createElement("b");
-  name.textContent = label; detail.textContent = value == null || value === "" ? "Not available" : String(value); item.append(name, detail); grid.append(item);
-}
-function appendUploadColorRegion(container, fish, region, reading) {
-  const card = document.createElement("article"); card.className = "upload-color-region";
-  const heading = document.createElement("h4"); heading.textContent = region; card.append(heading);
-  const measured = reading?.status === "measured";
-  const source = document.createElement("p"); source.className = "upload-color-source";
-  source.textContent = measured
-    ? (reading.measurement_source || "Measurement source was not returned.")
-    : `Not measured: ${reading?.missing_value_reason || "No eligible image region was returned."}`;
-  card.append(source);
-  if (!measured) { container.append(card); return; }
-  const values = uploadObject(reading.values); const grid = document.createElement("div"); grid.className = "upload-measurement-grid";
-  const roi = Array.isArray(reading.frame_rois) ? reading.frame_rois.find((item) => pixelBox(item?.crop_local_bbox)) : null;
-  const part = region === "Whole Fish" ? null : uploadPartDetection(fish, region);
-  const fallbackBox = part?.bbox || (region === "Whole Fish" ? fish?.bbox : null);
-  appendUploadMeasurementDatum(grid, "Measured ROI", pixelBoxText(pixelBox(roi?.crop_local_bbox) ? roi.crop_local_bbox : fallbackBox));
-  appendUploadMeasurementDatum(grid, "Hue (mean)", measurementHue(values.mean_hue_deg));
-  appendUploadMeasurementDatum(grid, "Saturation (mean)", measurementPercent(values.mean_saturation));
-  appendUploadMeasurementDatum(grid, "Brightness (HSV value)", measurementPercent(values.mean_value));
-  appendUploadMeasurementDatum(grid, "Yellow proxy", measurementPercent(values.yellow_ratio_proxy));
-  appendUploadMeasurementDatum(grid, "Brown proxy", measurementPercent(values.brown_ratio_proxy));
-  appendUploadMeasurementDatum(grid, "Dark-area proxy", measurementPercent(values.dark_patch_ratio_proxy));
-  appendUploadMeasurementDatum(grid, "Discoloration proxy", measurementPercent(values.discoloration_coverage_proxy));
-  appendUploadMeasurementDatum(grid, "Highlight proxy", measurementPercent(values.specular_ratio_proxy));
-  card.append(grid); container.append(card);
-}
-function renderUploadMeasurements(fishList = []) {
-  const container = elements.uploadMeasurements;
-  container.replaceChildren();
-  if (!Array.isArray(fishList) || !fishList.length) { container.classList.add("hidden"); return; }
-  container.classList.remove("hidden");
-  const intro = document.createElement("div"); intro.className = "upload-measurements-intro";
-  const title = document.createElement("h3"); title.id = "upload-measurements-title"; title.textContent = "Image features and measurements";
-  const explanation = document.createElement("p"); explanation.textContent = "Model 2 Body, Head, and Tail evidence is used for the current grade. Color results and pixel dimensions below are supporting diagnostics only and do not change the grade.";
-  intro.append(title, explanation); container.append(intro);
-  fishList.forEach((fish, index) => {
-    const supporting = uploadObject(analysisFor(fish).supporting_image_measurements); const regions = uploadObject(supporting.regions);
-    const fishId = fish?.id ?? index + 1; const card = document.createElement("article"); card.className = "upload-measurement-card";
-    const heading = document.createElement("h4"); heading.textContent = `Fish #${fishId} image measurements`; card.append(heading);
-    const usage = document.createElement("div"); usage.className = "upload-feature-usage";
-    const used = document.createElement("span"); used.className = "used"; used.textContent = `Used for grade: ${observedRegions(fish).join(", ") || "no Model 2 part evidence returned"}`;
-    const diagnostic = document.createElement("span"); diagnostic.className = "diagnostic"; diagnostic.textContent = "Not used for grade: color proxies and pixel dimensions";
-    usage.append(used, diagnostic); card.append(usage);
-    const facts = document.createElement("div"); facts.className = "upload-measurement-grid upload-measurement-facts";
-    appendUploadMeasurementDatum(facts, "Detected fish box", pixelBoxText(fish?.bbox));
-    appendUploadMeasurementDatum(facts, "Source image", uploadFrameSize(fish));
-    appendUploadMeasurementDatum(facts, "Physical size", "Not calibrated; pixels only");
-    card.append(facts);
-    const colors = document.createElement("div"); colors.className = "upload-color-regions";
-    ["Whole Fish", "Body", "Head", "Tail"].forEach((region) => appendUploadColorRegion(colors, fish, region, uploadObject(regions[region])));
-    card.append(colors);
-    const caveat = document.createElement("p"); caveat.className = "upload-measurement-caveat";
-    caveat.textContent = "Color regions are rectangular detection boxes and can include background. No fish mask or calibrated cm/mm scale is available; proxy values are not validated defect, freshness, or size measurements.";
-    card.append(caveat); container.append(card);
-  });
-}
 
 ensureHistoryVerdictFilter();
 if (elements.viewAll) elements.viewAll.addEventListener("click", () => showView("history")); elements.historyFilter.addEventListener("click", () => loadHistory(true)); elements.historySession.addEventListener("change", () => loadHistory(true)); elements.historyPrev.addEventListener("click", () => { if (historyState.page > 1) { historyState.page -= 1; loadHistory(); } }); elements.historyNext.addEventListener("click", () => { if (historyState.page < historyState.totalPages) { historyState.page += 1; loadHistory(); } });
-elements.resultsFilters.forEach((button) => button.addEventListener("click", () => { resultsFilter = button.dataset.resultsFilter || "All"; renderResultsDashboard(resultsEvents); }));
+elements.resultsSource.addEventListener("change", () => selectResultsSource(elements.resultsSource.value));
 elements.resultsExportCsv.addEventListener("click", exportResultsCsv); elements.resultsExportPdf.addEventListener("click", exportResultsPdf);
 elements.reviewPrev.addEventListener("click", () => { if (reviewState.page > 1) { reviewState.page -= 1; loadReviewQueue(); } }); elements.reviewNext.addEventListener("click", () => { if (reviewState.page < reviewState.totalPages) { reviewState.page += 1; loadReviewQueue(); } });
 elements.settingsButton.addEventListener("click", openSettings); elements.sidebarSettings.addEventListener("click", openSettings); elements.closeSettings.addEventListener("click", closeSettings); elements.openConfidence.addEventListener("click", openSettings); elements.closeCameraCalibration.addEventListener("click", closeCameraCalibration); elements.scrim.addEventListener("click", () => { closeSettings(); closeCameraCalibration(); closeExport(); closePanel(elements.uploadWorkspace); });

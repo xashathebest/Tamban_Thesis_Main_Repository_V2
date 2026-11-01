@@ -336,6 +336,7 @@ class EvaluationRules:
     # replayed/audited without silently dropping meaningful policy metadata.
     minimum_track_observations: int = 2
     temporal_evidence_limit: int = 120
+    body_width: Mapping[str, Any] | None = None
 
     def __post_init__(self) -> None:
         try:
@@ -350,6 +351,20 @@ class EvaluationRules:
             raise FishLevelValidationError("minimum_track_observations must be a positive integer.")
         if not isinstance(self.temporal_evidence_limit, int) or self.temporal_evidence_limit < 1:
             raise FishLevelValidationError("temporal_evidence_limit must be a positive integer.")
+        if self.body_width is not None:
+            from src.inference.body_width import BodyWidthConfig
+
+            try:
+                if not isinstance(self.body_width, Mapping):
+                    raise ValueError("body_width must be a mapping.")
+                width_snapshot = dict(self.body_width)
+                # Old stored configurations predate the post-weighted stage.
+                # Preserve their original Body redistribution during replay.
+                width_snapshot.setdefault("scoring_method", "body_component_v1")
+                config = BodyWidthConfig.from_mapping(width_snapshot)
+            except (TypeError, ValueError) as exc:
+                raise FishLevelValidationError(f"Invalid body_width replay configuration: {exc}") from exc
+            object.__setattr__(self, "body_width", config.to_dict())
 
     def to_policy(self) -> GradingPolicy:
         """Return the exact pure policy used by live inference.
@@ -413,6 +428,7 @@ class EvaluationRules:
             "deprecated_minimum_final_score_used", "active_final_verdict_threshold",
             "frame_quality", "best_frame", "hsv_adjustment", "storage",
             "weights", "part_weights", "rejected_override", "temporal",
+            "body_width",
         }
         metadata_keys = {"name", "id", "description", "notes", "metadata", "config_version", "dataset_split"}
         source_allowed = direct_keys | (metadata_keys if source is values else set())
@@ -420,7 +436,7 @@ class EvaluationRules:
         if unknown:
             raise FishLevelValidationError(f"Unknown evaluation rule configuration key(s): {', '.join(unknown)}.")
         if source is not values:
-            root_unknown = sorted(str(key) for key in values if key not in metadata_keys | {"grading", "storage"})
+            root_unknown = sorted(str(key) for key in values if key not in metadata_keys | {"grading", "storage", "body_width"})
             if root_unknown:
                 raise FishLevelValidationError(f"Unknown evaluation rule wrapper key(s): {', '.join(root_unknown)}.")
         weight_unknown = sorted(str(key) for key in weights if key not in {"body", "head", "tail", "Body", "Head", "Tail"})
@@ -570,6 +586,7 @@ class EvaluationRules:
                 ),
                 minimum_track_observations=int(raw["minimum_track_observations"]),
                 temporal_evidence_limit=int(raw["temporal_evidence_limit"]),
+                body_width=source.get("body_width", values.get("body_width")),
             )
         except (TypeError, ValueError) as exc:
             raise FishLevelValidationError(f"Invalid evaluation rule configuration: {exc}") from exc
@@ -585,6 +602,8 @@ class EvaluationRules:
             "minimum_track_observations": self.minimum_track_observations,
             "temporal_evidence_limit": self.temporal_evidence_limit,
         })
+        if self.body_width is not None:
+            values["body_width"] = dict(self.body_width)
         return values
 
 
@@ -635,6 +654,7 @@ def recompute_final_verdict(record: Mapping[str, Any] | object, rules: Evaluatio
         field="winning grade standard deviation",
     )
     frame_quality = _as_mapping(analysis.get("frame_quality")) or _as_mapping(payload.get("frame_quality")) or {}
+    parent_usable = parent_usable and _boolean(frame_quality.get("parent_usable", True), field="parent_usable")
     association_status = frame_quality.get("association_status", analysis.get("association_status", payload.get("association_status")))
     out_of_frame = any(
         _boolean(frame_quality.get(key, False), field=key)
@@ -645,6 +665,34 @@ def recompute_final_verdict(record: Mapping[str, Any] | object, rules: Evaluatio
         field="model2_available",
     )
     rejected_frame_count = _finite_number(frame_quality.get("rejected_frame_count", 0)) or 0.0
+    width_replay = None
+    if rules.body_width is not None:
+        from src.inference.body_width import BodyWidthConfig, analyze_body_width, supplement_body_scores
+
+        width_config = BodyWidthConfig.from_mapping(rules.body_width)
+        saved_width = _as_mapping(analysis.get("body_width")) or _as_mapping(payload.get("body_width"))
+        width_replay = dict(saved_width) if saved_width else analyze_body_width(None, (), config=width_config)
+        # Replay always starts with raw Model 2 evidence, never previously
+        # adjusted support or the previous supplement's idempotence marker.
+        width_replay.update(score_applied=False, score_contributed=False,
+                            applied_body_score_shift=0.0, applied_geometric_score_shift=0.0)
+        width_replay.pop("grading_contribution", None)
+        if width_config.calibration_validated and width_config.scoring_enabled and saved_width:
+            recorded_config = _as_mapping(saved_width.get("threshold_configuration"))
+            expected_config = width_config.to_dict()
+            recorded_snapshot = dict(recorded_config) if recorded_config else {}
+            recorded_snapshot.setdefault("scoring_method", "body_component_v1")
+            recorded_values = BodyWidthConfig.from_mapping(recorded_snapshot).to_dict() if recorded_config else {}
+            if recorded_config is None or any(
+                recorded_values.get(key) != value for key, value in expected_config.items() if key != "scoring_enabled"
+            ):
+                raise FishLevelValidationError(
+                    "Width replay requires the saved calibration/geometry settings; recollect or recompute measurements before changing thresholds."
+                )
+        width_replay["threshold_configuration"] = width_config.to_dict()
+        width_replay["scoring_enabled"] = width_config.scoring_enabled
+        if width_config.scoring_method == "body_component_v1":
+            scores, width_replay = supplement_body_scores(scores, width_replay, config=width_config)
     decision = grade_fish(
         FishGradingInput(
             part_scores=scores,
@@ -661,7 +709,14 @@ def recompute_final_verdict(record: Mapping[str, Any] | object, rules: Evaluatio
         ),
         rules.to_policy(),
     )
-    return {
+    geometric_support = None
+    if width_replay is not None and width_config.scoring_method == "post_weighted_v2":
+        from src.inference.geometric_support import integrate_geometric_support
+
+        decision, width_replay, geometric_support = integrate_geometric_support(
+            decision, width_replay, width_config, rules.to_policy(), part_scores=scores,
+        )
+    result = {
         "final_grade": decision.final_grade or UNGRADED,
         "final_support": decision.final_support,
         "best_evidence_grade": decision.top_grade,
@@ -682,6 +737,16 @@ def recompute_final_verdict(record: Mapping[str, Any] | object, rules: Evaluatio
         "model1_confidence": model1_confidence,
         "rules": rules.to_dict(),
     }
+    if width_replay is not None:
+        if width_config.scoring_method == "body_component_v1":
+            width_replay["score_applied"] = bool(width_replay.get("score_contributed"))
+            width_replay["score_contributed"] = bool(width_replay["score_applied"] and decision.final_grade is not None)
+            if width_replay["score_applied"] and decision.final_grade is None:
+                width_replay["contribution_reason"] = "applied_to_provisional_support_only"
+        result["body_width"] = width_replay
+    if geometric_support is not None:
+        result["geometric_support"] = geometric_support
+    return result
 
 
 def _per_class_metrics(
