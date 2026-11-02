@@ -6,7 +6,45 @@ import csv
 from datetime import date, datetime
 from io import BytesIO, StringIO
 import json
+import math
 from typing import Iterable, Mapping
+
+
+def _localized_damage_locations(damage: Mapping) -> list[Mapping]:
+    """Check recorded pixel rectangles without changing the raw evidence."""
+    def finite(value):
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return False
+        try:
+            return math.isfinite(value)
+        except OverflowError:
+            return False
+
+    bounds = damage.get("crop_bounds")
+    limits = None
+    if bounds is not None:
+        if not isinstance(bounds, (list, tuple)) or len(bounds) != 4 or not all(map(finite, bounds)):
+            return []
+        left, top, right, bottom = bounds
+        if left < 0 or top < 0 or right <= left or bottom <= top:
+            return []
+        limits = bounds if damage.get("coordinate_space") == "original_frame" else (0, 0, right - left, bottom - top)
+    locations = damage.get("locations")
+    accepted = []
+    for item in locations if isinstance(locations, list) else []:
+        if not isinstance(item, Mapping):
+            continue
+        values = [item.get(key) for key in ("x", "y", "width", "height")]
+        if not all(map(finite, values)):
+            continue
+        x, y, width, height = values
+        right, bottom = x + width, y + height
+        if x < 0 or y < 0 or width <= 0 or height <= 0 or not finite(right) or not finite(bottom):
+            continue
+        if limits is not None and not (x >= limits[0] and y >= limits[1] and right <= limits[2] and bottom <= limits[3]):
+            continue
+        accepted.append(item)
+    return accepted
 
 
 # The field order is intentionally stable: it preserves the established first
@@ -189,6 +227,46 @@ for _region in ("body", "head", "tail", "whole_fish"):
     for _metric in ("mean_hue", "median_hue", "mean_saturation", "mean_value", "yellow_ratio"):
         _field = f"{_region}_{_metric}"
         EXPORT_FIELDS[_field] += " (diagnostic only; rectangular ROI)"
+# Append diagnostics so established columns keep their order and values.
+EXPORT_FIELDS.update({
+    "surface_damage_evidence_state": "Structural Damage Evidence State",
+    "surface_damage_validation_status": "Structural Damage Validation Status",
+    "surface_damage_confidence_kind": "Structural Damage Confidence Interpretation",
+    "surface_damage_reason": "Structural Damage Evidence Explanation",
+    "surface_damage_analysis": "Complete Structural Damage Evidence (JSON)",
+    "texture_status": "Texture Analysis Status (diagnostic only)",
+    "texture_missing_value_reason": "Texture Unavailability Explanation",
+    "texture_analysis": "Complete Texture Evidence (JSON)",
+    "fish_mask_analysis": "Foreground Segmentation Evidence (JSON)",
+    "mask_context_analysis": "Frame Mask Reuse Diagnostics (JSON)",
+    "inspection_performance": "Inspection Stage Performance (JSON)",
+    "inspection_compute_report": "Inspection Compute Configuration (JSON)",
+    "surface_damage_extent_px": "Structural Discontinuity Support Extent (px)",
+    "surface_damage_length_method": "Structural Damage Length Interpretation",
+    "surface_damage_coordinate_space": "Structural Damage Location Coordinate Space",
+})
+# Append-only diagnostics: historical field names/order and numeric grade
+# columns above remain unchanged.
+EXPORT_FIELDS.update({
+    "estimated_fish_length_px": "Estimated Fish Length (px; sampled mask)",
+    "estimated_max_body_width_px": "Estimated Maximum Body Width (px; sampled mask)",
+    "estimated_relative_width_ratio": "Estimated Relative Width Ratio (sampled mask)",
+    "fish_geometry_sampling": "Geometry Mask Sampling and Uncertainty (JSON)",
+    "frame_stage_performance": "Shared Frame Stage Performance (JSON)",
+    "inspection_gpu_memory": "Recorded Process GPU Memory (JSON)",
+    "fish_performance_scope": "Fish Performance Timing Scope",
+    "frame_performance_scope": "Shared Frame Performance Timing Scope",
+    "fish_color_processing_ms": "Fish Color Extraction (ms)",
+    "fish_texture_processing_ms": "Fish Texture Extraction (ms)",
+    "fish_grading_policy_ms": "Fish Grading Policy Excluding Features (ms)",
+    "fish_structural_damage_ms": "Fish Structural Damage Analysis (ms)",
+    "frame_annotation_rendering_ms": "Shared Frame Annotation Rendering (ms)",
+    "frame_segmentation_processing_ms": "Shared Frame Segmentation Pipeline (ms)",
+    "frame_foreground_grabcut_ms": "Shared Frame GrabCut (ms; CPU)",
+    "frame_mask_preprocessing_ms": "Shared Frame Mask Preprocessing (ms)",
+    "frame_mask_cache_lookup_ms": "Shared Frame Mask Cache Lookup (ms)",
+    "frame_wall_time_ms": "Recorded Frame-Scope Wall Time (ms; do not sum across fish)",
+})
 DEFAULT_EXPORT_FIELDS = tuple(EXPORT_FIELDS)
 
 
@@ -334,6 +412,20 @@ def inspection_row(
     latest_quality = frame_quality.get("latest") if isinstance(frame_quality.get("latest"), dict) else {}
     best_frame = analysis.get("best_frame") if isinstance(analysis.get("best_frame"), dict) else {}
     damage = analysis.get("surface_damage") if isinstance(analysis.get("surface_damage"), dict) else {}
+    supporting = analysis.get("supporting_image_measurements") if isinstance(analysis.get("supporting_image_measurements"), dict) else {}
+    texture = supporting.get("texture") if isinstance(supporting.get("texture"), dict) else {}
+    performance = analysis.get("performance") if isinstance(analysis.get("performance"), dict) else {}
+    damage_locations = _localized_damage_locations(damage)
+    provenance = damage.get("validation_provenance")
+    recorded_provenance = bool(provenance.strip()) if isinstance(provenance, str) else isinstance(provenance, (Mapping, list)) and bool(provenance)
+    damage_validated = (
+        damage.get("status") in ("suspected", "validated")
+        and bool(damage_locations)
+        and damage.get("validation_status") == "validated"
+        and damage.get("mask_validated_for_cracks") is True
+        and recorded_provenance
+    )
+    damage_suspected = damage.get("status") == "suspected" and bool(damage_locations)
     conveyor_timing = analysis.get("conveyor_timing") if isinstance(analysis.get("conveyor_timing"), dict) else {}
     row: dict[str, object] = {
         "fish_id": event.get("fish_label", f"Fish #{event.get('track_id', event.get('id', ''))}"),
@@ -364,6 +456,21 @@ def inspection_row(
         "surface_damage_length_px": _number(damage.get("estimated_length_px")),
         "surface_damage_locations": json.dumps(damage.get("locations", []), ensure_ascii=False, sort_keys=True),
         "surface_damage_mask_source": damage.get("mask_source", ""),
+        "surface_damage_evidence_state": "Validated Damage" if damage_validated else "Suspected Damage" if damage_suspected else "No reliable evidence",
+        "surface_damage_validation_status": "validated" if damage_validated else "unvalidated",
+        "surface_damage_confidence_kind": damage.get("confidence_kind") or "Unvalidated heuristic; not a damage probability",
+        "surface_damage_reason": damage.get("reason") or "Structural damage evidence was not recorded for this observation.",
+        "surface_damage_analysis": _json(damage) if damage else "",
+        "texture_status": texture.get("status") or "unavailable",
+        "texture_missing_value_reason": texture.get("missing_value_reason") or ("" if texture.get("status") == "measured" else "Texture analysis was not recorded for this observation"),
+        "texture_analysis": _json(texture) if texture else "",
+        "fish_mask_analysis": _json(analysis.get("fish_mask")) if isinstance(analysis.get("fish_mask"), dict) else "",
+        "mask_context_analysis": _json(analysis.get("mask_context")) if isinstance(analysis.get("mask_context"), dict) else "",
+        "inspection_performance": _json(performance) if performance else "",
+        "inspection_compute_report": _json(performance.get("compute_report")) if isinstance(performance.get("compute_report"), dict) else "",
+        "surface_damage_extent_px": _number(damage.get("estimated_length_px")) if damage_validated or damage_suspected else "",
+        "surface_damage_length_method": damage.get("length_method") or "Unvalidated image extent",
+        "surface_damage_coordinate_space": damage.get("coordinate_space") or "Unavailable: coordinate provenance not recorded",
         "grade_confidence": _number(event.get("quality_confidence"), scale=100),
         "observed_region_count": len(analysis.get("observed_regions", ())) if isinstance(analysis.get("observed_regions"), list) else "",
         "observed_regions": ", ".join(str(region) for region in analysis.get("observed_regions", ()) if region),
@@ -486,10 +593,13 @@ def inspection_row(
         row[field] = json.dumps(value, ensure_ascii=False, sort_keys=True, allow_nan=False) if isinstance(value, expected) else ""
     row["body_width_analysis"] = json.dumps(width, ensure_ascii=False, sort_keys=True, allow_nan=False) if width else ""
     fish_geometry = analysis.get("fish_geometry") if isinstance(analysis.get("fish_geometry"), dict) else {}
+    sampling = fish_geometry.get("sampling") if isinstance(fish_geometry.get("sampling"), dict) else {}
+    estimated = sampling.get("mode") == "bounded_working_grid" and sampling.get("estimated") is True
+    candidates = fish_geometry.get("candidate_measurements") if isinstance(fish_geometry.get("candidate_measurements"), dict) else {}
     physical = fish_geometry.get("physical_calibration") if isinstance(fish_geometry.get("physical_calibration"), dict) else {}
     # Withheld silhouette candidates and historical bounding boxes are never
     # substituted for actual per-fish measurements or physical conversions.
-    measured = fish_geometry.get("status") == "measured"
+    measured = fish_geometry.get("status") == "measured" and not estimated
     physical_applied = measured and physical.get("validated") is True and physical.get("status") == "Applied"
     geometry_reasons = fish_geometry.get("reasons")
     row.update({
@@ -501,13 +611,43 @@ def inspection_row(
         "fish_geometry_reasons": "; ".join(str(reason) for reason in geometry_reasons) if isinstance(geometry_reasons, (list, tuple)) else "No per-fish silhouette measurement recorded",
         "fish_geometry_method": fish_geometry.get("method") or "Unavailable",
         "fish_geometry_orientation_degrees": _number(fish_geometry.get("orientation_degrees")) if measured else "",
-        "fish_geometry_measurement_validated": "Yes" if fish_geometry.get("measurement_validated") is True else "Not validated",
-        "fish_geometry_used_for_grading": "Yes" if fish_geometry.get("used_for_grading") is True else "No",
+        "fish_geometry_measurement_validated": "Yes" if not estimated and fish_geometry.get("measurement_validated") is True else "Not validated",
+        "fish_geometry_used_for_grading": "Yes" if not estimated and fish_geometry.get("used_for_grading") is True else "No",
         "fish_length_cm": _number(fish_geometry.get("fish_length_cm")) if physical_applied else "",
         "max_body_width_cm": _number(fish_geometry.get("max_body_width_cm")) if physical_applied else "",
-        "physical_calibration_status": physical.get("status") or "Not calibrated",
+        "physical_calibration_status": "Not applied: sampled foreground boundary is not validated" if estimated else physical.get("status") or "Not calibrated",
         "physical_calibration": _json(physical) if physical else "",
         "fish_geometry_analysis": _json(fish_geometry) if fish_geometry else "",
+    })
+    frame = analysis.get("frame_performance") if isinstance(analysis.get("frame_performance"), dict) else {}
+    gpu_memory = frame.get("gpu_memory") if isinstance(frame.get("gpu_memory"), dict) else {}
+    def estimate(value):
+        if not estimated or isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
+            return ""
+        try:
+            return _number(value)
+        except OverflowError:
+            return ""
+
+    row.update({
+        "estimated_fish_length_px": estimate(candidates.get("fish_length_px")),
+        "estimated_max_body_width_px": estimate(candidates.get("max_body_width_px")),
+        "estimated_relative_width_ratio": estimate(candidates.get("relative_width_ratio")),
+        "fish_geometry_sampling": _json(sampling) if sampling else "",
+        "frame_stage_performance": _json(frame) if frame else "",
+        "inspection_gpu_memory": _json(gpu_memory) if gpu_memory else "",
+        "fish_performance_scope": performance.get("scope") or performance.get("timing_scope") or "",
+        "frame_performance_scope": frame.get("scope") or frame.get("timing_scope") or "",
+        "fish_color_processing_ms": _number(performance.get("color_processing_ms")),
+        "fish_texture_processing_ms": _number(performance.get("texture_processing_ms")),
+        "fish_grading_policy_ms": _number(performance.get("grading_policy_ms")),
+        "fish_structural_damage_ms": _number(performance.get("structural_damage_ms", performance.get("damage_processing_ms"))),
+        "frame_annotation_rendering_ms": _number(frame.get("annotation_rendering_ms")),
+        "frame_segmentation_processing_ms": _number(frame.get("segmentation_processing_ms")),
+        "frame_foreground_grabcut_ms": _number(frame.get("foreground_grabcut_ms")),
+        "frame_mask_preprocessing_ms": _number(frame.get("mask_preprocessing_ms")),
+        "frame_mask_cache_lookup_ms": _number(frame.get("mask_cache_lookup_ms")),
+        "frame_wall_time_ms": _number(frame.get("total_processing_ms")),
     })
     winning_grade = str(final_grade if final_grade != "Ungraded" else (best_grade or ""))
     for region, prefix in (("Body", "body"), ("Head", "head"), ("Tail", "tail")):

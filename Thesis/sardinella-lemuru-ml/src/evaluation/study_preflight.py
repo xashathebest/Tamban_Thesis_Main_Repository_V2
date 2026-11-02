@@ -10,13 +10,18 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 from src.preprocessing.scientific_image_utils import sha256_file
+from src.inference.model_registry import ModelRegistry
 
 
 def generate(root: Path, output: Path) -> None:
     root = root.resolve()
     if output.exists():
         raise FileExistsError("Choose a fresh output directory.")
-    paths = {"model1": root / "models/fish_detector/weights/model1_fish_parent_detector.pt",
+    registry = ModelRegistry(root)
+    model1_entry = registry.get_model(registry.get_default_model1_id())
+    if model1_entry is None:
+        raise RuntimeError("The default Model 1 entry is missing from MODEL_REGISTRY.json.")
+    paths = {"model1": registry.resolve_checkpoint_path(model1_entry),
              "model2": root / "models/yolov26/model2_tamban_yolo26m_partdet_r03_devbest.pt",
              "grading_config": root / "configs/grading_engine.yaml",
              "existing_audit": root / "results/stabilization/dataset_independence_audit.json",

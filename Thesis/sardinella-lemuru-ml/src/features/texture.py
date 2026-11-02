@@ -84,8 +84,13 @@ def masked_glcm(
             continue
         source_values = quantized[source_slice][valid]
         target_values = quantized[target_slice][valid]
-        np.add.at(counts, (source_values, target_values), 1.0)
-        np.add.at(counts, (target_values, source_values), 1.0)
+        # Integer histogramming preserves exact symmetric co-occurrence counts
+        # without two indexed additions for every foreground pixel pair.
+        pair_counts = np.bincount(
+            source_values * levels + target_values, minlength=levels * levels,
+        ).reshape(levels, levels)
+        counts += pair_counts
+        counts += pair_counts.T
         valid_pairs += int(valid.sum())
     total = float(counts.sum())
     if total:
@@ -158,12 +163,14 @@ def _eroded_interior(mask: np.ndarray) -> np.ndarray:
     return result
 
 
-def uniform_lbp_histogram(gray: np.ndarray, mask: np.ndarray) -> tuple[np.ndarray, int]:
+def uniform_lbp_histogram(
+    gray: np.ndarray, mask: np.ndarray, *, interior: np.ndarray | None = None,
+) -> tuple[np.ndarray, int]:
     """Compute rotation-sensitive 8-neighbour LBP mapped to ten uniform bins."""
 
     if min(gray.shape) < 3:
         return np.full(10, np.nan), 0
-    valid = _eroded_interior(mask)[1:-1, 1:-1]
+    valid = (_eroded_interior(mask) if interior is None else interior)[1:-1, 1:-1]
     if not valid.any():
         return np.full(10, np.nan), 0
     center = gray[1:-1, 1:-1]
@@ -177,9 +184,18 @@ def uniform_lbp_histogram(gray: np.ndarray, mask: np.ndarray) -> tuple[np.ndarra
         gray[2:, :-2],
         gray[1:-1, :-2],
     )
-    bits = np.stack(tuple(neighbour >= center for neighbour in neighbours), axis=2)
-    transitions = np.count_nonzero(bits != np.roll(bits, 1, axis=2), axis=2)
-    one_counts = bits.sum(axis=2)
+    # Count the same eight bits/transitions without an HxWx8 stack, its
+    # rolled copy, and 64-bit reductions. Both counts are bounded by eight.
+    first = neighbours[0] >= center
+    previous = first
+    one_counts = first.astype(np.uint8)
+    transitions = np.zeros(center.shape, dtype=np.uint8)
+    for neighbour in neighbours[1:]:
+        current = neighbour >= center
+        one_counts += current
+        transitions += current != previous
+        previous = current
+    transitions += previous != first
     bins = np.where(transitions <= 2, one_counts, 9).astype(np.int32)
     histogram = np.bincount(bins[valid], minlength=10).astype(np.float64)
     histogram /= histogram.sum()
@@ -195,6 +211,20 @@ def extract_texture_features(
 
     settings.validate()
     gray, binary = _validate_inputs(image_rgb, mask)
+    return texture_features_from_gray(gray, binary, settings)
+
+
+def texture_features_from_gray(
+    gray: np.ndarray, binary: np.ndarray, settings: TextureSettings,
+) -> dict[str, object]:
+    """Extract from the same validated BT.709 map reused by a local context."""
+    settings.validate()
+    gray = np.asarray(gray, dtype=np.float64)
+    binary = np.asarray(binary, dtype=bool)
+    if gray.ndim != 2 or gray.shape != binary.shape or not binary.any():
+        raise PreprocessingError("Texture maps require aligned grayscale and non-empty foreground.")
+    if not np.isfinite(gray).all() or gray.min() < 0 or gray.max() > 1:
+        raise PreprocessingError("Texture grayscale must contain finite values in [0, 1].")
     glcm, pair_count = masked_glcm(
         gray,
         binary,
@@ -207,7 +237,8 @@ def extract_texture_features(
     }
     result.update(glcm_features(glcm))
 
-    lbp_histogram, lbp_pixels = uniform_lbp_histogram(gray, binary)
+    interior = _eroded_interior(binary)
+    lbp_histogram, lbp_pixels = uniform_lbp_histogram(gray, binary, interior=interior)
     result["lbp_valid_pixel_count"] = lbp_pixels
     for index, value in enumerate(lbp_histogram):
         suffix = str(index) if index < 9 else "nonuniform"
@@ -218,7 +249,6 @@ def extract_texture_features(
     )
     result["lbp_nonuniform_ratio"] = float(lbp_histogram[9])
 
-    interior = _eroded_interior(binary)
     fish_gradient = np.empty(0, dtype=np.float64)
     if interior.any():
         gradient_y, gradient_x = np.gradient(gray)

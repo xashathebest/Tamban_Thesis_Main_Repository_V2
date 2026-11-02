@@ -18,6 +18,7 @@ class ComputeReport:
     fp16_requested: str
     fp16_enabled: bool
     fallback_reason: str | None = None
+    precision_status: str = "FP32; FP16 numerical validation pending"
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -30,6 +31,8 @@ class ComputeReport:
             "fp16_requested": self.fp16_requested,
             "fp16_enabled": self.fp16_enabled,
             "fallback_reason": self.fallback_reason,
+            "precision_status": self.precision_status,
+            "fp16_reason": self.precision_status,
         }
 
 
@@ -57,14 +60,23 @@ def resolve_compute(requested: str | None = None, fp16: str | None = None) -> Co
         elif requested_value == "cpu":
             device = "cpu"
         elif requested_cuda and cuda_available and device_count:
-            device = f"cuda:{requested_value.split(':', 1)[1] if ':' in requested_value else requested_value}" if requested_value != "cuda" else "cuda:0"
+            ordinal = int(requested_value.split(":", 1)[1] if ":" in requested_value else requested_value) if requested_value != "cuda" else 0
+            device = f"cuda:{ordinal}" if 0 <= ordinal < device_count else "cpu"
         else:
             device = "cpu"
         fallback_reason = None
         if device == "cpu" and requested_cuda and not cuda_available:
             fallback_reason = "CUDA was requested but PyTorch reports no CUDA device; using CPU."
+        elif device == "cpu" and requested_cuda and cuda_available:
+            fallback_reason = "The requested CUDA device is unavailable; using CPU."
         device_name = torch.cuda.get_device_name(device) if device.startswith("cuda") else None
-        fp16_enabled = device.startswith("cuda") and fp16_value != "off"
+        # Availability of a CUDA device does not validate reduced precision for
+        # either checkpoint. Keep production FP32 until model-specific paired
+        # detections, associations, and final grades have been reviewed. An
+        # environment request alone cannot certify that numerical comparison.
+        fp16_enabled = False
+        precision_status = ("FP32; FP16 numerical validation pending" if device.startswith("cuda") and fp16_value != "off"
+                            else "FP32; FP16 disabled" if fp16_value == "off" else "FP32; FP16 requires validated CUDA execution")
         return ComputeReport(
             requested_device=requested or "auto",
             device=device,
@@ -75,6 +87,7 @@ def resolve_compute(requested: str | None = None, fp16: str | None = None) -> Co
             fp16_requested=fp16_value,
             fp16_enabled=fp16_enabled,
             fallback_reason=fallback_reason,
+            precision_status=precision_status,
         )
     except Exception as exc:
         return ComputeReport(

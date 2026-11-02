@@ -1,4 +1,4 @@
-"""Local Model 1 adapter for ``model1_fish_parent_detector.pt``.
+"""Local Model 1 adapter for the registered Model 1 V2 checkpoint.
 
 The supplied checkpoint is an Ultralytics YOLO detection model.  It is a
 single-class whole-fish detector, so it deliberately owns location and
@@ -203,7 +203,7 @@ def resolve_yolo_fish_detector_model_path(repo_root: Path, explicit_path: str | 
         candidate = Path(explicit_path).expanduser()
         return (candidate if candidate.is_absolute() else repo_root / candidate).resolve()
     weights = repo_root / "models" / "fish_detector" / "weights"
-    preferred = weights / "model1_fish_parent_detector.pt"
+    preferred = weights / "model1_v2_yolo26s_best.pt"
     if preferred.is_file():
         return preferred.resolve()
     if not weights.is_dir():
@@ -246,6 +246,8 @@ class YoloFishDetector:
         model_path: Path | None,
         *,
         confidence_threshold: float = 0.50,
+        iou_threshold: float = 0.70,
+        max_detections: int = 132,
         device: str = "auto",
         image_size: int = 640,
         tracker_config: str = "bytetrack.yaml",
@@ -256,10 +258,16 @@ class YoloFishDetector:
     ) -> None:
         if not 0.0 <= confidence_threshold <= 1.0:
             raise ValueError("FISH_DETECTION_CONFIDENCE must be between 0 and 1.")
+        if not 0.0 <= iou_threshold <= 1.0:
+            raise ValueError("FISH_DETECTOR_IOU must be between 0 and 1.")
+        if max_detections <= 0:
+            raise ValueError("FISH_DETECTOR_MAX_DETECTIONS must be positive.")
         if image_size <= 0:
             raise ValueError("FISH_DETECTOR_IMAGE_SIZE must be positive.")
         self.model_path = model_path
         self.confidence_threshold = confidence_threshold
+        self.iou_threshold = iou_threshold
+        self.max_detections = max_detections
         self.requested_device = device
         self.compute = resolve_compute(device, os.getenv("FISH_INFERENCE_FP16", "auto"))
         self.image_size = image_size
@@ -286,7 +294,7 @@ class YoloFishDetector:
     @property
     def name(self) -> str:
         checkpoint = self.model_path.name if self.model_path else "checkpoint unresolved"
-        return f"YOLO whole-fish detector ({checkpoint})"
+        return f"Model 1 V2 — YOLO26s Fish Detector ({checkpoint})"
 
     @property
     def weights_path(self) -> Path | None:
@@ -311,7 +319,7 @@ class YoloFishDetector:
         if self.model is not None:
             return True
         if self.model_path is None:
-            self.error = "Model 1 checkpoint is unresolved. Place model1_fish_parent_detector.pt in models/fish_detector/weights/ or set FISH_DETECTOR_MODEL_PATH."
+            self.error = "Model 1 V2 checkpoint is unresolved. Place model1_v2_yolo26s_best.pt in models/fish_detector/weights/ or set FISH_DETECTOR_MODEL_PATH."
             return False
         if not self.model_path.is_file():
             self.error = f"Model 1 checkpoint was not found: {self.model_path}. Set FISH_DETECTOR_MODEL_PATH to an existing local checkpoint."
@@ -425,7 +433,15 @@ class YoloFishDetector:
             height, width = frame.shape[:2]
             with self._lock:
                 started = timed_start(str(self.device))
-                options = {"source": frame, "conf": threshold, "imgsz": self.image_size, "device": self.device, "verbose": False}
+                options = {
+                    "source": frame,
+                    "conf": threshold,
+                    "iou": self.iou_threshold,
+                    "max_det": self.max_detections,
+                    "imgsz": self.image_size,
+                    "device": self.device,
+                    "verbose": False,
+                }
                 if self.fp16:
                     options["half"] = True
                 results = self.model.predict(**options)
@@ -582,4 +598,6 @@ class YoloFishDetector:
             "checkpoint_sha256": self.checkpoint_sha256,
             "requested_device": self.requested_device,
             "class_mapping": {index: name for index, name in enumerate(self.class_names)},
+            "iou_threshold": self.iou_threshold,
+            "max_detections": self.max_detections,
         }

@@ -48,6 +48,11 @@ class ModelEntry:
     classes: int
     class_names: Mapping[int | str, str]
     adapter: str
+    model_version: str | None = None
+    counting_confidence: float | None = None
+    nms_iou: float | None = None
+    max_detections: int | None = None
+    test_metrics: Mapping[str, float] = field(default_factory=dict)
     is_default_model1: bool = False
     is_default_model2: bool = False
     is_compatible_grading: bool = True
@@ -66,6 +71,11 @@ class ModelEntry:
             "sha256": self.sha256,
             "size_bytes": self.size_bytes,
             "architecture": self.architecture,
+            "model_version": self.model_version,
+            "counting_confidence": self.counting_confidence,
+            "nms_iou": self.nms_iou,
+            "max_detections": self.max_detections,
+            "test_metrics": dict(self.test_metrics),
             "framework": self.framework,
             "task": self.task,
             "input_size": self.input_size,
@@ -125,6 +135,11 @@ class ModelRegistry:
                 sha256=item.get("sha256"),
                 size_bytes=int(item.get("size_bytes", 0)),
                 architecture=str(item.get("architecture", "")),
+                model_version=item.get("model_version"),
+                counting_confidence=item.get("counting_confidence"),
+                nms_iou=item.get("nms_iou"),
+                max_detections=item.get("max_detections"),
+                test_metrics=item.get("test_metrics", {}),
                 framework=str(item.get("framework", "ultralytics")),
                 task=str(item.get("task", "detect")),
                 input_size=int(item.get("input_size", 640)),

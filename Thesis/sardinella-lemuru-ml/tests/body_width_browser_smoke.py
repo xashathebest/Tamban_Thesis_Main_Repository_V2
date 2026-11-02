@@ -106,16 +106,26 @@ def main() -> None:
                   const output = {deduplicated: resultsEvents.length === 2, oneWorkspace: document.querySelectorAll('#results-groups').length === 1,
                     lazyGroups: elements.resultsGroups.querySelectorAll('.result-fish-card').length === 0,
                     noExternalMeasurements: !document.querySelector('#upload-fish-measurements, #upload-fish-evidence'),
-                    summaryCounts: elements.resultsCounts.querySelector('.all strong')?.textContent === '2' && elements.resultsCounts.querySelector('.graded strong')?.textContent === '1' && elements.resultsCounts.querySelector('.ungraded strong')?.textContent === '1'};
+                    summaryCounts: elements.resultsCounts.querySelector('.all strong')?.textContent === '2' && elements.resultsCounts.querySelector('.class-a strong')?.textContent === '1' && elements.resultsCounts.querySelector('.ungraded strong')?.textContent === '1' && (!elements.resultsCounts.querySelector('.graded strong') || elements.resultsCounts.querySelector('.graded strong').textContent === '1')};
                   const group = elements.resultsGroups.querySelector('[data-grade="Class A"]'); group.open=true; await delay();
                   const card = group.querySelector('.result-fish-card'); output.collapsedCard = !card.open && !card.querySelector('table'); card.open=true; await delay();
-                  output.fourLazySections = card.querySelectorAll('.result-evidence-section').length === 4 && !card.querySelector('table');
+                  output.sixLazySections = card.querySelectorAll('.result-evidence-section').length === 6 && !card.querySelector('table');
                   const widthSection = card.querySelectorAll('.result-evidence-section')[1]; widthSection.open=true; await delay();
                   output.width = ['200 x 50 px','110 x 40 px','0.2','Reliable proxy','Not calibrated','No:'].every(value => widthSection.textContent.includes(value));
                   output.silhouetteMeasurements = ['Measured fish length (px)','Maximum body width (px)','Relative body width ratio','Reliable pixel geometry','Not validated for anatomical measurement or width grading',String(sample.analysis.fish_geometry.fish_length_px),String(sample.analysis.fish_geometry.max_body_width_px)].every(value => widthSection.textContent.includes(value));
                   output.noUncalibratedCentimeters = !widthSection.textContent.includes('Physical length (cm)');
                   const colorSection = card.querySelectorAll('.result-evidence-section')[2]; colorSection.open=true; await delay();
                   output.allMeasurements = ['Brown proxy','Dark-area proxy','Discoloration proxy','Highlight proxy','0.15','0.25','0.3','Not Detected'].every(value => colorSection.textContent.includes(value));
+                  output.unavailableTextureExplanation = colorSection.textContent.includes('Unavailable:') && !colorSection.textContent.includes('No fish mask or calibrated');
+                  const explanationSection = card.querySelectorAll('.result-evidence-section')[3]; explanationSection.open=true; await delay();
+                  const rawDisclosure = explanationSection.querySelector('details');
+                  output.rawJsonDeferred = !!rawDisclosure && !rawDisclosure.querySelector('pre');
+                  rawDisclosure.open=true; await delay();
+                  output.rawJsonOnDemand = JSON.parse(rawDisclosure.querySelector('pre').textContent).track_id === 7;
+                  const damageSection = card.querySelectorAll('.result-evidence-section')[4]; damageSection.open=true; await delay();
+                  output.noFalseDamageValidation = damageSection.textContent.includes('No reliable evidence') && damageSection.textContent.includes('Not validated for crack classification');
+                  const speedSection = card.querySelectorAll('.result-evidence-section')[5]; speedSection.open=true; await delay();
+                  output.unavailableComputeExplanation = speedSection.textContent.includes('Unavailable: inspection compute report was not recorded');
                   renderResultsDashboard([{...sample,track_id:99}], {source:'live'});
                   output.sourceIsolation = resultsSource === 'upload' && resultsEvents.length === 2 && !resultsEvents.some(event => event.track_id === 99);
                   const changed = {...sample, quality:'Class C',analysis:{...sample.analysis,final_grade:'Class C',final_score:0.54,geometric_support:{original_grade:'Class B',original_support:0.54,width_changed_classification:true,class_c_points:8,applied_score_shift:0.08}}};
@@ -133,7 +143,7 @@ def main() -> None:
                   const before = resultsEvents; toggleUpload(false);
                   output.singleMount = !elements.uploadWorkspace.contains(elements.resultsDashboard) && document.querySelectorAll('#recent-inspections').length === 1 && resultsEvents === before;
                   const report = resultReportHtml();
-                  output.completeReport = ['A. Grading Evidence','B. Body Width and Geometric Analysis','C. Image Features and Measurements','D. Final Grading Explanation','calibration_validated','Class distribution','specular_ratio_proxy'].every(value => report.includes(value)) && !report.includes('Complete structured evidence');
+                  output.completeReport = ['A. Grading Evidence','B. Body Width and Geometric Analysis','C. Image Features and Measurements','D. Final Grading Explanation','E. Structural Damage Evidence','F. Processing and Hardware','calibration_validated','Class distribution','specular_ratio_proxy'].every(value => report.includes(value)) && !report.includes('Complete structured evidence');
                   output.noInferenceOnExpansion = performance.getEntriesByType('resource').filter(item => item.name.includes('/api/analyze-image')).length === 0;
                   return output;
                 })()""")

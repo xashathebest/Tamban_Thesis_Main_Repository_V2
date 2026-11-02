@@ -5,7 +5,7 @@ import asyncio
 import importlib
 import threading
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, create_autospec
 
 import cv2
 import numpy as np
@@ -13,7 +13,19 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
+from src.inference.model_registry import ModelRegistry
+
 app_module = importlib.import_module("src.api.app")
+
+
+def _selection_registry(*model_ids):
+    """Supply the real selection contract, including checkpoint admission."""
+    entries = {model_id: object() for model_id in model_ids}
+    registry = create_autospec(ModelRegistry, instance=True, spec_set=True)
+    registry.get_model.side_effect = entries.get
+    registry.is_allowed_model2.side_effect = lambda model_id: model_id in entries
+    registry.validate_compatibility.return_value = (True, None)
+    return registry
 
 
 @pytest.mark.parametrize("status", ["starting", "running", "stopping"])
@@ -22,7 +34,7 @@ def test_all_model_change_routes_reject_active_inspections(monkeypatch, status, 
     quality = SimpleNamespace(active_model_id="old", switch_model=MagicMock())
     monkeypatch.setattr(app_module, "quality_model", quality)
     monkeypatch.setattr(app_module.state, "snapshot", lambda: {"inspection_status": status})
-    registry = SimpleNamespace(get_model=lambda _id: object(), validate_compatibility=lambda *_: (True, None))
+    registry = _selection_registry("new")
     monkeypatch.setattr("src.inference.model_registry.get_model_registry", lambda: registry)
     client = TestClient(app_module.app)
     if route == "select":
@@ -43,7 +55,7 @@ def test_model_switch_rejects_a_still_alive_worker(monkeypatch, status):
     monkeypatch.setattr(app_module, "quality_model", quality)
     monkeypatch.setattr(app_module.state, "snapshot", lambda: {"inspection_status": status})
     monkeypatch.setattr(app_module.service, "_thread", SimpleNamespace(is_alive=lambda: True))
-    registry = SimpleNamespace(get_model=lambda _id: object(), validate_compatibility=lambda *_: (True, None))
+    registry = _selection_registry("new")
     monkeypatch.setattr("src.inference.model_registry.get_model_registry", lambda: registry)
     response = TestClient(app_module.app).post("/api/models/select", json={"model_id": "new"})
     assert response.status_code == 409
@@ -161,7 +173,7 @@ def test_same_model_is_noop_while_stopped(monkeypatch, route):
     monkeypatch.setattr(app_module.state, "set_segmenter", set_segmenter)
     monkeypatch.setattr(app_module, "rotate_durable_session", rotate)
     monkeypatch.setattr(app_module, "_status_payload", lambda: {})
-    registry = SimpleNamespace(get_model=lambda _id: object(), validate_compatibility=lambda *_: (True, None))
+    registry = _selection_registry("current")
     monkeypatch.setattr("src.inference.model_registry.get_model_registry", lambda: registry)
     client = TestClient(app_module.app)
     response = (client.post("/api/models/select", json={"model_id": "current"}) if route == "select"
@@ -177,7 +189,7 @@ def test_same_model_selection_is_rejected_while_running(monkeypatch, route):
     quality = SimpleNamespace(active_model_id="current", model=object(), switch_model=MagicMock())
     monkeypatch.setattr(app_module, "quality_model", quality)
     monkeypatch.setattr(app_module.state, "snapshot", lambda: {"inspection_status": "running"})
-    registry = SimpleNamespace(get_model=lambda _id: object(), validate_compatibility=lambda *_: (True, None))
+    registry = _selection_registry("current")
     monkeypatch.setattr("src.inference.model_registry.get_model_registry", lambda: registry)
     client = TestClient(app_module.app)
     response = (client.post("/api/models/select", json={"model_id": "current"}) if route == "select"
@@ -199,7 +211,7 @@ def test_simultaneous_identical_selections_load_only_once(monkeypatch):
     monkeypatch.setattr(app_module.state, "set_segmenter", MagicMock())
     monkeypatch.setattr(app_module, "inspection_sessions", SimpleNamespace(active=False))
     monkeypatch.setattr(app_module, "_status_payload", lambda: {})
-    registry = SimpleNamespace(get_model=lambda _id: object(), validate_compatibility=lambda *_: (True, None))
+    registry = _selection_registry("new")
     monkeypatch.setattr("src.inference.model_registry.get_model_registry", lambda: registry)
     class Request:
         async def json(self):
@@ -271,7 +283,7 @@ def test_start_and_model_switch_are_serialized(monkeypatch):
         status["inspection_status"] = "starting"
         return True
     monkeypatch.setattr(app_module.service, "start", start)
-    registry = SimpleNamespace(get_model=lambda _id: object(), validate_compatibility=lambda *_: (True, None))
+    registry = _selection_registry("new")
     monkeypatch.setattr("src.inference.model_registry.get_model_registry", lambda: registry)
     class Request:
         async def json(self):

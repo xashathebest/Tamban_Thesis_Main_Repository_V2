@@ -105,6 +105,42 @@ class FullFrameAssociationTests(unittest.TestCase):
         self.assertEqual(duplicate.status, "UNASSIGNED")
         self.assertEqual(duplicate.reason, "duplicate_region_for_parent")
 
+    def test_neighbor_part_inside_overlapping_parent_is_not_borrowed(self) -> None:
+        # The Head is fully inside both whole-fish rectangles. Rectangle
+        # containment alone must therefore remain ambiguous.
+        associations = associate_parts_to_parents(
+            [part(1, (82, 30, 104, 52))],
+            [
+                ParentAnchor(1, (0, 0, 120, 90)),
+                ParentAnchor(2, (80, 10, 190, 100)),
+            ],
+        )
+        self.assertEqual(associations[0].status, "AMBIGUOUS")
+        self.assertIsNone(associations[0].track_id)
+        self.assertEqual(set(associations[0].ambiguous_track_ids), {1, 2})
+
+    def test_mask_support_resolves_competing_rectangles(self) -> None:
+        associations = associate_parts_to_parents(
+            [part(1, (82, 30, 104, 52))],
+            [
+                ParentAnchor(1, (0, 0, 120, 90), mask=((0, 0), (70, 0), (70, 90), (0, 90))),
+                ParentAnchor(2, (80, 10, 190, 100), mask=((80, 10), (190, 10), (190, 100), (80, 100))),
+            ],
+        )
+        self.assertEqual(associations[0].status, "ASSIGNED")
+        self.assertEqual(associations[0].track_id, 2)
+
+    def test_collapsed_head_and_tail_are_withheld(self) -> None:
+        associations = associate_parts_to_parents(
+            [
+                part(1, (45, 40, 58, 52)),
+                part(2, (48, 41, 61, 53)),
+            ],
+            [ParentAnchor(1, (0, 0, 100, 100))],
+        )
+        self.assertTrue(all(item.status == "AMBIGUOUS" for item in associations))
+        self.assertTrue(all(item.reason == "anatomical_group_inconsistent" for item in associations))
+
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()

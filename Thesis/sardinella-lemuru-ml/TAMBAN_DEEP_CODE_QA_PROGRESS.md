@@ -27,3 +27,26 @@ Source: `Documentation/Tamban_Thesis_Deep_Code_QA_Prompts_2026-10-14`. Verified 
 | 21 | 21_Stage_Expert_Approved_Grading_Policy_Updates.md | BLOCKED | Inspected `configs/grading_engine.yaml`, `src/inference/grading_policy.py`, `src/inference/grading_engine.py`, `src/inference/structural_evidence.py`, structural review routes and existing policy tests. Default standard mode permits Body-only eligibility subject to 0.50 final support and other gates; the existing opt-in research candidate `two_part_v1` requires Body plus Head or Tail and preserves original weights. With otherwise identical gates, the extra requirement cannot reduce Ungraded counts; no real-data improvement is established. Missing detections do not establish physical absence; the current model's Rejected labels are model evidence, while separate structural review does not change the AI verdict. Prepared `docs/policy_21_expert_review_brief.md` with the proposed decisions, provenance needs and independent comparison protocol. Focused existing policy/structural tests: 22 passed. No new policy or structural gate was implemented: this prompt explicitly requires annotator confirmation first, and no signed decision was found. The user states independent videos and expert labels are not yet available, so the required held-out comparison is also blocked. Obtain the annotator's recorded decisions and suitable independently labeled overlap/occlusion data, then complete and validate this phase before phase 22. |
 | 22 | 22_Repair_Independent_Test_Readiness_Gates.md | NOT STARTED | Verify independent-study readiness. |
 | 23 | 23_Final_End_To_End_Regression_And_Release.md | NOT STARTED | Full end-to-end regression and release evidence. |
+
+## Independent fixbody runtime repair
+
+Implemented the user-requested `fixbody.md` runtime audit independently of the
+numbered expert-policy phases. See [docs/fixbody_audit.md](docs/fixbody_audit.md)
+and `results/qa/fixbody/` for the frozen baseline, controlled benchmarks,
+seven-record replay, actual-checkpoint CUDA comparison, and regression results.
+Shared frame/parent/ROI mask and feature caching removes repeated work; native
+geometry and conservative original-RGB-supported damage diagnostics retain
+provenance and remain outside grading. Model files, grading thresholds, and the
+50/30/20 policy are unchanged; retraining notebooks were ignored.
+
+The continuation repaired all eleven stale regression failures and added
+mask-failure isolation plus localization-contract coverage across Python and
+JavaScript evidence/export paths. Final: 1,199 passed, 12 skipped, zero failures,
+127 subtests. Failed optional masks no longer interrupt grading; malformed
+damage coordinates cannot produce localized or validated claims. Raw evidence
+and original grades remain preserved.
+
+This software evidence does not resolve independent anatomical measurement,
+expert crack labeling, physical calibration, target-camera validation, or the
+phase 21 policy approval requirement. Existing BLOCKED/NOT STARTED entries
+remain in force; no scientific release approval is implied.

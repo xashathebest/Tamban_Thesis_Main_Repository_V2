@@ -20,6 +20,7 @@ import numpy as np
 
 from src.features.color import ColorSettings, extract_color_features
 from src.features.texture import TextureSettings, extract_texture_features
+from src.features.runtime import RuntimeFeatureContext
 from src.inference.body_width import BodyWidthConfig, analyze_body_width, load_body_width_config, supplement_body_scores
 from src.inference.geometric_support import integrate_geometric_support
 from src.inference.part_types import PartDetection
@@ -551,6 +552,7 @@ def _measurement_payload(
     scope: str,
     *,
     mask: np.ndarray | None = None,
+    feature_context: RuntimeFeatureContext | None = None,
 ) -> dict[str, object]:
     """Return measured HSV values without turning them into quality labels."""
 
@@ -569,12 +571,14 @@ def _measurement_payload(
     # never mistaken for a fish or part segmentation mask.
     rgb = region[..., ::-1]
     try:
-        features = extract_color_features(
-            rgb,
-            mask[top:bottom, left:right] if mask is not None and mask.shape == image_bgr.shape[:2] else np.ones(region.shape[:2], dtype=bool),
-            ColorSettings(),
-            summary_only=True,
-        )
+        region_mask = mask[top:bottom, left:right] if mask is not None and mask.shape == image_bgr.shape[:2] else None
+        if feature_context is not None:
+            features = feature_context.color_summary((left, top, right, bottom), region_mask)
+        else:
+            features = extract_color_features(
+                rgb, region_mask if region_mask is not None else np.ones(region.shape[:2], dtype=bool),
+                ColorSettings(), summary_only=True,
+            )
     except Exception as exc:
         return {"status": "unavailable", "source": scope, "message": str(exc)}
     keys = {
@@ -598,19 +602,33 @@ def _measurement_payload(
     return payload
 
 
-def _texture_payload(image_bgr: np.ndarray, mask: np.ndarray | None) -> dict[str, object]:
+def _texture_payload(
+    image_bgr: np.ndarray, mask: np.ndarray | None, metadata: Mapping[str, object] | None = None,
+    *, feature_context: RuntimeFeatureContext | None = None,
+) -> dict[str, object]:
     if mask is None or mask.shape != image_bgr.shape[:2] or not bool(mask.any()):
         return {"status": "unavailable", "missing_value_reason": "no_validated_fish_mask_in_runtime"}
     try:
-        values = extract_texture_features(image_bgr[..., ::-1], mask, TextureSettings())
+        values = feature_context.texture_summary(mask) if feature_context is not None else extract_texture_features(image_bgr[..., ::-1], mask, TextureSettings())
     except Exception as exc:
         return {"status": "unavailable", "missing_value_reason": str(exc)}
-    return {
+    payload = {
         "status": "measured",
-        "source": "validated runtime foreground mask",
+        "source": "runtime foreground mask checked for feature extraction",
+        "mask_metadata": dict(metadata or {}),
+        "measurement_validated": False,
         "mask_validated_for_cracks": False,
         "values": values,
     }
+    sampling = metadata.get("sampling", {}) if isinstance(metadata, Mapping) else {}
+    estimated = isinstance(sampling, Mapping) and sampling.get("estimated") is True
+    if estimated:
+        payload["foreground_estimated"] = True
+        payload["reliability"] = "Estimated foreground support"
+    if isinstance(metadata, Mapping) and metadata.get("parent_isolation_reliable") is False:
+        payload["reliability"] = "Unreliable parent isolation"
+        payload["parent_isolation_reasons"] = list(metadata.get("parent_isolation_reasons") or [])
+    return payload
 
 
 def calculate_part_scores(parts: Iterable[PartDetection]) -> tuple[dict[str, dict[str, float]], dict[str, float], dict[str, PartDetection]]:
@@ -642,6 +660,7 @@ class WeightedGradingEngine:
         self.body_width_config = body_width_config or load_body_width_config()
         self._tracks: dict[int, _TrackEvidence] = {}
         self.last_hsv_processing_seconds: float | None = None
+        self.last_feature_timings: dict[str, object] = {}
         self.last_evaluation_seconds: float | None = None
 
     def configuration_snapshot(self) -> dict[str, object]:
@@ -671,23 +690,56 @@ class WeightedGradingEngine:
         frame_id: int | str | None,
         frame_quality: Mapping[str, object] | None,
         fish_mask: np.ndarray | None = None,
+        texture_mask: np.ndarray | None = None,
+        texture_mask_metadata: Mapping[str, object] | None = None,
     ) -> FrameEvidence:
-        hsv_started = perf_counter()
         scores, presence, strongest = calculate_part_scores(parts)
+        color_seconds = texture_seconds = 0.0
+        feature_context = None
         if self.config.image_diagnostics_enabled:
-            whole_fish = _measurement_payload(crop_bgr, None, "Model 1 fish crop with validated runtime foreground mask", mask=fish_mask)
-            whole_fish["texture"] = _texture_payload(crop_bgr, fish_mask)
+            color_started = perf_counter()
+            try:
+                feature_context = RuntimeFeatureContext(crop_bgr[..., ::-1])
+            except Exception:
+                # Existing payload validation still reports an unavailable
+                # diagnostic without suppressing the model-backed grade.
+                feature_context = None
+            whole_fish = _measurement_payload(
+                crop_bgr, None,
+                "Model 1 fish crop with feature-checked runtime foreground mask"
+                if fish_mask is not None else "Model 1 rectangular fish ROI; foreground isolation not validated",
+                mask=fish_mask,
+                feature_context=feature_context,
+            )
+            # A shared feature mask may become available where historical HSV
+            # diagnostics were rectangular. Preserve those original colour
+            # values and attach the mask only to the independent texture stage.
             colors = {"Whole Fish": whole_fish}
             for region in PART_NAMES:
                 selected = strongest.get(region)
                 colors[region] = (
-                    _measurement_payload(crop_bgr, selected.bbox, "Model 2 part-detection bounding box; no segmentation mask")
+                    _measurement_payload(crop_bgr, selected.bbox, "Model 2 part-detection bounding box; no segmentation mask", feature_context=feature_context)
                     if selected is not None
                     else {"status": "unavailable", "source": "No Model 2 part detection in this frame", "grade_adjustment": 0.0}
                 )
+            if feature_context is not None:
+                feature_context.release_color_maps()
+            color_seconds = perf_counter() - color_started
+            texture_started = perf_counter()
+            whole_fish["texture"] = _texture_payload(
+                crop_bgr, fish_mask if fish_mask is not None else texture_mask, texture_mask_metadata,
+                feature_context=feature_context,
+            )
+            texture_seconds = perf_counter() - texture_started
         else:
             colors = {region: {"status": "unavailable", "source": "Image diagnostics disabled", "grade_adjustment": 0.0} for region in (*PART_NAMES, "Whole Fish")}
-        self.last_hsv_processing_seconds = perf_counter() - hsv_started
+        self.last_hsv_processing_seconds = color_seconds
+        self.last_feature_timings = {
+            "color_processing_seconds": color_seconds,
+            "texture_processing_seconds": texture_seconds,
+            "feature_processing_seconds": color_seconds + texture_seconds,
+            "context": feature_context.diagnostics() if feature_context is not None else {},
+        }
         return FrameEvidence(scores, presence, colors, frame_id=frame_id, frame_quality=dict(frame_quality or {}))
 
     def _is_evidence_bearing(self, frame: FrameEvidence) -> bool:
@@ -1122,6 +1174,8 @@ class WeightedGradingEngine:
         model2_available: bool = True,
         body_width: Mapping[str, object] | None = None,
         fish_mask: np.ndarray | None = None,
+        texture_mask: np.ndarray | None = None,
+        texture_mask_metadata: Mapping[str, object] | None = None,
     ) -> FishVerdict:
         """Add one usable candidate crop (or explain why it was excluded).
 
@@ -1154,7 +1208,10 @@ class WeightedGradingEngine:
             or quality_payload.get("parent_crop_clipped", False)
             or quality_payload.get("crop_clipped", False)
         )
-        frame = self._frame_evidence(crop_bgr, parts, frame_id=frame_id, frame_quality=quality_payload, fish_mask=fish_mask)
+        frame = self._frame_evidence(
+            crop_bgr, parts, frame_id=frame_id, frame_quality=quality_payload, fish_mask=fish_mask,
+            texture_mask=texture_mask, texture_mask_metadata=texture_mask_metadata,
+        )
         reasons = quality_payload.get("reasons", ())
         rejection_reasons = [str(reason) for reason in reasons] if isinstance(reasons, (list, tuple, set)) else []
 

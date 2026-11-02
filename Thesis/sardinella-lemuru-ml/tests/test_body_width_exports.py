@@ -83,7 +83,7 @@ function include(name) {
   const end = next < 0 ? -1 : start + 1 + next;
   vm.runInThisContext(source.slice(start, end < 0 ? source.length : end));
 }
-for (const name of ["bodyWidthRows", "resultGrade", "resultValue", "partEvidenceText", "measurementRegion", "measurementRows", "resultEvidenceRows", "finalExplanationRows", "resultIdentity", "mergeResultEvidence", "uniqueResultEvents", "selectedResultEvents", "recordedResultTimestamp", "hasBodyWidthExportEvidence", "hasCompleteInspectionAnalysis", "flattenResultData", "resultExportRecord", "exportResultsCsv", "resultReportHtml", "exportResultsPdf"]) include(name);
+for (const name of ["surfaceDamageEvidence", "bodyWidthRows", "resultGrade", "resultValue", "partEvidenceText", "measurementRegion", "measurementRows", "resultEvidenceRows", "finalExplanationRows", "resultIdentity", "mergeResultEvidence", "uniqueResultEvents", "selectedResultEvents", "recordedResultTimestamp", "hasBodyWidthExportEvidence", "hasCompleteInspectionAnalysis", "flattenResultData", "resultExportRecord", "exportResultsCsv", "resultReportHtml", "exportResultsPdf"]) include(name);
 const width = JSON.parse(process.argv[1]);
 width.reliability_reasons = ["manually checked <fish>"];
 width.threshold_configuration.calibration_id = "review <script>";

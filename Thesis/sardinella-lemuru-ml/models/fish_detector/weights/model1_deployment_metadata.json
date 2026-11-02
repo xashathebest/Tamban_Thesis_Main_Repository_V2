@@ -1,0 +1,12 @@
+﻿{
+    "backup_created_utc":  "2026-11-02T01:12:26.9630847Z",
+    "v1_original_path":  "C:\\Users\\User\\Downloads\\Tamban_Thesis_Main_Repository\\Thesis\\sardinella-lemuru-ml\\models\\fish_detector\\weights\\model1_fish_parent_detector.pt",
+    "v1_backup_path":  "C:\\Users\\User\\Downloads\\Tamban_Thesis_Main_Repository\\Thesis\\sardinella-lemuru-ml\\models\\fish_detector\\weights\\model1_v1_backup.pt",
+    "v1_sha256":  "87498c748ceceb6ae2198b3216cff79471d08648133e704317bdf25cb3abd60a",
+    "v1_size_bytes":  20338245,
+    "v2_source_path":  "C:\\Users\\User\\Downloads\\Tamban_Thesis_Main_Repository\\Thesis\\sardinella-lemuru-ml\\notebooks\\Tamban_Model1_Retrain\\model1_20261101T161439Z\\runs\\model1_yolo26s\\weights\\best.pt",
+    "v2_deployed_path":  "C:\\Users\\User\\Downloads\\Tamban_Thesis_Main_Repository\\Thesis\\sardinella-lemuru-ml\\models\\fish_detector\\weights\\model1_v2_yolo26s_best.pt",
+    "v2_sha256":  "c79f597c2ed51b45ac2911cdbc744f8d2a4bea2411efc6a6ec0d4bcab35901e2",
+    "v2_size_bytes":  20360325,
+    "v2_selection":  "Original training run best.pt selected at epoch 197; Stage 2 excluded"
+}

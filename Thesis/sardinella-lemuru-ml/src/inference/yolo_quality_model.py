@@ -18,11 +18,12 @@ from src.inference.association import ParentAnchor, associate_parts_to_parents, 
 from src.inference.body_width import analyze_body_width, boxes_overlap
 from src.inference.fish_geometry import load_fish_geometry_config, load_physical_calibration, measure_fish_geometry
 from src.inference.fish_geometry_pipeline import analyze_fish_geometry
+from src.inference.stage_metrics import TIMING_RELATIONSHIPS, milliseconds
 from src.inference.frame_quality import BestFrameSelection, BestFrameSelector, FrameQualityAssessment, FrameQualityConfig, assess_frame_quality
 from src.inference.grading_engine import FishVerdict, WeightedGradingEngine
 from src.inference.model_traceability import full_sha256
 from src.inference.part_types import PartDetection
-from src.inference.preprocessing import CropBounds, clamp_bbox, crop_fish, validate_image
+from src.inference.preprocessing import CropBounds, RuntimeMaskContext, clamp_bbox, crop_fish, measurement_crop_bounds, validate_image
 from src.inference.compute import resolve_compute, timed_elapsed, timed_start
 from src.preprocessing.audit_v7_exports import SOURCE_CLASSES
 from src.preprocessing.dataset_utils import project_root
@@ -512,6 +513,7 @@ class YoloQualityModel:
         fish_mask: np.ndarray | None = None,
         fish_mask_metadata: Mapping[str, object] | None = None,
         measurement_frame: np.ndarray | None = None,
+        mask_context: RuntimeMaskContext | None = None,
         model2_available: bool = True,
         original_parts: Sequence[PartDetection] | None = None,
     ) -> FishQualityObservation:
@@ -608,6 +610,65 @@ class YoloQualityModel:
         width["crop_bounds"] = list(bounds) if bounds is not None else None
         width["body_bbox_coordinate_space"] = "original_frame" if coordinate_known else "crop_local_unverified"
         width["whole_bbox_coordinate_space"] = "original_frame" if parent_bbox is not None else "unavailable"
+        mask_started = perf_counter()
+        feature_mask = fish_mask
+        feature_mask_metadata = dict(fish_mask_metadata or {})
+        context_crop_bounds = None
+        context_crop_matches = False
+        if (
+            mask_context is not None and bounds is not None
+            and measurement_frame is not None and mask_context.is_for_frame(measurement_frame)
+            and all(float(value).is_integer() for value in bounds)
+        ):
+            context_crop_bounds = CropBounds(*(int(value) for value in bounds))
+            expected_crop = measurement_frame[
+                context_crop_bounds.y1:context_crop_bounds.y2,
+                context_crop_bounds.x1:context_crop_bounds.x2,
+            ]
+            context_crop_matches = np.array_equal(crop, expected_crop)
+        if feature_mask is None and context_crop_matches:
+            try:
+                if inference_metadata.get("mode") == "full_frame" and parent_bbox is not None and not width_context.get("overlapping"):
+                    # Full-frame mode previously had no texture mask. Derive
+                    # that new diagnostic from the same parent's padded mask
+                    # using explicit native-pixel coordinates and validation.
+                    feature_mask, feature_mask_metadata = mask_context.get_projected(
+                        track_id, measurement_crop_bounds(measurement_frame, parent_bbox), context_crop_bounds,
+                        frame=measurement_frame, target_crop=crop,
+                        maximum_secondary_component_fraction=self._fish_geometry_config.maximum_secondary_component_fraction,
+                        minimum_source_retained_fraction=self._fish_geometry_config.minimum_part_inside_fraction,
+                    )
+                else:
+                    feature_mask, feature_mask_metadata = mask_context.get(track_id, context_crop_bounds)
+            except Exception as error:
+                # Optional segmentation cannot discard an existing weighted
+                # verdict. Damage/texture remain explicitly unavailable.
+                LOGGER.warning("Fish %s feature mask failed: %s", track_id, error)
+                feature_mask_metadata = {
+                    "status": "unavailable", "reason": "Runtime foreground mask processing failed.",
+                    "error_type": type(error).__name__,
+                }
+        mask_seconds = perf_counter() - mask_started
+        if feature_mask is None and not feature_mask_metadata:
+            feature_mask_metadata = {
+                "status": "unavailable",
+                "reason": "No foreground mask with a verified source crop was supplied.",
+            }
+        if str(feature_mask_metadata.get("source", "")).startswith("runtime_"):
+            isolation_reasons = []
+            if width_context.get("overlapping"):
+                isolation_reasons.append("overlapping_parent_boxes_without_instance_ownership")
+            if association.get("ambiguous") or quality_payload.get("association_ambiguous"):
+                isolation_reasons.append("ambiguous_part_to_parent_association")
+            source_metadata = feature_mask_metadata.get("source_mask_metadata", {})
+            source_metadata = source_metadata if isinstance(source_metadata, Mapping) else {}
+            secondary_fraction = feature_mask_metadata.get("raw_second_component_fraction", source_metadata.get("raw_second_component_fraction", 0))
+            if isinstance(secondary_fraction, (int, float)) and secondary_fraction > self._fish_geometry_config.maximum_secondary_component_fraction:
+                isolation_reasons.append("multiple_foreground_components")
+            if quality_payload.get("parent_usable") is False or quality_payload.get("parent_uncertain"):
+                isolation_reasons.append("parent_detection_unreliable")
+            feature_mask_metadata.update(parent_isolation_reliable=not isolation_reasons,
+                                         parent_isolation_reasons=isolation_reasons)
         grading_started = perf_counter()
         verdict: FishVerdict = self._grading_engine.evaluate(
             track_id,
@@ -620,6 +681,8 @@ class YoloQualityModel:
             model2_available=model2_available,
             body_width=width,
             fish_mask=fish_mask,
+            texture_mask=feature_mask,
+            texture_mask_metadata=feature_mask_metadata,
         )
         self.last_grading_seconds = perf_counter() - grading_started
         votes = {name: round(value, 4) for name, value in verdict.weighted_scores.items()}
@@ -640,25 +703,29 @@ class YoloQualityModel:
             geometry_context_reasons.append("source_frame_unusable")
         if quality_payload.get("parent_usable") is False or quality_payload.get("parent_uncertain"):
             geometry_context_reasons.append("parent_detection_unreliable")
+        if context_crop_bounds is not None and not context_crop_matches:
+            geometry_context_reasons.append("source_crop_pixels_mismatch")
         geometry_confidence_threshold = self._grading_engine.config.minimum_detection_confidence
         if detection_confidence is not None and geometry_confidence_threshold is not None and detection_confidence < geometry_confidence_threshold:
             geometry_context_reasons.append("parent_detection_below_threshold")
         geometry_mask_metadata = {
-            **(fish_mask_metadata or {}), "expected_parent_id": track_id,
+            **feature_mask_metadata, "expected_parent_id": track_id,
             "context_reliability_reasons": geometry_context_reasons,
         }
         if any(quality_payload.get(key) for key in (
             "frame_clipped", "out_of_frame", "parent_frame_clipped", "parent_crop_clipped",
         )):
             geometry_mask_metadata["clipped"] = True
+        geometry_started = perf_counter()
         try:
             analysis["fish_geometry"] = analyze_fish_geometry(
                 crop, geometry_parts, parent_bbox=parent_bbox, crop_bounds=bounds,
                 frame_shape=frame_shape, overlapping=bool(width_context.get("overlapping")),
                 association_reliable=coordinate_known and model2_available
                 and not bool(association.get("ambiguous") or quality_payload.get("association_ambiguous")),
-                fish_mask=fish_mask, fish_mask_metadata=geometry_mask_metadata,
+                fish_mask=feature_mask, fish_mask_metadata=geometry_mask_metadata,
                 measurement_frame=measurement_frame,
+                mask_context=mask_context, parent_id=track_id,
                 config=self._fish_geometry_config, physical_calibration=self._physical_calibration,
                 source_context=width_context.get("source_context"),
             )
@@ -670,13 +737,43 @@ class YoloQualityModel:
             analysis["fish_geometry"]["reasons"].append("measurement_processing_failed")
             analysis["fish_geometry"]["measurement_error_type"] = type(error).__name__
         analysis["fish_geometry"].update(frame_id=frame_id, parent_track_id=track_id)
+        analysis["fish_mask"] = {
+            **feature_mask_metadata,
+            "status": feature_mask_metadata.get("status", "provided_for_features" if feature_mask is not None else "unavailable"),
+            "frame_id": feature_mask_metadata.get("frame_id", frame_id),
+            "observation_frame_id": frame_id, "parent_track_id": track_id,
+            "crop_bounds": list(bounds) if bounds is not None else None,
+            "coordinate_space": "crop_local_native_pixels" if bounds is not None else "unverified_crop",
+            "scope": "current_parent_crop", "measurement_validated": False,
+            "mask_validated_for_cracks": False,
+        }
+        if mask_context is not None and measurement_frame is not None and mask_context.is_for_frame(measurement_frame):
+            analysis["mask_context"] = mask_context.diagnostics()
+        feature_timings = getattr(self._grading_engine, "last_feature_timings", {}) or {}
+        color_seconds = feature_timings.get("color_processing_seconds")
+        texture_seconds = feature_timings.get("texture_processing_seconds")
+        feature_seconds = feature_timings.get("feature_processing_seconds")
         analysis["performance"] = {
             "model2_inference_ms": round(self.last_inference_seconds * 1000, 3) if self.last_inference_seconds is not None else None,
             "grading_engine_ms": round(self.last_grading_seconds * 1000, 3) if self.last_grading_seconds is not None else None,
+            "mask_preprocessing_ms": round(mask_seconds * 1000, 3),
+            "mask_lookup_total_ms": round(mask_seconds * 1000, 3),
+            "geometry_processing_ms": round((perf_counter() - geometry_started) * 1000, 3),
             "hsv_processing_ms": (
                 round(self._grading_engine.last_hsv_processing_seconds * 1000, 3)
                 if self._grading_engine.last_hsv_processing_seconds is not None else None
             ),
+            "color_processing_ms": milliseconds(color_seconds),
+            "texture_processing_ms": milliseconds(texture_seconds),
+            "feature_processing_ms": milliseconds(feature_seconds),
+            "grading_policy_ms": milliseconds(max(0.0, self.last_grading_seconds - feature_seconds))
+            if isinstance(feature_seconds, (int, float)) and self.last_grading_seconds is not None else None,
+            "feature_context": feature_timings.get("context", {}),
+            "scope": "current_fish_observation",
+            "model2_inference_scope": "shared_frame" if inference_metadata.get("mode") == "full_frame" else "current_fish_crop",
+            "timing_relationships": {**TIMING_RELATIONSHIPS,
+                "hsv_processing_ms": "Legacy alias for color-only extraction; texture is reported separately.",
+                "mask_preprocessing_ms": "Legacy fish field includes mask lookup and extraction; use frame_performance for the separated stages."},
         }
         analysis["model2_evidence"] = {
             "model_id": self.active_model_id or (self.entry.id if hasattr(self, "entry") else None),
@@ -763,6 +860,7 @@ class YoloQualityModel:
         fish_mask: np.ndarray | None = None,
         fish_mask_metadata: Mapping[str, object] | None = None,
         measurement_frame: np.ndarray | None = None,
+        mask_context: RuntimeMaskContext | None = None,
     ) -> FishQualityObservation:
         """Run Model 2 on one Model 1 crop and use the shared grading engine."""
 
@@ -794,6 +892,7 @@ class YoloQualityModel:
                 fish_mask=fish_mask,
                 fish_mask_metadata=fish_mask_metadata,
                 measurement_frame=measurement_frame,
+                mask_context=mask_context,
             )
         except YoloQualityModelInferenceError:
             raise
@@ -888,6 +987,7 @@ class YoloQualityModel:
         frame_id: int | str | None = None,
         grade_track_ids: set[int] | None = None,
         source_context: str | Mapping[str, object] | None = None,
+        mask_context: RuntimeMaskContext | None = None,
     ) -> dict[int, tuple[FishQualityObservation, CropBounds]]:
         """Run Model 2 once on a frame and conservatively assign evidence.
 
@@ -900,6 +1000,8 @@ class YoloQualityModel:
             raise YoloQualityModelInferenceError(self.error or "Model 2 is not loaded.")
         try:
             frame = validate_image(frame_bgr, name="Quality full frame")
+            if mask_context is None or not mask_context.is_for_frame(frame):
+                mask_context = RuntimeMaskContext(frame, frame_id=frame_id)
             parent_ids = [parent.track_id for parent in parents]
             if len(set(parent_ids)) != len(parent_ids):
                 raise ValueError("Full-frame parent track IDs must be unique.")
@@ -960,6 +1062,7 @@ class YoloQualityModel:
                     frame_shape=frame.shape,
                     original_parts=[item.part for item in associations if item.status == "ASSIGNED" and item.track_id == parent.track_id],
                     measurement_frame=frame,
+                    mask_context=mask_context,
                     inference_metadata={
                         "mode": "full_frame",
                         "roi_padding": self.roi_padding,

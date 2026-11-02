@@ -170,7 +170,7 @@ def _calibration_payload(
     return result
 
 
-def _aligned_profile(binary: np.ndarray) -> tuple[dict[str, Any], np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def _aligned_profile(binary: np.ndarray):
     """Return native-pixel silhouette sections, preserving a full tip-to-tip span."""
     moments = cv2.moments(binary, binaryImage=True)
     count = moments["m00"]
@@ -211,7 +211,7 @@ def _aligned_profile(binary: np.ndarray) -> tuple[dict[str, Any], np.ndarray, np
         "profile_bin_width_px": 1,
         "aligned_mask_shape": list(aligned.shape),
     }
-    return diagnostics, columns, widths, original_centers, transform
+    return diagnostics, columns, widths, original_centers, transform, lower, upper
 
 
 def measure_fish_geometry(
@@ -248,8 +248,14 @@ def measure_fish_geometry(
         "mask_source": metadata.get("source", "supplied_per_fish_mask"),
         "body_region_source": None, "candidate_measurements": {},
         "physical_calibration": _calibration_payload(calibration, frame_shape, source_context),
+        "sampling": dict(metadata["sampling"]) if isinstance(metadata.get("sampling"), Mapping) else {},
     }
     reasons: list[str] = output["reasons"]
+    if output["sampling"].get("estimated") is True:
+        reasons.append("resampled_foreground_requires_native_validation")
+        if output["physical_calibration"]["validated"]:
+            output["physical_calibration"].update(applied=False, status="Not applied",
+                                                  reason="resampled_foreground_requires_native_validation")
     parent, bounds = _bbox(parent_bbox), _bbox(crop_bounds)
     context_reasons = metadata.get("context_reliability_reasons", [])
     if isinstance(context_reasons, (list, tuple)) and all(isinstance(reason, str) for reason in context_reasons):
@@ -339,7 +345,7 @@ def measure_fish_geometry(
         centroid = (silhouette_moments["m10"] / largest_pixels, silhouette_moments["m01"] / largest_pixels)
         if not (local_parent[0] <= centroid[0] <= local_parent[2] and local_parent[1] <= centroid[1] <= local_parent[3]):
             reasons.append("foreground_parent_mismatch")
-    diagnostics, columns, widths, centers, transform = _aligned_profile(silhouette)
+    diagnostics, columns, widths, centers, transform, lower, upper = _aligned_profile(silhouette)
     diagnostics.update(foreground_pixels=pixels, component_count=component_count - 1,
                        secondary_component_fraction=round(secondary_fraction, 6), hole_fraction=round(hole_fraction, 6),
                        raw_component_count=metadata.get("raw_component_count"),
@@ -417,10 +423,37 @@ def measure_fish_geometry(
                 reasons.append("implausible_silhouette_dimensions")
     output["reasons"] = list(dict.fromkeys(reasons))
     if output["reasons"]:
+        if "resampled_foreground_requires_native_validation" in output["reasons"]:
+            output["reliability"] = "Estimated pixel geometry; native boundary not validated"
         return output
     output.update(status="measured", reliability="Reliable pixel geometry")
     for name in ("fish_length_px", "max_body_width_px", "relative_width_ratio", "orientation_degrees"):
         output[name] = diagnostics[name]
+    # Only accepted geometry supplies overlays. These points retain the native
+    # pixel scale and exact mask-crop origin; they never become grading inputs.
+    offset = np.array((bounds[0], bounds[1]))
+    inverse = cv2.invertAffineTransform(transform)
+    def to_frame(points):
+        local = np.asarray(points, dtype=np.float64)
+        original = local @ inverse[:, :2].T + inverse[:, 2] + offset
+        return np.round(original, 3).tolist()
+    body_indices = np.flatnonzero(body_columns)
+    widest = int(body_indices[np.argmax(widths[body_indices])])
+    width_axis = to_frame(((columns[widest], lower[widest]), (columns[widest], upper[widest])))
+    contour = max(contours, key=cv2.contourArea)
+    boundary = cv2.approxPolyDP(contour, 1., True).reshape(-1, 2).astype(float) + offset
+    polygon = _field(body_part, "mask")
+    body_boundary = (np.asarray(polygon, dtype=float) if polygon is not None else
+                     np.array(((body_box[0], body_box[1]), (body_box[2], body_box[1]),
+                               (body_box[2], body_box[3]), (body_box[0], body_box[3])))) + offset
+    output["visualization"] = {
+        "coordinate_space": "original_frame", "measured": True,
+        "principal_axis": np.round(np.array((centers[0], centers[-1])) + offset, 3).tolist(),
+        "width_axis": width_axis, "silhouette_boundary": np.round(boundary, 3).tolist(),
+        "body_region_boundary": np.round(body_boundary, 3).tolist(),
+        "body_boundary_kind": "segmentation" if polygon is not None else "detection_box_approximation",
+        "crop_bounds": list(bounds),
+    }
     if output["physical_calibration"]["validated"]:
         output["fish_length_cm"] = round(output["fish_length_px"] / calibration.pixels_per_cm, 6)
         output["max_body_width_cm"] = round(output["max_body_width_px"] / calibration.pixels_per_cm, 6)

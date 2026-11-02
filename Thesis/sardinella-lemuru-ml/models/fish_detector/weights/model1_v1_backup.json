@@ -1,0 +1,14 @@
+{
+  "model_version": "V1 backup",
+  "role": "model1_fish_detector",
+  "checkpoint": "model1_v1_backup.pt",
+  "sha256": "87498c748ceceb6ae2198b3216cff79471d08648133e704317bdf25cb3abd60a",
+  "size_bytes": 20338245,
+  "architecture": "YOLO detection (Ultralytics)",
+  "task": "whole-fish object detection",
+  "input_size": 768,
+  "classes": {
+    "0": "Fish"
+  },
+  "rollback_note": "Restore this checkpoint to the active Model 1 path only after updating MODEL_REGISTRY.json and preserving the V2 deployment copy."
+}

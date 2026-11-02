@@ -11,6 +11,9 @@ if (-not (Test-Path -LiteralPath $python -PathType Leaf)) {
 
 Push-Location $projectRoot
 try {
+    if (-not $env:FISH_STRICT_MODEL_INTEGRITY) {
+        $env:FISH_STRICT_MODEL_INTEGRITY = '1'
+    }
     & $python -m src.api
     if ($LASTEXITCODE -ne 0) {
         throw "The dashboard exited with code $LASTEXITCODE."

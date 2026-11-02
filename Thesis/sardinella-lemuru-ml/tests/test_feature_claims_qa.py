@@ -2,7 +2,10 @@
 
 import csv
 from io import BytesIO, StringIO
+import json
 from pathlib import Path
+import shutil
+import subprocess
 import unittest
 
 import numpy as np
@@ -54,13 +57,49 @@ class FeatureClaimsTests(unittest.TestCase):
     def test_interface_names_proxies_and_never_advertises_defect_capabilities(self):
         html = (ROOT / "frontend/index.html").read_text(encoding="utf-8")
         javascript = (ROOT / "frontend/app.js").read_text(encoding="utf-8")
-        self.assertIn("the current models do not detect belly defects", html)
         self.assertIn("Diagnostic only", html)
         self.assertIn("do not affect grading", html)
         self.assertIn("calibrated probability of a correct grade", html)
         self.assertIn("not validated defect or shininess detection", javascript)
         self.assertIn("HSV value (brightness proxy)", javascript)
         self.assertEqual(set(FEATURE_CAPABILITIES), {"Head", "Body", "Tail"})
+
+        node = shutil.which("node")
+        if node is None:
+            self.skipTest("Node.js is required for runtime feature-claim checks")
+        # Exercise the current feature summary rather than requiring retired
+        # explanatory copy. Crack-like evidence must not become a model part
+        # capability or a validated defect/grade statement.
+        script = r'''
+const fs = require("fs"); const vm = require("vm");
+const source = fs.readFileSync("frontend/app.js", "utf8");
+function include(name) {
+  const start = source.indexOf(`function ${name}(`);
+  if (start < 0) throw new Error(`Missing renderer: ${name}`);
+  const next = source.slice(start + 1).search(/\n(?:async )?function /);
+  vm.runInThisContext(source.slice(start, next < 0 ? source.length : start + 1 + next));
+}
+for (const name of ["titleCase", "formatPercent", "analysisFor", "finiteNumber", "asFraction",
+  "scoreText", "partFor", "partStatus", "surfaceDamageEvidence", "latestFeatureRows", "surfaceDamageRows"]) include(name);
+const inputs = [
+  {},
+  {analysis: {color: {"Whole Fish": {mean_value: .5}}, surface_damage: {status: "not_detected"}}},
+  {analysis: {surface_damage: {status: "suspected", locations: []}}},
+  {analysis: {surface_damage: {status: "suspected", locations: [{}], evidence_state: "Validated Damage"}}},
+  {analysis: {surface_damage: {status: "suspected", locations: [{x: 1, y: 2, width: 3, height: 4}], evidence_state: "Validated Damage"}}},
+];
+console.log(JSON.stringify(inputs.map(event => ({features: latestFeatureRows(event), damage: surfaceDamageRows(event)}))));
+'''
+        result = subprocess.run([node, "-e", script], cwd=ROOT, capture_output=True, text=True, check=True)
+        rendered = json.loads(result.stdout)
+        for index, item in enumerate(rendered):
+            self.assertEqual([row[0] for row in item["features"]], ["Body", "Head", "Tail", "Brightness", "Cracks"])
+            self.assertEqual(item["features"][-1][1], "Suspected Damage" if index == 4 else "No reliable evidence")
+            damage = dict(item["damage"])
+            self.assertEqual(damage["Validation"], "Not validated for crack classification")
+            self.assertEqual(damage["Automatic grade effect"], "None; supporting diagnostic evidence")
+            self.assertNotEqual(damage["Evidence state"], "Validated Damage")
+        self.assertIn("HSV value", rendered[1]["features"][-2][1])
 
 
 if __name__ == "__main__":

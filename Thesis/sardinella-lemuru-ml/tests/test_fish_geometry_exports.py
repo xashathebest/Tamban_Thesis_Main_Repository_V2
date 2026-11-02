@@ -108,7 +108,7 @@ function include(name) {
   const next = source.slice(start + 1).search(/\n(?:async )?function /);
   vm.runInThisContext(source.slice(start, next < 0 ? source.length : start + 1 + next));
 }
-for (const name of ["bodyWidthRows", "resultGrade", "resultValue", "partEvidenceText", "measurementRegion", "measurementRows", "resultEvidenceRows", "finalExplanationRows", "resultIdentity", "recordedResultTimestamp", "flattenResultData", "resultExportRecord", "resultReportHtml"]) include(name);
+for (const name of ["surfaceDamageEvidence", "bodyWidthRows", "resultGrade", "resultValue", "partEvidenceText", "measurementRegion", "measurementRows", "resultEvidenceRows", "finalExplanationRows", "resultIdentity", "recordedResultTimestamp", "flattenResultData", "resultExportRecord", "resultReportHtml"]) include(name);
 global.resultsFilter = "All"; global.resultsSource = "upload";
 global.resultDatasets = {upload: {scope: "photo", metadata: {source_name: "segmented fish"}}};
 global.sessionGradeBuckets = ["Class A", "Class B", "Class C", "Rejected", "Ungraded"];

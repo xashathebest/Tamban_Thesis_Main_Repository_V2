@@ -53,8 +53,9 @@ def test_upload_flow_focuses_the_picker_and_guards_selection_during_analysis():
         assert token in javascript
 
 
-def test_latest_feature_panel_reports_supported_brightness_and_unavailable_cracks():
+def test_latest_feature_panel_reports_supported_brightness_and_evidence_state_for_cracks():
     javascript = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
 
     assert '["Brightness", brightness == null ? "Not measured" : `${scoreText(brightness)} (HSV value)`' in javascript
-    assert '["Cracks", "Not measured", "unmeasured"]' in javascript
+    assert "const damageEvidence = surfaceDamageEvidence(event);" in javascript
+    assert '["Cracks", damageEvidence.state' in javascript

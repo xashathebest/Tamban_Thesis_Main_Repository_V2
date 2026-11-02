@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import replace
 from datetime import datetime
 import json
@@ -21,11 +22,13 @@ from src.api.runtime_diagnostics import LatestFrameQueue, RuntimeDiagnostics
 from src.api.raw_preview import RawPreview
 from src.inference.association import ParentAnchor
 from src.inference.body_width import boxes_overlap
+from src.inference.frame_diagnostics import parent_damage, draw_damage, draw_geometry
+from src.inference.stage_metrics import TIMING_RELATIONSHIPS, gpu_memory_snapshot, mask_stage_metrics, milliseconds
 from src.inference.yolo_fish_detector import YoloFishDetector
 from src.inference.yolo_quality_model import MAX_QUALITY_ROI_PADDING, QUALITY_INFERENCE_MODES, FishQualityObservation, YoloQualityModel
 from src.inference.part_types import PartDetection
 from src.inference.part_model import YoloPartModel
-from src.inference.preprocessing import CropBounds, crop_fish, generate_runtime_fish_mask, translate_bbox_to_frame
+from src.inference.preprocessing import CropBounds, RuntimeMaskContext, crop_fish, generate_runtime_fish_mask, translate_bbox_to_frame
 from src.features.damage import analyze_surface_damage
 
 
@@ -118,6 +121,11 @@ class CameraInspectionService:
         self._capture_thread: Thread | None = None
         self._latest_part_overlays: dict[int, tuple[FishQualityObservation, CropBounds, int]] = {}
         self._latest_damage_evidence: dict[int, dict[str, object]] = {}
+        self._frame_mask_context = None
+        self._frame_damage_flags = {}
+        self._frame_damage_results = {}
+        self._last_frame_performance = {}
+        self._frame_standalone_damage_seconds = 0.0
         self._skipped_model2_reasons: dict[str, int] = {}
         self._last_model1_debug: list[dict[str, object]] = []
         self._frame_index = 0
@@ -459,8 +467,9 @@ class CameraInspectionService:
                 "event_tracking": "Inspection state/counting update, including durable-event target capture and queue hand-off; normal SQLite work is excluded, but pathological ordered backpressure is included.",
                 "roi_extraction": "Crop mode: per-fish extraction; full-frame mode: summed extraction per Model 2 invocation.",
                 "part_assignment": "Summed full-frame per-fish part translation and association-summary preparation, excluding association and grading.",
-                "hsv": "Per-fish evidence preparation including part scoring and optional image diagnostics; included in grading_engine.",
-                "grading_engine": "Per-fish grading; includes hsv evidence preparation.",
+                "hsv": "Legacy alias for per-fish color-only extraction; excludes texture and part scoring.",
+                "texture": "Per-fish texture extraction, included in grading_engine.",
+                "grading_engine": "Per-fish grading; includes color, texture, and evidence preparation.",
                 "total_processing": "Frame processing including stages and overlays, excluding JPEG and publication.",
                 "capture_to_publish": "Capture timestamp to encoded JPEG publication in the server state; excludes client, network, and browser paint.",
                 "first_detection_to_decision": "First persistent Model 1 detection to virtual count-line decision; not physical entry or actuator confirmation.",
@@ -472,6 +481,7 @@ class CameraInspectionService:
             "skipped_model2_reasons": dict(self._skipped_model2_reasons),
             "frame_queue": self._latest_frames.snapshot(),
             "performance": self._runtime_metrics.snapshot(),
+            "frame_performance": deepcopy(self._last_frame_performance),
             "hard_negative_records": list(self._hard_negative_records.values())[-20:],
             "artifacts": {
                 "model2_directory": str(self._debug_root),
@@ -753,6 +763,10 @@ class CameraInspectionService:
             self._track_grades.clear()
             self._latest_part_overlays.clear()
             self._latest_damage_evidence.clear()
+            self._frame_mask_context = None
+            self._frame_damage_flags = {}
+            self._frame_damage_results = {}
+            self._last_frame_performance = {}
             self._latest_frames.clear()
             if self.quality_model is not None and hasattr(self.quality_model, "reset_tracks"):
                 self.quality_model.reset_tracks()
@@ -774,10 +788,35 @@ class CameraInspectionService:
             self._track_grades.clear()
             self._latest_part_overlays.clear()
             self._latest_damage_evidence.clear()
+            self._frame_mask_context = None
+            self._frame_damage_flags = {}
+            self._frame_damage_results = {}
+            self._last_frame_performance = {}
             self._latest_frames.clear()
             if self.quality_model is not None and hasattr(self.quality_model, "reset_tracks"):
                 self.quality_model.reset_tracks()
             self.state.reset_session()
+
+    def _diagnostic_masks(self, frame):
+        context = getattr(self, "_frame_mask_context", None)
+        if context is None or not context.is_for_frame(frame) or context.frame_id != self._frame_index:
+            context = RuntimeMaskContext(frame, frame_id=self._frame_index)
+            self._frame_mask_context = context
+        return context
+
+    @staticmethod
+    def _damage_parent_id(detection):
+        return int(detection.track_id) if detection.track_id is not None else f"untracked:{id(detection)}"
+
+    def _damage_flags(self, frame, detection, detections):
+        key = self._damage_parent_id(detection)
+        flags = getattr(self, "_frame_damage_flags", {}).get(key)
+        if flags is not None:
+            return flags
+        box = detection.bbox
+        return {"overlapping": any(other is not detection and boxes_overlap(box, other.bbox) for other in detections),
+                "clipped": box[0] <= 0 or box[1] <= 0 or box[2] >= frame.shape[1] or box[3] >= frame.shape[0],
+                "ambiguous": False}
 
     def _annotate(self, frame, detections, cv2):
         """Draw persistent IDs, live classifications, and the inspection line."""
@@ -811,26 +850,30 @@ class CameraInspectionService:
         active = {track["track_id"]: track for track in self.state.tracking.active_tracks()}
         for detection in detections:
             left, top, right, bottom = (int(value) for value in detection.bbox)
-            damage_crop, damage_bounds = crop_fish(frame, detection.bbox, padding=0)
-            damage_mask, damage_mask_metadata = generate_runtime_fish_mask(damage_crop)
-            damage = analyze_surface_damage(
-                cv2.cvtColor(damage_crop, cv2.COLOR_BGR2RGB),
-                damage_mask if damage_mask is not None else np.zeros(damage_crop.shape[:2], dtype=bool),
-                mask_source=str(damage_mask_metadata.get("source", "runtime_mask_unavailable")),
-            )
-            damage["mask_metadata"] = damage_mask_metadata
-            if detection.track_id is not None:
+            parent_id = self._damage_parent_id(detection)
+            cached = getattr(self, "_frame_damage_results", {}).get(parent_id)
+            if self.quality_model is None:
+                # Preserve standalone diagnostics when no Model 2 is configured.
+                # With Model 2, rendering never schedules foreground work on
+                # interval/finalized frames or reuses another frame's evidence.
+                _, damage_bounds = crop_fish(frame, detection.bbox, padding=0)
+                standalone_started = monotonic()
+                damage = parent_damage(
+                    frame, damage_bounds, parent_id,
+                    mask_context=self._diagnostic_masks(frame), frame_id=self._frame_index,
+                    parent_context=self._damage_flags(frame, detection, detections),
+                )
+                self._frame_standalone_damage_seconds += monotonic() - standalone_started
+            elif cached is not None:
+                damage, damage_bounds = cached
+            else:
+                damage, damage_bounds = {}, None
+            if damage and detection.track_id is not None:
                 self._latest_damage_evidence[int(detection.track_id)] = {
                     key: value for key, value in damage.items() if key != "overlay_mask"
                 }
-            if display.get("damage_overlays") and damage.get("status") == "suspected":
-                damage_overlay = damage.get("overlay_mask")
-                if isinstance(damage_overlay, np.ndarray):
-                    target = annotated[damage_bounds.y1:damage_bounds.y2, damage_bounds.x1:damage_bounds.x2]
-                    red = np.zeros_like(target)
-                    red[:, :, 2] = 220
-                    region = damage_overlay[:target.shape[0], :target.shape[1]] > 0
-                    target[region] = (0.65 * target[region] + 0.35 * red[region]).astype(np.uint8)
+            if damage_bounds is not None and display.get("damage_overlays") and damage.get("status") == "suspected":
+                draw_damage(annotated, damage, damage_bounds)
             track = active.get(detection.track_id)
             counted = bool(track and track["counted"])
             color = (43, 145, 87)
@@ -906,9 +949,11 @@ class CameraInspectionService:
                         # Model 2 supplies a detection box, not a segmentation
                         # mask. Tint only the measured box and make its border
                         # independently visible at live-video scale.
-                        overlay = annotated.copy()
-                        cv2.rectangle(overlay, (int(left), int(top)), (int(right), int(bottom)), color, -1)
-                        cv2.addWeighted(overlay, 0.20, annotated, 0.80, 0, annotated)
+                        target = annotated[max(0, int(top)):min(height, int(bottom) + 1), max(0, int(left)):min(width, int(right) + 1)]
+                        if target.size:
+                            tint = np.empty_like(target)
+                            tint[:] = color
+                            cv2.addWeighted(tint, 0.20, target, 0.80, 0, target)
                         cv2.rectangle(annotated, (int(left), int(top)), (int(right), int(bottom)), color, 2)
                     elif display["outlines"]:
                         cv2.rectangle(annotated, (int(left), int(top)), (int(right), int(bottom)), color, 1)
@@ -917,6 +962,9 @@ class CameraInspectionService:
                         label = f"{part_region} {grade_label}" if not display["confidence"] else f"{part_region} {grade_label} {part.confidence * 100:.0f}%"
                         _draw_readable_label(annotated, label, int(left), int(top), color, cv2)
             debug = result.analysis.get("model2_debug") if isinstance(result.analysis, Mapping) else None
+            geometry = result.analysis.get("fish_geometry", {})
+            if display.get("features") and geometry.get("frame_id") == self._frame_index:
+                draw_geometry(annotated, geometry)
             if self.debug_enabled and isinstance(debug, Mapping):
                 if display.get("model2_raw_boxes", False):
                     self._annotate_debug_parts(annotated, debug.get("raw_detections"), crop_bounds, (0, 255, 255), "Raw", cv2)
@@ -1111,25 +1159,56 @@ class CameraInspectionService:
             "usable_grading_frames": analysis.get("observation_count"),
             "note": "Candidate and usable grading-frame counts are keyed to the persistent Model 1 track ID.",
         }
-        if crop is not None:
+        if frame is not None:
             import cv2
-
-            runtime_mask, mask_metadata = generate_runtime_fish_mask(crop)
-            damage = analyze_surface_damage(
-                cv2.cvtColor(crop, cv2.COLOR_BGR2RGB),
-                runtime_mask if runtime_mask is not None else np.zeros(crop.shape[:2], dtype=bool),
-                mask_source=str(mask_metadata.get("source", "runtime_mask_unavailable")),
+            _, damage_bounds = crop_fish(frame, detection.bbox, padding=0)
+            flags = dict(getattr(self, "_frame_damage_flags", {}).get(int(detection.track_id), {}))
+            inference = analysis.get("quality_inference", {})
+            association = inference.get("association", {}) if isinstance(inference, dict) else {}
+            flags["ambiguous"] = bool(association.get("ambiguous"))
+            self._frame_damage_flags[int(detection.track_id)] = flags
+            damage_started = monotonic()
+            damage = parent_damage(
+                frame, damage_bounds, int(detection.track_id), mask_context=self._diagnostic_masks(frame),
+                parent_context=flags, frame_id=self._frame_index,
             )
+            damage_seconds = monotonic() - damage_started
+            self._frame_damage_results[int(detection.track_id)] = (dict(damage), damage_bounds)
             damage.pop("overlay_mask", None)
-            damage["mask_metadata"] = mask_metadata
             analysis["surface_damage"] = damage
             self._latest_damage_evidence[int(detection.track_id)] = dict(damage)
         performance = analysis.get("performance") if isinstance(analysis.get("performance"), dict) else {}
         performance = dict(performance)
+        performance["observation_frame_id"] = self._frame_index
+        if frame is not None:
+            performance["structural_damage_ms"] = milliseconds(damage_seconds)
         detector_seconds = getattr(self.model, "last_inference_seconds", None)
         performance["model1_inference_ms"] = round(float(detector_seconds) * 1000, 3) if detector_seconds is not None else None
+        compute = getattr(self.quality_model, "compute", None)
+        performance["compute_report"] = compute.to_dict() if compute is not None and hasattr(compute, "to_dict") else {}
+        if frame is not None:
+            performance["mask_context"] = self._diagnostic_masks(frame).diagnostics()
+            performance["mask_context_scope"] = "shared_frame_cumulative_at_this_observation; never sum across fish"
         analysis["performance"] = performance
-        summarized = replace(summary, analysis=analysis)
+        serialized_parts = []
+        for index, payload in enumerate(summary.parts):
+            serialized = dict(payload)
+            local_bbox = list(serialized["bbox"])
+            serialized.update(
+                bbox=[local_bbox[0] + crop_bounds.x1, local_bbox[1] + crop_bounds.y1,
+                      local_bbox[2] + crop_bounds.x1, local_bbox[3] + crop_bounds.y1],
+                crop_local_bbox=local_bbox,
+                coordinate_space="original_frame",
+            )
+            source_part = result.parts[index]
+            if isinstance(source_part, PartDetection) and source_part.mask:
+                serialized["crop_local_mask"] = [list(point) for point in source_part.mask]
+                serialized["mask"] = [[x + crop_bounds.x1, y + crop_bounds.y1] for x, y in source_part.mask]
+                serialized["mask_coordinate_space"] = "original_frame"
+            serialized_parts.append(serialized)
+        # Durable live events use frame coordinates, while the renderer keeps
+        # the original crop-local PartDetection objects below.
+        summarized = replace(summary, parts=tuple(serialized_parts), analysis=analysis)
         self._track_grades[detection.track_id] = summarized
         self._last_segmented_frame[detection.track_id] = self._frame_index
         overlay_observation = FishQualityObservation(
@@ -1152,10 +1231,13 @@ class CameraInspectionService:
                     self._runtime_metrics.record_confidence(region, float(confidence))
         # Full-frame inference grades several fish before returning; read each
         # observation's own timing rather than the model's last fish timing.
-        for stage, key in (("grading_engine", "grading_engine_ms"), ("hsv", "hsv_processing_ms")):
-            milliseconds = performance.get(key)
-            if isinstance(milliseconds, (int, float)) and not isinstance(milliseconds, bool):
-                self._runtime_metrics.record_latency(stage, milliseconds / 1000.0)
+        for stage, key in (("grading_engine", "grading_engine_ms"), ("hsv", "hsv_processing_ms"),
+                           ("color", "color_processing_ms"), ("texture", "texture_processing_ms"),
+                           ("grading_policy", "grading_policy_ms"), ("geometry", "geometry_processing_ms"),
+                           ("structural_damage", "structural_damage_ms")):
+            elapsed_ms = performance.get(key)
+            if isinstance(elapsed_ms, (int, float)) and not isinstance(elapsed_ms, bool):
+                self._runtime_metrics.record_latency(stage, elapsed_ms / 1000.0)
         self._runtime_metrics.record_call("model2_roi")
         if frame is not None and crop is not None:
             self._save_debug_artifacts(frame, crop, detection, crop_bounds, overlay_observation)
@@ -1205,6 +1287,11 @@ class CameraInspectionService:
         """Run the active mode for one frame; exposed for webcam-free tests."""
 
         self.state.set_frame_size(frame.shape[1], frame.shape[0])
+        self._frame_mask_context = None
+        self._frame_damage_flags = {}
+        self._frame_damage_results = {}
+        self._last_frame_performance = {}
+        self._frame_standalone_damage_seconds = 0.0
         if self.runtime_mode == PART_PREVIEW_MODE:
             detections = self.model.predict(frame)
             self._update_image_statistics(frame, detections, cv2)
@@ -1239,6 +1326,11 @@ class CameraInspectionService:
             return self._annotate(frame, detections, cv2)
         frame_size = (frame.shape[1], frame.shape[0])
         self._frame_index += 1
+        self._frame_mask_context = RuntimeMaskContext(frame, frame_id=self._frame_index)
+        self._frame_damage_flags = {}
+        for detection in detections:
+            key = self._damage_parent_id(detection)
+            self._frame_damage_flags[key] = self._damage_flags(frame, detection, detections)
         fresh: list[tuple[FishQualityObservation, CropBounds]] = []
         eligible: list[Any] = []
         scheduled_track_ids: set[int] = set()
@@ -1320,6 +1412,7 @@ class CameraInspectionService:
                         frame, parents, frame_id=self._frame_index,
                         grade_track_ids={int(item.track_id) for item in eligible},
                         source_context={"source_id": f"camera:{self.camera_index}"},
+                        mask_context=self._frame_mask_context,
                     )
                     self._runtime_metrics.record_call("model2")
                     self._runtime_metrics.record_latency("model2_inference", self.quality_model.last_inference_seconds)
@@ -1328,7 +1421,8 @@ class CameraInspectionService:
                     self._runtime_metrics.record_latency("part_assignment", self.quality_model.last_part_assignment_seconds)
                     for detection in eligible:
                         result, bounds = full_frame_results[int(detection.track_id)]
-                        self._record_quality_observation(detection, result, bounds, (bounds.height, bounds.width, frame.shape[2]), fresh)
+                        self._record_quality_observation(detection, result, bounds, (bounds.height, bounds.width, frame.shape[2]), fresh,
+                                                         frame=frame, crop=frame[bounds.y1:bounds.y2, bounds.x1:bounds.x2])
                         completed_ids.add(int(detection.track_id))
                 elif self.quality_model.model is not None:
                     for detection in eligible:
@@ -1346,7 +1440,7 @@ class CameraInspectionService:
                                 crop.shape[0],
                             )
                         if isinstance(self.quality_model, YoloQualityModel):
-                            fish_mask, mask_metadata = generate_runtime_fish_mask(crop)
+                            fish_mask, mask_metadata = self._frame_mask_context.get(int(detection.track_id), bounds)
                             result = self.quality_model.predict(
                                 crop,
                                 int(detection.track_id),
@@ -1362,6 +1456,7 @@ class CameraInspectionService:
                                 fish_mask=fish_mask,
                                 fish_mask_metadata=mask_metadata,
                                 measurement_frame=frame,
+                                mask_context=self._frame_mask_context,
                             )
                             result = replace(
                                 result,
@@ -1399,6 +1494,7 @@ class CameraInspectionService:
                 if row.get("track_id") == detection.track_id:
                     row["model2_compatible_part_evidence"] = compatible
         processing_time_ms = (monotonic() - processing_started) * 1000
+        prefix_performance = self._frame_timing_snapshot(processing_time_ms)
         # Attach the full per-frame pipeline time before history/event creation.
         self._track_grades = {
             track_id: replace(
@@ -1407,8 +1503,11 @@ class CameraInspectionService:
                     **grade.analysis,
                     "performance": {
                         **(grade.analysis.get("performance") if isinstance(grade.analysis.get("performance"), dict) else {}),
-                        "total_processing_ms": round(processing_time_ms, 3),
+                        **({"total_processing_ms": round(processing_time_ms, 3),
+                            "timing_scope": "observation_frame_before_event_tracking_and_annotation"}
+                           if self._last_segmented_frame.get(track_id) == self._frame_index else {}),
                     },
+                    "frame_performance": prefix_performance,
                 },
             )
             for track_id, grade in self._track_grades.items()
@@ -1457,9 +1556,48 @@ class CameraInspectionService:
         visible_ids = {int(item.track_id) for item in detections if item.track_id is not None}
         overlays = [(observation, bounds) for track_id, (observation, bounds, _frame_id) in self._latest_part_overlays.items() if track_id in visible_ids]
         annotated = self._annotate_quality(self._annotate(frame, detections, cv2), overlays, cv2)
-        self._runtime_metrics.record_latency("overlay_rendering", monotonic() - overlay_started)
-        self._runtime_metrics.record_latency("total_processing", monotonic() - processing_started)
+        annotation_seconds = monotonic() - overlay_started
+        final_seconds = monotonic() - processing_started
+        self._last_frame_performance = self._frame_timing_snapshot(final_seconds * 1000)
+        self._last_frame_performance.update(
+            timing_scope="complete_process_frame; excludes capture_wait_jpeg_publication_network_browser",
+            annotation_wall_ms=milliseconds(annotation_seconds),
+            annotation_rendering_ms=milliseconds(max(0.0, annotation_seconds - self._frame_standalone_damage_seconds)),
+            tracking_ms=round(tracking_ms, 3),
+        )
+        self._runtime_metrics.record_latency("overlay_rendering", annotation_seconds)
+        self._runtime_metrics.record_latency("total_processing", final_seconds)
         return annotated
+
+    def _frame_timing_snapshot(self, total_ms: float) -> dict[str, object]:
+        """Aggregate only current observations; shared inference/masks once."""
+        current = [grade.analysis.get("performance", {}) for track_id, grade in self._track_grades.items()
+                   if self._last_segmented_frame.get(track_id) == self._frame_index]
+        def values(key):
+            return [row[key] for row in current if isinstance(row.get(key), (int, float))
+                    and not isinstance(row[key], bool) and np.isfinite(row[key])]
+        stages = {}
+        for key in ("color_processing_ms", "hsv_processing_ms", "texture_processing_ms", "feature_processing_ms",
+                    "grading_engine_ms", "grading_policy_ms", "geometry_processing_ms", "structural_damage_ms"):
+            readings = values(key)
+            stages[key] = round(sum(readings), 3) if readings else 0.0 if not current else None
+        model2 = values("model2_inference_ms")
+        shared = self.quality_inference_mode == "full_frame"
+        stages["model2_inference_ms"] = (max(model2) if shared else round(sum(model2), 3)) if model2 else 0.0 if not current else None
+        if self.quality_model is None:
+            stages["structural_damage_ms"] = milliseconds(self._frame_standalone_damage_seconds)
+        context = self._frame_mask_context.diagnostics() if self._frame_mask_context is not None else {}
+        return {
+            **stages, **mask_stage_metrics(context), "mask_context": context,
+            "frame_id": self._frame_index, "quality_observations": len(current),
+            "total_processing_ms": round(total_ms, 3),
+            "model1_inference_ms": milliseconds(getattr(self.model, "last_inference_seconds", None)),
+            "model2_inference_scope": "shared_frame_once" if shared else "sum_current_fish_crops",
+            "timing_scope": "frame_before_event_tracking_and_annotation",
+            "timing_relationships": dict(TIMING_RELATIONSHIPS),
+            "gpu_memory": gpu_memory_snapshot(),
+            "damage_cadence": "current_scheduled_quality_observation" if self.quality_model is not None else "standalone_each_display_frame",
+        }
 
     def _open_capture(self, cv2: Any) -> tuple[Any | None, str]:
         """Open one capture, honoring a known saved backend before safe fallbacks."""

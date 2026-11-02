@@ -33,7 +33,7 @@ function include(name) {
   const end = next < 0 ? source.length : start + 1 + next;
   vm.runInThisContext(source.slice(start, end));
 }
-for (const name of ["resultGrade", "resultIdentity", "mergeResultEvidence", "uniqueResultEvents",
+for (const name of ["surfaceDamageEvidence", "resultGrade", "resultIdentity", "mergeResultEvidence", "uniqueResultEvents",
   "selectedResultEvents", "recordedResultTimestamp", "hasBodyWidthExportEvidence", "hasCompleteInspectionAnalysis",
   "normalizeInspectionFish", "ensureNormalizedResultsForExport", "flattenResultData", "resultExportRecord",
   "exportResultsCsv", "exportResultsPdf"]) include(name);

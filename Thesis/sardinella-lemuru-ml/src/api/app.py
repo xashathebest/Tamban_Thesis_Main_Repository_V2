@@ -98,6 +98,9 @@ _model_registry = get_model_registry()
 _active_model1_entry = _model_registry.get_model(_model_registry.get_default_model1_id())
 _default_detector_image_size = _active_model1_entry.input_size if _active_model1_entry is not None else 640
 FISH_DETECTOR_IMAGE_SIZE = int(os.getenv("FISH_DETECTOR_IMAGE_SIZE", str(_default_detector_image_size)))
+FISH_DETECTOR_IOU = float(os.getenv("FISH_DETECTOR_IOU", "0.70"))
+FISH_DETECTOR_MAX_DETECTIONS = int(os.getenv("FISH_DETECTOR_MAX_DETECTIONS", "132"))
+FISH_COUNTING_CONFIDENCE = float(os.getenv("FISH_COUNTING_CONFIDENCE", "0.70"))
 FISH_QUALITY_CONFIDENCE = float(os.getenv("FISH_QUALITY_CONFIDENCE", os.getenv("FISH_SEGMENTATION_CONFIDENCE", "0.25")))
 FISH_QUALITY_DEVICE = os.getenv("FISH_QUALITY_DEVICE", os.getenv("FISH_SEGMENTER_DEVICE", FISH_DETECTOR_DEVICE))
 FISH_QUALITY_PATH = resolve_yolo_quality_model_path(REPO_ROOT, os.getenv("FISH_QUALITY_MODEL_PATH", os.getenv("FISH_SEGMENTER_MODEL_PATH")))
@@ -134,6 +137,7 @@ TRACKING_CONFIG = TrackingConfig(
     conveyor_direction=os.getenv("LEMURU_CONVEYOR_DIRECTION", "left_to_right").lower(),
     track_timeout=float(os.getenv("LEMURU_TRACK_TIMEOUT", "1.5")),
     history_limit=int(os.getenv("LEMURU_HISTORY_LIMIT", "25")),
+    counting_confidence_threshold=FISH_COUNTING_CONFIDENCE,
     decision_deadline_seconds=_optional_positive_float_setting("LEMURU_DECISION_DEADLINE_SECONDS"),
 )
 EVENT_PERSISTENCE_QUEUE_CAPACITY = _positive_int_setting("FISH_EVENT_PERSISTENCE_QUEUE_CAPACITY", 256)
@@ -150,6 +154,8 @@ else:
     model = YoloFishDetector(
         FISH_DETECTOR_PATH,
         confidence_threshold=FISH_DETECTION_CONFIDENCE,
+        iou_threshold=FISH_DETECTOR_IOU,
+        max_detections=FISH_DETECTOR_MAX_DETECTIONS,
         device=FISH_DETECTOR_DEVICE,
         image_size=FISH_DETECTOR_IMAGE_SIZE,
         tracker_config=TRACKING_CONFIG.tracker,
@@ -179,6 +185,13 @@ upload_test_model = YoloPartModel(UPLOAD_TEST_WEIGHTS_PATH, confidence=UPLOAD_TE
 upload_test_analyzer = PartPreviewImageAnalyzer(upload_test_model) if upload_test_model is not None else None
 video_jobs: dict[str, dict[str, object]] = {}
 video_jobs_lock = RLock()
+# Limits apply per API process. Reserve before buffering so queued uploads and
+# their worker-thread arguments cannot retain an unbounded number of bodies.
+VIDEO_JOB_MAX_ACTIVE = _positive_int_setting("FISH_VIDEO_MAX_ACTIVE_JOBS", 2)
+VIDEO_JOB_MAX_COMPLETED = _positive_int_setting("FISH_VIDEO_MAX_COMPLETED_JOBS", 4)
+VIDEO_JOB_TTL_SECONDS = _optional_positive_float_setting("FISH_VIDEO_JOB_TTL_SECONDS") or 1800.0
+_VIDEO_ACTIVE_STATES = frozenset({"receiving", "queued", "running"})
+_VIDEO_TERMINAL_STATES = frozenset({"complete", "error"})
 _database_setting = os.getenv("FISH_INSPECTION_DB_PATH")
 INSPECTION_DATABASE_PATH = (Path(_database_setting) if _database_setting else REPO_ROOT / "results" / "inspection_history.sqlite3").resolve()
 inspection_database = InspectionDatabase(INSPECTION_DATABASE_PATH)
@@ -264,8 +277,8 @@ def _device_report() -> dict[str, object]:
     try:
         import torch
 
-        model1_compute = getattr(model, "compute", resolve_compute(FISH_DETECTOR_DEVICE))
-        model2_compute = getattr(quality_model, "compute", resolve_compute(FISH_QUALITY_DEVICE)) if quality_model is not None else None
+        model1_compute = getattr(model, "compute", None) or resolve_compute(FISH_DETECTOR_DEVICE)
+        model2_compute = (getattr(quality_model, "compute", None) or resolve_compute(FISH_QUALITY_DEVICE)) if quality_model is not None else None
         return {
             "pytorch_cuda_available": bool(torch.cuda.is_available()),
             "pytorch_cuda_version": torch.version.cuda,
@@ -324,6 +337,9 @@ def _session_metadata() -> dict[str, object]:
                 "checkpoint_integrity": getattr(model, "checkpoint_integrity", "unavailable"),
                 "device": getattr(model, "device", FISH_DETECTOR_DEVICE),
                 "detector_confidence_threshold": getattr(model, "confidence_threshold", state.confidence_threshold),
+                "counting_confidence_threshold": FISH_COUNTING_CONFIDENCE,
+                "nms_iou_threshold": getattr(model, "iou_threshold", FISH_DETECTOR_IOU),
+                "max_detections": getattr(model, "max_detections", FISH_DETECTOR_MAX_DETECTIONS),
                 "class_names": list(getattr(model, "class_names", ())),
             },
             "model2": {
@@ -981,9 +997,11 @@ def _status_payload(*, include_analytics: bool = True) -> dict[str, object]:
     snapshot["upload_analysis_label"] = (
         "Whole-fish image analysis" if image_analyzer is not None and model.model is not None else "Raw part-segmentation test"
     )
+    active_model1_entry = _model_registry.get_model(_model_registry.get_default_model1_id())
     snapshot["model_info"] = {
         "detector": {
-            "name": state.model_name or "Fish detector",
+            "name": active_model1_entry.display_name if active_model1_entry is not None else "Model 1 V2 — YOLO26s Fish Detector",
+            "checkpoint": getattr(model, "weights_path", None).name if getattr(model, "weights_path", None) else None,
             "status": state.model_status,
             "checkpoint_resolved": bool(getattr(model, "weights_path", None)),
             "device": getattr(model, "device", "unresolved"),
@@ -2108,14 +2126,51 @@ async def analyze_image(request: Request) -> dict[str, object]:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
+def _prune_video_jobs_locked() -> None:
+    """Expire or evict terminal results only; active uploads keep their slots."""
+
+    now = monotonic()
+    terminal = []
+    for job_id, job in list(video_jobs.items()):
+        if job.get("status") not in _VIDEO_TERMINAL_STATES:
+            continue
+        finished = float(job.get("_finished_monotonic", now))
+        if now - finished >= VIDEO_JOB_TTL_SECONDS:
+            video_jobs.pop(job_id, None)
+        else:
+            terminal.append((finished, job_id))
+    for _, job_id in sorted(terminal)[:max(0, len(terminal) - VIDEO_JOB_MAX_COMPLETED)]:
+        video_jobs.pop(job_id, None)
+
+
+def _finish_video_job(job_id: str, result: dict[str, object]) -> None:
+    with video_jobs_lock:
+        job = video_jobs.get(job_id)
+        if job is not None:
+            now = datetime.now().astimezone()
+            job.update(result)
+            job.update({
+                "updated_at": now.isoformat(), "finished_at": now.isoformat(),
+                "expires_at": datetime.fromtimestamp(now.timestamp() + VIDEO_JOB_TTL_SECONDS, tz=now.tzinfo).isoformat(),
+                "_finished_monotonic": monotonic(),
+            })
+        _prune_video_jobs_locked()
+
+
 def _run_video_job(job_id: str, body: bytes, filename: str) -> None:
     suffix = Path(filename).suffix.lower()
     temporary_path: Path | None = None
     try:
         with tempfile.NamedTemporaryFile(prefix="tamban-upload-", suffix=suffix, delete=False) as handle:
-            handle.write(body)
             temporary_path = Path(handle.name)
+            handle.write(body)
         with _model_change_lock, service._processing_lock:
+            with video_jobs_lock:
+                job = video_jobs.get(job_id)
+                if job is None:
+                    return
+                now = datetime.now().astimezone().isoformat()
+                job.update({"status": "running", "started_at": now, "updated_at": now})
             if image_analyzer is None or model.model is None:
                 raise RuntimeError(model.error or "No local upload-analysis model is available.")
             analyzer = VideoUploadAnalyzer(image_analyzer)
@@ -2127,16 +2182,21 @@ def _run_video_job(job_id: str, body: bytes, filename: str) -> None:
                         job["processed_frames"] = processed
                         job["total_frames"] = total
                         job["progress"] = min(99, round(processed / total * 100)) if total else 0
+                        job["updated_at"] = datetime.now().astimezone().isoformat()
 
             result = analyzer.analyze(temporary_path, update_progress)
-        with video_jobs_lock:
-            video_jobs[job_id].update({"status": "complete", "progress": 100, "result": result})
+        _finish_video_job(job_id, {"status": "complete", "progress": 100, "result": result})
     except (RuntimeError, VideoUploadError) as exc:
-        with video_jobs_lock:
-            video_jobs[job_id].update({"status": "error", "error": str(exc)})
+        _finish_video_job(job_id, {"status": "error", "error": str(exc)})
+    except Exception as exc:
+        LOGGER.exception("Unexpected video analysis failure for job %s", job_id)
+        _finish_video_job(job_id, {"status": "error", "error": f"Video analysis failed unexpectedly ({type(exc).__name__})."})
     finally:
         if temporary_path is not None:
-            temporary_path.unlink(missing_ok=True)
+            try:
+                temporary_path.unlink(missing_ok=True)
+            except OSError:
+                LOGGER.warning("Could not remove temporary video for job %s", job_id, exc_info=True)
 
 
 @app.post("/api/analyze-video")
@@ -2150,23 +2210,38 @@ async def analyze_video(request: Request) -> dict[str, object]:
     declared_length = request.headers.get("content-length")
     if declared_length and declared_length.isdigit() and int(declared_length) > FISH_VIDEO_MAX_BYTES:
         raise HTTPException(status_code=413, detail=f"The uploaded video exceeds the {FISH_VIDEO_MAX_BYTES} byte limit.")
-    body = await _read_bounded_upload(request, FISH_VIDEO_MAX_BYTES)
-    if not body:
-        raise HTTPException(status_code=400, detail="The uploaded video is empty.")
     job_id = uuid.uuid4().hex
     with video_jobs_lock:
-        video_jobs[job_id] = {"status": "queued", "progress": 0, "processed_frames": 0, "total_frames": 0}
-    Thread(target=_run_video_job, args=(job_id, body, filename), daemon=True).start()
+        _prune_video_jobs_locked()
+        if sum(job.get("status") in _VIDEO_ACTIVE_STATES for job in video_jobs.values()) >= VIDEO_JOB_MAX_ACTIVE:
+            raise HTTPException(status_code=429, detail="Video analysis is at capacity. Wait for an active upload to finish, then try again.")
+        now = datetime.now().astimezone().isoformat()
+        video_jobs[job_id] = {"status": "receiving", "progress": 0, "processed_frames": 0, "total_frames": 0,
+                              "created_at": now, "updated_at": now}
+    try:
+        body = await _read_bounded_upload(request, FISH_VIDEO_MAX_BYTES)
+        if not body:
+            raise HTTPException(status_code=400, detail="The uploaded video is empty.")
+        with video_jobs_lock:
+            video_jobs[job_id].update({"status": "queued", "updated_at": datetime.now().astimezone().isoformat()})
+        Thread(target=_run_video_job, args=(job_id, body, filename), daemon=True).start()
+    except BaseException:
+        # Includes request cancellation/disconnect while receiving. No worker
+        # owns the reservation until Thread.start has returned successfully.
+        with video_jobs_lock:
+            video_jobs.pop(job_id, None)
+        raise
     return {"job_id": job_id, "status": "queued"}
 
 
 @app.get("/api/analyze-video/{job_id}")
 def analyze_video_status(job_id: str) -> dict[str, object]:
     with video_jobs_lock:
+        _prune_video_jobs_locked()
         job = video_jobs.get(job_id)
         if job is None:
             raise HTTPException(status_code=404, detail="Video analysis job was not found or has expired.")
-        return dict(job)
+        return {key: value for key, value in job.items() if not key.startswith("_")}
 
 
 async def _mjpeg_frames(request: Request):

@@ -119,7 +119,7 @@ def rgb_to_hsv(image_rgb_01: np.ndarray) -> np.ndarray:
     return np.stack((hue, saturation, maximum), axis=2)
 
 
-def rgb_to_lab(image_rgb_01: np.ndarray) -> np.ndarray:
+def rgb_to_lab(image_rgb_01: np.ndarray, *, lightness_only: bool = False) -> np.ndarray:
     """Convert normalized sRGB to CIE L*a*b* using the D65 reference white."""
 
     srgb = np.asarray(image_rgb_01, dtype=np.float64)
@@ -144,6 +144,10 @@ def rgb_to_lab(image_rgb_01: np.ndarray) -> np.ndarray:
         np.cbrt(xyz),
         xyz / (3.0 * delta**2) + 4.0 / 29.0,
     )
+    if lightness_only:
+        # Keep exactly the same luminance arithmetic as the full Lab map,
+        # without allocating unused a/b channels for runtime HSV summaries.
+        return 116.0 * transformed[..., 1] - 16.0
     return np.stack(
         (
             116.0 * transformed[..., 1] - 16.0,
@@ -174,31 +178,18 @@ def _circular_hue_mean(hue_degrees: np.ndarray, saturation: np.ndarray) -> float
     return float(math.degrees(math.atan2(sine, cosine)) % 360.0)
 
 
-def extract_color_features(
-    image_rgb: np.ndarray,
-    mask: np.ndarray,
+def color_summary_from_maps(
+    hsv: np.ndarray,
+    lightness: np.ndarray,
+    binary: np.ndarray,
     settings: ColorSettings,
-    *,
-    head_tail_direction_known: bool = False,
-    summary_only: bool = False,
-) -> dict[str, object]:
-    """Measure fish-only color proxies without assigning a quality class.
+) -> tuple[dict[str, object], tuple[np.ndarray, ...]]:
+    """Summarize aligned native-pixel maps; return masks for offline features.
 
-    Anatomical-region values are emitted only when the crop's metadata confirms
-    that the head is on the left.  Otherwise they are NaN rather than silently
-    treating an arbitrary PCA direction as anatomy. The live diagnostic path
-    needs only the HSV and coverage summaries; ``summary_only`` skips unrelated
-    connected-region, Lab-summary, and directional calculations. Those values
-    have the same definitions as in the full offline feature table.
+    Callers prepare and validate the RGB/mask scope first. Runtime callers may
+    slice shared parent maps, preserving the exact original region definition.
     """
-
-    settings.validate()
-    rgb, binary = _validate_inputs(image_rgb, mask)
-    hsv = rgb_to_hsv(rgb)
-    lab = rgb_to_lab(rgb)
     hue, saturation, value = (hsv[..., index] for index in range(3))
-    lightness, lab_a, lab_b = (lab[..., index] for index in range(3))
-
     yellow = (
         binary
         & (hue >= settings.yellow_hue_min_deg)
@@ -235,6 +226,34 @@ def extract_color_features(
         "discoloration_coverage_proxy": float(discoloration.sum() / fish_pixels),
         "specular_ratio_proxy": float(specular.sum() / fish_pixels),
     }
+    return summary, (yellow, brown, dark, specular, discoloration)
+
+
+def extract_color_features(
+    image_rgb: np.ndarray,
+    mask: np.ndarray,
+    settings: ColorSettings,
+    *,
+    head_tail_direction_known: bool = False,
+    summary_only: bool = False,
+) -> dict[str, object]:
+    """Measure fish-only color proxies without assigning a quality class.
+
+    Anatomical-region values are emitted only when the crop's metadata confirms
+    that the head is on the left.  Otherwise they are NaN rather than silently
+    treating an arbitrary PCA direction as anatomy. The live diagnostic path
+    needs only the HSV and coverage summaries; ``summary_only`` skips unrelated
+    connected-region, Lab-summary, and directional calculations. Those values
+    have the same definitions as in the full offline feature table.
+    """
+
+    settings.validate()
+    rgb, binary = _validate_inputs(image_rgb, mask)
+    hsv = rgb_to_hsv(rgb)
+    lab = rgb_to_lab(rgb)
+    lightness, lab_a, lab_b = (lab[..., index] for index in range(3))
+    summary, (yellow, brown, dark, specular, discoloration) = color_summary_from_maps(hsv, lightness, binary, settings)
+    fish_pixels = int(binary.sum())
     if summary_only:
         return summary
 

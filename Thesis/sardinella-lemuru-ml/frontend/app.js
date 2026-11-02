@@ -17,12 +17,13 @@ const elements = {
   cameraPill: $("camera-pill"), modelPill: $("model-pill"), devicePill: $("device-pill"), liveModelSelector: $("live-model-selector"),
   alert: $("alert"), alertTitle: $("alert-title"), alertCopy: $("alert-copy"), alertDetails: $("alert-details"),
   liveBadge: $("live-badge"), inspectionState: $("inspection-state"), webcam: $("webcam-button"), start: $("start-button"), emptyStart: $("empty-start-button"), reset: $("reset-button"),
-  video: $("video-feed"), placeholder: $("video-placeholder"), placeholderTitle: $("placeholder-title"), placeholderCopy: $("placeholder-copy"),
+  video: $("video-feed"), placeholder: $("video-placeholder"), placeholderTitle: $("placeholder-title"), placeholderCopy: $("placeholder-copy"), liveMediaStage: $("live-media-stage"), liveFishTargets: $("live-fish-targets"),
   feedFps: $("feed-fps"), feedResolution: $("feed-resolution"), previewMode: $("preview-mode-button"), previewDescription: $("preview-mode-description"),
   resultEmpty: $("result-empty"), resultActive: $("result-active"), resultEmptyTitle: $("result-empty-title"), resultEmptyCopy: $("result-empty-copy"),
   decision: $("decision"), resultFish: $("result-fish"), resultLabel: $("result-label"), confidence: $("confidence"), confidenceBar: $("confidence-bar"), resultProcessing: $("result-processing"), resultTime: $("result-time"), latestFeatures: $("latest-feature-list"), classificationPolicy: $("classification-policy"),
   latestVerdictDetails: $("latest-verdict-details"), latestVerdictStatus: $("latest-verdict-status"), latestVerdictReason: $("latest-verdict-reason"), latestDetectionConfidence: $("latest-detection-confidence"), latestModel2Evidence: $("latest-model2-evidence"), latestCoverage: $("latest-coverage"), latestEffectiveWeights: $("latest-effective-weights"),
-  uploadMode: $("upload-mode-button"), closeUpload: $("close-upload-button"), uploadWorkspace: $("upload-workspace"), uploadInput: $("upload-input"), selectUpload: $("select-upload-button"), uploadFileName: $("upload-file-name"), analyze: $("analyze-button"), uploadStatus: $("upload-status"), uploadProgress: $("upload-analysis-progress"), uploadImage: $("upload-result-image"), uploadVideo: $("upload-result-video"), uploadResults: $("upload-results"),
+  uploadMode: $("upload-mode-button"), closeUpload: $("close-upload-button"), uploadWorkspace: $("upload-workspace"), uploadInput: $("upload-input"), selectUpload: $("select-upload-button"), uploadFileName: $("upload-file-name"), analyze: $("analyze-button"), uploadStatus: $("upload-status"), uploadProgress: $("upload-analysis-progress"), uploadImage: $("upload-result-image"), uploadVideo: $("upload-result-video"), uploadResults: $("upload-results"), uploadMediaStage: $("upload-media-stage"), uploadFishTargets: $("upload-fish-targets"),
+  fishZoomModal: $("fish-zoom-modal"), fishZoomClose: $("fish-zoom-close"), fishZoomViewport: $("fish-zoom-viewport"), fishZoomCanvas: $("fish-zoom-canvas"), fishZoomTitle: $("fish-zoom-title"), fishZoomSubtitle: $("fish-zoom-subtitle"), fishZoomLevel: $("fish-zoom-level"), fishZoomDetails: $("fish-zoom-details"), fishZoomChoices: $("fish-zoom-choices"), fishZoomIn: $("fish-zoom-in"), fishZoomOut: $("fish-zoom-out"), fishZoomReset: $("fish-zoom-reset"), fishZoomOriginal: $("fish-zoom-original"), fishZoomAnnotations: $("fish-zoom-annotations"), fishZoomMask: $("fish-zoom-mask"), fishZoomCracks: $("fish-zoom-cracks"),
   kpiGrid: $("kpi-grid"), featureCounterGrid: $("feature-counter-grid"), threshold: $("threshold"), openConfidence: $("open-confidence-button"),
   gradeChartEmpty: $("grade-chart-empty"), gradeChart: $("grade-chart"), gradeDonut: $("grade-donut"), gradeTotal: $("grade-total"), gradeLegend: $("grade-legend"),
   featureChartEmpty: $("feature-chart-empty"), featureChart: $("feature-chart"), throughputChartEmpty: $("throughput-chart-empty"), throughputChart: $("throughput-chart"), throughputLine: $("throughput-line"), throughputCaption: $("throughput-caption"),
@@ -79,8 +80,13 @@ let selectedUpload = null;
 let uploadInFlight = false;
 let uploadSelectionVersion = 0;
 let uploadRequestVersion = 0;
+let uploadController = null;
+let uploadTimer = null;
+let uploadStartedAt = 0;
 let uploadPreviewUrl = null;
- let uploadFrameTimer = null;
+let uploadFrameTimer = null;
+let uploadAnnotatedSource = null;
+const fishZoom = { image: null, detection: null, detections: [], source: "", crop: null, scale: 1, panX: 0, panY: 0, dragging: false, lastX: 0, lastY: 0, previousFocus: null };
 let exportInFlight = false;
 let exportSessionsLoading = false;
 let exportSessionsError = "";
@@ -186,6 +192,183 @@ function browserPreviewImageLoadText() {
 }
 function detachStream() {
   elements.video.removeAttribute("src"); streamAttached = false; streamReady = false; resetBrowserPreviewImageLoads();
+}
+
+function fishZoomBox(value) {
+  if (!Array.isArray(value) || value.length !== 4 || value.some((part) => !Number.isFinite(Number(part)))) return null;
+  const [left, top, right, bottom] = value.map(Number);
+  return right > left && bottom > top ? [left, top, right, bottom] : null;
+}
+function fishZoomId(fish) { return fish?.track_id ?? fish?.id ?? fish?.fish_id ?? "?"; }
+function fishZoomGrade(fish) { return fish?.quality || fish?.final_grade || fish?.final_class || fish?.grade || "Ungraded"; }
+function fishZoomConfidence(fish) { return fish?.quality_confidence ?? fish?.final_confidence ?? fish?.detector_confidence ?? fish?.current_confidence; }
+function fishZoomMedia(kind) {
+  return kind === "live" ? elements.video : (elements.uploadImage.classList.contains("hidden") ? elements.uploadVideo : elements.uploadImage);
+}
+function fishZoomGeometry(media, stage) {
+  const width = media?.naturalWidth || media?.videoWidth || 0;
+  const height = media?.naturalHeight || media?.videoHeight || 0;
+  if (!width || !height || !stage) return null;
+  const mediaRect = media.getBoundingClientRect(); const stageRect = stage.getBoundingClientRect();
+  const scale = Math.min(mediaRect.width / width, mediaRect.height / height);
+  return {width, height, scale, left: mediaRect.left - stageRect.left + (mediaRect.width - width * scale) / 2, top: mediaRect.top - stageRect.top + (mediaRect.height - height * scale) / 2};
+}
+function fishZoomPoint(event, media, stage) {
+  const geometry = fishZoomGeometry(media, stage);
+  if (!geometry) return null;
+  const rect = stage.getBoundingClientRect();
+  return [(event.clientX - rect.left - geometry.left) / geometry.scale, (event.clientY - rect.top - geometry.top) / geometry.scale];
+}
+function fishZoomHits(event, kind, detections) {
+  const media = fishZoomMedia(kind); const stage = kind === "live" ? elements.liveMediaStage : elements.uploadMediaStage;
+  const point = fishZoomPoint(event, media, stage);
+  if (!point) return [];
+  return detections.filter((fish) => {
+    const box = fishZoomBox(fish?.bbox); return box && point[0] >= box[0] && point[0] <= box[2] && point[1] >= box[1] && point[1] <= box[3];
+  });
+}
+function renderFishClickTargets(kind, detections) {
+  const stage = kind === "live" ? elements.liveMediaStage : elements.uploadMediaStage;
+  const targetLayer = kind === "live" ? elements.liveFishTargets : elements.uploadFishTargets;
+  const media = fishZoomMedia(kind);
+  if (!stage || !targetLayer || !media) return;
+  targetLayer.replaceChildren();
+  const geometry = fishZoomGeometry(media, stage);
+  if (!geometry) {
+    if ((media.naturalWidth || media.videoWidth) > 0) requestAnimationFrame(() => renderFishClickTargets(kind, detections));
+    return;
+  }
+  detections.filter((fish) => fishZoomBox(fish?.bbox)).forEach((fish) => {
+    const [left, top, right, bottom] = fishZoomBox(fish.bbox);
+    const target = document.createElement("button"); target.type = "button"; target.className = "fish-click-target";
+    target.style.left = `${geometry.left + left * geometry.scale}px`; target.style.top = `${geometry.top + top * geometry.scale}px`;
+    target.style.width = `${Math.max(18, (right - left) * geometry.scale)}px`; target.style.height = `${Math.max(18, (bottom - top) * geometry.scale)}px`;
+    target.dataset.fishId = String(fishZoomId(fish)); target.setAttribute("aria-label", `Inspect fish ${fishZoomId(fish)}`);
+    target.addEventListener("click", (event) => { event.stopPropagation(); openFishZoom(kind, detections, fish); });
+    targetLayer.append(target);
+  });
+}
+function captureFishZoomFrame(media) {
+  const width = media.naturalWidth || media.videoWidth; const height = media.naturalHeight || media.videoHeight;
+  if (!width || !height) return null;
+  const source = document.createElement("canvas"); source.width = width; source.height = height;
+  source.getContext("2d").drawImage(media, 0, 0, width, height);
+  return source.toDataURL("image/png");
+}
+function fishZoomImage(url) {
+  return new Promise((resolve, reject) => {
+    const image = new Image(); image.onload = () => resolve(image); image.onerror = () => reject(new Error("The selected inspection frame could not be displayed.")); image.src = url;
+  });
+}
+function fishZoomAnalysis(fish) {
+  if (fish?.analysis && typeof fish.analysis === "object") return fish.analysis;
+  return fish?.quality_analysis && typeof fish.quality_analysis === "object" ? fish.quality_analysis : {};
+}
+function fishZoomDetailRows(fish) {
+  const confidence = fishZoomConfidence(fish); const analysis = fishZoomAnalysis(fish); const box = fishZoomBox(fish?.bbox);
+  const association = fish?.association || analysis.association || {};
+  const damage = analysis.surface_damage || analysis.structural_evidence || {};
+  const damageText = surfaceDamageEvidence({analysis: {surface_damage: damage}}).state;
+  const associationText = association.status === "AMBIGUOUS"
+    ? `Ambiguous${Array.isArray(association.reasons) && association.reasons.length ? ` · ${association.reasons.join(", ")}` : ""}`
+    : association.status || "Not recorded";
+  const debug = analysis.model2_debug;
+  const unassignedCount = debug && Array.isArray(debug.unassigned_detections) ? debug.unassigned_detections.length : 0;
+  const ownershipNote = unassignedCount
+    ? `${unassignedCount} region${unassignedCount === 1 ? "" : "s"} excluded — ownership conflicts with neighboring fish.`
+    : "Only assigned anatomical evidence is used.";
+  return [["Fish ID", `#${fishZoomId(fish)}`], ["Final grade", fishZoomGrade(fish)], ["Confidence", Number.isFinite(Number(confidence)) ? formatPercent(Number(confidence) * 100) : "—"], ["Dimensions", box ? `${Math.round(box[2] - box[0])} × ${Math.round(box[3] - box[1])} px` : "—"], ["Association", associationText], ["Ownership evidence", ownershipNote], ["Structural damage", damageText]];
+}
+function renderFishZoomDetails(fish) {
+  elements.fishZoomDetails.replaceChildren();
+  fishZoomDetailRows(fish).forEach(([label, value]) => {
+    const row = document.createElement("div"); row.className = "fish-zoom-detail-row";
+    row.append(Object.assign(document.createElement("span"), {textContent: label}), Object.assign(document.createElement("strong"), {textContent: value})); elements.fishZoomDetails.append(row);
+  });
+}
+function fishZoomRelativeBox(box, crop) { const value = fishZoomBox(box); return value && [value[0] - crop[0], value[1] - crop[1], value[2] - crop[0], value[3] - crop[1]]; }
+function drawFishZoomOverlay(context, fish, crop, width, height) {
+  const analysis = fishZoomAnalysis(fish); const mainBox = fishZoomRelativeBox(fish?.bbox, crop);
+  if (elements.fishZoomAnnotations.checked && mainBox) { context.strokeStyle = "#c0ee96"; context.lineWidth = Math.max(2, width / 280); context.strokeRect(mainBox[0], mainBox[1], mainBox[2] - mainBox[0], mainBox[3] - mainBox[1]); }
+  if (elements.fishZoomAnnotations.checked && Array.isArray(fish?.parts)) fish.parts.forEach((part) => {
+    const box = fishZoomRelativeBox(part.bbox, crop); if (!box) return;
+    context.strokeStyle = gradeColors[part.grade || part.quality] || "#65c7e5"; context.lineWidth = Math.max(1, width / 420); context.strokeRect(box[0], box[1], box[2] - box[0], box[3] - box[1]);
+  });
+  if (elements.fishZoomAnnotations.checked) {
+    const debug = analysis.model2_debug;
+    const unassigned = debug && Array.isArray(debug.unassigned_detections) ? debug.unassigned_detections : [];
+    unassigned.forEach((part) => {
+      const box = fishZoomRelativeBox(part.bbox, crop); if (!box) return;
+      context.strokeStyle = "#ffb454"; context.lineWidth = Math.max(1, width / 360);
+      context.setLineDash([6, 4]); context.strokeRect(box[0], box[1], box[2] - box[0], box[3] - box[1]); context.setLineDash([]);
+    });
+  }
+  if (elements.fishZoomMask.checked) {
+    const mask = analysis.fish_mask?.polygon || analysis.fish_mask?.points || analysis.mask?.polygon || analysis.mask?.points;
+    if (Array.isArray(mask) && mask.length > 2) {
+      context.fillStyle = "rgb(101 199 229 / 22%)"; context.beginPath(); mask.forEach((point, index) => { const x = Array.isArray(point) ? point[0] : point.x; const y = Array.isArray(point) ? point[1] : point.y; if (index) context.lineTo(x - crop[0], y - crop[1]); else context.moveTo(x - crop[0], y - crop[1]); }); context.closePath(); context.fill();
+    }
+  }
+  if (elements.fishZoomCracks.checked) {
+    const damage = analysis.surface_damage || analysis.structural_evidence || {};
+    const locations = Array.isArray(damage.locations) ? damage.locations : [];
+    locations.forEach((location) => { const box = fishZoomRelativeBox(location.bbox, crop); if (!box) return; context.strokeStyle = "#ff536b"; context.lineWidth = Math.max(2, width / 300); context.setLineDash([6, 4]); context.strokeRect(box[0], box[1], box[2] - box[0], box[3] - box[1]); context.setLineDash([]); });
+  }
+  if (elements.fishZoomAnnotations.checked) {
+    const visualization = analysis.fish_geometry?.visualization || analysis.body_width?.visualization || {};
+    [["length_line", "#c0ee96"], ["width_line", "#65c7e5"], ["major_axis", "#c0ee96"], ["minor_axis", "#65c7e5"]].forEach(([key, color]) => {
+      const line = visualization[key]; const points = Array.isArray(line) && line.length === 4 && Number.isFinite(Number(line[0])) ? [[line[0], line[1]], [line[2], line[3]]] : line;
+      if (!Array.isArray(points) || points.length < 2) return;
+      const first = points[0]; const last = points[points.length - 1]; if (!Array.isArray(first) || !Array.isArray(last)) return;
+      context.strokeStyle = color; context.lineWidth = Math.max(2, width / 360); context.beginPath(); context.moveTo(first[0] - crop[0], first[1] - crop[1]); points.slice(1).forEach((point) => context.lineTo(point[0] - crop[0], point[1] - crop[1])); context.stroke();
+    });
+  }
+}
+function renderFishZoom() {
+  if (!fishZoom.image || !fishZoom.crop) return;
+  const canvas = elements.fishZoomCanvas; const viewport = elements.fishZoomViewport; const rect = viewport.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1; const viewWidth = Math.max(240, rect.width); const viewHeight = Math.max(220, rect.height);
+  canvas.width = Math.round(viewWidth * dpr); canvas.height = Math.round(viewHeight * dpr); canvas.style.width = `${viewWidth}px`; canvas.style.height = `${viewHeight}px`;
+  const context = canvas.getContext("2d"); context.setTransform(dpr, 0, 0, dpr, 0, 0); context.fillStyle = "#071d2b"; context.fillRect(0, 0, viewWidth, viewHeight);
+  const [left, top, right, bottom] = fishZoom.crop; const cropWidth = right - left; const cropHeight = bottom - top;
+  const baseScale = Math.min(viewWidth / cropWidth, viewHeight / cropHeight) * .9; const drawScale = baseScale * fishZoom.scale;
+  const drawWidth = cropWidth * drawScale; const drawHeight = cropHeight * drawScale;
+  const x = (viewWidth - drawWidth) / 2 + fishZoom.panX; const y = (viewHeight - drawHeight) / 2 + fishZoom.panY;
+  context.imageSmoothingEnabled = true; context.imageSmoothingQuality = "high";
+  if (elements.fishZoomOriginal.checked) context.drawImage(fishZoom.image, left, top, cropWidth, cropHeight, x, y, drawWidth, drawHeight);
+  else { context.fillStyle = "#172b29"; context.fillRect(x, y, drawWidth, drawHeight); }
+  context.save(); context.translate(x, y); context.scale(drawScale, drawScale); drawFishZoomOverlay(context, fishZoom.detection, fishZoom.crop, cropWidth, cropHeight); context.restore();
+  elements.fishZoomLevel.textContent = `${Math.round(fishZoom.scale * 100)}%`;
+}
+function selectFishZoom(fish) {
+  fishZoom.detection = fish; const box = fishZoomBox(fish?.bbox); if (!box) return;
+  const width = fishZoom.image.naturalWidth; const height = fishZoom.image.naturalHeight; const padding = Math.max(12, Math.round(Math.max(box[2] - box[0], box[3] - box[1]) * .12));
+  fishZoom.crop = [Math.max(0, box[0] - padding), Math.max(0, box[1] - padding), Math.min(width, box[2] + padding), Math.min(height, box[3] + padding)]; fishZoom.scale = 1; fishZoom.panX = 0; fishZoom.panY = 0;
+  elements.fishZoomTitle.textContent = `Fish #${fishZoomId(fish)}`; elements.fishZoomSubtitle.textContent = `${fishZoom.source === "live" ? "Live frame frozen for inspection" : "Selected inspection frame"} · pipeline continues normally`;
+  renderFishZoomDetails(fish); renderFishZoom();
+}
+async function openFishZoom(kind, detections, selected) {
+  const media = fishZoomMedia(kind); let temporaryUrl = null;
+  const frame = kind === "live"
+    ? captureFishZoomFrame(media)
+    : (elements.uploadVideo.classList.contains("hidden")
+      ? (selectedUpload && !isVideoUpload(selectedUpload) ? (temporaryUrl = URL.createObjectURL(selectedUpload)) : uploadAnnotatedSource)
+      : captureFishZoomFrame(media));
+  if (!frame) return;
+  try {
+    fishZoom.image = await fishZoomImage(frame); fishZoom.source = kind; fishZoom.detections = detections; fishZoom.previousFocus = document.activeElement;
+    elements.fishZoomModal.classList.remove("hidden"); document.body.classList.add("panel-open"); selectFishZoom(selected);
+    elements.fishZoomChoices.replaceChildren();
+    if (detections.length > 1) {
+      elements.fishZoomChoices.classList.remove("hidden"); detections.forEach((fish) => { const button = document.createElement("button"); button.type = "button"; button.className = "button quiet"; button.textContent = `Fish #${fishZoomId(fish)} · ${fishZoomGrade(fish)}`; button.addEventListener("click", () => selectFishZoom(fish)); elements.fishZoomChoices.append(button); });
+    } else elements.fishZoomChoices.classList.add("hidden");
+    elements.fishZoomClose.focus({preventScroll: true});
+  } catch (error) { elements.uploadStatus.textContent = error instanceof Error ? error.message : "Fish detail unavailable."; }
+  finally { if (temporaryUrl) URL.revokeObjectURL(temporaryUrl); }
+}
+function closeFishZoom() {
+  elements.fishZoomModal.classList.add("hidden"); document.body.classList.remove("panel-open"); fishZoom.image = null;
+  if (fishZoom.previousFocus?.focus) fishZoom.previousFocus.focus({preventScroll: true});
 }
 
 function attachStream() {
@@ -304,6 +487,7 @@ function renderCamera(data) {
   elements.feedResolution.textContent = Array.isArray(frameSize) ? `${frameSize[0]} × ${frameSize[1]}` : "—";
   elements.settingsResolution.textContent = elements.feedResolution.textContent;
   elements.settingsFps.textContent = `${fps.toFixed(1)} FPS`;
+  renderFishClickTargets("live", Array.isArray(data.active_tracks) ? data.active_tracks : []);
 }
 
 function analysisFor(event) { return event?.analysis && typeof event.analysis === "object" ? event.analysis : {}; }
@@ -387,14 +571,129 @@ function latestFeatureRows(event) {
   const wholeFishColor = analysisFor(event).color?.["Whole Fish"];
   const brightness = wholeFishColor?.mean_value;
   rows.push(["Brightness", brightness == null ? "Not measured" : `${scoreText(brightness)} (HSV value)`, brightness == null ? "unmeasured" : "detected"]);
-  rows.push(["Cracks", "Not measured", "unmeasured"]);
+  const damageEvidence = surfaceDamageEvidence(event);
+  rows.push(["Cracks", damageEvidence.state, damageEvidence.suspected || damageEvidence.validated ? "detected" : "unmeasured"]);
   return rows;
+}
+function surfaceDamageEvidence(event) {
+  const damage = event?.analysis?.surface_damage || {};
+  const finite = (value) => typeof value === "number" && Number.isFinite(value);
+  const bounds = damage.crop_bounds;
+  const validBounds = bounds == null || (Array.isArray(bounds) && bounds.length === 4 && bounds.every(finite) && bounds[0] >= 0 && bounds[1] >= 0 && bounds[2] > bounds[0] && bounds[3] > bounds[1]);
+  const limits = !Array.isArray(bounds) ? null : damage.coordinate_space === "original_frame" ? bounds : [0, 0, bounds[2] - bounds[0], bounds[3] - bounds[1]];
+  const locations = validBounds && Array.isArray(damage.locations) ? damage.locations.filter((item) => {
+    if (!item || typeof item !== "object" || ![item.x, item.y, item.width, item.height].every(finite)) return false;
+    const right = item.x + item.width; const bottom = item.y + item.height;
+    return item.x >= 0 && item.y >= 0 && item.width > 0 && item.height > 0 && finite(right) && finite(bottom)
+      && (!limits || (item.x >= limits[0] && item.y >= limits[1] && right <= limits[2] && bottom <= limits[3]));
+  }) : [];
+  const provenance = damage.validation_provenance;
+  const recordedProvenance = typeof provenance === "string" ? Boolean(provenance.trim()) : Boolean(provenance && typeof provenance === "object" && Object.keys(provenance).length);
+  const validated = ["suspected", "validated"].includes(damage.status) && locations.length > 0 && damage.validation_status === "validated" && damage.mask_validated_for_cracks === true && recordedProvenance;
+  const suspected = damage.status === "suspected" && locations.length > 0;
+  const state = validated ? "Validated Damage" : suspected ? "Suspected Damage" : "No reliable evidence";
+  return {damage, locations, validated, suspected, state};
+}
+function surfaceDamageRows(event) {
+  const {damage, locations, validated, suspected, state} = surfaceDamageEvidence(event);
+  const numeric = (value) => typeof value === "number" && Number.isFinite(value) ? String(Number(value.toFixed(3))) : "Unavailable";
+  return [
+    ["Evidence state", state],
+    ["Validation", validated ? "Validated with recorded provenance" : "Not validated for crack classification"],
+    ["Severity", validated ? damage.severity || "Unassessed" : "Unassessed; requires expert reference labels"],
+    ["Heuristic strength (0-1)", suspected || validated ? `${numeric(damage.confidence)}; not a damage probability` : "Unavailable: no reliable candidate"],
+    ["Estimated straight-line support extent", (suspected || validated) && typeof damage.estimated_length_px === "number" && Number.isFinite(damage.estimated_length_px) ? `${numeric(damage.estimated_length_px)} px` : "Unavailable: no reliable candidate"],
+    ["Length interpretation", damage.length_method ? String(damage.length_method).replaceAll("_", " ") : "Unvalidated image extent; full biological crack length is not measured"],
+    ["Candidate locations", locations.length ? locations.map((item) => `x${numeric(item.x)}, y${numeric(item.y)}, ${numeric(item.width)} x ${numeric(item.height)} px`).join("; ") : "No reliable evidence"],
+    ["Location coordinates", damage.coordinate_space || "Unavailable: coordinate provenance not recorded"],
+    ["Parent crop in original frame", Array.isArray(damage.crop_bounds) ? damage.crop_bounds.join(", ") : "Unavailable: parent crop was not recorded"],
+    ["Mask source", damage.mask_source || "Unavailable: no foreground mask recorded"],
+    ["Explanation", damage.reason || "Structural damage evidence was not recorded for this observation."],
+    ["Automatic grade effect", "None; supporting diagnostic evidence"],
+  ];
+}
+function textureEvidenceRows(event) {
+  const analysis = event?.analysis || {};
+  const texture = analysis.supporting_image_measurements?.texture || {};
+  const mask = analysis.fish_mask || analysis.surface_damage?.mask_metadata || {};
+  const sampling = texture.mask_metadata?.sampling || mask.sampling || {};
+  const estimatedMask = texture.foreground_estimated === true;
+  const unavailable = texture.missing_value_reason || "Texture analysis was not recorded for this observation";
+  return [
+    ["Texture analysis", texture.status === "measured" ? estimatedMask ? "Measured native-pixel texture; foreground support is estimated" : "Measured diagnostic features" : `Unavailable: ${String(unavailable).replaceAll("_", " ")}`],
+    ["Texture mask source", texture.source || mask.source || "Unavailable: no foreground mask recorded"],
+    ["Foreground mask status", mask.status || "Unavailable: mask provenance not recorded"],
+    ["Foreground sampling", estimatedMask ? "Bounded CPU working grid lifted to native pixels; native boundary is not validated" : sampling.mode === "native" ? "Native ROI grid" : "Unavailable: sampling provenance was not recorded"],
+    ["Crack validation", "Texture and foreground segmentation do not validate damage classification"],
+  ];
+}
+function inspectionPerformanceRows(event, metadata = {}) {
+  const performance = event?.analysis?.performance || {};
+  const frame = event?.analysis?.frame_performance || metadata.frame_performance || {};
+  const legacyFrame = metadata.performance || {};
+  const context = frame.mask_context || legacyFrame.mask_context || performance.mask_context || {};
+  const report = performance.compute_report || frame.compute_report || legacyFrame.compute_report || {};
+  const number = (value) => typeof value === "number" && Number.isFinite(value) && value >= 0 ? `${Number(value.toFixed(3))} ms` : "Unavailable: stage timing was not recorded";
+  const count = (value) => typeof value === "number" && Number.isFinite(value) && value >= 0 ? String(value) : "Unavailable: count was not recorded";
+  const rows = [
+    ["Fish observation scope", performance.scope || performance.timing_scope || "Legacy stage scope; shared model calls may cover several fish"],
+    ["Shared frame Model 1 inference", number(frame.model1_inference_ms ?? performance.model1_inference_ms)],
+    ["Model 2 inference", `${number(performance.model2_inference_ms)}; ${performance.model2_inference_scope || "scope not recorded"}`],
+    ["Fish color extraction", number(performance.color_processing_ms)],
+    ["Fish texture extraction", number(performance.texture_processing_ms)],
+    ["Fish geometry and width analysis", number(performance.geometry_processing_ms)],
+    ["Fish structural damage analysis", number(performance.structural_damage_ms ?? performance.damage_processing_ms)],
+    ["Fish grading policy, excluding features", number(performance.grading_policy_ms)],
+    ["Fish grading engine, enclosing features", number(performance.grading_engine_ms)],
+    ["Legacy HSV/evidence-preparation timing", number(performance.hsv_processing_ms)],
+    ["Recorded frame-scope wall time", number(frame.total_processing_ms ?? legacyFrame.total_processing_ms ?? performance.total_processing_ms)],
+    ["Shared frame segmentation pipeline", number(frame.segmentation_processing_ms ?? context.segmentation_ms)],
+    ["Shared frame GrabCut", number(frame.foreground_grabcut_ms)],
+    ["Shared frame mask preprocessing", number(frame.mask_preprocessing_ms)],
+    ["Shared frame mask-cache lookup", number(frame.mask_cache_lookup_ms ?? context.lookup_ms)],
+    ["Shared frame annotation rendering", number(frame.annotation_rendering_ms)],
+    ["Shared frame JPEG encoding", number(frame.jpeg_encoding_ms)],
+    ["Segmentation backend", frame.segmentation_backend || "Unavailable: backend was not recorded; CUDA inference does not imply GPU segmentation"],
+    ["Frame segmentation attempts", count(context.segmentation_calls)],
+    ["Frame actual CPU GrabCut invocations", count(context.grabcut_executions)],
+    ["Frame mask-cache hits", count(context.cache_hits)],
+    ["Frame mask-cache misses", count(context.cache_misses)],
+    ["Frame feature-cache hits", count(context.feature_cache_hits)],
+    ["Frame mask-projection fallbacks", count(context.projection_fallbacks)],
+    ["Frame native ROI pixels processed", count(context.native_pixels_processed)],
+    ["Frame CPU working-grid pixels processed", count(context.working_pixels_processed)],
+    ["Frame bounded-mask executions", count(context.downsized_calls)],
+    ["Frame rejected masks", count(context.segmentation_rejections)],
+    ["Frame segmentation failures", count(context.generation_failures)],
+    ["Frame segmentation-setting fallbacks", count(context.settings_fallbacks)],
+  ];
+  const gpu = frame.gpu_memory || {};
+  const bytes = (value) => typeof value === "number" && Number.isFinite(value) && value >= 0 ? `${Number((value / 1048576).toFixed(2))} MiB` : "Unavailable: GPU memory was not measured";
+  rows.push(["Recorded process GPU allocation", bytes(gpu.allocated_bytes ?? gpu.current_allocated_bytes)]);
+  rows.push(["Recorded process GPU peak allocation", bytes(gpu.peak_allocated_bytes)]);
+  rows.push(["GPU memory scope", gpu.scope || gpu.measurement_scope || gpu.reason || "Unavailable: per-process memory scope was not recorded; device-wide training usage is not attributed to this fish"]);
+  rows.push(["GPU peak memory scope", gpu.peak_scope || "Unavailable: peak scope was not recorded; a process-lifetime peak is not a per-inspection peak"]);
+  const device = report.device;
+  rows.push(["Inference device", device ? `${device}${report.device_name ? ` (${report.device_name})` : ""}` : "Unavailable: inspection compute report was not recorded"]);
+  rows.push(["FP16", typeof report.fp16_enabled === "boolean" ? report.fp16_enabled ? "Enabled" : "Off" : "Unavailable: precision status was not recorded"]);
+  rows.push(["Hardware / precision explanation", report.fallback_reason || report.fp16_reason || (device ? "Recorded inspection compute configuration" : "Inspect live runtime diagnostics for current hardware status")]);
+  const full = legacyFrame;
+  const fps = full.processing_fps;
+  rows.push(["Upload processing speed", typeof fps === "number" && Number.isFinite(fps) && fps >= 0 ? `${Number(fps.toFixed(2))} FPS` : "Unavailable: measured upload processing rate was not recorded; source/capture FPS is not throughput"]);
+  rows.push(["Upload elapsed time", number(full.total_processing_ms ?? full.wall_time_ms ?? full.total_ms)]);
+  rows.push(["Timing scope", frame.timing_scope || performance.timing_scope || full.timing_scope || "Recorded host stage durations; frame inference may be shared by several fish. Capture-to-display latency is not measured."]);
+  rows.push(["Timing interpretation", "Frame costs are shared across fish. Grading-engine and legacy HSV durations can enclose feature work; do not sum nested stages or add repeated frame totals. A missing FPS value is not inferred from inference-only latency."]);
+  const hasTiming = [performance, frame, legacyFrame].some((group) => Object.entries(group).some(([key, value]) => key.endsWith("_ms") && typeof value === "number" && Number.isFinite(value) && value >= 0));
+  return hasTiming || Object.keys(context).length ? rows : [["Stage timings", "Unavailable: stage durations and cache activity were not recorded for this observation"], ...rows.filter(([label]) => ["Inference device", "FP16", "Hardware / precision explanation", "Upload processing speed", "Timing scope", "Timing interpretation"].includes(label))];
 }
 function bodyWidthRows(event) {
   const width = event?.analysis?.body_width || {};
   const fishGeometry = event?.analysis?.fish_geometry || {};
   const physical = fishGeometry.physical_calibration || {};
-  const measured = fishGeometry.status === "measured";
+  const sampling = fishGeometry.sampling || {};
+  const estimated = sampling.mode === "bounded_working_grid" && sampling.estimated === true;
+  const candidates = fishGeometry.candidate_measurements || {};
+  const measured = fishGeometry.status === "measured" && !estimated;
   const physicalApplied = measured && physical.validated === true && physical.status === "Applied";
   const wholeBox = pixelBox(event?.bbox || event?.analysis?.model1_detection?.bbox);
   const bodyParts = (event?.parts || []).filter((part) => (part.region || part.part) === "Body");
@@ -408,23 +707,40 @@ function bodyWidthRows(event) {
   const contributed = width.score_contributed === true ? "Yes" : width.score_contributed === false ? "No" : "Unavailable";
   const geometryReasons = Array.isArray(fishGeometry.reasons) ? fishGeometry.reasons.filter(Boolean).map((reason) => String(reason).replaceAll("_", " ")).join("; ") : "No per-fish silhouette measurement recorded";
   const geometryNumber = (value) => measured ? numberText(value) : "Unavailable";
+  const estimateText = (value) => typeof value === "number" && Number.isFinite(value) && value > 0 ? numberText(value) : "Unavailable";
+  const estimateRows = estimated && Object.keys(candidates).length ? [
+    ["Estimated fish length (px; sampled mask)", estimateText(candidates.fish_length_px)],
+    ["Estimated maximum body width (px; sampled mask)", estimateText(candidates.max_body_width_px)],
+    ["Estimated relative body width ratio", estimateText(candidates.relative_width_ratio)],
+    ["Estimate interpretation", "Native-pixel estimates from a bounded CPU foreground grid; not validated anatomical measurements. Reliability restrictions still apply. Excluded from centimeters and width grading."],
+  ] : [];
+  const samplingRows = estimated ? [
+    ["Native ROI mask grid", Array.isArray(sampling.native_shape) ? dimensions(sampling.native_shape[1], sampling.native_shape[0]) : "Unavailable"],
+    ["CPU working mask grid", Array.isArray(sampling.working_shape) ? dimensions(sampling.working_shape[1], sampling.working_shape[0]) : "Unavailable"],
+    ["Boundary sampling footprint", Array.isArray(sampling.boundary_sampling_footprint_native_px) ? `${numberText(sampling.boundary_sampling_footprint_native_px[0])} x ${numberText(sampling.boundary_sampling_footprint_native_px[1])} native pixels per working-grid pixel` : "Unavailable"],
+    ["Sampling uncertainty interpretation", sampling.uncertainty_interpretation || "Working-grid footprint is not a validated anatomical error bound"],
+  ] : [];
   const physicalRows = physicalApplied && typeof fishGeometry.fish_length_cm === "number" && Number.isFinite(fishGeometry.fish_length_cm) && typeof fishGeometry.max_body_width_cm === "number" && Number.isFinite(fishGeometry.max_body_width_cm)
     ? [["Physical length (cm)", numberText(fishGeometry.fish_length_cm)], ["Physical maximum body width (cm)", numberText(fishGeometry.max_body_width_cm)]] : [];
   return [
     ["Measured fish length (px)", geometryNumber(fishGeometry.fish_length_px)],
     ["Maximum body width (px)", geometryNumber(fishGeometry.max_body_width_px)],
     ["Relative body width ratio", geometryNumber(fishGeometry.relative_width_ratio)],
+    ...estimateRows,
+    ...samplingRows,
     ["Fish measurement status", fishGeometry.status || "unavailable"],
     ["Fish measurement reliability", [fishGeometry.reliability || "Unavailable", geometryReasons].filter(Boolean).join(": ")],
-    ["Measurement validation", fishGeometry.measurement_validated === true ? "Validated" : "Not validated for anatomical measurement or width grading"],
+    ["Measurement validation", !estimated && fishGeometry.measurement_validated === true ? "Validated" : "Not validated for anatomical measurement or width grading"],
     ["Body measurement source", fishGeometry.body_region_source === "associated_body_segmentation" ? "Associated Body segmentation" : fishGeometry.body_region_source === "associated_body_bbox_longitudinal_region" ? "Silhouette across the associated Body detection" : "Unavailable"],
     ["Fish measurement method", String(fishGeometry.method || "Unavailable").replaceAll("_", " ")],
     ["Fish orientation (degrees)", geometryNumber(fishGeometry.orientation_degrees)],
-    ["Physical calibration", [physical.status || "Not calibrated", physical.reason ? String(physical.reason).replaceAll("_", " ") : ""].filter(Boolean).join(": ")],
+    ["Measurement overlay", measured && fishGeometry.visualization?.measured === true ? "Measured axes, endpoints and silhouette boundary appear on the annotated image" : "Unavailable: no reliable measurement overlay recorded"],
+    ["Physical calibration", estimated ? "Not applied: sampled foreground boundary is not validated" : [physical.status || "Not calibrated", physical.reason ? String(physical.reason).replaceAll("_", " ") : ""].filter(Boolean).join(": ")],
     ...physicalRows,
-    ["Silhouette measurement used for grading", fishGeometry.used_for_grading === true ? "Yes" : "No"],
+    ["Silhouette measurement used for grading", !estimated && fishGeometry.used_for_grading === true ? "Yes" : "No"],
     ["Whole-fish bounding box", dimensions(width.whole_fish_width_px ?? wholeBox?.width, width.whole_fish_height_px ?? wholeBox?.height)],
     ["Body bounding box", dimensions(width.body_width_px ?? bodyBox?.width, width.body_height_px ?? bodyBox?.height)],
+    ["Bounding-box interpretation", "Axis-aligned approximations; separate from silhouette length and perpendicular body width"],
     ["Whole-fish measured ROI", dimensions(width.whole_fish_roi_width_px, width.whole_fish_roi_height_px)],
     ["Body measured ROI", dimensions(width.body_roi_width_px, width.body_roi_height_px)],
     ["Relative width proxy", numberText(width.relative_width_proxy)],
@@ -815,29 +1131,26 @@ function appendResultCard(parent, event) {
     }, expanded);
     lazyResultSection(body, "C. Image Features and Measurements", `${key}:C`, (section) => {
       appendResultTable(section, ["Region", "Status", "Bounding box", ...measurementColumns.map(([, label]) => label)], measurementRows(event));
-      section.append(Object.assign(document.createElement("p"), {className: "muted", textContent: "Color measurements are diagnostic only; rectangular ROIs can include background. Brightness uses HSV value (brightness proxy). No fish mask or calibrated cm/mm scale is available. Yellow and highlight values are not validated defect or shininess detection."}));
+      appendResultTable(section, ["Texture / mask evidence", "Recorded value"], textureEvidenceRows(event));
+      section.append(Object.assign(document.createElement("p"), {className: "muted", textContent: "Color measurements are diagnostic only; rectangular ROIs can include background. Brightness uses HSV value (brightness proxy). Mask availability is recorded above. Physical dimensions require applied, validated calibration. Yellow and highlight values are not validated defect or shininess detection."}));
     }, expanded);
     lazyResultSection(body, "D. Final Grading Explanation", `${key}:D`, (section) => {
       appendResultTable(section, ["Decision stage", "Recorded result"], finalExplanationRows(event));
       const metadata = document.createElement("details"); const heading = document.createElement("summary"); heading.textContent = "Model, source and threshold configuration"; metadata.append(heading);
-      const pre = document.createElement("pre"); pre.textContent = JSON.stringify(event, null, 2); metadata.append(pre); section.append(metadata);
+      metadata.addEventListener("toggle", () => {
+        if (!metadata.open || metadata.querySelector("pre")) return;
+        const pre = document.createElement("pre"); pre.textContent = JSON.stringify(event, null, 2); metadata.append(pre);
+      });
+      section.append(metadata);
       if (event._inspection_source !== "upload" && event._inspection_source !== "history") appendManualReviewPanel(section, event);
     }, expanded);
-    if (event.analysis?.surface_damage) {
-      lazyResultSection(body, "E. Suspected Surface Damage", `${key}:E`, (section) => {
-        const damage = event.analysis.surface_damage;
-        const locations = Array.isArray(damage.locations) ? damage.locations : [];
-        appendResultTable(section, ["Damage evidence", "Recorded value"], [
-          ["Status", damage.status || "unavailable"],
-          ["Severity", damage.severity || "none"],
-          ["Confidence", damage.confidence == null ? "Not measured" : formatPercent(Number(damage.confidence) * 100)],
-          ["Estimated length", damage.estimated_length_px == null ? "Not measured" : `${damage.estimated_length_px} px`],
-          ["Locations", locations.length ? locations.map((item) => `x${item.x}, y${item.y}, ${item.width}x${item.height}`).join("; ") : "None detected"],
-          ["Mask validation", damage.mask_validated_for_cracks === false ? "Not validated for crack classification" : "Validated"],
-        ]);
-        section.append(Object.assign(document.createElement("p"), {className: "muted", textContent: damage.reason || "This is supporting evidence only and does not change the final grade."}));
-      }, expanded);
-    }
+    lazyResultSection(body, "E. Structural Damage Evidence", `${key}:E`, (section) => {
+      appendResultTable(section, ["Damage evidence", "Recorded value"], surfaceDamageRows(event));
+      section.append(Object.assign(document.createElement("p"), {className: "muted", textContent: "Marked discontinuities in the annotated image are suspected damage. Natural scales, shadows and fins can resemble cracks. Validated Damage requires explicit validation and recorded provenance."}));
+    }, expanded);
+    lazyResultSection(body, "F. Processing and Hardware", `${key}:F`, (section) => {
+      appendResultTable(section, ["Processing diagnostic", "Recorded value"], inspectionPerformanceRows(event, resultDatasets[resultsSource].metadata));
+    }, expanded);
     details.append(body);
   };
   details.addEventListener("toggle", populate); details.open = expanded.has(`fish:${key}`); parent.append(details); populate(); return details;
@@ -858,7 +1171,6 @@ function renderResultsDashboard(history, {source = "live", complete = false, met
   elements.resultsCounts.replaceChildren();
   const countCards = [
     ["All Fish", "All", counts.All, "all"],
-    ["Graded Fish", null, counts.All - counts.Ungraded, "graded"],
     ["Class A", "Class A", counts["Class A"], "class-a"],
     ["Class B", "Class B", counts["Class B"], "class-b"],
     ["Class C", "Class C", counts["Class C"], "class-c"],
@@ -1010,7 +1322,9 @@ function flattenResultData(value, prefix = "", output = {}) {
 function resultExportRecord(event) {
   const analysis = event.analysis || {}; const geometry = analysis.geometric_support || {};
   const fishGeometry = analysis.fish_geometry || {}; const physical = fishGeometry.physical_calibration || {};
-  const measured = fishGeometry.status === "measured"; const physicalApplied = measured && physical.validated === true && physical.status === "Applied";
+  const sampling = fishGeometry.sampling || {}; const candidates = fishGeometry.candidate_measurements || {};
+  const estimated = sampling.mode === "bounded_working_grid" && sampling.estimated === true;
+  const measured = fishGeometry.status === "measured" && !estimated; const physicalApplied = measured && physical.validated === true && physical.status === "Applied";
   const measuredNumber = (value) => measured && typeof value === "number" && Number.isFinite(value) ? value : "";
   const physicalNumber = (value) => physicalApplied ? measuredNumber(value) : "";
   const width = analysis.body_width || {}; const metadata = resultDatasets[resultsSource].metadata;
@@ -1018,6 +1332,8 @@ function resultExportRecord(event) {
   event = timestamp && !event.timestamp ? {...event, timestamp} : event;
   const calibration = width.calibration_status || (width.score_status === "Calibrated" ? "Calibrated" : "Not calibrated");
   const points = geometry.class_c_points ?? width.class_c_supporting_points;
+  const {damage, validated: damageValidated, suspected: damageSuspected, state: damageState} = surfaceDamageEvidence(event);
+  const texture = analysis.supporting_image_measurements?.texture || {};
   const record = {
     "Fish ID": event.fish_label || `Fish #${event.track_id ?? event.id ?? event.fish_id ?? "?"}`,
     "Unique identity": resultIdentity(event, resultDatasets[resultsSource].scope),
@@ -1045,23 +1361,49 @@ function resultExportRecord(event) {
     "Fish measurement reliability reasons": Array.isArray(fishGeometry.reasons) ? fishGeometry.reasons.join("; ") : "No per-fish silhouette measurement recorded",
     "Fish measurement method": fishGeometry.method || "Unavailable",
     "Fish orientation (degrees)": measuredNumber(fishGeometry.orientation_degrees),
-    "Measurement validation": fishGeometry.measurement_validated === true ? "Validated" : "Not validated",
-    "Silhouette measurement used for grading": fishGeometry.used_for_grading === true,
+    "Measurement validation": !estimated && fishGeometry.measurement_validated === true ? "Validated" : "Not validated",
+    "Silhouette measurement used for grading": !estimated && fishGeometry.used_for_grading === true,
     "Physical length (cm)": physicalNumber(fishGeometry.fish_length_cm),
     "Physical maximum body width (cm)": physicalNumber(fishGeometry.max_body_width_cm),
-    "Physical calibration status": physical.status || "Not calibrated",
+    "Physical calibration status": estimated ? "Not applied: sampled foreground boundary is not validated" : physical.status || "Not calibrated",
     "Physical calibration": JSON.stringify(physical),
     "Fish Geometry Analysis": JSON.stringify(fishGeometry),
     "Body Width Threshold Configuration": JSON.stringify(analysis.body_width?.threshold_configuration || {}),
     "Source metadata": JSON.stringify(resultDatasets[resultsSource].metadata),
     "Complete fish event": JSON.stringify(event),
+    "Structural damage evidence state": damageState,
+    "Structural damage validation status": damageValidated ? "validated" : "unvalidated",
+    "Structural damage confidence interpretation": damage.confidence_kind || "Unvalidated heuristic; not a damage probability",
+    "Structural damage evidence explanation": damage.reason || "Structural damage evidence was not recorded for this observation.",
+    "Complete Structural Damage Evidence": JSON.stringify(damage),
+    "Structural discontinuity support extent (px)": damageValidated || damageSuspected ? damage.estimated_length_px ?? "" : "",
+    "Structural length interpretation": damage.length_method || "Unvalidated image extent",
+    "Structural location coordinate space": damage.coordinate_space || "Unavailable: coordinate provenance not recorded",
+    "Texture analysis status": texture.status || "unavailable",
+    "Texture unavailability explanation": texture.missing_value_reason || (texture.status === "measured" ? "" : "Texture analysis was not recorded for this observation"),
+    "Complete Texture Evidence": JSON.stringify(texture),
+    "Foreground Segmentation Evidence": JSON.stringify(analysis.fish_mask || {}),
+    "Frame Mask Reuse Diagnostics": JSON.stringify(analysis.mask_context || {}),
+    "Inspection Stage Performance": JSON.stringify(analysis.performance || {}),
+    "Inspection Compute Configuration": JSON.stringify(analysis.performance?.compute_report || {}),
   };
-  return {...record, ...flattenResultData(event, "record")};
+  const estimatedNumber = (value) => estimated && typeof value === "number" && Number.isFinite(value) && value > 0 ? value : "";
+  return {...record, ...flattenResultData(event, "record"),
+    "Estimated fish length (px; sampled mask)": estimatedNumber(candidates.fish_length_px),
+    "Estimated maximum body width (px; sampled mask)": estimatedNumber(candidates.max_body_width_px),
+    "Estimated relative body width ratio": estimatedNumber(candidates.relative_width_ratio),
+    "Estimated geometry interpretation": estimated ? "Native-pixel estimate from a sampled CPU mask; not validated for anatomical measurement, centimeters, or width grading" : "",
+    "Geometry sampling and uncertainty": sampling.mode ? JSON.stringify(sampling) : "",
+    "Shared Frame Stage Performance": JSON.stringify(analysis.frame_performance || {}),
+    "Process GPU Memory": JSON.stringify(analysis.frame_performance?.gpu_memory || {}),
+  };
 }
 async function exportResultsCsv() {
   if (!selectedResultEvents().every(hasCompleteInspectionAnalysis) && !await ensureNormalizedResultsForExport()) return;
   const records = selectedResultEvents().map(resultExportRecord);
-  const headers = [...new Set(records.flatMap((record) => Object.keys(record)))];
+  const appendedFields = ["Estimated fish length (px; sampled mask)", "Estimated maximum body width (px; sampled mask)", "Estimated relative body width ratio", "Estimated geometry interpretation", "Geometry sampling and uncertainty", "Shared Frame Stage Performance", "Process GPU Memory"];
+  const allHeaders = [...new Set(records.flatMap((record) => Object.keys(record)))];
+  const headers = [...allHeaders.filter((name) => !appendedFields.includes(name)), ...appendedFields.filter((name) => allHeaders.includes(name))];
   if (!headers.length) headers.push("Fish ID", "Final classification", "Complete fish event");
   const csvEscape = (value) => {
     let text = String(value ?? "");
@@ -1086,7 +1428,9 @@ function resultReportHtml(rows = selectedResultEvents()) {
     }).join("");
     const detections = (event.parts || []).map((part) => [part.source_class_name || "Not recorded", part.region || part.part, part.grade, part.confidence ?? part.evidence_score, JSON.stringify(part.bbox || null)]);
     const gradingConfig = {...analysis.grading_config}; delete gradingConfig.body_width;
-    return `<article><h3>${htmlEscape(event.fish_label || `Fish #${event.track_id ?? event.id ?? "?"}`)} · ${htmlEscape(resultGrade(event))} · Final support ${htmlEscape(scoreText(weightedFinalSupport(event)))}</h3><h4>A. Grading Evidence</h4>${table(["Evidence", "Value"], resultEvidenceRows(event))}${table(["Class", "Original weighted support", "Final combined support"], scores)}${detections.length ? table(["Model 2 label", "Region", "Class", "Confidence (0–1)", "Original bbox (px)"], detections) : "<p>Model 2 detections: Not Detected</p>"}<h4>B. Body Width and Geometric Analysis</h4>${table(["Measurement", "Value"], bodyWidthRows(event))}<h4>C. Image Features and Measurements</h4>${measurements}<h4>D. Final Grading Explanation</h4>${table(["Decision stage", "Result"], finalExplanationRows(event))}<h4>Model, source and threshold configuration</h4>${jsonTable({session_id: event.session_id || null, timestamp: recordedResultTimestamp(event, resultDatasets[resultsSource].metadata) || null, inspection_source: analysis.inspection_source || {}, traceability: analysis.traceability || {}, grading_config: gradingConfig, width_threshold_configuration: analysis.body_width?.threshold_configuration || {}})}</article>`;
+    const {damage, validated, state: damageState} = surfaceDamageEvidence(event); const texture = analysis.supporting_image_measurements?.texture || {};
+    const damageRows = [["Evidence state", damageState], ["Validation", validated ? "Validated with recorded provenance" : "Not validated for crack classification"], ["Confidence interpretation", damage.confidence_kind || "Unvalidated heuristic; not a damage probability"], ["Explanation", damage.reason || "Structural damage evidence was not recorded for this observation."], ["Recorded structural evidence", JSON.stringify(damage)]];
+    return `<article><h3>${htmlEscape(event.fish_label || `Fish #${event.track_id ?? event.id ?? "?"}`)} · ${htmlEscape(resultGrade(event))} · Final support ${htmlEscape(scoreText(weightedFinalSupport(event)))}</h3><h4>A. Grading Evidence</h4>${table(["Evidence", "Value"], resultEvidenceRows(event))}${table(["Class", "Original weighted support", "Final combined support"], scores)}${detections.length ? table(["Model 2 label", "Region", "Class", "Confidence (0–1)", "Original bbox (px)"], detections) : "<p>Model 2 detections: Not Detected</p>"}<h4>B. Body Width and Geometric Analysis</h4>${table(["Measurement", "Value"], bodyWidthRows(event))}<h4>C. Image Features and Measurements</h4>${measurements}${table(["Texture evidence", "Value"], [["Status", texture.status || "unavailable"], ["Unavailable reason", texture.missing_value_reason || (texture.status === "measured" ? "" : "Texture analysis was not recorded")], ["Recorded texture evidence", JSON.stringify(texture)]])}<h4>D. Final Grading Explanation</h4>${table(["Decision stage", "Result"], finalExplanationRows(event))}<h4>E. Structural Damage Evidence</h4>${table(["Damage evidence", "Value"], damageRows)}<h4>F. Processing and Hardware</h4><p>Fish-observation timings and shared frame costs have separate scopes. Grading can enclose color and texture work; do not sum nested stages or repeated frame totals. GPU memory is a recorded process observation, not this fish's allocation. CUDA model inference does not imply GPU GrabCut.</p>${jsonTable({fish_observation_performance: analysis.performance || {}, shared_frame_performance: analysis.frame_performance || {}, fish_mask: analysis.fish_mask || {}, mask_context_snapshot: analysis.mask_context || {}})}<h4>Model, source and threshold configuration</h4>${jsonTable({session_id: event.session_id || null, timestamp: recordedResultTimestamp(event, resultDatasets[resultsSource].metadata) || null, inspection_source: analysis.inspection_source || {}, traceability: analysis.traceability || {}, grading_config: gradingConfig, width_threshold_configuration: analysis.body_width?.threshold_configuration || {}})}</article>`;
   }).join("")}</section>`).join("");
   const metadata = resultDatasets[resultsSource].metadata;
   const dates = rows.map((event) => recordedResultTimestamp(event, metadata)).filter(Boolean).sort();
@@ -1278,7 +1622,7 @@ function renderModel(data) {
     : "Model 1 locates and tracks fish. Model 2 supplies head, body, and tail evidence for grading.";
   elements.detectorModelName.closest(".model-card").querySelector(".eyebrow").textContent = preview ? "RESEARCH · PART MODEL" : "MODEL 1 · FISH DETECTION";
   const detector = data.model_info?.detector || {}; const segmenter = data.model_info?.quality || {}; const diagnostic = segmenter.diagnostics || {};
-  elements.detectorModelName.textContent = detector.name || "Fish detector"; elements.detectorModelStatus.textContent = titleCase(detector.status); elements.detectorCheckpoint.textContent = detector.checkpoint_resolved ? "Resolved" : "Unresolved"; elements.detectorDevice.textContent = detector.device || "—"; elements.detectorThreshold.textContent = formatPercent(Number(detector.confidence_threshold) * 100);
+  elements.detectorModelName.textContent = detector.name || "Model 1 V2 — YOLO26s Fish Detector"; elements.detectorModelStatus.textContent = titleCase(detector.status); elements.detectorCheckpoint.textContent = detector.checkpoint || (detector.checkpoint_resolved ? "Resolved" : "Unresolved"); elements.detectorDevice.textContent = detector.device || "—"; elements.detectorThreshold.textContent = formatPercent(Number(detector.confidence_threshold) * 100);
   syncModelSelector(data);
   elements.segmenterModelName.textContent = segmenter.name || "Quality Model"; elements.segmenterModelStatus.textContent = titleCase(segmenter.status); elements.segmenterCheckpoint.textContent = segmenter.checkpoint_resolved ? "Resolved" : "Unresolved"; elements.segmenterDevice.textContent = segmenter.device || "—"; elements.segmenterInference.textContent = diagnostic.last_inference_ms == null ? "No measurement" : `${diagnostic.last_inference_ms} ms`;
 }
@@ -1305,7 +1649,8 @@ function renderRuntimeDiagnostics(data) {
     diagnosticsRow("Camera", measured(data.camera_status)),
     diagnosticsRow("Model 1 / device", `${measured(data.model_info?.detector?.name)} / ${measured(data.model_info?.detector?.device)}`),
     diagnosticsRow("Model 2 / device", `${measured(data.model_info?.quality?.name)} / ${measured(data.model_info?.quality?.device)}`),
-    diagnosticsRow("CUDA / FP16", `${data.device_report?.pytorch_cuda_available ? "available" : "CPU fallback"} / ${data.device_report?.model1_compute?.fp16_enabled || data.device_report?.model2_compute?.fp16_enabled ? "enabled" : "off"}`),
+    diagnosticsRow("CUDA / FP16", data.device_report ? `${data.device_report.pytorch_cuda_available ? "available" : "CPU fallback: PyTorch reports no CUDA device"} / ${data.device_report.model1_compute?.fp16_enabled || data.device_report.model2_compute?.fp16_enabled ? "enabled" : "off"}` : "Unavailable: hardware probe was not recorded"),
+    diagnosticsRow("Compute fallback explanation", [data.device_report?.model1_compute?.fallback_reason, data.device_report?.model2_compute?.fallback_reason].filter(Boolean).join("; ") || (data.device_report ? "No fallback reason recorded" : "Hardware report unavailable")),
     diagnosticsRow("Capture FPS", rate(performance.calls_per_second?.camera_capture)),
     diagnosticsRow("AI processing FPS", rate(performance.processing_fps ?? performance.calls_per_second?.processed_frame)),
     diagnosticsRow("This browser's MJPEG image-load FPS", browserPreviewImageLoadText()),
@@ -1909,11 +2254,52 @@ function updateUploadControls() {
   elements.analyze.disabled = !canAnalyze;
   elements.selectUpload.disabled = uploadInFlight;
   elements.uploadInput.disabled = uploadInFlight;
-  elements.closeUpload.disabled = uploadInFlight;
+  elements.closeUpload.disabled = false;
   elements.uploadMode.disabled = uploadInFlight;
   elements.uploadWorkspace.setAttribute("aria-busy", String(uploadInFlight));
   elements.uploadProgress.classList.toggle("hidden", !uploadInFlight);
   elements.uploadProgress.setAttribute("aria-hidden", String(!uploadInFlight));
+}
+function stopUploadTimer() {
+  if (uploadTimer) { clearInterval(uploadTimer); uploadTimer = null; }
+  uploadStartedAt = 0;
+}
+function uploadElapsedSeconds() {
+  return uploadStartedAt ? (performance.now() - uploadStartedAt) / 1000 : 0;
+}
+function updateUploadTimer(prefix = "Analyzing") {
+  if (!uploadStartedAt) return;
+  elements.uploadStatus.textContent = `${prefix}... ${uploadElapsedSeconds().toFixed(1)}s`;
+}
+function startUploadTimer() {
+  stopUploadTimer();
+  uploadStartedAt = performance.now();
+  updateUploadTimer();
+  uploadTimer = setInterval(() => {
+    if (uploadInFlight) updateUploadTimer();
+  }, 100);
+}
+function clearUploadAnalysisState() {
+  uploadRequestVersion += 1;
+  uploadController?.abort();
+  uploadController = null;
+  uploadInFlight = false;
+  stopUploadTimer();
+  resultDatasets.upload = {scope: "", rows: [], metadata: {}};
+  if (resultsSource === "upload") {
+    resultsSource = "live";
+    resultsFilter = "All";
+  }
+  elements.uploadResults.classList.add("hidden");
+  elements.uploadFishTargets.replaceChildren();
+  elements.uploadImage.removeAttribute("src");
+  elements.uploadVideo.pause();
+  elements.uploadVideo.removeAttribute("src");
+  elements.uploadVideo.load();
+  elements.uploadImage.classList.add("hidden");
+  elements.uploadVideo.classList.add("hidden");
+  recentHistoryKey = null;
+  mountResultsDashboard(false);
 }
 function isVideoUpload(file) { return Boolean(file && (file.type.startsWith("video/") || /\.(mp4|mov|webm)$/i.test(file.name))); }
 function revokeUploadPreview() {
@@ -1927,6 +2313,7 @@ function revokeUploadPreview() {
 }
 function resetUploadWorkspace() {
   uploadSelectionVersion += 1;
+  clearUploadAnalysisState();
   selectedUpload = null;
   elements.uploadInput.value = "";
   elements.uploadStatus.textContent = "";
@@ -1935,6 +2322,8 @@ function resetUploadWorkspace() {
   elements.uploadProgress.setAttribute("aria-hidden", "true");
   mountResultsDashboard(false);
   revokeUploadPreview();
+  uploadAnnotatedSource = null;
+  elements.uploadFishTargets.replaceChildren();
   elements.uploadImage.removeAttribute("src");
   elements.uploadImage.alt = "Selected or annotated fish photo";
   elements.uploadImage.classList.add("hidden");
@@ -1943,7 +2332,10 @@ function resetUploadWorkspace() {
 }
 function setUploadSelection(file) {
   const selectionVersion = ++uploadSelectionVersion;
+  clearUploadAnalysisState();
   selectedUpload = file || null;
+  uploadAnnotatedSource = null;
+  elements.uploadFishTargets.replaceChildren();
   elements.uploadResults.classList.add("hidden");
   mountResultsDashboard(false);
   if (!selectedUpload) {
@@ -1974,7 +2366,10 @@ function setUploadSelection(file) {
   updateUploadControls();
 }
 function toggleUpload(show) {
-  if (!show && uploadInFlight) return;
+  if (!show && uploadInFlight) {
+    uploadController?.abort();
+    clearUploadAnalysisState();
+  }
   elements.uploadMode.setAttribute("aria-expanded", String(show));
   elements.uploadMode.textContent = show ? "Close media analysis" : "Analyze Media";
   if (show) {
@@ -2017,14 +2412,42 @@ elements.uploadMode.addEventListener("click", () => toggleUpload(elements.upload
 elements.closeUpload.addEventListener("click", () => toggleUpload(false));
 elements.selectUpload.addEventListener("click", () => { if (!uploadInFlight) elements.uploadInput.click(); });
 elements.uploadInput.addEventListener("change", () => setUploadSelection(elements.uploadInput.files?.[0] || null));
+elements.uploadImage.addEventListener("load", () => renderFishClickTargets("upload", resultDatasets.upload.rows));
+elements.video.addEventListener("load", () => renderFishClickTargets("live", Array.isArray(latestStatus?.active_tracks) ? latestStatus.active_tracks : []));
+elements.fishZoomClose.addEventListener("click", closeFishZoom);
+elements.fishZoomModal.querySelector("[data-fish-zoom-close]").addEventListener("click", closeFishZoom);
+elements.fishZoomIn.addEventListener("click", () => { fishZoom.scale = Math.min(6, fishZoom.scale * 1.25); renderFishZoom(); });
+elements.fishZoomOut.addEventListener("click", () => { fishZoom.scale = Math.max(.5, fishZoom.scale / 1.25); renderFishZoom(); });
+elements.fishZoomReset.addEventListener("click", () => { if (fishZoom.detection) selectFishZoom(fishZoom.detection); });
+[elements.fishZoomOriginal, elements.fishZoomAnnotations, elements.fishZoomMask, elements.fishZoomCracks].forEach((toggle) => toggle.addEventListener("change", renderFishZoom));
+elements.fishZoomViewport.addEventListener("wheel", (event) => { event.preventDefault(); fishZoom.scale = Math.max(.5, Math.min(6, fishZoom.scale * (event.deltaY < 0 ? 1.1 : .9))); renderFishZoom(); }, {passive: false});
+elements.fishZoomViewport.addEventListener("pointerdown", (event) => { fishZoom.dragging = true; fishZoom.lastX = event.clientX; fishZoom.lastY = event.clientY; elements.fishZoomViewport.classList.add("is-dragging"); elements.fishZoomViewport.setPointerCapture(event.pointerId); });
+elements.fishZoomViewport.addEventListener("pointermove", (event) => { if (!fishZoom.dragging) return; fishZoom.panX += event.clientX - fishZoom.lastX; fishZoom.panY += event.clientY - fishZoom.lastY; fishZoom.lastX = event.clientX; fishZoom.lastY = event.clientY; renderFishZoom(); });
+elements.fishZoomViewport.addEventListener("pointerup", (event) => { fishZoom.dragging = false; elements.fishZoomViewport.classList.remove("is-dragging"); elements.fishZoomViewport.releasePointerCapture(event.pointerId); });
+elements.fishZoomViewport.addEventListener("pointercancel", () => { fishZoom.dragging = false; elements.fishZoomViewport.classList.remove("is-dragging"); });
+elements.fishZoomModal.addEventListener("keydown", (event) => { if (event.key === "Escape") closeFishZoom(); });
+function playAnnotatedVideoFrames(frames, filename) {
+  let frameIndex = 0;
+  elements.uploadImage.src = frames[0];
+  uploadAnnotatedSource = frames[0];
+  elements.uploadImage.alt = `Annotated video analysis result: ${filename}`;
+  elements.uploadImage.classList.remove("hidden");
+  uploadFrameTimer = setInterval(() => {
+    if (document.hidden || elements.uploadWorkspace.classList.contains("hidden")) return;
+    frameIndex = (frameIndex + 1) % frames.length;
+    elements.uploadImage.src = frames[frameIndex];
+    uploadAnnotatedSource = frames[frameIndex];
+    renderFishClickTargets("upload", resultDatasets.upload.rows);
+  }, 120);
+}
 async function waitForVideoAnalysis(jobId, requestVersion, upload) {
   while (requestVersion === uploadRequestVersion && upload === selectedUpload) {
-    const response = await fetch(`/api/analyze-video/${encodeURIComponent(jobId)}`);
+    const response = await fetch(`/api/analyze-video/${encodeURIComponent(jobId)}`, {signal: uploadController?.signal});
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.detail || `HTTP ${response.status}`);
-    elements.uploadStatus.textContent = payload.status === "complete"
-      ? "Video analysis complete"
-      : `Processing video: ${payload.progress || 0}% (${payload.processed_frames || 0} frames)`;
+    if (payload.status !== "complete") {
+      updateUploadTimer(`Processing video: ${payload.progress || 0}% (${payload.processed_frames || 0} frames)`);
+    }
     if (payload.status === "error") throw new Error(payload.error || "Video analysis failed.");
     if (payload.status === "complete") return payload.result;
     await new Promise((resolve) => setTimeout(resolve, 450));
@@ -2035,16 +2458,20 @@ elements.analyze.addEventListener("click", async () => {
   if (!selectedUpload || uploadInFlight) return;
   const upload = selectedUpload;
   const requestVersion = ++uploadRequestVersion;
+  uploadController?.abort();
+  uploadController = new AbortController();
   uploadInFlight = true;
+  startUploadTimer();
   elements.analyze.classList.add("is-analyzing");
   const videoUpload = isVideoUpload(upload);
-  elements.uploadStatus.textContent = videoUpload ? "Uploading video" : "";
+  updateUploadTimer(videoUpload ? "Uploading video" : "Analyzing");
   updateUploadControls();
   try {
     const response = await fetch(videoUpload ? "/api/analyze-video" : "/api/analyze-image", {
       method: "POST",
       headers: { "Content-Type": upload.type || "application/octet-stream", "X-Filename": upload.name },
       body: upload,
+      signal: uploadController.signal,
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.detail || `HTTP ${response.status}`);
@@ -2055,20 +2482,14 @@ elements.analyze.addEventListener("click", async () => {
     const isPartPreview = analysis.analysis_mode === "part_preview";
     revokeUploadPreview();
     if (isVideo && Array.isArray(analysis.annotated_frames) && analysis.annotated_frames.length) {
-      let frameIndex = 0;
-      elements.uploadImage.src = analysis.annotated_frames[0];
-      elements.uploadImage.alt = `Annotated video analysis result: ${upload.name}`;
-      elements.uploadImage.classList.remove("hidden");
-      uploadFrameTimer = setInterval(() => {
-        frameIndex = (frameIndex + 1) % analysis.annotated_frames.length;
-        elements.uploadImage.src = analysis.annotated_frames[frameIndex];
-      }, 120);
+      playAnnotatedVideoFrames(analysis.annotated_frames, upload.name);
     } else {
       elements.uploadImage.src = analysis.annotated_image;
+      uploadAnnotatedSource = analysis.annotated_image;
       elements.uploadImage.alt = `Annotated analysis result: ${upload.name}`;
       elements.uploadImage.classList.remove("hidden");
     }
-    const resultMetadata = {source_name: upload.name, analyzed_at: analysis.analyzed_at || analysis.source_metadata?.analyzed_at || "", analysis_mode: analysis.analysis_mode || "whole_fish", model_info: latestStatus?.model_info};
+    const resultMetadata = {source_name: upload.name, analyzed_at: analysis.analyzed_at || analysis.source_metadata?.analyzed_at || "", analysis_mode: analysis.analysis_mode || "whole_fish", model_info: latestStatus?.model_info, performance: analysis.performance || analysis.source_metadata?.performance || {}};
     let fish = isPartPreview ? [] : analysis.fish;
     let normalizationError = null;
     if (!isPartPreview) {
@@ -2077,16 +2498,25 @@ elements.analyze.addEventListener("click", async () => {
     }
     if (requestVersion !== uploadRequestVersion || upload !== selectedUpload) return;
     renderResultsDashboard(fish, {source: "upload", complete: true, scope: `upload:${requestVersion}`, metadata: {...resultMetadata, normalization_error: normalizationError}});
+    renderFishClickTargets("upload", fish);
     elements.resultsSource.querySelector('option[value="upload"]').disabled = false;
     resultsFilter = "All"; selectResultsSource("upload"); mountResultsDashboard(true);
     elements.uploadResults.classList.remove("hidden");
-    elements.uploadStatus.textContent = normalizationError || (isPartPreview ? `Part preview: ${analysis.parts_detected || 0} parts; individual fish grading is unavailable.` : "");
+    const elapsed = uploadElapsedSeconds();
+    elements.uploadStatus.textContent = normalizationError || (isPartPreview ? `Part preview: ${analysis.parts_detected || 0} parts; individual fish grading is unavailable.` : `Analysis completed in ${elapsed.toFixed(1)}s`);
   } catch (error) {
     if (requestVersion !== uploadRequestVersion) return;
-    elements.uploadStatus.textContent = error instanceof Error ? error.message : `${videoUpload ? "Video" : "Image"} analysis failed.`;
+    const elapsed = uploadElapsedSeconds();
+    if (error?.name === "AbortError") {
+      elements.uploadStatus.textContent = `Analysis canceled after ${elapsed.toFixed(1)}s`;
+    } else {
+      elements.uploadStatus.textContent = `${error instanceof Error ? error.message : `${videoUpload ? "Video" : "Image"} analysis failed.`} (${elapsed.toFixed(1)}s)`;
+    }
   } finally {
     if (requestVersion !== uploadRequestVersion) return;
     uploadInFlight = false;
+    uploadController = null;
+    stopUploadTimer();
     elements.analyze.textContent = "Run analysis";
     elements.analyze.classList.remove("is-analyzing");
     updateUploadControls();

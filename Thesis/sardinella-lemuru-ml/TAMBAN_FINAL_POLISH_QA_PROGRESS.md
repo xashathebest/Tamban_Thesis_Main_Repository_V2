@@ -123,3 +123,24 @@ Inspected the existing default-disabled read-only library, empty schema template
 ## Final regression after phase 21
 
 `python -B tests/run_model_free_isolated.py`: 588 passed, 6 skipped, 92 subtests, 7 warnings in 19.53 seconds (`qa/final/21_final_model_free.log`). Final headless navigation/state smoke passed at all four selected widths (`qa/final/21_final_browser.log`), as did JavaScript syntax and the scoped whitespace check (one line-ending notice). The six release-report artifacts exist and their local Markdown links resolve. The final decision remains **NOT READY**; the post-phase-18 checks do not resolve phase 11, target-hardware validation or independent science.
+
+## Independent fixbody runtime repair
+
+The separate user-requested `fixbody.md` audit is documented in
+[docs/fixbody_audit.md](docs/fixbody_audit.md). Its frozen baseline, controlled
+software and actual-checkpoint CUDA comparisons, seven-record replay, browser
+checks, and final regression evidence are under `results/qa/fixbody/`.
+Shared masks, original-frame overlays, conservative damage evidence, lazy
+diagnostic rendering, and bounded video jobs preserve the existing weighted
+grading and checkpoints. Retraining notebooks were ignored.
+
+The continuation isolates optional mask errors from weighted grading, rejects
+malformed damage localization in UI/CSV/XLSX/PDF interpretation, and repairs all
+eleven stale tests with actual registry/renderer contracts. Final regression:
+1,199 passed, 12 skipped, zero failures, and 127 subtests. Raw records and original
+seven-fish grading are preserved.
+
+Software validation does not establish real-fish dimensional accuracy, crack
+accuracy, calibrated width grades, representative live-camera throughput, or
+expert policy approval. Phase 11 and the final NOT READY decision remain
+unchanged.

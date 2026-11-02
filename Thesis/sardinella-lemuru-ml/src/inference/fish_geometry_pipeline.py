@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import replace
-import math
 from typing import Mapping, Sequence
 
 import numpy as np
@@ -12,7 +11,10 @@ from src.inference.fish_geometry import (
     FishGeometryConfig, PhysicalCalibration, measure_fish_geometry,
 )
 from src.inference.part_types import PartDetection
-from src.inference.preprocessing import CropBounds, crop_fish, generate_runtime_fish_mask
+from src.inference.preprocessing import (
+    CropBounds, RuntimeMaskContext, generate_runtime_fish_mask,
+    measurement_crop_bounds, measurement_roi_padding, RuntimeMaskSettings,
+)
 
 
 def analyze_fish_geometry(
@@ -21,14 +23,16 @@ def analyze_fish_geometry(
     overlapping: bool = False, association_reliable: bool = False,
     fish_mask: np.ndarray | None = None, fish_mask_metadata: Mapping | None = None,
     measurement_frame: np.ndarray | None = None,
+    mask_context: RuntimeMaskContext | None = None, parent_id: int | str | None = None,
     config: FishGeometryConfig | None = None,
     physical_calibration: PhysicalCalibration | None = None, source_context=None,
 ) -> dict:
     """Use a provided instance mask or segment a padded original-frame ROI.
 
     The separate measurement ROI never replaces the image, parts, or mask used
-    by the existing grading engine. No resizing or pixel-unit conversion occurs
-    here. Runtime foreground masks remain anatomically unvalidated.
+    by the existing grading engine. Masks retain native output dimensions;
+    bounded working grids retain explicit estimated-boundary provenance.
+    Validated physical calibration requests native segmentation explicitly.
     """
     metadata = dict(fish_mask_metadata or {})
     parent_context = {key: metadata[key] for key in (
@@ -39,6 +43,18 @@ def analyze_fish_geometry(
     measurement_bounds = crop_bounds
     source = str(metadata.get("source", ""))
     provided_instance = mask is not None and bool(source) and not source.startswith("runtime_")
+    native_required = (
+        physical_calibration.validated if isinstance(physical_calibration, PhysicalCalibration)
+        else isinstance(physical_calibration, Mapping) and physical_calibration.get("validated") is True
+    )
+    native_settings = RuntimeMaskSettings.native() if native_required else None
+
+    def segment(image, bounds=None):
+        if mask_context is not None and parent_id is not None and bounds is not None and mask_context.is_for_frame(measurement_frame):
+            return (mask_context.get(parent_id, bounds, settings=native_settings)
+                    if native_settings is not None else mask_context.get(parent_id, bounds))
+        return (generate_runtime_fish_mask(image, settings=native_settings)
+                if native_settings is not None else generate_runtime_fish_mask(image))
     frame_matches = (
         isinstance(measurement_frame, np.ndarray) and measurement_frame.ndim == 3
         and measurement_frame.shape[2] == 3 and measurement_frame.dtype == np.uint8
@@ -50,11 +66,13 @@ def analyze_fish_geometry(
         # Known overlap is already decisive; preserve a supplied mask but avoid
         # spending another segmentation on an unresolvable overlapping ROI.
         if not overlapping:
-            padding = max(8, int(math.ceil(.06 * max(
-                parent_bbox[2] - parent_bbox[0], parent_bbox[3] - parent_bbox[1],
-            ))))
-            measurement_crop, measurement_bounds = crop_fish(measurement_frame, parent_bbox, padding=padding)
-            mask, metadata = generate_runtime_fish_mask(measurement_crop)
+            padding = measurement_roi_padding(parent_bbox)
+            measurement_bounds = measurement_crop_bounds(measurement_frame, parent_bbox)
+            measurement_crop = measurement_frame[
+                measurement_bounds.y1:measurement_bounds.y2,
+                measurement_bounds.x1:measurement_bounds.x2,
+            ]
+            mask, metadata = segment(measurement_crop, measurement_bounds)
             original_x, original_y = (
                 crop_bounds.origin if isinstance(crop_bounds, CropBounds) else crop_bounds[:2]
             )
@@ -67,7 +85,10 @@ def analyze_fish_geometry(
             ) for part in parts]
             metadata = {**metadata, "measurement_padding_px": padding, "dedicated_measurement_crop": True}
     elif mask is None:
-        mask, metadata = generate_runtime_fish_mask(crop)
+        mask, metadata = segment(crop, crop_bounds)
+    elif (native_required and not provided_instance and isinstance(metadata.get("sampling"), Mapping)
+          and metadata["sampling"].get("estimated") is True):
+        mask, metadata = segment(crop, crop_bounds)
     elif not source:
         metadata.update(source="provided_instance_mask_unverified", measurement_validated=False)
     metadata.update(parent_context)

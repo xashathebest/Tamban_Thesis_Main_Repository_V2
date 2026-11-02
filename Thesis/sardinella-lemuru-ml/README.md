@@ -42,7 +42,8 @@ Inspection event (Class A/B/C/Rejected/Ungraded)
 
 | Role | File | SHA-256 (first 16 hex) |
 |------|------|------------------------|
-| Model 1 — fish detector | models/fish_detector/weights/model1_fish_parent_detector.pt | 87498c748ceceb6a |
+| Model 1 V2 — YOLO26s Fish Detector | models/fish_detector/weights/model1_v2_yolo26s_best.pt | c79f597c2ed51b4 |
+| Model 1 V1 rollback backup | models/fish_detector/weights/model1_v1_backup.pt | 87498c748ceceb6a |
 | Model 2 (YOLO26m, default and current selection) | models/yolov26/model2_tamban_yolo26m_partdet_r03_devbest.pt | f74cd336b6ba9274 |
 | Alternative Model 2 | models/fish_quality/weights/last.pt | 9b5e48ae228705ae |
 | Part-preview seg. | models/yolo_parts/yolo26n_seg_exp4/weights/exp-4.pt | c29bef8666967c89 |
@@ -98,7 +99,10 @@ remaining validation gates, see [the UI/FPS handoff](docs/ui_fps_handoff.md).
 |----------|---------|-------------|
 | FISH_DETECTOR_MODEL_PATH | auto | Override Model 1 checkpoint path |
 | FISH_QUALITY_MODEL_PATH | auto | Override Model 2 checkpoint path |
-| FISH_DETECTION_CONFIDENCE | 0.5 | Model 1 confidence threshold |
+| FISH_DETECTION_CONFIDENCE | 0.5 | Model 1 confidence threshold for detection and Model 2 association |
+| FISH_COUNTING_CONFIDENCE | 0.7 | Minimum Model 1 confidence required at the virtual count line |
+| FISH_DETECTOR_IOU | 0.70 | Model 1 non-maximum-suppression IoU threshold |
+| FISH_DETECTOR_MAX_DETECTIONS | 132 | Maximum Model 1 detections per frame |
 | FISH_QUALITY_CONFIDENCE | 0.25 | Model 2 part evidence threshold |
 | FISH_QUALITY_INTERVAL | 3 | Run Model 2 every N processed frames |
 | FISH_QUALITY_INFERENCE_MODE | full_frame | Live whole-fish inspection always uses `full_frame` association. A stale `crop` request is safely promoted to `full_frame`; crop mode is retained only for isolated tooling/part-preview paths. |
@@ -387,3 +391,31 @@ configuration is marked unavailable.
 To keep operator-entered text from being interpreted as a spreadsheet formula,
 CSV values with formula-like prefixes receive a leading apostrophe. Excel exports
 store formula-like text as literal strings; saved inspection records are unchanged.
+
+## Runtime geometry and structural diagnostics
+
+See [the fixbody audit](docs/fixbody_audit.md) for the shared per-frame mask
+pipeline, native-pixel overlays, benchmark evidence, exact changed files, and
+remaining measurement and crack-validation requirements. Models, checkpoints,
+confidence thresholds, and weighted grading remain unchanged. Width and crack
+diagnostics do not change grades; pixel-to-centimeter conversion still requires
+validated physical calibration.
+
+Optional foreground-processing failures are recorded as unavailable diagnostics
+and cannot suppress weighted grading. Damage evidence requires usable finite
+pixel coordinates; malformed locations or blank validation provenance cannot
+produce a validated label. Raw records remain available for review. The final
+software regression is 1,199 passed, 12 skipped, and zero failures.
+
+The existing project environment supports CUDA. Production uses FP32 until a
+representative, model-specific FP16 numerical comparison is accepted; CUDA
+availability alone is insufficient. API `device_report` includes the selected
+device and `precision_status`/`fp16_reason`. No new dependency or training is
+required. Start the existing backend from this directory with
+`.venv\Scripts\python.exe -B -m src.api`.
+
+Uploaded video jobs are bounded by `FISH_VIDEO_MAX_ACTIVE_JOBS` (default 2),
+`FISH_VIDEO_MAX_COMPLETED_JOBS` (default 4), and
+`FISH_VIDEO_JOB_TTL_SECONDS` (default 1800). Excess active uploads receive HTTP
+429. Terminal jobs expire lazily; active jobs are preserved. These settings do
+not reduce the existing frame sampling or annotation limits.

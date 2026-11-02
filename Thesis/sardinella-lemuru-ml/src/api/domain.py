@@ -105,6 +105,7 @@ class TrackingConfig:
     track_timeout: float = 1.5
     history_limit: int = 25
     evidence_limit: int = 120
+    counting_confidence_threshold: float = 0.0
     # An acceptance limit is optional: there is no invented conveyor target.
     # When configured by an operator, it is recorded with each counted event
     # and never changes the count, class, or grade.
@@ -124,6 +125,8 @@ class TrackingConfig:
             raise ValueError("Track timeout must be greater than zero.")
         if self.history_limit <= 0 or self.evidence_limit <= 0:
             raise ValueError("History and evidence limits must be greater than zero.")
+        if not 0.0 <= self.counting_confidence_threshold <= 1.0:
+            raise ValueError("Counting confidence must be between 0 and 1.")
         deadline = self.decision_deadline_seconds
         if deadline is not None:
             if isinstance(deadline, bool) or not isinstance(deadline, (int, float)):
@@ -632,6 +635,8 @@ class TrackingManager:
                     if updated_event is not None:
                         notifications.append(("updated", updated_event))
                 if track_id in self._counted_track_ids or track.counted or track.previous_center is None:
+                    continue
+                if detection.confidence < self.config.counting_confidence_threshold:
                     continue
                 if not self._crossed(track.previous_center, track.current_center, frame_size):
                     continue

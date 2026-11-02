@@ -203,8 +203,9 @@
                     <span id="feed-resolution">—</span>
                   </div>
                 </div>
-                <div class="video-stage">
+                <div class="video-stage fish-media-stage" id="live-media-stage">
                   <img id="video-feed" alt="Annotated local webcam feed">
+                  <div class="fish-click-targets" id="live-fish-targets" aria-label="Detected fish"></div>
                   <div class="video-placeholder" id="video-placeholder">
                     <span class="camera-glyph" aria-hidden="true">
                       <svg class="icon" aria-hidden="true" viewBox="0 0 24 24">
@@ -386,8 +387,11 @@
               <div class="upload-analysis-progress hidden" id="upload-analysis-progress" role="status" aria-live="polite" aria-label="Media analysis in progress">
                 <div class="upload-progress-track" aria-hidden="true"><i></i></div>
               </div>
-              <img id="upload-result-image" class="upload-image hidden" alt="Selected or annotated fish photo">
-              <video id="upload-result-video" class="upload-image upload-video hidden" controls muted playsinline></video>
+              <div class="fish-media-stage upload-media-stage" id="upload-media-stage">
+                <img id="upload-result-image" class="upload-image hidden" alt="Selected or annotated fish photo">
+                <video id="upload-result-video" class="upload-image upload-video hidden" controls muted playsinline></video>
+                <div class="fish-click-targets" id="upload-fish-targets" aria-label="Detected fish"></div>
+              </div>
               <div class="upload-results hidden" id="upload-results"></div>
             </section>
             <section class="results-dashboard surface" id="recent-inspections">
@@ -714,7 +718,7 @@
         <button class="icon-button" id="close-settings-button" type="button" aria-label="Close settings">×</button>
       </div>
       <section class="settings-section">
-        <h3>Model 1 · Detection</h3>
+        <h3>Model 1 V2 — YOLO26s Fish Detector</h3>
         <label class="range-label" for="confidence-slider">
           Detector confidence
           <output id="settings-threshold" for="confidence-slider">—</output>
@@ -1075,6 +1079,42 @@
         <button class="button primary" type="submit">Sign in</button>
       </form>
     </dialog>
-    <script src="/assets/app.js?v=fishgeometry1" defer></script>
+    <section class="fish-zoom-modal hidden" id="fish-zoom-modal" role="dialog" aria-modal="true" aria-labelledby="fish-zoom-title">
+      <div class="fish-zoom-backdrop" data-fish-zoom-close></div>
+      <div class="fish-zoom-panel">
+        <header class="fish-zoom-header">
+          <div>
+            <p class="eyebrow">FISH INSPECTION</p>
+            <h2 id="fish-zoom-title">Fish detail</h2>
+            <p class="muted" id="fish-zoom-subtitle">Frozen inspection frame</p>
+          </div>
+          <button class="icon-button" id="fish-zoom-close" type="button" aria-label="Close fish inspection">×</button>
+        </header>
+        <div class="fish-zoom-body">
+          <div class="fish-zoom-viewport" id="fish-zoom-viewport" tabindex="0" aria-label="Zoomed fish view">
+            <canvas id="fish-zoom-canvas"></canvas>
+            <span class="fish-zoom-hint">Scroll to zoom · drag to pan</span>
+          </div>
+          <aside class="fish-zoom-sidebar">
+            <div class="fish-zoom-controls" aria-label="Zoom controls">
+              <button class="button quiet" id="fish-zoom-out" type="button">−</button>
+              <output id="fish-zoom-level">100%</output>
+              <button class="button quiet" id="fish-zoom-in" type="button">+</button>
+              <button class="button quiet" id="fish-zoom-reset" type="button">Reset</button>
+            </div>
+            <fieldset class="fish-zoom-toggles">
+              <legend>Display layers</legend>
+              <label><input id="fish-zoom-original" type="checkbox" checked><span>Original image</span></label>
+              <label><input id="fish-zoom-annotations" type="checkbox" checked><span>AI annotations</span></label>
+              <label><input id="fish-zoom-mask" type="checkbox"><span>Feature mask</span></label>
+              <label><input id="fish-zoom-cracks" type="checkbox" checked><span>Suspected cracks</span></label>
+            </fieldset>
+            <div class="fish-zoom-details" id="fish-zoom-details"></div>
+            <div class="fish-zoom-choices hidden" id="fish-zoom-choices" aria-label="Overlapping fish choices"></div>
+          </aside>
+        </div>
+      </div>
+    </section>
+    <script src="/assets/app.js?v=qualitycheck1" defer></script>
   </body>
 </html>
