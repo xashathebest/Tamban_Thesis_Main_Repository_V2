@@ -54,3 +54,9 @@ Ultralytics/
 
 # Generated pytest result directories
 results/qa/pytest_*/
+
+# Generated training and benchmark outputs
+notebooks/tamban_model1_1900_work/
+notebooks/Tamban_Model1_Retrain/
+results/qa/fixbody/
+results/qa/qualitycheck/
