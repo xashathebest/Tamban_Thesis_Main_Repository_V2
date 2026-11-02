@@ -1,0 +1,10 @@
+{
+  "checkpoint": "models/experimental/mobilesam/mobile_sam.pt",
+  "source_url": "https://github.com/ultralytics/assets/releases/download/v8.4.0/mobile_sam.pt",
+  "provider": "Official Ultralytics MobileSAM asset",
+  "bytes": 40728226,
+  "sha256": "6dbb90523a35330fedd7f1d3dfc66f995213d81b29a5ca8108dbcdd4e37d6c2f",
+  "model": "MobileSAM Tiny-ViT",
+  "precision": "FP32",
+  "ownership_validated": false
+}

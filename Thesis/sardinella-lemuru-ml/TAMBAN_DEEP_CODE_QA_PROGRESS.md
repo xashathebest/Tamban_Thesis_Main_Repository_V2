@@ -50,3 +50,22 @@ This software evidence does not resolve independent anatomical measurement,
 expert crack labeling, physical calibration, target-camera validation, or the
 phase 21 policy approval requirement. Existing BLOCKED/NOT STARTED entries
 remain in force; no scientific release approval is implied.
+
+## Independent qualitycheck optimization
+
+Executed `qualitycheck.md` without editing Model 1, checkpoints, or training
+files. See [docs/qualitycheck_audit.md](docs/qualitycheck_audit.md). The matched
+one-parent CPU replay improved from 11,666.58 to 2,099.80 ms (5.56x), with exact
+recorded parts/confidence/weighted-verdict preservation. This filtered subset
+does not reproduce every detection in the original 160-second inspection.
+Sampled foreground remains explicitly estimated; reliable/physical geometry
+and width grading remain withheld without validation. Active v4 already
+requires Body and Head with optional Tail; no policy change was necessary.
+
+Final combined workspace: 1,282 passed, 12 skipped, zero failures, and 127 subtests; isolated browser
+and 52-page PDF checks passed. Existing CSV columns and values are preserved.
+This audit did not reload the live GPU backend during external training.
+Concurrent Model 1 V2 and association edits were preserved separately; one
+ownership-test fixture was clarified without weakening ambiguity gates. Independent
+anatomy, defect, calibration, and expert-policy requirements remain unresolved;
+the numbered scientific readiness gates are unchanged.

@@ -144,3 +144,20 @@ Software validation does not establish real-fish dimensional accuracy, crack
 accuracy, calibrated width grades, representative live-camera throughput, or
 expert policy approval. Phase 11 and the final NOT READY decision remain
 unchanged.
+
+## Independent qualitycheck optimization
+
+The separate `qualitycheck.md` implementation is documented in
+[docs/qualitycheck_audit.md](docs/qualitycheck_audit.md). Final CPU regression:
+1,282 passed, 12 skipped, zero failures, and 127 subtests. The isolated browser,
+52-page evidence PDF, and original-column export comparisons passed. The
+matched one-parent recorded-output CPU replay improved 5.56x; this is not a
+full original-inspection or real-camera throughput claim. Sampled geometry is
+explicitly estimated and excluded from physical/width-grading claims.
+
+This audit left Model 1, training, checkpoints, and operating grading policy
+untouched and preserved concurrent Model 1/association edits. One ownership
+test fixture was clarified while retaining its assertions. The audit did not
+reload the GPU backend. These software
+results do not resolve the existing independent science, calibration, expert,
+or release-readiness requirements.

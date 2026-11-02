@@ -2065,6 +2065,14 @@ async def normalize_inspection_results_api(request: Request) -> dict[str, object
     return {"fish": normalized, "source_metadata": metadata, "results_schema_version": RESULTS_SCHEMA_VERSION}
 
 
+@app.get("/api/segmentation/status")
+def experimental_segmentation_status():
+    from src.inference.mobilesam_backend import get_mobilesam_service
+    from src.inference.experimental_segmentation import segmentation_backend
+    return {"default_backend": segmentation_backend(), "mobilesam": get_mobilesam_service().status(),
+            "ownership_validation": "Not validated", "used_for_grading": False}
+
+
 @app.post("/api/analyze-image")
 async def analyze_image(request: Request) -> dict[str, object]:
     """Analyze one image using the active model without changing its selection."""
@@ -2076,6 +2084,13 @@ async def analyze_image(request: Request) -> dict[str, object]:
     if declared_length and declared_length.isdigit() and int(declared_length) > FISH_UPLOAD_MAX_BYTES:
         raise HTTPException(status_code=413, detail=f"The uploaded image exceeds the {FISH_UPLOAD_MAX_BYTES} byte limit.")
 
+    requested_segmentation = request.headers.get("x-segmentation-backend")
+    if requested_segmentation is not None:
+        from src.inference.experimental_segmentation import segmentation_backend
+        try:
+            requested_segmentation = segmentation_backend(requested_segmentation)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
     try:
         frame = decode_uploaded_image(
             await _read_bounded_upload(request, FISH_UPLOAD_MAX_BYTES),
@@ -2109,7 +2124,8 @@ async def analyze_image(request: Request) -> dict[str, object]:
                 ):
                     raise HTTPException(status_code=503, detail="Strict model integrity requires both registered checkpoints to be verified before image analysis.")
                 if image_analyzer is not None and model.model is not None:
-                    result = image_analyzer.analyze(frame)
+                    result = (image_analyzer.analyze(frame, segmentation_backend=requested_segmentation)
+                              if requested_segmentation is not None else image_analyzer.analyze(frame))
                     engine = getattr(quality_model, "_grading_engine", None)
                     return complete_inspection_payload(
                         result, source_metadata={"source_name": filename}, frame_shape=frame.shape,
@@ -2157,7 +2173,7 @@ def _finish_video_job(job_id: str, result: dict[str, object]) -> None:
         _prune_video_jobs_locked()
 
 
-def _run_video_job(job_id: str, body: bytes, filename: str) -> None:
+def _run_video_job(job_id: str, body: bytes, filename: str, segmentation_backend=None) -> None:
     suffix = Path(filename).suffix.lower()
     temporary_path: Path | None = None
     try:
@@ -2184,7 +2200,8 @@ def _run_video_job(job_id: str, body: bytes, filename: str) -> None:
                         job["progress"] = min(99, round(processed / total * 100)) if total else 0
                         job["updated_at"] = datetime.now().astimezone().isoformat()
 
-            result = analyzer.analyze(temporary_path, update_progress)
+            result = (analyzer.analyze(temporary_path, update_progress, segmentation_backend=segmentation_backend)
+                      if segmentation_backend is not None else analyzer.analyze(temporary_path, update_progress))
         _finish_video_job(job_id, {"status": "complete", "progress": 100, "result": result})
     except (RuntimeError, VideoUploadError) as exc:
         _finish_video_job(job_id, {"status": "error", "error": str(exc)})
@@ -2203,6 +2220,13 @@ def _run_video_job(job_id: str, body: bytes, filename: str) -> None:
 async def analyze_video(request: Request) -> dict[str, object]:
     """Queue an uploaded video for non-blocking sequential frame analysis."""
 
+    requested_segmentation = request.headers.get("x-segmentation-backend")
+    if requested_segmentation is not None:
+        from src.inference.experimental_segmentation import segmentation_backend
+        try:
+            requested_segmentation = segmentation_backend(requested_segmentation)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
     filename = request.headers.get("x-filename", "")
     suffix = Path(filename).suffix.lower()
     if suffix not in ALLOWED_VIDEO_SUFFIXES:
@@ -2224,7 +2248,8 @@ async def analyze_video(request: Request) -> dict[str, object]:
             raise HTTPException(status_code=400, detail="The uploaded video is empty.")
         with video_jobs_lock:
             video_jobs[job_id].update({"status": "queued", "updated_at": datetime.now().astimezone().isoformat()})
-        Thread(target=_run_video_job, args=(job_id, body, filename), daemon=True).start()
+        arguments = (job_id, body, filename) if requested_segmentation is None else (job_id, body, filename, requested_segmentation)
+        Thread(target=_run_video_job, args=arguments, daemon=True).start()
     except BaseException:
         # Includes request cancellation/disconnect while receiving. No worker
         # owns the reservation until Thread.start has returned successfully.

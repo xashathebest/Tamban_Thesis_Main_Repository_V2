@@ -384,6 +384,12 @@
                   <span class="upload-status" id="upload-status" role="status" aria-live="polite" aria-atomic="true"></span>
                 </div>
               </div>
+              <details id="upload-segmentation-options" class="feature-list">
+                <summary>Experimental fish masks</summary>
+                <label><input id="upload-mobilesam" type="checkbox"><span>Request MobileSAM candidates for this analysis</span></label>
+                <p class="muted" id="upload-segmentation-note">Optional and off by default. Candidate masks do not establish fish ownership or change grades. A configured MobileSAM checkpoint is required.</p>
+                <button class="button quiet" id="inspect-upload-masks" type="button" disabled>Inspect fish masks</button>
+              </details>
               <div class="upload-analysis-progress hidden" id="upload-analysis-progress" role="status" aria-live="polite" aria-label="Media analysis in progress">
                 <div class="upload-progress-track" aria-hidden="true"><i></i></div>
               </div>
@@ -1106,7 +1112,9 @@
               <legend>Display layers</legend>
               <label><input id="fish-zoom-original" type="checkbox" checked><span>Original image</span></label>
               <label><input id="fish-zoom-annotations" type="checkbox" checked><span>AI annotations</span></label>
-              <label><input id="fish-zoom-mask" type="checkbox"><span>Feature mask</span></label>
+              <label><input id="fish-zoom-model1" type="checkbox" checked><span>Model 1 box</span></label>
+              <label><input id="fish-zoom-model2" type="checkbox" checked><span>Assigned Model 2 parts</span></label>
+              <label><input id="fish-zoom-mask" type="checkbox"><span>Candidate / feature mask (unvalidated)</span></label>
               <label><input id="fish-zoom-cracks" type="checkbox" checked><span>Suspected cracks</span></label>
             </fieldset>
             <div class="fish-zoom-details" id="fish-zoom-details"></div>
@@ -1115,6 +1123,6 @@
         </div>
       </div>
     </section>
-    <script src="/assets/app.js?v=qualitycheck1" defer></script>
+    <script src="/assets/app.js?v=mobilesam1" defer></script>
   </body>
 </html>

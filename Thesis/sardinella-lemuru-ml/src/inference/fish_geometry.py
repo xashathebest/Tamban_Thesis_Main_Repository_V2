@@ -252,10 +252,11 @@ def measure_fish_geometry(
     }
     reasons: list[str] = output["reasons"]
     if output["sampling"].get("estimated") is True:
-        reasons.append("resampled_foreground_requires_native_validation")
+        candidate_reason = "experimental_mask_requires_ownership_validation" if metadata.get("experimental") is True else "resampled_foreground_requires_native_validation"
+        reasons.append(candidate_reason)
         if output["physical_calibration"]["validated"]:
             output["physical_calibration"].update(applied=False, status="Not applied",
-                                                  reason="resampled_foreground_requires_native_validation")
+                                                  reason=candidate_reason)
     parent, bounds = _bbox(parent_bbox), _bbox(crop_bounds)
     context_reasons = metadata.get("context_reliability_reasons", [])
     if isinstance(context_reasons, (list, tuple)) and all(isinstance(reason, str) for reason in context_reasons):
@@ -423,7 +424,7 @@ def measure_fish_geometry(
                 reasons.append("implausible_silhouette_dimensions")
     output["reasons"] = list(dict.fromkeys(reasons))
     if output["reasons"]:
-        if "resampled_foreground_requires_native_validation" in output["reasons"]:
+        if any(reason in output["reasons"] for reason in ("resampled_foreground_requires_native_validation", "experimental_mask_requires_ownership_validation")):
             output["reliability"] = "Estimated pixel geometry; native boundary not validated"
         return output
     output.update(status="measured", reliability="Reliable pixel geometry")

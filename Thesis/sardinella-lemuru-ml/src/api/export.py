@@ -267,6 +267,21 @@ EXPORT_FIELDS.update({
     "frame_mask_cache_lookup_ms": "Shared Frame Mask Cache Lookup (ms)",
     "frame_wall_time_ms": "Recorded Frame-Scope Wall Time (ms; do not sum across fish)",
 })
+EXPORT_FIELDS.update({
+    "segmentation_backend": "Fish Segmentation Backend",
+    "segmentation_status": "Fish Candidate Mask Status",
+    "segmentation_ownership_status": "Fish Candidate Ownership Checks",
+    "segmentation_validation_status": "Fish Candidate Validation Status",
+    "segmentation_mask_score": "Segmentation Model Mask Score (not ownership confidence)",
+    "segmentation_reasons": "Fish Candidate Reliability Explanation",
+    "segmentation_checkpoint_sha256": "Segmentation Checkpoint SHA-256",
+    "segmentation_frame_id": "Segmentation Original Frame ID",
+    "segmentation_embedding_ms": "Shared Image Embedding (ms; do not sum across fish)",
+    "segmentation_prompt_ms": "Fish Candidate Mask Decoding (ms)",
+    "segmentation_used_for_grading": "Experimental Mask Used for Grading",
+    "segmentation_shadow_association": "Experimental Shadow Ownership (JSON; not applied)",
+    "segmentation_candidate_evidence": "Fish Candidate Segmentation Evidence (JSON; previews omitted)",
+})
 DEFAULT_EXPORT_FIELDS = tuple(EXPORT_FIELDS)
 
 
@@ -648,6 +663,37 @@ def inspection_row(
         "frame_mask_preprocessing_ms": _number(frame.get("mask_preprocessing_ms")),
         "frame_mask_cache_lookup_ms": _number(frame.get("mask_cache_lookup_ms")),
         "frame_wall_time_ms": _number(frame.get("total_processing_ms")),
+    })
+    segmentation = analysis.get("segmentation") if isinstance(analysis.get("segmentation"), dict) else {}
+    experimental = segmentation.get("backend") == "mobilesam_experimental" or segmentation.get("experimental") is True
+    segmentation_timings = segmentation.get("timings") if isinstance(segmentation.get("timings"), dict) else {}
+    overlay = segmentation.get("mask_overlay") if isinstance(segmentation.get("mask_overlay"), dict) else {}
+    evidence = {key: value for key, value in segmentation.items() if key != "source_preview_image"}
+    if overlay:
+        evidence["mask_overlay"] = {key: value for key, value in overlay.items() if key != "source_preview_image"}
+        evidence["mask_overlay"]["source_preview_image_recorded"] = bool(overlay.get("source_preview_image"))
+    reasons = segmentation.get("reasons")
+    def segmentation_number(value):
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return ""
+        try:
+            return _number(value)
+        except OverflowError:
+            return ""
+    row.update({
+        "segmentation_backend": segmentation.get("backend", ""),
+        "segmentation_status": segmentation.get("status", ""),
+        "segmentation_ownership_status": segmentation.get("ownership_status", ""),
+        "segmentation_validation_status": "Not independently validated (experimental)" if experimental else segmentation.get("validation_status", ""),
+        "segmentation_mask_score": segmentation_number(segmentation.get("mask_score_unvalidated", segmentation.get("mask_score"))),
+        "segmentation_reasons": "; ".join(str(value) for value in reasons) if isinstance(reasons, list) else segmentation.get("reason", ""),
+        "segmentation_checkpoint_sha256": segmentation.get("checkpoint_sha256", segmentation.get("checkpointsha", "")),
+        "segmentation_frame_id": overlay.get("frame_id", segmentation.get("frame_id", "")),
+        "segmentation_embedding_ms": segmentation_number(segmentation_timings.get("embedding_ms", segmentation_timings.get("image_embedding_ms", segmentation.get("shared_embedding_ms")))),
+        "segmentation_prompt_ms": segmentation_number(segmentation_timings.get("mask_decode_ms", segmentation_timings.get("prompt_ms"))),
+        "segmentation_used_for_grading": "No" if experimental else "",
+        "segmentation_shadow_association": _json(segmentation.get("shadow_association")) if segmentation.get("shadow_association") else "",
+        "segmentation_candidate_evidence": _json(evidence) if evidence else "",
     })
     winning_grade = str(final_grade if final_grade != "Ungraded" else (best_grade or ""))
     for region, prefix in (("Body", "body"), ("Head", "head"), ("Tail", "tail")):

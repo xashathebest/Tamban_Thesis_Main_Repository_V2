@@ -96,7 +96,8 @@ def test_estimated_values_require_positive_numeric_pixel_evidence(value):
 
 
 def test_appended_backend_fields_roundtrip_without_summing_nested_stages():
-    assert DEFAULT_EXPORT_FIELDS[-len(QUALITY_FIELDS):] == QUALITY_FIELDS
+    quality_start = DEFAULT_EXPORT_FIELDS.index(QUALITY_FIELDS[0])
+    assert DEFAULT_EXPORT_FIELDS[quality_start:quality_start + len(QUALITY_FIELDS)] == QUALITY_FIELDS
     specimen = event()
     csv_row = next(csv.DictReader(StringIO(make_csv([specimen], QUALITY_FIELDS).decode("utf-8-sig"))))
     workbook = load_workbook(BytesIO(make_xlsx([specimen], QUALITY_FIELDS, {})), data_only=True)
@@ -173,6 +174,8 @@ def test_actual_browser_labels_estimates_scopes_and_preserves_append_only_csv_co
     assert timing["Upload processing speed"].startswith("Unavailable:")
     assert "source/capture FPS is not throughput" in timing["Upload processing speed"]
     csv_rows = list(csv.DictReader(StringIO(actual["csv"].lstrip("\ufeff"))))
-    assert tuple(csv_rows[0])[-len(BROWSER_FIELDS):] == BROWSER_FIELDS
+    browser_headers = tuple(csv_rows[0])
+    quality_start = browser_headers.index(BROWSER_FIELDS[0])
+    assert browser_headers[quality_start:quality_start + len(BROWSER_FIELDS)] == BROWSER_FIELDS
     assert list(csv_rows[0]).index("record.only_second_record") < list(csv_rows[0]).index(BROWSER_FIELDS[0])
     assert [row["Final AI grade"] for row in csv_rows] == ["Class B"] * 3

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import os
 from dataclasses import dataclass
 from datetime import datetime
 from io import BytesIO
@@ -329,7 +330,7 @@ class StillImageAnalyzer:
         if fish.damage_bounds is not None:
             draw_damage(frame, fish.damage_result, fish.damage_bounds)
 
-    def analyze(self, frame: np.ndarray, *, frame_id="still-full-frame", source_type="uploaded_photo") -> dict[str, object]:
+    def analyze(self, frame: np.ndarray, *, frame_id="still-full-frame", source_type="uploaded_photo", segmentation_backend=None) -> dict[str, object]:
         processing_started = perf_counter()
         if self.detector.model is None:
             raise RuntimeError(self.detector.error or "Model 1 Fish detector is unavailable.")
@@ -337,10 +338,13 @@ class StillImageAnalyzer:
             frame = validate_image(frame, name="Uploaded image")
         except PreprocessingError as exc:
             raise ImageUploadError(str(exc)) from exc
-        mask_context = RuntimeMaskContext(frame, frame_id=frame_id)
+        mask_context = RuntimeMaskContext(frame, frame_id=frame_id, backend=segmentation_backend)
         detections: list[FishDetection] = self.detector.detect(frame)
         results: list[_UploadFish] = []
         full_frame_results: dict[int, tuple[FishQualityObservation, CropBounds]] = {}
+        if mask_context.backend == "mobilesam_experimental" and getattr(self.quality_model, "quality_inference_mode", None) != "full_frame":
+            mask_context.prepare_instances([ParentAnchor(index, detection.bbox, detection.confidence)
+                                            for index, detection in enumerate(detections, start=1)])
         if (
             isinstance(self.quality_model, YoloQualityModel)
             and self.quality_model.model is not None
@@ -445,9 +449,22 @@ class StillImageAnalyzer:
         encoding_ms = round((perf_counter() - encoding_started) * 1000, 3)
         analyzed_at = datetime.now().astimezone().isoformat(timespec="seconds")
         payloads = [self._fish_payload(fish, frame.shape[1], frame.shape[0]) for fish in results]
+        source_preview = None
+        if payloads and mask_context.backend == "mobilesam_experimental" and source_type == "uploaded_video":
+            scale = min(1.0, 1024 / max(frame.shape[:2]))
+            preview = cv2.resize(frame, (max(1, round(frame.shape[1] * scale)), max(1, round(frame.shape[0] * scale))))
+            encoded_ok, encoded_preview = cv2.imencode(".jpg", preview, [cv2.IMWRITE_JPEG_QUALITY, 75])
+            if encoded_ok:
+                source_preview = "data:image/jpeg;base64," + base64.b64encode(encoded_preview.tobytes()).decode("ascii")
         for payload in payloads:
             payload["timestamp"] = analyzed_at
             payload["analysis"]["inspection_source"].update(type=source_type, frame_id=frame_id)
+            if mask_context.backend == "mobilesam_experimental":
+                report = mask_context.segmentation_report(payload["id"])
+                payload["analysis"]["segmentation"] = report
+                report["source_parts"] = payload.get("parts", [])
+                if source_preview:
+                    report["mask_overlay"]["source_preview_image"] = source_preview
         payload = {
             "fish_detected": len(results),
             "quality_counters": counts,
@@ -507,7 +524,13 @@ class VideoUploadAnalyzer:
     def __init__(self, analyzer: StillImageAnalyzer) -> None:
         self.analyzer = analyzer
 
-    def analyze(self, path: Path, progress: Any) -> dict[str, object]:
+    def analyze(self, path: Path, progress: Any, *, segmentation_backend=None) -> dict[str, object]:
+        from src.inference.experimental_segmentation import segmentation_backend as resolve_backend
+        effective_backend = resolve_backend(segmentation_backend)
+        try:
+            sam_interval = max(1, int(os.getenv("MOBILESAM_VIDEO_FRAME_INTERVAL", "5")))
+        except ValueError:
+            sam_interval = 5
         started = perf_counter()
         decode_seconds = 0.0
         capture = cv2.VideoCapture(str(path))
@@ -531,7 +554,12 @@ class VideoUploadAnalyzer:
                 if frame_index % sample_every != 0:
                     frame_index += 1
                     continue
-                result = (self.analyzer.analyze(frame, frame_id=f"video-{frame_index}", source_type="uploaded_video")
+                segmentation_options = {}
+                if effective_backend == "mobilesam_experimental":
+                    segmentation_options["segmentation_backend"] = effective_backend if processed % sam_interval == 0 else "geometry_only"
+                elif segmentation_backend is not None:
+                    segmentation_options["segmentation_backend"] = effective_backend
+                result = (self.analyzer.analyze(frame, frame_id=f"video-{frame_index}", source_type="uploaded_video", **segmentation_options)
                           if isinstance(self.analyzer, StillImageAnalyzer) else self.analyzer.analyze(frame))
                 processed += 1
                 frame_detection_counts.append({"frame_index": frame_index, "fish_detected": len(result["fish"])})
@@ -564,11 +592,17 @@ class VideoUploadAnalyzer:
                         match["fish"]["id"] = track_index + 1
                         match["fish"]["source_detection_id"] = fish["id"]
                     selected = match["fish"]
+                    current_segmentation = fish.get("analysis", {}).get("segmentation")
+                    if isinstance(current_segmentation, dict):
+                        match["segmentation_snapshot"] = current_segmentation
                     analysis = dict(selected.get("analysis", {}))
                     source = dict(analysis.get("inspection_source", {}))
                     source.update(type="uploaded_video", video_track_id=track_index + 1,
                                   source_detection_id=selected.get("source_detection_id"))
                     analysis["inspection_source"] = source
+                    if isinstance(match.get("segmentation_snapshot"), dict):
+                        analysis["segmentation"] = {**match["segmentation_snapshot"], "parent_track_id": track_index + 1,
+                                                    "source_detection_id": selected.get("source_detection_id")}
                     selected["analysis"] = analysis
                     match["bbox"] = bbox
                 if len(annotated_frames) < 90 and (processed == 1 or processed % max(1, total_frames // 90) == 0):

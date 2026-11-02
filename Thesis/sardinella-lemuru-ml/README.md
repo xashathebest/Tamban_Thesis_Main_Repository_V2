@@ -405,7 +405,7 @@ Optional foreground-processing failures are recorded as unavailable diagnostics
 and cannot suppress weighted grading. Damage evidence requires usable finite
 pixel coordinates; malformed locations or blank validation provenance cannot
 produce a validated label. Raw records remain available for review. The final
-software regression is 1,199 passed, 12 skipped, and zero failures.
+fixbody regression was 1,199 passed, 12 skipped, and zero failures.
 
 The existing project environment supports CUDA. Production uses FP32 until a
 representative, model-specific FP16 numerical comparison is accepted; CUDA
@@ -419,3 +419,25 @@ Uploaded video jobs are bounded by `FISH_VIDEO_MAX_ACTIVE_JOBS` (default 2),
 `FISH_VIDEO_JOB_TTL_SECONDS` (default 1800). Excess active uploads receive HTTP
 429. Terminal jobs expire lazily; active jobs are preserved. These settings do
 not reduce the existing frame sampling or annotation limits.
+
+## Qualitycheck CPU feature optimization
+
+[The qualitycheck audit](docs/qualitycheck_audit.md) records the bounded CPU
+foreground pipeline, shared native-pixel feature maps, scoped stage timings,
+current-frame video evidence, and append-only diagnostic exports. Default mask
+working limits are 640 pixels on the long side and 200,000 pixels in total.
+`FISH_MASK_MAX_DIMENSION=0` selects the original native-resolution path;
+`FISH_MASK_MAX_PIXELS` controls the working-area limit. These sampling controls
+are engineering settings, not anatomical calibration thresholds.
+
+Sampled masks retain native-coordinate estimates with explicit provenance;
+they do not establish reliable anatomical measurements, centimeters, or width
+grades. Validated physical-calibration configurations request native masks.
+The existing Body/Head-required, Tail-optional policy and model outputs are
+preserved. Final combined CPU regression: 1,282 passed, 12 skipped, zero failures.
+
+This audit did not change Model 1 or training files, and used no GPU model
+inference. Concurrent Model 1/association edits were preserved separately.
+The audit did not reload the live GPU backend. Reload a previously loaded
+process at a suitable time after training permits the existing models to load;
+the feature changes need no new checkpoint integration.

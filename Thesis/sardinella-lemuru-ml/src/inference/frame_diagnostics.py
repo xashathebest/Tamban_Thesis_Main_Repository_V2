@@ -18,7 +18,17 @@ def _parent_damage(frame, bounds: CropBounds, parent_id, *, mask_context=None,
     name = "surface_damage_v2:" + json.dumps(flags, sort_keys=True, separators=(",", ":"))
     def calculate():
         lookup_started = perf_counter()
-        mask, metadata = context.get(parent_id, bounds)
+        if context.backend == "mobilesam_experimental":
+            mask, metadata = context.trusted_body_mask(parent_id, bounds)
+            if mask is None:
+                return {"status": "unavailable", "label": "No reliable evidence", "evidence_state": "No reliable evidence",
+                        "reason": "A reviewed, correctly owned Body pixel mask is unavailable; MobileSAM candidates do not establish Body anatomy.",
+                        "mask_validated_for_cracks": False, "used_for_grading": False, "locations": [],
+                        "confidence": None, "estimated_length_px": None, "severity": "unassessed",
+                        "parent_track_id": parent_id, "frame_id": frame_id, "coordinate_space": "crop_local_native_pixels",
+                        "crop_bounds": [bounds.x1, bounds.y1, bounds.x2, bounds.y2], "body_support": metadata}
+        else:
+            mask, metadata = context.get(parent_id, bounds)
         lookup_ms = round((perf_counter() - lookup_started) * 1000, 3)
         crop = frame[bounds.y1:bounds.y2, bounds.x1:bounds.x2]
         color_started = perf_counter()

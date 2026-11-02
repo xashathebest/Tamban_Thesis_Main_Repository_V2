@@ -116,11 +116,14 @@ class RuntimeMaskContext:
     processing the next frame.
     """
 
-    def __init__(self, frame: Any, *, frame_id: int | str | None = None, settings: RuntimeMaskSettings | None = None) -> None:
+    def __init__(self, frame: Any, *, frame_id: int | str | None = None, settings: RuntimeMaskSettings | None = None, backend: str | None = None) -> None:
         self._frame = validate_image(frame, name="Runtime mask source")
         if settings is not None and not isinstance(settings, RuntimeMaskSettings):
             raise PreprocessingError("Runtime masks require RuntimeMaskSettings.")
         self._settings = settings or RuntimeMaskSettings.from_environment()
+        from src.inference.experimental_segmentation import segmentation_backend, ExperimentalFrameSegmentation
+        self.backend = segmentation_backend(backend)
+        self._experimental = ExperimentalFrameSegmentation(self._frame, frame_id) if self.backend == "mobilesam_experimental" else None
         self.frame_id = frame_id
         self._masks: dict[tuple, tuple[np.ndarray | None, dict[str, object]]] = {}
         self._mask_dependencies: dict[tuple, tuple] = {}
@@ -144,6 +147,20 @@ class RuntimeMaskContext:
     def is_for_frame(self, frame: Any) -> bool:
         """Require the exact original frame object, not just matching sizes."""
         return frame is self._frame
+
+    def prepare_instances(self, parents, parts=(), associations=None):
+        if self._experimental is not None:
+            with self._lock:
+                self._experimental.prepare(parents, parts, associations)
+                self._masks.clear()
+                self._features.clear()
+                self._mask_dependencies.clear()
+
+    def segmentation_report(self, parent_id):
+        return self._experimental.report(parent_id) if self._experimental is not None else None
+
+    def trusted_body_mask(self, parent_id, bounds):
+        return self._experimental.body_mask(parent_id, bounds) if self._experimental is not None else (None, {})
 
     def _roi_key(self, parent_id: int | str, bounds: CropBounds, *, settings: RuntimeMaskSettings | None = None) -> tuple[tuple, np.ndarray]:
         if isinstance(parent_id, bool) or not isinstance(parent_id, (Integral, str)):
@@ -218,6 +235,25 @@ class RuntimeMaskContext:
         active_settings = settings or self._settings
         with self._lock:
             key, crop = self._roi_key(parent_id, bounds, settings=active_settings)
+            if self.backend != "grabcut":
+                hit = key in self._masks
+                if hit:
+                    self._cache_hits += 1
+                else:
+                    if self._experimental is not None:
+                        mask, metadata = self._experimental.get(parent_id, bounds)
+                    else:
+                        mask, metadata = None, {"status": "unavailable", "reason": "Additional segmentation is disabled for this frame.",
+                                                "backend": "geometry_only", "measurement_validated": False}
+                    metadata.update(frame_id=self.frame_id, parent_track_id=parent_id,
+                                    crop_bounds=[bounds.x1, bounds.y1, bounds.x2, bounds.y2],
+                                    coordinate_space="crop_local_native_pixels", grabcut_invocations=0)
+                    self._masks[key] = (self._freeze(mask), self._freeze(metadata))
+                mask, metadata = self._masks[key]
+                result = self._read(metadata)
+                result["cache_hit"] = hit
+                self._lookup_seconds += max(0.0, perf_counter() - started)
+                return self._read(mask), result
             hit = self._has_current_mask(key)
             segmentation_seconds = 0.0
             if hit:
@@ -446,7 +482,7 @@ class RuntimeMaskContext:
                 "grabcut_executions": self._grabcut_executions,
                 "cache_hits": self._cache_hits,
                 "cache_entries": len(self._masks),
-                "segmentation_ms": round(self._segmentation_seconds * 1000, 3),
+                "segmentation_ms": round(self._segmentation_seconds * 1000, 3) + (self._experimental.diagnostics().get("segmentation_ms", 0) if self._experimental else 0),
                 "lookup_ms": round(self._lookup_seconds * 1000, 3),
                 "feature_calls": self._feature_calls,
                 "feature_cache_hits": self._feature_cache_hits,
@@ -454,7 +490,8 @@ class RuntimeMaskContext:
                 "projection_calls": self._projection_calls,
                 "projection_fallbacks": self._projection_fallbacks,
                 "projection_ms": round(self._projection_seconds * 1000, 3),
-                "segmentation_backend": "opencv_cpu_grabcut",
+                "segmentation_backend": "opencv_cpu_grabcut" if self.backend == "grabcut" else self.backend,
+                "experimental_segmentation": self._experimental.diagnostics() if self._experimental else {},
                 "segmentation_stage_ms": {stage: round(value, 3) for stage, value in self._stage_ms.items()},
                 "native_pixels_processed": self._native_pixels,
                 "working_pixels_processed": self._working_pixels,

@@ -561,7 +561,9 @@ class Model2RuntimeTraceTests(unittest.TestCase):
         self.assertAlmostEqual(second.analysis["weights_used"]["Tail"], .2)
 
     def test_ineligible_owner_does_not_supply_eligible_fish(self) -> None:
-        self.backend.predict = lambda **_kwargs: [SimpleNamespace(names=dict(SOURCE_CLASSES), boxes=[_Box(0, .9, (80, 20, 105, 55))])]
+        # Keep this ownership/filtering case unambiguous under the current
+        # association scorer; overlapping candidates have separate coverage.
+        self.backend.predict = lambda **_kwargs: [SimpleNamespace(names=dict(SOURCE_CLASSES), boxes=[_Box(0, .9, (105, 20, 130, 55))])]
         parents = [ParentAnchor(7, (0, 0, 100, 100)), ParentAnchor(8, (40, 0, 140, 100))]
         frame = np.zeros((120, 160, 3), dtype=np.uint8)
         all_results = self.quality.predict_full_frame(frame, parents, stabilize=False)

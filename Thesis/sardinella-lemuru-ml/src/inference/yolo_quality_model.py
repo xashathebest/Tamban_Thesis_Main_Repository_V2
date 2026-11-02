@@ -737,6 +737,9 @@ class YoloQualityModel:
             analysis["fish_geometry"]["reasons"].append("measurement_processing_failed")
             analysis["fish_geometry"]["measurement_error_type"] = type(error).__name__
         analysis["fish_geometry"].update(frame_id=frame_id, parent_track_id=track_id)
+        segmentation_report = mask_context.segmentation_report(track_id) if mask_context is not None else None
+        if segmentation_report is not None:
+            analysis["segmentation"] = segmentation_report
         analysis["fish_mask"] = {
             **feature_mask_metadata,
             "status": feature_mask_metadata.get("status", "provided_for_features" if feature_mask is not None else "unavailable"),
@@ -1011,6 +1014,7 @@ class YoloQualityModel:
             frame_parts, raw_parts = self._infer_parts(frame)
             association_started = perf_counter()
             associations = associate_parts_to_parents(frame_parts, parents)
+            mask_context.prepare_instances(parents, frame_parts, associations)
             self.last_association_seconds = perf_counter() - association_started
             results: dict[int, tuple[FishQualityObservation, CropBounds]] = {}
             roi_seconds = 0.0
@@ -1048,7 +1052,13 @@ class YoloQualityModel:
                         "source_context": source_context,
                     },
                 }
-                if summary["ambiguous"]:
+                grading_ambiguous = summary["ambiguous"]
+                if self._grading_engine.config.grading_mode == "tail_optional_v1":
+                    grading_ambiguous = any(item["status"] == "AMBIGUOUS" and item.get("part", {}).get("region") in {"Head", "Body"}
+                                            for item in summary["parts"])
+                    summary["required_regions_ambiguous"] = grading_ambiguous
+                    summary["optional_tail_ambiguity_only"] = bool(summary["ambiguous"] and not grading_ambiguous)
+                if grading_ambiguous:
                     quality_payload["association_ambiguous"] = True
                 observation = self._grade_parts(
                     crop,
