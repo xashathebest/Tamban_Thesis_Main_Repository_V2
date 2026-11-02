@@ -31,6 +31,7 @@ coverage/
 
 # Generated audit/dependency workspaces
 Thesis/.audit_tmp/
+Thesis/tmp/
 Thesis/tmp/quant_deps/
 Thesis/tmp/quant_deps2/
 Thesis/tmp/__pycache__/
