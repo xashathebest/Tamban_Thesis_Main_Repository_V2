@@ -52,8 +52,11 @@ Ultralytics/
 *.sqlite3-shm
 *.sqlite3-wal
 
-# Generated pytest result directories
-results/qa/pytest_*/
+# Generated QA and benchmark results
+results/qa/
+
+# Temporary dependency and audit outputs
+../tmp/
 
 # Generated training and benchmark outputs
 notebooks/tamban_model1_1900_work/
