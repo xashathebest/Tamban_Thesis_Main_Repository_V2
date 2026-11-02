@@ -69,3 +69,57 @@ Concurrent Model 1 V2 and association edits were preserved separately; one
 ownership-test fixture was clarified without weakening ambiguity gates. Independent
 anatomy, defect, calibration, and expert-policy requirements remain unresolved;
 the numbered scientific readiness gates are unchanged.
+
+## Independent optional MobileSAM integration
+
+Implemented the experimental `Featureenhance.md` layer independently of the
+numbered expert-policy phases. GrabCut remains the default; lazy FP32 MobileSAM
+candidates share one image embedding across fish prompts and retain original
+frame/parent provenance. Conservative ownership checks, shadow-only anatomical
+proposals, unvalidated geometry estimates, and reviewed-Body requirements keep
+mask scores and unreliable pixels outside grading. The optional-Tail ambiguity
+compatibility repair preserves required Head/Body gates and original weights.
+
+See [docs/mobilesam_integration.md](docs/mobilesam_integration.md) and
+`results/qa/mobilesam/` for checkpoint metadata, baseline, real CPU probe,
+matched comparison artifacts, and isolated Chrome rendering/export checks.
+CPU checks do not establish ownership accuracy or RTX 2050 performance. Model
+weights, training notebooks, and original annotations were preserved; no model
+was retrained. Independent anatomy, crack labels, calibration, deployment
+measurements, and expert-policy approvals remain unresolved. Existing numbered
+BLOCKED/NOT STARTED gates remain in force.
+
+An estimate-schema mismatch initially hid `mobilesam_candidate` geometry in
+UI/exports because the old guard accepted only bounded GrabCut grids. Both
+explicit estimate modes now display/export with distinct interpretation while
+final metrology, centimeter conversion, and grading fields remain withheld.
+Four meaningful Node/API CSV/XLSX regression cases reproduced this gap before
+the correction; the SAM UI/export module now has 16 passing cases.
+
+Final combined regression: 1,420 passed, 12 skipped, zero failures, 7 warnings,
+127 subtests in 45.77 seconds. The isolated Chrome candidate smoke passed 27
+assertions; the seven-record browser replay and 52-page PDF also passed. These
+tests preserve uncalibrated measurement gates and do not certify real-fish
+mask correctness or live GPU behavior.
+
+## On-demand SAM preview and Model 2 display repair — November 2, 2026
+
+Executed `notebooks/sam.md`. Inspect fish masks now requests real native
+MobileSAM candidates and displays a separate shaded original-image canvas with
+fish selection, opacity, boxes/assigned-part toggles, and lifecycle/error guards.
+The bounded five-minute metadata token reuses existing detections without
+rerunning Model 2, GrabCut, grading, geometry, or crack extraction.
+
+Removed unowned debug boxes from normal fish zoom overlays. Real Model 2
+outputs and all 17-image evaluation metrics match the pre-SAM report exactly;
+existing unmatched detections remain, with no threshold or weight changes.
+See [the preview report](docs/sam_preview.md) and
+[Model 2 audit](docs/model2_falsepositive_audit.md).
+
+Final regression: 1,453 passed, 12 skipped, zero failures, 7 warnings, 127
+subtests in 35.34 seconds. Real-model HTTP/Chrome validation passed 33 named
+checks and mobile layout, including visible nonrectangular masks and no grade
+mutation. The stopped dashboard was reloaded and the real preview endpoint
+verified on port 8000. Candidate ownership remains unvalidated; no width or
+crack contribution was enabled. Training notebooks, weights, and annotations
+were preserved.

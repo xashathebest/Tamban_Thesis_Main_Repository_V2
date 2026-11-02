@@ -186,3 +186,78 @@ console.log(JSON.stringify({image:fishZoom.image,detection:fishZoom.detection,fr
 '''
     actual = node(script, event())
     assert actual == {"image": None, "detection": None, "frameId": None, "canvasWidth": 0}
+
+
+def sam_geometry_event(contradictory=False):
+    specimen = event()
+    specimen["analysis"]["final_score"] = .8
+    specimen["analysis"]["fish_geometry"] = {
+        "status": "measured" if contradictory else "unreliable",
+        "measurement_validated": contradictory, "used_for_grading": contradictory,
+        "fish_length_px": 999., "max_body_width_px": 888., "relative_width_ratio": .88,
+        "fish_length_cm": 99., "max_body_width_cm": 88.,
+        "physical_calibration": {"validated": True, "status": "Applied"},
+        "candidate_measurements": {"fish_length_px": 280., "max_body_width_px": 60.,
+                                   "relative_width_ratio": .2143},
+        "sampling": {"mode": "mobilesam_candidate", "estimated": True,
+                     "native_shape": [80, 100], "native_output_shape": [40, 50],
+                     "native_boundary_validated": False},
+        "reasons": ["experimental_mask_requires_ownership_validation"],
+    }
+    return specimen
+
+
+@pytest.mark.parametrize("contradictory", [False, True])
+def test_actual_sam_sampling_exports_estimates_without_promoting_measurement_or_cm(contradictory):
+    specimen = sam_geometry_event(contradictory); before = deepcopy(specimen)
+    row = inspection_row(specimen)
+    estimates = ("estimated_fish_length_px", "estimated_max_body_width_px", "estimated_relative_width_ratio")
+    assert [row[key] for key in estimates] == [280., 60., .2143]
+    for key in ("fish_length_px", "max_body_width_px", "relative_fish_body_width_ratio",
+                "fish_length_cm", "max_body_width_cm"):
+        assert row[key] == ""
+    assert row["fish_geometry_measurement_validated"] == "Not validated"
+    assert row["fish_geometry_used_for_grading"] == "No"
+    assert "ownership" in row["physical_calibration_status"].lower()
+    assert row["grade"] == "Class B" and row["final_weighted_score"] == 80.
+    fields = (*estimates, "fish_length_px", "fish_length_cm", "fish_geometry_sampling")
+    csv_row = next(csv.DictReader(StringIO(make_csv([specimen], fields).decode("utf-8-sig"))))
+    workbook = load_workbook(BytesIO(make_xlsx([specimen], fields, {})), data_only=True)
+    spreadsheet = dict(zip(fields, list(workbook["Fish Inspections"].values)[1]))
+    for key, expected in zip(estimates, (280., 60., .2143)):
+        assert float(csv_row[EXPORT_FIELDS[key]]) == spreadsheet[key] == expected
+    assert json.loads(csv_row[EXPORT_FIELDS["fish_geometry_sampling"]])["mode"] == "mobilesam_candidate"
+    assert specimen == before
+
+
+@pytest.mark.parametrize("contradictory", [False, True])
+def test_actual_sam_sampling_is_visible_as_unvalidated_estimate_in_node_ui_and_csv(contradictory):
+    specimen = sam_geometry_event(contradictory)
+    script = INCLUDE + r'''
+for(const name of ["surfaceDamageEvidence","bodyWidthRows","flattenResultData","resultExportRecord"])include(name);
+global.pixelBox=()=>null;global.resultsSource="upload";
+global.resultDatasets={upload:{scope:"sam",metadata:{source_name:"Synthetic SAM candidate fixture"}}};
+global.recordedResultTimestamp=()=>"2026-11-02T12:00:00Z";
+global.resultIdentity=()=>"sam:7";global.aiFinalGrade=global.resultGrade=e=>e.quality;
+global.weightedFinalSupport=e=>e.quality_confidence;global.verdictReason=()=>({text:""});
+const fish=JSON.parse(fs.readFileSync(0,"utf8"));
+console.log(JSON.stringify({rows:bodyWidthRows(fish),record:resultExportRecord(fish),raw:fish}));
+'''
+    actual = node(script, specimen); rows = dict(actual["rows"]); record = actual["record"]
+    assert rows["Estimated fish length (px; experimental SAM)"] == "280"
+    assert rows["Estimated maximum body width (px; experimental SAM)"] == "60"
+    assert rows["Estimated relative body width ratio"] == "0.2143"
+    assert "ownership" in rows["Estimate interpretation"].lower()
+    assert "CPU working mask grid" not in rows and "Boundary sampling footprint" not in rows
+    assert rows["Measured fish length (px)"] == rows["Maximum body width (px)"] == "Unavailable"
+    assert "Physical length (cm)" not in rows
+    assert rows["Silhouette measurement used for grading"] == "No"
+    assert rows["Measurement validation"] == "Not validated for anatomical measurement or width grading"
+    assert record["Estimated fish length (px; sampled mask)"] == 280.  # Existing CSV header retained.
+    assert record["Estimated maximum body width (px; sampled mask)"] == 60.
+    assert record["Measured fish length (px)"] == record["Physical length (cm)"] == ""
+    assert record["Measurement validation"] == "Not validated"
+    assert record["Silhouette measurement used for grading"] is False
+    assert "ownership" in record["Estimated geometry interpretation"].lower()
+    assert "sampled CPU" not in record["Estimated geometry interpretation"]
+    assert actual["raw"] == specimen

@@ -171,8 +171,34 @@ def validate_candidate_masks(
         prompt_box = _field(candidate, "bbox_global")
         if prompt_box is not None and (_box(prompt_box) is None or not np.allclose(_box(prompt_box), box, rtol=0, atol=.001)):
             fail.append("candidate_prompt_box_mismatch")
+        provenance = _field(candidate, "provenance", {})
+        if isinstance(provenance, Mapping):
+            # The backend retains both the original detection and the clipped
+            # prompt. Checking only a legacy top-level bbox silently bypasses
+            # identity checks for real MobileSAM candidates.
+            backend_candidate = (provenance.get("backend") == "mobilesam_experimental"
+                                 or provenance.get("source") == "mobilesam_box_prompt_candidate")
+            recorded_owner = provenance.get("parent_id")
+            if ((backend_candidate and (candidate_owner is None or recorded_owner is None))
+                    or (recorded_owner is not None and
+                        (isinstance(recorded_owner, bool) or recorded_owner != parent.track_id))):
+                fail.append("candidate_parent_identity_mismatch")
+            original_box = provenance.get("original_bbox_global")
+            native_prompt = provenance.get("prompt_bbox_global")
+            expected_prompt = np.clip(box, [0, 0, 0, 0], [shape[1], shape[0], shape[1], shape[0]])
+            if ((backend_candidate or original_box is not None)
+                    and (_box(original_box) is None or not np.allclose(_box(original_box), box, rtol=0, atol=.001))):
+                fail.append("candidate_prompt_box_mismatch")
+            if ((backend_candidate or native_prompt is not None)
+                    and (_box(native_prompt) is None or not np.allclose(_box(native_prompt), expected_prompt, rtol=0, atol=.001))):
+                fail.append("candidate_prompt_box_mismatch")
+            recorded_shape = provenance.get("mask_shape")
+            shape_matches = (isinstance(recorded_shape, (list, tuple)) and len(recorded_shape) == 2
+                             and all(isinstance(v, (int, np.integer)) and not isinstance(v, (bool, np.bool_))
+                                     and v == expected for v, expected in zip(recorded_shape, shape)))
+            if backend_candidate and (provenance.get("coordinate_space") != "original_frame" or not shape_matches):
+                fail.append("candidate_native_coordinates_mismatch")
         if expected_frame_key is not None:
-            provenance = _field(candidate, "provenance", {})
             recorded_frame_key = provenance.get("frame_key") if isinstance(provenance, Mapping) else None
             if recorded_frame_key != expected_frame_key:
                 fail.append("candidate_frame_identity_mismatch")

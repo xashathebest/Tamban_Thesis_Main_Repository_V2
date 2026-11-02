@@ -609,7 +609,8 @@ def inspection_row(
     row["body_width_analysis"] = json.dumps(width, ensure_ascii=False, sort_keys=True, allow_nan=False) if width else ""
     fish_geometry = analysis.get("fish_geometry") if isinstance(analysis.get("fish_geometry"), dict) else {}
     sampling = fish_geometry.get("sampling") if isinstance(fish_geometry.get("sampling"), dict) else {}
-    estimated = sampling.get("mode") == "bounded_working_grid" and sampling.get("estimated") is True
+    estimated = sampling.get("mode") in {"bounded_working_grid", "mobilesam_candidate"} and sampling.get("estimated") is True
+    sam_estimated = estimated and sampling.get("mode") == "mobilesam_candidate"
     candidates = fish_geometry.get("candidate_measurements") if isinstance(fish_geometry.get("candidate_measurements"), dict) else {}
     physical = fish_geometry.get("physical_calibration") if isinstance(fish_geometry.get("physical_calibration"), dict) else {}
     # Withheld silhouette candidates and historical bounding boxes are never
@@ -630,7 +631,7 @@ def inspection_row(
         "fish_geometry_used_for_grading": "Yes" if not estimated and fish_geometry.get("used_for_grading") is True else "No",
         "fish_length_cm": _number(fish_geometry.get("fish_length_cm")) if physical_applied else "",
         "max_body_width_cm": _number(fish_geometry.get("max_body_width_cm")) if physical_applied else "",
-        "physical_calibration_status": "Not applied: sampled foreground boundary is not validated" if estimated else physical.get("status") or "Not calibrated",
+        "physical_calibration_status": "Not applied: experimental mask ownership and anatomical boundary are not validated" if sam_estimated else "Not applied: sampled foreground boundary is not validated" if estimated else physical.get("status") or "Not calibrated",
         "physical_calibration": _json(physical) if physical else "",
         "fish_geometry_analysis": _json(fish_geometry) if fish_geometry else "",
     })

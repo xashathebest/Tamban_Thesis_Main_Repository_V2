@@ -53,6 +53,10 @@ def analyze_fish_geometry(
         if mask_context is not None and parent_id is not None and bounds is not None and mask_context.is_for_frame(measurement_frame):
             return (mask_context.get(parent_id, bounds, settings=native_settings)
                     if native_settings is not None else mask_context.get(parent_id, bounds))
+        if mask_context is not None and mask_context.backend != "grabcut":
+            return None, {"status": "unavailable", "backend": mask_context.backend,
+                          "reason": "No matching original-frame mask context; additional GrabCut is disabled.",
+                          "measurement_validated": False, "grabcut_invocations": 0}
         return (generate_runtime_fish_mask(image, settings=native_settings)
                 if native_settings is not None else generate_runtime_fish_mask(image))
     frame_matches = (

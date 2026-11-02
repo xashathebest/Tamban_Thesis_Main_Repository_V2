@@ -7,6 +7,12 @@ quality grading using a two-model YOLO pipeline.
 
 ## Architecture
 
+MobileSAM is available as an optional experimental candidate-mask backend in
+Analyze Media. GrabCut remains the default; candidate masks, geometry estimates,
+and shadow ownership do not change weighted grades. See
+[the implementation and validation report](docs/mobilesam_integration.md) for
+checkpoint provenance, CPU measurements, rejection rules, and limitations.
+
 ```text
 Camera frame
     │
@@ -89,6 +95,28 @@ dependencies are installed.
 ---
 
 ## Configuration
+
+To set up the optional MobileSAM checkpoint without changing either detector:
+
+```powershell
+python -m src.evaluation.download_mobilesam_checkpoint
+```
+
+The helper verifies the official SHA-256 and writes only under
+`models/experimental/mobilesam/`. The adapter uses the existing Ultralytics SAM
+API and PyTorch; it does not require a separate `mobile_sam` package. In Analyze
+Media, choose a photo, expand **Experimental fish masks**, and click **Inspect
+fish masks** to generate an interactive shaded preview. Running analysis first
+allows reuse of its detected fish and assigned parts. The preview does not rerun
+Model 2 or change grades. See the [working preview and actual-image proof](docs/sam_preview.md)
+and [Model 2 false-positive investigation](docs/model2_falsepositive_audit.md).
+`GET /api/segmentation/status` reports lazy setup status.
+CPU FP32 is the default; `MOBILESAM_DEVICE`, free-GPU-memory guards, prompt
+limits, and video cadence are documented in the
+[runtime settings table](docs/mobilesam_integration.md#runtime-interface-and-resource-controls).
+Setting `SEGMENTATION_BACKEND=mobilesam_experimental` opts the server into the
+experiment; omit it to retain GrabCut. No real-fish ownership accuracy, GPU
+latency benefit, width calibration, or crack validation is established.
 
 Key environment variables:
 

@@ -148,10 +148,10 @@ class RuntimeMaskContext:
         """Require the exact original frame object, not just matching sizes."""
         return frame is self._frame
 
-    def prepare_instances(self, parents, parts=(), associations=None):
+    def prepare_instances(self, parents, parts=(), associations=None, *, trusted_parts=()):
         if self._experimental is not None:
             with self._lock:
-                self._experimental.prepare(parents, parts, associations)
+                self._experimental.prepare(parents, parts, associations, trusted_parts=trusted_parts)
                 self._masks.clear()
                 self._features.clear()
                 self._mask_dependencies.clear()
@@ -236,6 +236,10 @@ class RuntimeMaskContext:
         with self._lock:
             key, crop = self._roi_key(parent_id, bounds, settings=active_settings)
             if self.backend != "grabcut":
+                if self._experimental is not None and not self._experimental.is_current():
+                    self._masks.clear()
+                    self._features.clear()
+                    self._mask_dependencies.clear()
                 hit = key in self._masks
                 if hit:
                     self._cache_hits += 1
@@ -460,6 +464,10 @@ class RuntimeMaskContext:
             raise PreprocessingError("A cached feature requires an algorithm/settings name.")
         with self._lock:
             key, _ = self._roi_key(parent_id, bounds)
+            if self._experimental is not None and not self._experimental.is_current():
+                self._masks.clear()
+                self._features.clear()
+                self._mask_dependencies.clear()
             self._has_current_mask(key)
             feature_key = (*key, feature_name)
             if feature_key in self._features:

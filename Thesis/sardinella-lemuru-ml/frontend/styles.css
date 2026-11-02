@@ -251,6 +251,20 @@ summary::marker { color: var(--ocean-500); }
 .upload-media-stage { position: relative; min-height: 0; }
 .upload-media-stage .fish-click-targets { top: 16px; right: 0; bottom: 0; left: 0; }
 .upload-media-stage .fish-click-target { border-color: rgb(101 199 229 / 80%); background: rgb(101 199 229 / 5%); }
+.mask-preview { min-width: 0; margin-top: 12px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
+.mask-preview-status { margin: 0 0 10px; font-weight: 650; overflow-wrap: anywhere; }
+.mask-preview-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: 10px; }
+.mask-preview-controls label { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-size: 12px; }
+.mask-preview-controls select { max-width: 180px; min-height: 32px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text-primary); padding: 4px 7px; }
+.mask-opacity-control input { width: 95px; }
+.mask-opacity-control output { min-width: 30px; font-variant-numeric: tabular-nums; }
+.mask-preview-viewport { width: 100%; max-height: min(65vh, 650px); overflow: auto; border-radius: 6px; background: var(--navy-950); }
+.mask-preview-viewport canvas { display: block; width: 100%; height: auto; max-width: none; }
+.mask-preview-legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 6px 12px; list-style: none; padding: 0; margin: 10px 0; }
+.mask-preview-legend li { display: flex; align-items: start; gap: 7px; font-size: 11px; line-height: 1.4; overflow-wrap: anywhere; }
+.mask-preview-swatch { display: inline-block; flex: 0 0 12px; height: 12px; margin-top: 2px; border: 1px solid currentColor; border-radius: 3px; background: currentColor; }
+.mask-preview-legend li[data-review="true"] .mask-preview-swatch { border: 2px dashed #b54d2e; }
+@media (max-width: 540px) { .mask-preview { padding: 8px; } .mask-preview-controls { gap: 10px; } .mask-preview-controls label { font-size: 11px; } }
 .upload-video { max-height: 540px; }
 .upload-results { display: grid; gap: 12px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
 .upload-results:not(.hidden) { animation: upload-content-in 300ms ease both; }

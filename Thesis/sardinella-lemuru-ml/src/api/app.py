@@ -29,6 +29,7 @@ from src.api.camera_controls import CAMERA_PROPERTIES, CameraControlError
 from src.api.database import InspectionDatabase, InspectionSessionContext, grading_config_hash
 from src.api.event_persistence import OrderedPersistenceDispatcher
 from src.api.image_analysis import ALLOWED_VIDEO_SUFFIXES, ImageUploadError, PartPreviewImageAnalyzer, RESULTS_SCHEMA_VERSION, StillImageAnalyzer, VideoUploadAnalyzer, VideoUploadError, complete_inspection_payload, decode_uploaded_image
+from src.api.segmentation_preview import PreviewSnapshotCache, PreviewSnapshotError, generate_mask_preview
 from src.inference.body_width import BodyWidthConfig
 from src.inference.inspection_results import normalize_inspection_results
 from src.api.domain import FEATURE_CAPABILITIES, QUALITY_COUNTER_NAMES, InspectionState, TrackingConfig
@@ -185,6 +186,7 @@ upload_test_model = YoloPartModel(UPLOAD_TEST_WEIGHTS_PATH, confidence=UPLOAD_TE
 upload_test_analyzer = PartPreviewImageAnalyzer(upload_test_model) if upload_test_model is not None else None
 video_jobs: dict[str, dict[str, object]] = {}
 video_jobs_lock = RLock()
+mask_preview_snapshots = PreviewSnapshotCache()
 # Limits apply per API process. Reserve before buffering so queued uploads and
 # their worker-thread arguments cannot retain an unbounded number of bodies.
 VIDEO_JOB_MAX_ACTIVE = _positive_int_setting("FISH_VIDEO_MAX_ACTIVE_JOBS", 2)
@@ -2092,8 +2094,9 @@ async def analyze_image(request: Request) -> dict[str, object]:
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
     try:
+        image_bytes = await _read_bounded_upload(request, FISH_UPLOAD_MAX_BYTES)
         frame = decode_uploaded_image(
-            await _read_bounded_upload(request, FISH_UPLOAD_MAX_BYTES),
+            image_bytes,
             filename,
             max_bytes=FISH_UPLOAD_MAX_BYTES,
             max_dimension=FISH_UPLOAD_MAX_DIMENSION,
@@ -2127,10 +2130,15 @@ async def analyze_image(request: Request) -> dict[str, object]:
                     result = (image_analyzer.analyze(frame, segmentation_backend=requested_segmentation)
                               if requested_segmentation is not None else image_analyzer.analyze(frame))
                     engine = getattr(quality_model, "_grading_engine", None)
-                    return complete_inspection_payload(
+                    completed = complete_inspection_payload(
                         result, source_metadata={"source_name": filename}, frame_shape=frame.shape,
                         body_width_config=getattr(engine, "body_width_config", None),
                     )
+                    token = (mask_preview_snapshots.remember(hashlib.sha256(image_bytes).hexdigest(), frame.shape, completed["fish"], model)
+                             if isinstance(completed.get("fish"), list) else None)
+                    if token:
+                        completed["preview_analysis_token"] = token
+                    return completed
                 if upload_test_model is not None and upload_test_model.model is not None and upload_test_analyzer is not None:
                     return upload_test_analyzer.analyze(frame)
                 detail = (upload_test_model.error if upload_test_model is not None else None) or model.error or "No local upload-analysis model is available."
@@ -2140,6 +2148,51 @@ async def analyze_image(request: Request) -> dict[str, object]:
         raise HTTPException(status_code=status, detail=str(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.post("/api/segmentation/preview")
+async def segmentation_preview(request: Request) -> dict[str, object]:
+    """Generate opt-in pixel masks without Model 2, GrabCut, or grading calls."""
+    filename = request.headers.get("x-filename", "")
+    if not filename:
+        raise HTTPException(status_code=400, detail="An uploaded image filename is required.")
+    declared = request.headers.get("content-length", "")
+    if declared.isdigit() and int(declared) > FISH_UPLOAD_MAX_BYTES:
+        raise HTTPException(status_code=413, detail=f"The uploaded image exceeds the {FISH_UPLOAD_MAX_BYTES} byte limit.")
+    try:
+        image_bytes = await _read_bounded_upload(request, FISH_UPLOAD_MAX_BYTES)
+        frame = decode_uploaded_image(image_bytes, filename, max_bytes=FISH_UPLOAD_MAX_BYTES,
+                                      max_dimension=FISH_UPLOAD_MAX_DIMENSION, max_pixels=FISH_UPLOAD_MAX_PIXELS)
+    except ImageUploadError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    image_sha256 = hashlib.sha256(image_bytes).hexdigest()
+    token = request.headers.get("x-preview-analysis-token")
+
+    def calculate():
+        from time import perf_counter
+        with _model_change_lock, service._processing_lock:
+            if image_analyzer is None or getattr(model, "model", None) is None:
+                raise HTTPException(status_code=503, detail="Model 1 whole-fish detection is unavailable; a part-only model cannot supply fish mask prompts.")
+            strict_integrity = os.getenv("FISH_STRICT_MODEL_INTEGRITY", "0").strip().lower() in {"1", "true", "yes", "on"}
+            if strict_integrity and getattr(model, "checkpoint_integrity", None) != "verified":
+                raise HTTPException(status_code=503, detail="Strict model integrity requires a verified Model 1 checkpoint before generating fish prompts.")
+            model1_ms = 0.
+            if token:
+                try:
+                    fish = mask_preview_snapshots.resolve(token, image_sha256, frame.shape, model)
+                except PreviewSnapshotError as error:
+                    raise HTTPException(status_code=409, detail=str(error)) from error
+            else:
+                started = perf_counter()
+                detections = model.detect(frame)
+                model1_ms = (perf_counter() - started) * 1000
+                fish = [{"id": index, "bbox": list(detection.bbox), "parts": [],
+                         "detector_confidence": detection.confidence} for index, detection in enumerate(detections, 1)]
+            return generate_mask_preview(frame, fish, image_sha256=image_sha256, model1_inference_ms=model1_ms, reused=bool(token))
+    try:
+        return await asyncio.to_thread(calculate)
+    except (RuntimeError, ValueError, ImportError, OSError) as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
 
 
 def _prune_video_jobs_locked() -> None:

@@ -389,6 +389,22 @@
                 <label><input id="upload-mobilesam" type="checkbox"><span>Request MobileSAM candidates for this analysis</span></label>
                 <p class="muted" id="upload-segmentation-note">Optional and off by default. Candidate masks do not establish fish ownership or change grades. A configured MobileSAM checkpoint is required.</p>
                 <button class="button quiet" id="inspect-upload-masks" type="button" disabled>Inspect fish masks</button>
+                <p class="muted">Inspect generates a separate preview from the original photo. It does not rerun grading. For video, inspect each fish's recorded source frame in its evidence card.</p>
+                <section id="upload-mask-preview" class="mask-preview hidden" aria-label="Experimental fish segmentation preview" aria-busy="false">
+                  <p id="upload-mask-status" class="mask-preview-status" role="status" aria-live="polite" aria-atomic="true"></p>
+                  <div class="mask-preview-controls">
+                    <label><input id="upload-mask-show" type="checkbox" checked> Fish masks</label>
+                    <label><input id="upload-mask-model1" type="checkbox" checked> Model 1 boxes</label>
+                    <label><input id="upload-mask-model2" type="checkbox"> Assigned Model 2 parts</label>
+                    <label class="mask-opacity-control">Opacity <input id="upload-mask-opacity" type="range" min="0" max="80" value="40" step="5"><output id="upload-mask-opacity-value" for="upload-mask-opacity">40%</output></label>
+                    <label>Highlight <select id="upload-mask-fish" aria-label="Highlight fish mask"><option value="all">All fish</option></select></label>
+                    <label>Zoom <select id="upload-mask-zoom" aria-label="Mask preview zoom"><option value="1">Fit image</option><option value="1.5">150%</option><option value="2">200%</option><option value="3">300%</option></select></label>
+                    <button id="upload-mask-cancel" class="button quiet hidden" type="button">Cancel mask request</button>
+                  </div>
+                  <div class="mask-preview-viewport"><canvas id="upload-mask-canvas" aria-label="Original photo with experimental fish silhouettes"></canvas></div>
+                  <ul id="upload-mask-legend" class="mask-preview-legend" aria-label="Fish mask reliability"></ul>
+                  <p class="muted">Colors identify Model 1 fish prompts. Dashed boundaries and review labels indicate uncertain ownership. Every mask remains an unvalidated candidate; grades, width measurements, and crack results are unchanged.</p>
+                </section>
               </details>
               <div class="upload-analysis-progress hidden" id="upload-analysis-progress" role="status" aria-live="polite" aria-label="Media analysis in progress">
                 <div class="upload-progress-track" aria-hidden="true"><i></i></div>

@@ -24,6 +24,7 @@ const elements = {
   latestVerdictDetails: $("latest-verdict-details"), latestVerdictStatus: $("latest-verdict-status"), latestVerdictReason: $("latest-verdict-reason"), latestDetectionConfidence: $("latest-detection-confidence"), latestModel2Evidence: $("latest-model2-evidence"), latestCoverage: $("latest-coverage"), latestEffectiveWeights: $("latest-effective-weights"),
   uploadMode: $("upload-mode-button"), closeUpload: $("close-upload-button"), uploadWorkspace: $("upload-workspace"), uploadInput: $("upload-input"), selectUpload: $("select-upload-button"), uploadFileName: $("upload-file-name"), analyze: $("analyze-button"), uploadStatus: $("upload-status"), uploadProgress: $("upload-analysis-progress"), uploadImage: $("upload-result-image"), uploadVideo: $("upload-result-video"), uploadResults: $("upload-results"), uploadMediaStage: $("upload-media-stage"), uploadFishTargets: $("upload-fish-targets"),
   segmentationOptions: $("upload-segmentation-options"), segmentationExperiment: $("upload-mobilesam"), segmentationNote: $("upload-segmentation-note"), inspectMasks: $("inspect-upload-masks"),
+  maskPreview: $("upload-mask-preview"), maskPreviewCanvas: $("upload-mask-canvas"), maskPreviewStatus: $("upload-mask-status"), maskPreviewShow: $("upload-mask-show"), maskPreviewModel1: $("upload-mask-model1"), maskPreviewModel2: $("upload-mask-model2"), maskPreviewOpacity: $("upload-mask-opacity"), maskPreviewOpacityValue: $("upload-mask-opacity-value"), maskPreviewFish: $("upload-mask-fish"), maskPreviewZoom: $("upload-mask-zoom"), maskPreviewCancel: $("upload-mask-cancel"), maskPreviewLegend: $("upload-mask-legend"),
   fishZoomModal: $("fish-zoom-modal"), fishZoomClose: $("fish-zoom-close"), fishZoomViewport: $("fish-zoom-viewport"), fishZoomCanvas: $("fish-zoom-canvas"), fishZoomTitle: $("fish-zoom-title"), fishZoomSubtitle: $("fish-zoom-subtitle"), fishZoomLevel: $("fish-zoom-level"), fishZoomDetails: $("fish-zoom-details"), fishZoomChoices: $("fish-zoom-choices"), fishZoomIn: $("fish-zoom-in"), fishZoomOut: $("fish-zoom-out"), fishZoomReset: $("fish-zoom-reset"), fishZoomOriginal: $("fish-zoom-original"), fishZoomAnnotations: $("fish-zoom-annotations"), fishZoomModel1: $("fish-zoom-model1"), fishZoomModel2: $("fish-zoom-model2"), fishZoomMask: $("fish-zoom-mask"), fishZoomCracks: $("fish-zoom-cracks"),
   kpiGrid: $("kpi-grid"), featureCounterGrid: $("feature-counter-grid"), threshold: $("threshold"), openConfidence: $("open-confidence-button"),
   gradeChartEmpty: $("grade-chart-empty"), gradeChart: $("grade-chart"), gradeDonut: $("grade-donut"), gradeTotal: $("grade-total"), gradeLegend: $("grade-legend"),
@@ -87,6 +88,7 @@ let uploadStartedAt = 0;
 let uploadPreviewUrl = null;
 let uploadFrameTimer = null;
 let uploadAnnotatedSource = null;
+const uploadMaskPreview = {data: null, image: null, file: null, version: 0, controller: null, inFlight: false, timer: null, startedAt: 0, analysisToken: null, analysisFile: null};
 const fishZoom = { image: null, detection: null, detections: [], source: "", crop: null, scale: 1, panX: 0, panY: 0, dragging: false, lastX: 0, lastY: 0, previousFocus: null, frameId: null, nativeWidth: null, nativeHeight: null };
 let fishZoomRequestVersion = 0;
 let exportInFlight = false;
@@ -365,15 +367,8 @@ function drawFishZoomOverlay(context, fish, crop, width, height) {
     const box = fishZoomRelativeBox(part.bbox, crop); if (!box) return;
     context.strokeStyle = gradeColors[part.grade || part.quality] || "#65c7e5"; context.lineWidth = Math.max(1, width / 420); context.strokeRect(box[0], box[1], box[2] - box[0], box[3] - box[1]);
   });
-  if (annotations && !experimental) {
-    const debug = analysis.model2_debug;
-    const unassigned = debug && Array.isArray(debug.unassigned_detections) ? debug.unassigned_detections : [];
-    unassigned.forEach((part) => {
-      const box = fishZoomRelativeBox(part.bbox, crop); if (!box) return;
-      context.strokeStyle = "#ffb454"; context.lineWidth = Math.max(1, width / 360);
-      context.setLineDash([6, 4]); context.strokeRect(box[0], box[1], box[2] - box[0], box[3] - box[1]); context.setLineDash([]);
-    });
-  }
+  // Raw/unassigned detections remain in diagnostic evidence. They are not
+  // this parent's anatomy and must not be painted into its normal viewer.
   if (elements.fishZoomMask.checked) {
     if (experimental) {
       const unreliable = /unreliable|ambiguous|conflict|reject|unavailable/i.test(String(segmentation.ownership_status || segmentation.status));
@@ -788,7 +783,8 @@ function bodyWidthRows(event) {
   const fishGeometry = event?.analysis?.fish_geometry || {};
   const physical = fishGeometry.physical_calibration || {};
   const sampling = fishGeometry.sampling || {};
-  const estimated = sampling.mode === "bounded_working_grid" && sampling.estimated === true;
+  const estimated = ["bounded_working_grid", "mobilesam_candidate"].includes(sampling.mode) && sampling.estimated === true;
+  const samEstimated = estimated && sampling.mode === "mobilesam_candidate";
   const candidates = fishGeometry.candidate_measurements || {};
   const measured = fishGeometry.status === "measured" && !estimated;
   const physicalApplied = measured && physical.validated === true && physical.status === "Applied";
@@ -806,12 +802,15 @@ function bodyWidthRows(event) {
   const geometryNumber = (value) => measured ? numberText(value) : "Unavailable";
   const estimateText = (value) => typeof value === "number" && Number.isFinite(value) && value > 0 ? numberText(value) : "Unavailable";
   const estimateRows = estimated && Object.keys(candidates).length ? [
-    ["Estimated fish length (px; sampled mask)", estimateText(candidates.fish_length_px)],
-    ["Estimated maximum body width (px; sampled mask)", estimateText(candidates.max_body_width_px)],
+    [samEstimated ? "Estimated fish length (px; experimental SAM)" : "Estimated fish length (px; sampled mask)", estimateText(candidates.fish_length_px)],
+    [samEstimated ? "Estimated maximum body width (px; experimental SAM)" : "Estimated maximum body width (px; sampled mask)", estimateText(candidates.max_body_width_px)],
     ["Estimated relative body width ratio", estimateText(candidates.relative_width_ratio)],
-    ["Estimate interpretation", "Native-pixel estimates from a bounded CPU foreground grid; not validated anatomical measurements. Reliability restrictions still apply. Excluded from centimeters and width grading."],
+    ["Estimate interpretation", samEstimated ? "Native-pixel estimates from an experimental MobileSAM candidate; fish ownership and anatomical boundaries are not validated. Excluded from centimeters and width grading." : "Native-pixel estimates from a bounded CPU foreground grid; not validated anatomical measurements. Reliability restrictions still apply. Excluded from centimeters and width grading."],
   ] : [];
-  const samplingRows = estimated ? [
+  const samplingRows = samEstimated ? [
+    ["Original-frame candidate mask grid", Array.isArray(sampling.native_shape) ? dimensions(sampling.native_shape[1], sampling.native_shape[0]) : "Unavailable"],
+    ["Candidate mask ownership", "Not independently validated; native resolution does not validate fish identity or anatomical boundaries"],
+  ] : estimated ? [
     ["Native ROI mask grid", Array.isArray(sampling.native_shape) ? dimensions(sampling.native_shape[1], sampling.native_shape[0]) : "Unavailable"],
     ["CPU working mask grid", Array.isArray(sampling.working_shape) ? dimensions(sampling.working_shape[1], sampling.working_shape[0]) : "Unavailable"],
     ["Boundary sampling footprint", Array.isArray(sampling.boundary_sampling_footprint_native_px) ? `${numberText(sampling.boundary_sampling_footprint_native_px[0])} x ${numberText(sampling.boundary_sampling_footprint_native_px[1])} native pixels per working-grid pixel` : "Unavailable"],
@@ -832,7 +831,7 @@ function bodyWidthRows(event) {
     ["Fish measurement method", String(fishGeometry.method || "Unavailable").replaceAll("_", " ")],
     ["Fish orientation (degrees)", geometryNumber(fishGeometry.orientation_degrees)],
     ["Measurement overlay", measured && fishGeometry.visualization?.measured === true ? "Measured axes, endpoints and silhouette boundary appear on the annotated image" : "Unavailable: no reliable measurement overlay recorded"],
-    ["Physical calibration", estimated ? "Not applied: sampled foreground boundary is not validated" : [physical.status || "Not calibrated", physical.reason ? String(physical.reason).replaceAll("_", " ") : ""].filter(Boolean).join(": ")],
+    ["Physical calibration", samEstimated ? "Not applied: experimental mask ownership and anatomical boundary are not validated" : estimated ? "Not applied: sampled foreground boundary is not validated" : [physical.status || "Not calibrated", physical.reason ? String(physical.reason).replaceAll("_", " ") : ""].filter(Boolean).join(": ")],
     ...physicalRows,
     ["Silhouette measurement used for grading", !estimated && fishGeometry.used_for_grading === true ? "Yes" : "No"],
     ["Whole-fish bounding box", dimensions(width.whole_fish_width_px ?? wholeBox?.width, width.whole_fish_height_px ?? wholeBox?.height)],
@@ -1435,7 +1434,8 @@ function resultExportRecord(event) {
   if (segmentation.mask_overlay) segmentationEvidence.mask_overlay = Object.fromEntries(Object.entries(segmentationOverlay).filter(([key]) => key !== "source_preview_image"));
   const fishGeometry = analysis.fish_geometry || {}; const physical = fishGeometry.physical_calibration || {};
   const sampling = fishGeometry.sampling || {}; const candidates = fishGeometry.candidate_measurements || {};
-  const estimated = sampling.mode === "bounded_working_grid" && sampling.estimated === true;
+  const estimated = ["bounded_working_grid", "mobilesam_candidate"].includes(sampling.mode) && sampling.estimated === true;
+  const samEstimated = estimated && sampling.mode === "mobilesam_candidate";
   const measured = fishGeometry.status === "measured" && !estimated; const physicalApplied = measured && physical.validated === true && physical.status === "Applied";
   const measuredNumber = (value) => measured && typeof value === "number" && Number.isFinite(value) ? value : "";
   const physicalNumber = (value) => physicalApplied ? measuredNumber(value) : "";
@@ -1477,7 +1477,7 @@ function resultExportRecord(event) {
     "Silhouette measurement used for grading": !estimated && fishGeometry.used_for_grading === true,
     "Physical length (cm)": physicalNumber(fishGeometry.fish_length_cm),
     "Physical maximum body width (cm)": physicalNumber(fishGeometry.max_body_width_cm),
-    "Physical calibration status": estimated ? "Not applied: sampled foreground boundary is not validated" : physical.status || "Not calibrated",
+    "Physical calibration status": samEstimated ? "Not applied: experimental mask ownership and anatomical boundary are not validated" : estimated ? "Not applied: sampled foreground boundary is not validated" : physical.status || "Not calibrated",
     "Physical calibration": JSON.stringify(physical),
     "Fish Geometry Analysis": JSON.stringify(fishGeometry),
     "Body Width Threshold Configuration": JSON.stringify(analysis.body_width?.threshold_configuration || {}),
@@ -1504,7 +1504,7 @@ function resultExportRecord(event) {
     "Estimated fish length (px; sampled mask)": estimatedNumber(candidates.fish_length_px),
     "Estimated maximum body width (px; sampled mask)": estimatedNumber(candidates.max_body_width_px),
     "Estimated relative body width ratio": estimatedNumber(candidates.relative_width_ratio),
-    "Estimated geometry interpretation": estimated ? "Native-pixel estimate from a sampled CPU mask; not validated for anatomical measurement, centimeters, or width grading" : "",
+    "Estimated geometry interpretation": samEstimated ? "Native-pixel estimate from an experimental MobileSAM candidate; fish ownership and anatomical boundaries are not validated. Excluded from centimeters and width grading." : estimated ? "Native-pixel estimate from a sampled CPU mask; not validated for anatomical measurement, centimeters, or width grading" : "",
     "Geometry sampling and uncertainty": sampling.mode ? JSON.stringify(sampling) : "",
     "Shared Frame Stage Performance": JSON.stringify(analysis.frame_performance || {}),
     "Process GPU Memory": JSON.stringify(analysis.frame_performance?.gpu_memory || {}),
@@ -2378,6 +2378,174 @@ function setQualityConfidence(value, apply = false) {
 }
 function setOverlay(name, checked) { overlayControls[name].forEach((control) => { control.checked = checked; }); postSettings({ display_settings: { [name]: checked } }); }
 function uploadAnalysisAvailable() { return Boolean(latestStatus?.upload_analysis_available); }
+function maskPreviewColor(index) { return `hsl(${Math.round((index * 137.508 + 165) % 360)} 78% 53%)`; }
+function maskPreviewSource(data) {
+  const source = data?.source || {};
+  const width = source.frame_width_px, height = source.frame_height_px;
+  return source.frame_id != null && [width, height].every(value => typeof value === "number" && Number.isFinite(value) && value > 0 && value <= 32768)
+    ? {width, height, frameId: source.frame_id} : null;
+}
+function maskPreviewEntries(data) {
+  const source = maskPreviewSource(data);
+  if (!source) return [];
+  const seen = new Set();
+  const validBox = box => Array.isArray(box) && box.length === 4 && box.every(value => typeof value === "number" && Number.isFinite(value)) && box[0] >= 0 && box[1] >= 0 && box[2] > box[0] && box[3] > box[1] && box[2] <= source.width && box[3] <= source.height;
+  return (Array.isArray(data.fish) ? data.fish : []).slice(0, 64).flatMap((fish, index) => {
+    const id = fish?.id;
+    if (!Number.isInteger(id) || seen.has(id) || !validBox(fish.bbox)) return [];
+    seen.add(id);
+    const segmentation = fish.segmentation || fish.analysis?.segmentation || {};
+    const overlay = segmentationOverlayEvidence({id, analysis: {segmentation}}, source.frameId, source.width, source.height);
+    if (segmentation.preview_usable === false) overlay.contours = [];
+    const parts = overlay.frame_matches && Array.isArray(fish.parts) ? fish.parts.filter(part => validBox(part?.bbox)
+      && (!part.coordinate_space || part.coordinate_space === "original_frame")
+      && (part.parent_track_id == null || String(part.parent_track_id) === String(id))
+      && (!part.association?.status || part.association.status === "ASSIGNED")
+      && (!part.association_status || part.association_status === "ASSIGNED")) : [];
+    const review = segmentation.ownership_status !== "checks_passed_unvalidated" || segmentation.engineering_checks_passed !== true;
+    const reasons = Array.isArray(segmentation.reasons) ? segmentation.reasons.filter(value => typeof value === "string" && value).join("; ") : "";
+    return [{id, bbox: fish.bbox, parts, segmentation, contours: overlay.contours, conflictContours: overlay.conflict_contours || [],
+      review, reason: reasons || overlay.reason, color: maskPreviewColor(index), frameMatches: overlay.frame_matches}];
+  });
+}
+function maskPreviewPolygons(context, polygons) {
+  context.beginPath();
+  for (const polygon of polygons) {
+    polygon.forEach((point, index) => index ? context.lineTo(point[0], point[1]) : context.moveTo(point[0], point[1]));
+    context.closePath();
+  }
+}
+function renderMaskPreview() {
+  const data = uploadMaskPreview.data, image = uploadMaskPreview.image;
+  const source = maskPreviewSource(data);
+  if (!source || !image || uploadMaskPreview.file !== selectedUpload || !elements.maskPreviewCanvas) return;
+  const canvas = elements.maskPreviewCanvas;
+  const pixelScale = Math.min(1, 2048 / Math.max(source.width, source.height));
+  canvas.width = Math.max(1, Math.round(source.width * pixelScale)); canvas.height = Math.max(1, Math.round(source.height * pixelScale));
+  canvas.style.width = `${Math.max(1, Math.min(3, Number(elements.maskPreviewZoom?.value) || 1)) * 100}%`;
+  const context = canvas.getContext("2d");
+  context.setTransform(canvas.width / source.width, 0, 0, canvas.height / source.height, 0, 0);
+  context.drawImage(image, 0, 0, source.width, source.height);
+  const opacity = Math.max(0, Math.min(.8, Number(elements.maskPreviewOpacity?.value ?? 40) / 100));
+  if (elements.maskPreviewOpacityValue) elements.maskPreviewOpacityValue.textContent = `${Math.round(opacity * 100)}%`;
+  const selection = elements.maskPreviewFish?.value || "all";
+  const entries = maskPreviewEntries(data).filter(item => selection === "all" || String(item.id) === selection);
+  const line = Math.max(1.5, source.width / 750), font = Math.max(12, source.width / 75);
+  for (const entry of entries) {
+    context.save(); context.strokeStyle = entry.color; context.fillStyle = entry.color; context.lineWidth = line;
+    if (elements.maskPreviewShow?.checked !== false && entry.contours.length) {
+      maskPreviewPolygons(context, entry.contours);
+      context.globalAlpha = opacity; context.fill("evenodd"); context.globalAlpha = .95;
+      context.setLineDash(entry.review ? [line * 4, line * 3] : []); context.stroke(); context.setLineDash([]);
+      if (entry.conflictContours.length) { context.strokeStyle = "#ff4c68"; context.lineWidth = line * 2;
+        maskPreviewPolygons(context, entry.conflictContours); context.stroke(); context.strokeStyle = entry.color; }
+    }
+    if (elements.maskPreviewModel1?.checked !== false) {
+      const [left, top, right, bottom] = entry.bbox;
+      context.globalAlpha = .9; context.strokeRect(left, top, right - left, bottom - top);
+    }
+    if (elements.maskPreviewModel2?.checked) for (const part of entry.parts) {
+      const [left, top, right, bottom] = part.bbox;
+      context.globalAlpha = 1; context.strokeStyle = "#fff"; context.lineWidth = Math.max(1, line * .65);
+      context.strokeRect(left, top, right - left, bottom - top);
+      context.font = `${font * .7}px system-ui`; context.fillStyle = "#fff";
+      context.fillText(`${part.region || part.part || "Part"} (assigned)`, left + line, Math.min(source.height - font, top + font));
+    }
+    if (elements.maskPreviewShow?.checked !== false || elements.maskPreviewModel1?.checked !== false) {
+      const label = `Fish #${entry.id}${entry.contours.length ? entry.review ? " · review" : " · unvalidated" : " · mask unavailable"}`;
+      const x = entry.bbox[0], y = Math.max(font + line, entry.bbox[1]);
+      context.globalAlpha = 1; context.font = `600 ${font}px system-ui`;
+      context.fillStyle = "rgb(7 29 43 / 85%)"; context.fillRect(x, y - font, context.measureText(label).width + line * 4, font + line * 3);
+      context.fillStyle = entry.color; context.fillText(label, x + line * 2, y + line);
+    }
+    context.restore();
+  }
+}
+function rememberMaskPreviewAnalysis(analysis, file) {
+  uploadMaskPreview.analysisToken = typeof analysis?.preview_analysis_token === "string" ? analysis.preview_analysis_token : null;
+  uploadMaskPreview.analysisFile = file;
+}
+function stopMaskPreviewTimer() {
+  if (uploadMaskPreview.timer) clearInterval(uploadMaskPreview.timer);
+  uploadMaskPreview.timer = null;
+}
+function clearMaskPreview() {
+  uploadMaskPreview.version += 1; uploadMaskPreview.controller?.abort(); stopMaskPreviewTimer();
+  Object.assign(uploadMaskPreview, {data: null, image: null, file: null, controller: null, inFlight: false, startedAt: 0, analysisToken: null, analysisFile: null});
+  if (elements.maskPreview) { elements.maskPreview.classList.add("hidden"); elements.maskPreview.setAttribute("aria-busy", "false"); }
+  if (elements.maskPreviewCanvas) { elements.maskPreviewCanvas.width = 0; elements.maskPreviewCanvas.height = 0; }
+  if (elements.maskPreviewStatus) elements.maskPreviewStatus.textContent = "";
+  elements.maskPreviewLegend?.replaceChildren();
+  elements.maskPreviewFish?.replaceChildren(Object.assign(document.createElement("option"), {value: "all", textContent: "All fish"}));
+  elements.maskPreviewCancel?.classList.add("hidden");
+}
+function cancelMaskPreview() {
+  if (!uploadMaskPreview.inFlight) return;
+  const seconds = (performance.now() - uploadMaskPreview.startedAt) / 1000;
+  clearMaskPreview();
+  elements.maskPreview?.classList.remove("hidden");
+  if (elements.maskPreviewStatus) elements.maskPreviewStatus.textContent = `Mask request canceled after ${seconds.toFixed(1)}s. No masks were applied.`;
+  updateUploadControls();
+}
+function maskPreviewLegend(entries) {
+  elements.maskPreviewLegend?.replaceChildren(); elements.maskPreviewFish?.replaceChildren(Object.assign(document.createElement("option"), {value: "all", textContent: "All fish"}));
+  for (const entry of entries) {
+    const option = Object.assign(document.createElement("option"), {value: String(entry.id), textContent: `Fish #${entry.id}`}); elements.maskPreviewFish?.append(option);
+    const item = document.createElement("li"); item.dataset.review = String(entry.review);
+    const swatch = document.createElement("span"); swatch.className = "mask-preview-swatch"; swatch.style.color = entry.color;
+    const label = document.createElement("span");
+    label.textContent = `Fish #${entry.id}: ${!entry.contours.length ? "mask unavailable" : entry.review ? "ownership requires review" : "engineering checks passed; unvalidated"}. ${entry.reason.replaceAll("_", " ")}`;
+    item.append(swatch, label); elements.maskPreviewLegend?.append(item);
+  }
+}
+async function inspectUploadMasks() {
+  if (!selectedUpload || isVideoUpload(selectedUpload) || uploadInFlight || uploadMaskPreview.inFlight) return;
+  const file = selectedUpload, analysisToken = uploadMaskPreview.analysisFile === file ? uploadMaskPreview.analysisToken : null;
+  clearMaskPreview();
+  const version = uploadMaskPreview.version;
+  uploadMaskPreview.file = file; uploadMaskPreview.inFlight = true; uploadMaskPreview.startedAt = performance.now();
+  uploadMaskPreview.controller = new AbortController();
+  elements.maskPreview?.classList.remove("hidden"); elements.maskPreview?.setAttribute("aria-busy", "true");
+  elements.maskPreviewCancel?.classList.remove("hidden");
+  const current = () => version === uploadMaskPreview.version && file === selectedUpload;
+  const tick = () => { if (current() && elements.maskPreviewStatus) elements.maskPreviewStatus.textContent = `Loading MobileSAM and generating fish masks… ${((performance.now() - uploadMaskPreview.startedAt) / 1000).toFixed(1)}s`; };
+  tick(); uploadMaskPreview.timer = setInterval(tick, 100); updateUploadControls();
+  try {
+    const response = await fetch("/api/segmentation/preview", {method: "POST", headers: {"Content-Type": file.type || "application/octet-stream", "X-Filename": file.name, ...(analysisToken ? {"X-Preview-Analysis-Token": analysisToken} : {})}, body: file, signal: uploadMaskPreview.controller.signal});
+    const data = await response.json().catch(() => ({}));
+    if (!current()) return;
+    if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : data.message || `Segmentation failed: HTTP ${response.status}`);
+    const source = maskPreviewSource(data), entries = maskPreviewEntries(data), generated = entries.filter(entry => entry.contours.length).length;
+    if (!source || data.status !== "generated" || generated === 0) {
+      const detail = data.message || "Segmentation returned no usable fish masks. Check MobileSAM setup and the detected fish prompts.";
+      const setup = typeof data.setup_command === "string" && data.status !== "no_fish" ? ` Setup: ${data.setup_command}` : "";
+      throw new Error(detail + setup);
+    }
+    if (typeof data.preview_image !== "string" || !data.preview_image.startsWith("data:image/")) throw new Error("Matching original-image preview unavailable; masks withheld.");
+    const image = new Image();
+    await new Promise((resolve, reject) => { image.onload = resolve; image.onerror = () => reject(new Error("The original-image mask preview could not be decoded.")); image.src = data.preview_image; });
+    if (!current()) return;
+    const ratio = image.naturalWidth / image.naturalHeight, expected = source.width / source.height;
+    if (!Number.isFinite(ratio) || Math.abs(ratio / expected - 1) > .015) throw new Error("Original-image preview dimensions disagree with mask coordinates; masks withheld.");
+    Object.assign(uploadMaskPreview, {data, image, analysisToken, analysisFile: file});
+    maskPreviewLegend(entries); renderMaskPreview();
+    const review = entries.filter(entry => entry.contours.length && entry.review).length;
+    const seconds = data.performance?.segmentation_ms;
+    const timing = typeof seconds === "number" && Number.isFinite(seconds) && seconds >= 0 ? `Segmentation ${(seconds / 1000).toFixed(2)}s` : "Backend segmentation duration unavailable";
+    const elapsed = (performance.now() - uploadMaskPreview.startedAt) / 1000;
+    elements.maskPreviewStatus.textContent = `Generated ${generated} candidate mask${generated === 1 ? "" : "s"}. ${review ? `${review} require ownership review. ` : "All remain independently unvalidated. "}${timing}; request ${elapsed.toFixed(1)}s. Grading is unchanged.`;
+  } catch (error) {
+    if (!current()) return;
+    uploadMaskPreview.data = null; uploadMaskPreview.image = null;
+    if (elements.maskPreviewCanvas) { elements.maskPreviewCanvas.width = 0; elements.maskPreviewCanvas.height = 0; }
+    const elapsed = (performance.now() - uploadMaskPreview.startedAt) / 1000;
+    elements.maskPreviewStatus.textContent = `${error?.name === "AbortError" ? "Mask request canceled" : error instanceof Error ? error.message : "Segmentation failed"} (${elapsed.toFixed(1)}s). No masks were applied.`;
+  } finally {
+    if (!current()) return;
+    uploadMaskPreview.inFlight = false; uploadMaskPreview.controller = null; stopMaskPreviewTimer();
+    elements.maskPreview?.setAttribute("aria-busy", "false"); elements.maskPreviewCancel?.classList.add("hidden"); updateUploadControls();
+  }
+}
 function updateUploadControls() {
   const canAnalyze = Boolean(selectedUpload && uploadAnalysisAvailable() && !uploadInFlight);
   elements.analyze.disabled = !canAnalyze;
@@ -2389,7 +2557,7 @@ function updateUploadControls() {
   elements.uploadProgress.classList.toggle("hidden", !uploadInFlight);
   elements.uploadProgress.setAttribute("aria-hidden", String(!uploadInFlight));
     if (elements.segmentationExperiment) elements.segmentationExperiment.disabled = uploadInFlight;
-    if (elements.inspectMasks) elements.inspectMasks.disabled = uploadInFlight || !(resultDatasets.upload.rows || []).some(fish => fish.analysis?.segmentation?.backend === "mobilesam_experimental");
+    if (elements.inspectMasks) elements.inspectMasks.disabled = uploadInFlight || !selectedUpload || isVideoUpload(selectedUpload) || (typeof uploadMaskPreview !== "undefined" && uploadMaskPreview.inFlight);
 }
 function stopUploadTimer() {
   if (uploadTimer) { clearInterval(uploadTimer); uploadTimer = null; }
@@ -2411,6 +2579,7 @@ function startUploadTimer() {
   }, 100);
 }
 function clearUploadAnalysisState() {
+    if (typeof clearMaskPreview === "function") clearMaskPreview();
     if (typeof fishZoomRequestVersion === "number") fishZoomRequestVersion += 1;
     if (typeof fishZoom !== "undefined" && fishZoom.source === "upload" && elements.fishZoomModal) closeFishZoom();
     if (elements.segmentationExperiment) elements.segmentationExperiment.checked = false;
@@ -2545,11 +2714,10 @@ elements.previewMode.addEventListener("click", () => { rawPreview = !rawPreview;
 elements.reset.addEventListener("click", () => { if (!hasEvents(latestStatus) || window.confirm("Reset this session? Live counters will reset. Saved inspection records will remain in the local database.")) postControl("/api/session/reset"); });
 elements.uploadMode.addEventListener("click", () => toggleUpload(elements.uploadWorkspace.classList.contains("hidden")));
 elements.inspectMasks?.addEventListener("click", () => {
-  const fish = resultDatasets.upload.rows.find(item => item.analysis?.segmentation?.backend === "mobilesam_experimental");
-  if (!fish) return;
-  elements.fishZoomMask.checked = true;
-  openFishZoom("upload", resultDatasets.upload.rows, fish);
+  void inspectUploadMasks();
 });
+for (const control of [elements.maskPreviewShow, elements.maskPreviewModel1, elements.maskPreviewModel2, elements.maskPreviewOpacity, elements.maskPreviewFish, elements.maskPreviewZoom]) control?.addEventListener("input", renderMaskPreview);
+elements.maskPreviewCancel?.addEventListener("click", cancelMaskPreview);
 elements.segmentationOptions?.addEventListener("toggle", async () => {
   if (!elements.segmentationOptions.open || elements.segmentationOptions.dataset.statusLoaded) return;
   elements.segmentationOptions.dataset.statusLoaded = "true";
@@ -2636,6 +2804,7 @@ elements.analyze.addEventListener("click", async () => {
     if (requestVersion !== uploadRequestVersion || upload !== selectedUpload) return;
     const analysis = videoUpload ? await waitForVideoAnalysis(payload.job_id, requestVersion, upload) : payload;
     if (!analysis) return;
+    if (!videoUpload && typeof rememberMaskPreviewAnalysis === "function") rememberMaskPreviewAnalysis(analysis, upload);
     if (requestedSegmentationBackend && Array.isArray(analysis.fish) && analysis.fish.length && !analysis.fish.some(fish => fish.analysis?.segmentation?.backend === requestedSegmentationBackend)) throw new Error("The loaded backend did not return the requested experimental segmentation. Check MobileSAM setup and reload the updated backend before retrying.");
     const isVideo = videoUpload;
     const isPartPreview = analysis.analysis_mode === "part_preview";

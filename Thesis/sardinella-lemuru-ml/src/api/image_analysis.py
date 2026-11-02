@@ -602,7 +602,7 @@ class VideoUploadAnalyzer:
                     analysis["inspection_source"] = source
                     if isinstance(match.get("segmentation_snapshot"), dict):
                         analysis["segmentation"] = {**match["segmentation_snapshot"], "parent_track_id": track_index + 1,
-                                                    "source_detection_id": selected.get("source_detection_id")}
+                                                    "source_detection_id": match["segmentation_snapshot"].get("parent_track_id")}
                     selected["analysis"] = analysis
                     match["bbox"] = bbox
                 if len(annotated_frames) < 90 and (processed == 1 or processed % max(1, total_frames // 90) == 0):

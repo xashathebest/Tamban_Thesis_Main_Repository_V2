@@ -24,7 +24,8 @@ def mask_stage_metrics(context):
         "mask_preprocessing_ms": round(sum(preprocessing), 3)
         if complete and all(isinstance(value, (int, float)) for value in preprocessing) else None,
         "mask_cache_lookup_ms": context.get("lookup_ms"),
-        "segmentation_backend": context.get("segmentation_backend", "opencv_cpu"),
+        "segmentation_backend": ("opencv_cpu" if context.get("segmentation_backend", "opencv_cpu_grabcut") == "opencv_cpu_grabcut"
+                                 else context.get("segmentation_backend", "opencv_cpu")),
         "segmentation_stage_ms": stages,
         "segmentation_child_timings_complete": complete and bool(stages),
         "segmentation_timing_note": "Failed extraction wall time is included, but incomplete child timings are unavailable."
