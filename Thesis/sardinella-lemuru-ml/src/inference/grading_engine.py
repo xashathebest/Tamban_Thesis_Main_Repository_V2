@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import math
 from collections import Counter, deque
+from copy import deepcopy
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from time import perf_counter
@@ -23,6 +24,10 @@ from src.features.texture import TextureSettings, extract_texture_features
 from src.features.runtime import RuntimeFeatureContext
 from src.inference.body_width import BodyWidthConfig, analyze_body_width, load_body_width_config, supplement_body_scores
 from src.inference.geometric_support import integrate_geometric_support
+from src.inference.feature_fusion import (
+    StructuralFusionConfig, feature_fusion_report, integrate_structural_support,
+    load_structural_fusion_config,
+)
 from src.inference.part_types import PartDetection
 from src.inference.grading_policy import (
     GRADE_NAMES,
@@ -487,6 +492,7 @@ class FishVerdict:
     grading_config: dict[str, object]
     body_width: dict[str, object] = field(default_factory=dict)
     geometric_support: dict[str, object] = field(default_factory=dict)
+    feature_fusion: dict[str, object] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, object]:
         tail = self.part_results.get("Tail", {})
@@ -543,6 +549,7 @@ class FishVerdict:
             "grading_config": dict(self.grading_config),
             "body_width": dict(self.body_width),
             "geometric_support": dict(self.geometric_support),
+            "feature_fusion": deepcopy(self.feature_fusion),
         }
 
 
@@ -655,16 +662,19 @@ def calculate_part_scores(parts: Iterable[PartDetection]) -> tuple[dict[str, dic
 class WeightedGradingEngine:
     """Track-aware part fusion with explicit evidence-acceptance gates."""
 
-    def __init__(self, config: GradingConfig | None = None, *, body_width_config: BodyWidthConfig | None = None) -> None:
+    def __init__(self, config: GradingConfig | None = None, *, body_width_config: BodyWidthConfig | None = None,
+                 structural_config: StructuralFusionConfig | None = None) -> None:
         self.config = config or load_grading_config()
         self.body_width_config = body_width_config or load_body_width_config()
+        self.structural_config = structural_config or load_structural_fusion_config()
         self._tracks: dict[int, _TrackEvidence] = {}
         self.last_hsv_processing_seconds: float | None = None
         self.last_feature_timings: dict[str, object] = {}
         self.last_evaluation_seconds: float | None = None
 
     def configuration_snapshot(self) -> dict[str, object]:
-        return {**self.config.to_dict(), "body_width": self.body_width_config.to_dict()}
+        return {**self.config.to_dict(), "body_width": self.body_width_config.to_dict(),
+                "structural_features": self.structural_config.to_dict()}
 
     def reset(self) -> None:
         self._tracks.clear()
@@ -910,8 +920,7 @@ class WeightedGradingEngine:
         else:
             width.update(score_applied=False, score_contributed=False, applied_body_score_shift=0.0)
         policy = self.config.to_policy()
-        decision = grade_fish(
-            FishGradingInput(
+        policy_input = FishGradingInput(
                 part_scores=aggregate_scores,
                 presence_confidence=presence,
                 observation_count=usable_count,
@@ -921,9 +930,9 @@ class WeightedGradingEngine:
                 model2_available=model2_available,
                 frame_quality_rejected=quality_count == 0 and candidate_frame_count > 0,
                 out_of_frame=inferred_out_of_frame,
-            ),
-            policy,
-        )
+            )
+        decision = grade_fish(policy_input, policy)
+        anatomical_decision = grade_fish(replace(policy_input, part_scores=raw_scores), policy) if legacy_width else decision
         available = list(decision.observed_regions)
         available_set = set(available)
         original_weight_coverage = decision.evidence_coverage
@@ -1062,6 +1071,14 @@ class WeightedGradingEngine:
             decision, width, geometric_support = integrate_geometric_support(
                 decision, width, self.body_width_config, policy, part_scores=raw_scores,
             )
+        structural_payload = latest_quality.get("structural_evidence")
+        structural_source = latest_quality.get("source_context")
+        current_frame_id = diagnostic_frame.frame_id if diagnostic_frame is not None else None
+        decision, structural_support, eligibility = integrate_structural_support(
+            decision, structural_payload, self.structural_config, policy,
+            fish_id=fish_id, frame_id=current_frame_id, source_context=structural_source,
+        )
+        fusion = feature_fusion_report(anatomical_decision, geometric_support, structural_support, eligibility, decision)
         available = list(decision.observed_regions)
         available_set = set(available)
         original_weight_coverage = decision.evidence_coverage
@@ -1080,10 +1097,15 @@ class WeightedGradingEngine:
         verdict_status = decision.verdict_status
         reason_code = decision.reason_codes[0]
         reason_text = self._policy_reason_text(decision.reason_codes, decision.top_support, decision.grade_margin)
-        if geometric_support.get("contribution_applied"):
+        if geometric_support.get("contribution_applied") and final_grade is not None:
             reason_text = f"Combined normalized {final_grade} support {float(final_score) * 100:.2f}% satisfies the configured support and margin gates; required Model 2 evidence was accepted before geometry."
         if geometric_support.get("width_changed_classification"):
             reason_text += f" Validated width support changed {baseline_decision.final_grade} to {final_grade}; the original evidence gates remain satisfied."
+        if structural_support.get("used_for_grading"):
+            reason_text = (eligibility["reason"] + " " if eligibility["rule_applied"] else "") + (
+                f"The final eligible grade is {final_grade}; its existing support and margin gates remain satisfied."
+                if final_grade is not None else
+                "No remaining eligible grade satisfies the configured support and margin gates; expert review is required.")
         override = decision.override
         for region in PART_NAMES:
             part_results[region]["normalized_weight"] = decision.effective_weights[region]
@@ -1122,6 +1144,9 @@ class WeightedGradingEngine:
                 explanations.append(f"Validated width {float(width['class_c_supporting_points']):.2f}/10 transferred {float(width['applied_geometric_score_shift']):.4f} of normalized A/B support to C after weighted grading; original anatomy weights are retained.")
         else:
             explanations.append("Width contribution inactive: " + str(width.get("contribution_reason", "unavailable")).replace("_", " ") + ".")
+        explanations.append("Structural contribution: " + str(structural_support.get("contribution_reason", "unavailable")).replace("_", " ") + ".")
+        if eligibility["rule_applied"]:
+            explanations.append(eligibility["reason"])
         if self.config.color_adjustments_enabled or self.config.defect_adjustments_enabled:
             explanations.append("A feature-adjustment switch is enabled but no validated adjustment rule is configured; scores remain unchanged.")
 
@@ -1149,7 +1174,10 @@ class WeightedGradingEngine:
             temporal_stability=temporal_stability,
             frame_quality=frame_quality,
             best_frame=dict(best_frame) if best_frame else None,
-            adjustments=({"source": "validated_body_width", "stage": "post_weighted_v2", "applied_score_shift": width.get("applied_geometric_score_shift")},) if geometric_support.get("contribution_applied") else (),
+            adjustments=(({"source": "validated_body_width", "stage": "post_weighted_v2", "applied_score_shift": width.get("applied_geometric_score_shift")},) if geometric_support.get("contribution_applied") else ())
+                        + (({"source": "reviewed_structural_evidence", "stage": "post_geometry_structural_v1",
+                             "applied_score_shift": structural_support.get("score_shift", 0.),
+                             "eligibility": dict(eligibility)},) if structural_support.get("used_for_grading") else ()),
             override=override,
             color=colors,
             supporting_image_measurements=supporting,
@@ -1157,6 +1185,7 @@ class WeightedGradingEngine:
             grading_config=self.configuration_snapshot(),
             body_width=width,
             geometric_support=geometric_support,
+            feature_fusion=fusion,
         )
 
     def evaluate(
@@ -1176,6 +1205,8 @@ class WeightedGradingEngine:
         fish_mask: np.ndarray | None = None,
         texture_mask: np.ndarray | None = None,
         texture_mask_metadata: Mapping[str, object] | None = None,
+        structural_evidence: Mapping[str, object] | None = None,
+        source_context: Mapping[str, object] | None = None,
     ) -> FishVerdict:
         """Add one usable candidate crop (or explain why it was excluded).
 
@@ -1185,6 +1216,13 @@ class WeightedGradingEngine:
         """
 
         quality_payload = dict(frame_quality or {})
+        if structural_evidence is not None:
+            quality_payload["structural_evidence"] = deepcopy(dict(structural_evidence))
+        if source_context is not None:
+            quality_payload["source_context"] = deepcopy(dict(source_context))
+        for key in ("structural_evidence", "source_context"):
+            if key in quality_payload:
+                quality_payload[key] = deepcopy(quality_payload[key])
         if not isinstance(model2_available, bool):
             raise ValueError("model2_available must be a boolean.")
         quality_payload["model2_available"] = model2_available

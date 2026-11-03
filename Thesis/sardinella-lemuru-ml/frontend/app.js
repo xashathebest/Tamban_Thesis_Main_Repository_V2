@@ -25,6 +25,8 @@ const elements = {
   uploadMode: $("upload-mode-button"), closeUpload: $("close-upload-button"), uploadWorkspace: $("upload-workspace"), uploadInput: $("upload-input"), selectUpload: $("select-upload-button"), uploadFileName: $("upload-file-name"), analyze: $("analyze-button"), uploadStatus: $("upload-status"), uploadProgress: $("upload-analysis-progress"), uploadImage: $("upload-result-image"), uploadVideo: $("upload-result-video"), uploadResults: $("upload-results"), uploadMediaStage: $("upload-media-stage"), uploadFishTargets: $("upload-fish-targets"),
   segmentationOptions: $("upload-segmentation-options"), segmentationExperiment: $("upload-mobilesam"), segmentationNote: $("upload-segmentation-note"), inspectMasks: $("inspect-upload-masks"),
   maskPreview: $("upload-mask-preview"), maskPreviewCanvas: $("upload-mask-canvas"), maskPreviewStatus: $("upload-mask-status"), maskPreviewShow: $("upload-mask-show"), maskPreviewModel1: $("upload-mask-model1"), maskPreviewModel2: $("upload-mask-model2"), maskPreviewOpacity: $("upload-mask-opacity"), maskPreviewOpacityValue: $("upload-mask-opacity-value"), maskPreviewFish: $("upload-mask-fish"), maskPreviewZoom: $("upload-mask-zoom"), maskPreviewCancel: $("upload-mask-cancel"), maskPreviewLegend: $("upload-mask-legend"),
+  maskPreviewBoxes: $("upload-display-boxes"), maskPreviewMasks: $("upload-display-masks"), maskPreviewCracks: $("upload-mask-cracks"),
+  liveDisplayBoxes: $("live-display-boxes"), liveDisplayMasks: $("live-display-masks"),
   fishZoomModal: $("fish-zoom-modal"), fishZoomClose: $("fish-zoom-close"), fishZoomViewport: $("fish-zoom-viewport"), fishZoomCanvas: $("fish-zoom-canvas"), fishZoomTitle: $("fish-zoom-title"), fishZoomSubtitle: $("fish-zoom-subtitle"), fishZoomLevel: $("fish-zoom-level"), fishZoomDetails: $("fish-zoom-details"), fishZoomChoices: $("fish-zoom-choices"), fishZoomIn: $("fish-zoom-in"), fishZoomOut: $("fish-zoom-out"), fishZoomReset: $("fish-zoom-reset"), fishZoomOriginal: $("fish-zoom-original"), fishZoomAnnotations: $("fish-zoom-annotations"), fishZoomModel1: $("fish-zoom-model1"), fishZoomModel2: $("fish-zoom-model2"), fishZoomMask: $("fish-zoom-mask"), fishZoomCracks: $("fish-zoom-cracks"),
   kpiGrid: $("kpi-grid"), featureCounterGrid: $("feature-counter-grid"), threshold: $("threshold"), openConfidence: $("open-confidence-button"),
   gradeChartEmpty: $("grade-chart-empty"), gradeChart: $("grade-chart"), gradeDonut: $("grade-donut"), gradeTotal: $("grade-total"), gradeLegend: $("grade-legend"),
@@ -598,9 +600,17 @@ function eventValue(event, ...keys) {
   return undefined;
 }
 function model1Confidence(event) { const model1 = analysisFor(event).model1_detection; return model1 && typeof model1 === "object" && model1.confidence != null ? model1.confidence : eventValue(event, "model1_detection_confidence", "detection_confidence", "final_confidence", "confidence_percent"); }
-function weightedFinalSupport(event) { return eventValue(event, "final_score", "provisional_score", "best_evidence_score", "quality_confidence"); }
+function weightedFinalSupport(event) {
+  const fusion = event?.analysis?.feature_fusion;
+  if (fusion?.schema_version === "feature_fusion_v1" && ["Class A", "Class B", "Class C", "Rejected", "Ungraded"].includes(fusion.final_grade)) return typeof fusion.final_support === "number" && Number.isFinite(fusion.final_support) ? fusion.final_support : null;
+  return eventValue(event, "final_score", "provisional_score", "best_evidence_score", "quality_confidence");
+}
 function model2BestEvidence(event) { return { grade: eventValue(event, "best_evidence_class", "provisional_grade", "quality"), score: eventValue(event, "best_evidence_score", "provisional_score", "quality_confidence") }; }
-function aiFinalGrade(event) { return String(eventValue(event, "ai_final_grade", "final_grade", "quality") || "Ungraded"); }
+function aiFinalGrade(event) {
+  const fusion = event?.analysis?.feature_fusion;
+  if (fusion?.schema_version === "feature_fusion_v1" && ["Class A", "Class B", "Class C", "Rejected", "Ungraded"].includes(fusion.final_grade)) return fusion.final_grade;
+  return String(eventValue(event, "ai_final_grade", "final_grade", "quality") || "Ungraded");
+}
 function manualGrade(event) { return eventValue(event, "manual_grade"); }
 function verdictStatus(event) { return String(eventValue(event, "verdict_status") || "NOT_AVAILABLE").toUpperCase(); }
 function readableVerdictStatus(value) {
@@ -688,11 +698,13 @@ function surfaceDamageEvidence(event) {
 }
 function surfaceDamageRows(event) {
   const {damage, locations, validated, suspected, state} = surfaceDamageEvidence(event);
+  const structural = event.analysis?.feature_fusion?.structural || {};
+  const confirmed = structural.status === "confirmed" && structural.severity_validated === true && structural.source_bound === true && Boolean(structural.validation_provenance && Object.keys(structural.validation_provenance).length);
   const numeric = (value) => typeof value === "number" && Number.isFinite(value) ? String(Number(value.toFixed(3))) : "Unavailable";
   return [
-    ["Evidence state", state],
-    ["Validation", validated ? "Validated with recorded provenance" : "Not validated for crack classification"],
-    ["Severity", validated ? damage.severity || "Unassessed" : "Unassessed; requires expert reference labels"],
+    ["Evidence state", confirmed ? "Confirmed structural evidence" : state],
+    ["Validation", confirmed || validated ? "Validated with recorded provenance" : "Not validated for crack classification"],
+    ["Severity", confirmed ? structural.severity : validated ? damage.severity || "Unassessed" : "Unassessed; requires expert reference labels"],
     ["Heuristic strength (0-1)", suspected || validated ? `${numeric(damage.confidence)}; not a damage probability` : "Unavailable: no reliable candidate"],
     ["Estimated straight-line support extent", (suspected || validated) && typeof damage.estimated_length_px === "number" && Number.isFinite(damage.estimated_length_px) ? `${numeric(damage.estimated_length_px)} px` : "Unavailable: no reliable candidate"],
     ["Length interpretation", damage.length_method ? String(damage.length_method).replaceAll("_", " ") : "Unvalidated image extent; full biological crack length is not measured"],
@@ -701,7 +713,7 @@ function surfaceDamageRows(event) {
     ["Parent crop in original frame", Array.isArray(damage.crop_bounds) ? damage.crop_bounds.join(", ") : "Unavailable: parent crop was not recorded"],
     ["Mask source", damage.mask_source || "Unavailable: no foreground mask recorded"],
     ["Explanation", damage.reason || "Structural damage evidence was not recorded for this observation."],
-    ["Automatic grade effect", "None; supporting diagnostic evidence"],
+    ["Automatic grade effect", confirmed && structural.used_for_grading === true ? String(structural.contribution_reason || "Validated structural rule applied").replaceAll("_", " ") : "None; unvalidated candidates do not change grading"],
   ];
 }
 function textureEvidenceRows(event) {
@@ -1132,16 +1144,42 @@ function measurementRows(event) {
 }
 function finalExplanationRows(event) {
   const analysis = event.analysis || {}; const geometry = analysis.geometric_support || {}; const width = analysis.body_width || {};
+  const fusion = analysis.feature_fusion || {}; const structural = fusion.structural || {}; const eligibility = fusion.eligibility || {};
+  const structuralValidated = structural.status === "confirmed" && structural.severity_validated === true && structural.source_bound === true && Boolean(structural.validation_provenance && Object.keys(structural.validation_provenance).length);
   const reason = verdictReason(event);
   return [
-    ["Original weighted grade", geometry.original_grade || "Not recorded"],
+    ["Original weighted grade", fusion.primary_anatomical?.grade || fusion.original_grade || geometry.original_grade || "Not recorded"],
     ["Geometric support", typeof geometry.class_c_points === "number" ? `${resultValue(geometry.class_c_points)} / 10 points` : width.score_status || "Unavailable"],
     ["Geometric contribution", String(geometry.contribution_reason || width.contribution_reason || "Not recorded").replaceAll("_", " ")],
+    ["Structural contribution", structuralValidated && structural.used_for_grading === true ? `${structural.severity || "Reviewed damage"}: ${String(structural.contribution_reason || "Validated policy applied").replaceAll("_", " ")}` : String(structural.contribution_reason || "No validated structural grading contribution").replaceAll("_", " ")],
+    ["Class A eligibility", structuralValidated && eligibility.rule_applied === true && eligibility.class_a_eligible === false ? `Restricted: ${eligibility.reason || "Validated structural eligibility rule"}` : "No validated structural eligibility restriction recorded"],
     ["Final combined AI grade", aiFinalGrade(event)],
     ["Width changed classification", geometry.width_changed_classification === true ? "Yes" : geometry.width_changed_classification === false ? "No" : "Not recorded"],
     ...(manualGrade(event) ? [["Operator-reviewed final grade", manualGrade(event)]] : []),
     ["Decision reason", reason.text || (analysis.explanation || []).join(" ") || "Model 2 evidence and configured acceptance safeguards determine the final grade."],
     ...(aiFinalGrade(event) === "Ungraded" ? [["Next step", "Review the reason above and acquire a clear view with reliable Model 2 Body evidence; geometric support cannot bypass missing evidence."]] : []),
+  ];
+}
+function geometryStructuralRows(event) {
+  const analysis = event.analysis || {}, geometry = analysis.fish_geometry || {}, width = analysis.body_width || {};
+  const sampling = geometry.sampling || {}, estimated = sampling.estimated === true;
+  const measured = geometry.status === "measured" && !estimated;
+  const values = measured ? geometry : geometry.candidate_measurements || {};
+  const numeric = value => typeof value === "number" && Number.isFinite(value) ? String(Number(value.toFixed(4))) : "Unavailable";
+  const read = key => `${numeric(values[key])}${typeof values[key] === "number" && !measured ? " (estimate; unvalidated)" : ""}`;
+  return [
+    ["Anatomical length (px)", read("fish_length_px")], ["Maximum Body width (px)", read("max_body_width_px")],
+    ["Representative central Body width (px)", read("representative_body_width_px")],
+    ["Body width / fish length", read("relative_width_ratio")],
+    ["Body width / Body length", read("body_width_to_length_ratio")],
+    ["Whole-fish oriented length / width", read("whole_fish_length_to_width_ratio")],
+    ["Body profile width variability (CV)", read("body_width_profile_cv")],
+    ["Normal reference range", Array.isArray(width.normal_reference_range) && width.normal_reference_range.length === 2 ? width.normal_reference_range.map(numeric).join(" – ") : "Not calibrated"],
+    ["Width abnormality", width.abnormality_status || width.score_status || "Not calibrated"],
+    ["Class C supporting points", typeof width.class_c_supporting_points === "number" ? `${numeric(width.class_c_supporting_points)} / 10` : "Not calibrated"],
+    ["Measurement reliability", `${geometry.reliability || "Unavailable"}${Array.isArray(geometry.reasons) && geometry.reasons.length ? `: ${geometry.reasons.join("; ").replaceAll("_", " ")}` : ""}`],
+    ["Body-region validation", geometry.body_region_validated === true && !estimated ? "Reviewed Body support recorded" : "Body anatomy not independently validated"],
+    ["Units", "Pixels and dimensionless image ratios; centimeters require validated physical calibration"],
   ];
 }
 function appendResultTable(parent, headers, rows) {
@@ -1208,6 +1246,7 @@ function appendResultCard(parent, event) {
   const grade = resultGrade(event); const details = document.createElement("details"); details.className = "result-fish-card";
   const key = resultIdentity(event, resultDatasets[resultsSource].scope); const expanded = resultDisclosureStates.get(resultsSource) || new Set();
   details.dataset.fishKey = key; details.dataset.disclosureKey = `fish:${key}`;
+  details.dataset.inspectionFishId = String(event.track_id ?? event.id ?? event.fish_id ?? "");
   const summary = document.createElement("summary"); const title = document.createElement("strong"); title.textContent = event.fish_label || `Fish #${event.track_id ?? event.id ?? event.fish_id ?? "?"}`;
   const support = document.createElement("b"); support.textContent = `Final support: ${scoreText(weightedFinalSupport(event))}`;
   const status = document.createElement("span"); status.textContent = grade; summary.append(title, status, support); details.append(summary);
@@ -1221,9 +1260,14 @@ function appendResultCard(parent, event) {
       appendResultTable(section, ["Class", "Original weighted support (0–1)"], sessionGradeBuckets.filter((name) => name !== "Ungraded").map((name) => [name, scores[name]]));
       section.append(Object.assign(document.createElement("p"), {className: "muted", textContent: "Detection confidence, part confidence, weighted support and geometric points describe different evidence; support is not measured accuracy."}));
     }, expanded);
-    lazyResultSection(body, "B. Body Width and Geometric Analysis", `${key}:B`, (section) => {
-      appendResultTable(section, ["Measurement / evidence", "Value"], bodyWidthRows(event));
-      section.append(Object.assign(document.createElement("p"), {className: "muted", textContent: "Silhouette measurements account for rotation and use the associated Body region. Anatomical validation is reported separately from pixel reliability. Unreliable measurements remain visible in exported diagnostic evidence and are withheld from measured values. Bounding-box proxies remain diagnostic evidence; silhouette measurements do not contribute grading points."}));
+    lazyResultSection(body, "Geometry & Structural Evidence", `${key}:B`, (section) => {
+      section.append(Object.assign(document.createElement("h4"), {textContent: "Body geometry"}));
+      appendResultTable(section, ["Measurement / evidence", "Value"], geometryStructuralRows(event));
+      section.append(Object.assign(document.createElement("h4"), {textContent: "Structural damage"}));
+      appendResultTable(section, ["Damage evidence", "Recorded value"], surfaceDamageRows(event));
+      section.append(Object.assign(document.createElement("h4"), {textContent: "Feature contributions and eligibility"}));
+      appendResultTable(section, ["Decision stage", "Recorded result"], finalExplanationRows(event));
+      section.append(Object.assign(document.createElement("p"), {className: "muted", textContent: "Unvalidated mask geometry and visual crack candidates cannot change the grade. Calibrated width support and verified structural rules retain their own source and explanation. A whole-fish silhouette does not independently validate Body anatomy."}));
     }, expanded);
     lazyResultSection(body, "C. Image Features and Measurements", `${key}:C`, (section) => {
       appendResultTable(section, ["Region", "Status", "Bounding box", ...measurementColumns.map(([, label]) => label)], measurementRows(event));
@@ -1240,25 +1284,21 @@ function appendResultCard(parent, event) {
       section.append(metadata);
       if (event._inspection_source !== "upload" && event._inspection_source !== "history") appendManualReviewPanel(section, event);
     }, expanded);
-    lazyResultSection(body, "E. Structural Damage Evidence", `${key}:E`, (section) => {
-      appendResultTable(section, ["Damage evidence", "Recorded value"], surfaceDamageRows(event));
-      section.append(Object.assign(document.createElement("p"), {className: "muted", textContent: "Marked discontinuities in the annotated image are suspected damage. Natural scales, shadows and fins can resemble cracks. Validated Damage requires explicit validation and recorded provenance."}));
-    }, expanded);
     lazyResultSection(body, "F. Processing and Hardware", `${key}:F`, (section) => {
       appendResultTable(section, ["Processing diagnostic", "Recorded value"], inspectionPerformanceRows(event, resultDatasets[resultsSource].metadata));
     }, expanded);
     if (event.analysis?.segmentation?.backend === "mobilesam_experimental" || event.analysis?.segmentation?.experimental === true) {
-      lazyResultSection(body, "G. Experimental Fish Mask", `${key}:G`, (section) => {
+      lazyResultSection(body, "Mask ownership and reliability", `${key}:G`, (section) => {
         appendResultTable(section, ["Segmentation evidence", "Recorded value"], segmentationEvidenceRows(event));
-        const inspect = Object.assign(document.createElement("button"), {type: "button", className: "button quiet", textContent: "Inspect this fish's candidate mask"});
-        inspect.addEventListener("click", () => { elements.fishZoomMask.checked = true; openFishZoom("upload", resultDatasets.upload.rows, event); });
+        const inspect = Object.assign(document.createElement("button"), {type: "button", className: "button quiet", textContent: "Highlight this fish"});
+        inspect.addEventListener("click", () => { if (elements.maskPreviewMasks) elements.maskPreviewMasks.checked = true; if (elements.maskPreviewBoxes) elements.maskPreviewBoxes.checked = false; selectInspectionFish(event.track_id ?? event.id ?? event.fish_id); });
         inspect.disabled = event._inspection_source !== "upload" && resultsSource !== "upload";
         section.append(inspect);
       }, expanded);
     }
     details.append(body);
   };
-  details.addEventListener("toggle", populate); details.open = expanded.has(`fish:${key}`); parent.append(details); populate(); return details;
+  details.addEventListener("toggle", () => { populate(); if (details.open && resultsSource === "upload" && typeof selectInspectionFish === "function" && typeof uploadMaskPreview !== "undefined" && uploadMaskPreview.data) selectInspectionFish(details.dataset.inspectionFishId); }); details.open = expanded.has(`fish:${key}`); parent.append(details); populate(); return details;
 }
 function renderResultsDashboard(history, {source = "live", complete = false, metadata = {}, scope = null, renderOnly = false} = {}) {
   if (!renderOnly) {
@@ -1500,6 +1540,9 @@ function resultExportRecord(event) {
     "Inspection Compute Configuration": JSON.stringify(analysis.performance?.compute_report || {}),
   };
   const estimatedNumber = (value) => estimated && typeof value === "number" && Number.isFinite(value) && value > 0 ? value : "";
+  const fusion = analysis.feature_fusion || {}, structural = fusion.structural || {}, eligibility = fusion.eligibility || {};
+  const structuralValidated = structural.status === "confirmed" && structural.severity_validated === true && structural.source_bound === true && Boolean(structural.validation_provenance && Object.keys(structural.validation_provenance).length);
+  const structuralApplied = structuralValidated && structural.used_for_grading === true;
   return {...record, ...flattenResultData(event, "record"),
     "Estimated fish length (px; sampled mask)": estimatedNumber(candidates.fish_length_px),
     "Estimated maximum body width (px; sampled mask)": estimatedNumber(candidates.max_body_width_px),
@@ -1521,6 +1564,30 @@ function resultExportRecord(event) {
     "Experimental mask used for grading": segmentation.backend === "mobilesam_experimental" || segmentation.experimental === true ? "No" : "",
     "Experimental shadow ownership (not applied)": Object.keys(segmentation.shadow_association || {}).length ? JSON.stringify(segmentation.shadow_association) : "",
     "Fish candidate segmentation evidence (previews omitted)": Object.keys(segmentationEvidence).length ? JSON.stringify(segmentationEvidence) : "",
+    "Representative central Body width (px)": measuredNumber(fishGeometry.representative_body_width_px),
+    "Whole-fish oriented maximum width (px)": measuredNumber(fishGeometry.whole_fish_max_width_px),
+    "Whole-fish oriented length-to-width ratio": measuredNumber(fishGeometry.whole_fish_length_to_width_ratio),
+    "Body profile longitudinal length (px)": measuredNumber(fishGeometry.body_profile_length_px),
+    "Body width-to-Body-length ratio": measuredNumber(fishGeometry.body_width_to_length_ratio),
+    "Body width profile CV": measuredNumber(fishGeometry.body_width_profile_cv),
+    "Body region independently validated": !estimated && fishGeometry.body_region_validated === true,
+    "Geometry ownership independently validated": !estimated && fishGeometry.ownership_validated === true,
+    "Anatomical measurement units": JSON.stringify(fishGeometry.units || {}),
+    "Unvalidated anatomical geometry estimates": estimated ? JSON.stringify(candidates) : "",
+    "Width calibration reference metric": width.reference_metric || width.metric || "Not calibrated",
+    "Width reviewed reference sample count": width.reference_sample_count ?? "",
+    "Reviewed structural severity": structuralValidated ? structural.severity : "Unassessed",
+    "Structural severity independently validated": structuralValidated,
+    "Structural grading calibration status": structural.calibration_status || "Not calibrated",
+    "Applied structural support shift (fraction)": structuralApplied ? structural.score_shift ?? 0 : 0,
+    "Validated structural evidence used for grading": structuralApplied,
+    "Structural contribution explanation": structural.contribution_reason || "No validated structural grading rule applied.",
+    "Class A eligibility restricted by validated rule": structuralValidated && eligibility.rule_applied === true && eligibility.class_a_eligible === false,
+    "Class A eligibility rule and provenance": JSON.stringify(eligibility),
+    "Structural evidence changed classification": structuralApplied && fusion.structural_changed_classification === true,
+    "Feature fusion original anatomical grade": fusion.original_grade || geometry.original_grade || "",
+    "Feature fusion final eligible grade": fusion.final_grade || aiFinalGrade(event),
+    "Geometry and structural feature fusion": JSON.stringify(fusion),
   };
 }
 async function exportResultsCsv() {
@@ -1873,6 +1940,8 @@ function syncSettings(data) {
     .forEach((control) => { if (control) { control.disabled = policyLocked; control.title = policyLocked ? "Stop inspection before changing this policy setting." : ""; } });
   const display = data.display_settings || {};
   Object.entries(overlayControls).forEach(([name, controls]) => controls.forEach((control) => { if (control) control.checked = Boolean(display[name]); }));
+  if (elements.liveDisplayMasks) elements.liveDisplayMasks.checked = display.fish_masks === true;
+  if (elements.liveDisplayBoxes) elements.liveDisplayBoxes.checked = display.fish_masks !== true;
   renderGradingSettings(data);
 }
 
@@ -1886,6 +1955,8 @@ function render(data) {
   if (selectedView === "live") {
     renderLatest(data); renderKpis(data); renderFeatureCounters(data); renderResultsDashboard([...(data.active_tracks || []).filter((track) => track.finalized_state !== "counted"), ...(data.recent_history || [])], {metadata: {source_name: "Live inspection session", model_info: data.model_info, session_id: data.durable_session?.session_id}});
     Object.entries(overlayControls).forEach(([name, controls]) => controls.forEach((control) => { if (control) control.checked = Boolean(data.display_settings?.[name]); }));
+    if (elements.liveDisplayMasks) elements.liveDisplayMasks.checked = data.display_settings?.fish_masks === true;
+    if (elements.liveDisplayBoxes) elements.liveDisplayBoxes.checked = data.display_settings?.fish_masks !== true;
     if ($("analytics-disclosure").open && data.analytics !== renderedAnalytics) {
       renderAnalytics(data.analytics); renderedAnalytics = data.analytics;
     }
@@ -2376,7 +2447,13 @@ function setQualityConfidence(value, apply = false) {
   const normalized = Math.max(0, Math.min(100, Math.round(Number(value)))); elements.qualitySlider.value = String(normalized); elements.settingsQualityThreshold.textContent = `${normalized}%`;
   if (apply) postSettings({ quality_confidence_threshold: normalized / 100 });
 }
-function setOverlay(name, checked) { overlayControls[name].forEach((control) => { control.checked = checked; }); postSettings({ display_settings: { [name]: checked } }); }
+function setOverlay(name, checked) { overlayControls[name].forEach((control) => { if (control) control.checked = checked; }); postSettings({ display_settings: { [name]: checked } }); }
+function setLiveVisualizationMode(mode) {
+  const masks = mode === "masks";
+  if (elements.liveDisplayMasks) elements.liveDisplayMasks.checked = masks;
+  if (elements.liveDisplayBoxes) elements.liveDisplayBoxes.checked = !masks;
+  postSettings({display_settings: {outlines: !masks, fish_masks: masks}});
+}
 function uploadAnalysisAvailable() { return Boolean(latestStatus?.upload_analysis_available); }
 function maskPreviewColor(index) { return `hsl(${Math.round((index * 137.508 + 165) % 360)} 78% 53%)`; }
 function maskPreviewSource(data) {
@@ -2404,7 +2481,7 @@ function maskPreviewEntries(data) {
       && (!part.association_status || part.association_status === "ASSIGNED")) : [];
     const review = segmentation.ownership_status !== "checks_passed_unvalidated" || segmentation.engineering_checks_passed !== true;
     const reasons = Array.isArray(segmentation.reasons) ? segmentation.reasons.filter(value => typeof value === "string" && value).join("; ") : "";
-    return [{id, bbox: fish.bbox, parts, segmentation, contours: overlay.contours, conflictContours: overlay.conflict_contours || [],
+    return [{id, bbox: fish.bbox, parts, analysis: fish.analysis || {}, segmentation, contours: overlay.contours, conflictContours: overlay.conflict_contours || [],
       review, reason: reasons || overlay.reason, color: maskPreviewColor(index), frameMatches: overlay.frame_matches}];
   });
 }
@@ -2430,17 +2507,19 @@ function renderMaskPreview() {
   if (elements.maskPreviewOpacityValue) elements.maskPreviewOpacityValue.textContent = `${Math.round(opacity * 100)}%`;
   const selection = elements.maskPreviewFish?.value || "all";
   const entries = maskPreviewEntries(data).filter(item => selection === "all" || String(item.id) === selection);
+  const showMasks = elements.maskPreviewMasks ? elements.maskPreviewMasks.checked : elements.maskPreviewShow?.checked !== false;
+  const showBoxes = elements.maskPreviewBoxes ? elements.maskPreviewBoxes.checked : elements.maskPreviewModel1?.checked !== false;
   const line = Math.max(1.5, source.width / 750), font = Math.max(12, source.width / 75);
   for (const entry of entries) {
     context.save(); context.strokeStyle = entry.color; context.fillStyle = entry.color; context.lineWidth = line;
-    if (elements.maskPreviewShow?.checked !== false && entry.contours.length) {
+    if (showMasks && entry.contours.length) {
       maskPreviewPolygons(context, entry.contours);
       context.globalAlpha = opacity; context.fill("evenodd"); context.globalAlpha = .95;
       context.setLineDash(entry.review ? [line * 4, line * 3] : []); context.stroke(); context.setLineDash([]);
       if (entry.conflictContours.length) { context.strokeStyle = "#ff4c68"; context.lineWidth = line * 2;
         maskPreviewPolygons(context, entry.conflictContours); context.stroke(); context.strokeStyle = entry.color; }
     }
-    if (elements.maskPreviewModel1?.checked !== false) {
+    if (showBoxes) {
       const [left, top, right, bottom] = entry.bbox;
       context.globalAlpha = .9; context.strokeRect(left, top, right - left, bottom - top);
     }
@@ -2451,7 +2530,24 @@ function renderMaskPreview() {
       context.font = `${font * .7}px system-ui`; context.fillStyle = "#fff";
       context.fillText(`${part.region || part.part || "Part"} (assigned)`, left + line, Math.min(source.height - font, top + font));
     }
-    if (elements.maskPreviewShow?.checked !== false || elements.maskPreviewModel1?.checked !== false) {
+    if (elements.maskPreviewCracks?.checked) {
+      const damage = entry.analysis.surface_damage || {};
+      const sameFrame = damage.frame_id != null && String(damage.frame_id) === String(source.frameId);
+      const sameParent = String(damage.parent_track_id ?? entry.id) === String(entry.id);
+      const allowed = sameFrame && sameParent && ["suspected", "validated"].includes(damage.status);
+      const bounds = damage.crop_bounds;
+      const offset = damage.coordinate_space === "crop_local_native_pixels" && Array.isArray(bounds) && bounds.length === 4 ? bounds.slice(0, 2) : damage.coordinate_space === "original_frame" ? [0, 0] : null;
+      if (allowed && offset) for (const location of Array.isArray(damage.locations) ? damage.locations : []) {
+        if (![location.x, location.y, location.width, location.height].every(value => typeof value === "number" && Number.isFinite(value))) continue;
+        const x = location.x + offset[0], y = location.y + offset[1];
+        if (x < 0 || y < 0 || location.width <= 0 || location.height <= 0 || x + location.width > source.width || y + location.height > source.height) continue;
+        context.globalAlpha = 1; context.strokeStyle = "#ff5252"; context.lineWidth = line * 1.5; context.setLineDash([line * 2, line * 2]);
+        context.strokeRect(x, y, location.width, location.height); context.setLineDash([]);
+        context.font = `${font * .7}px system-ui`; context.fillStyle = "#fff";
+        context.fillText(damage.validation_status === "validated" && damage.mask_validated_for_cracks === true ? "Reviewed structural evidence" : "Crack candidate · review", x + line, Math.max(font, y - line));
+      }
+    }
+    if (showMasks || showBoxes) {
       const label = `Fish #${entry.id}${entry.contours.length ? entry.review ? " · review" : " · unvalidated" : " · mask unavailable"}`;
       const x = entry.bbox[0], y = Math.max(font + line, entry.bbox[1]);
       context.globalAlpha = 1; context.font = `600 ${font}px system-ui`;
@@ -2464,6 +2560,67 @@ function renderMaskPreview() {
 function rememberMaskPreviewAnalysis(analysis, file) {
   uploadMaskPreview.analysisToken = typeof analysis?.preview_analysis_token === "string" ? analysis.preview_analysis_token : null;
   uploadMaskPreview.analysisFile = file;
+}
+async function acceptAutomaticMaskPreview(analysis, file) {
+  const data = analysis?.segmentation_preview;
+  if (!data || !maskPreviewSource(data) || typeof data.preview_image !== "string") return false;
+  const version = uploadMaskPreview.version;
+  const current = () => version === uploadMaskPreview.version && file === selectedUpload;
+  const image = new Image();
+  await new Promise((resolve, reject) => { image.onload = resolve; image.onerror = () => reject(new Error("The analyzed source image could not be displayed.")); image.src = data.preview_image; });
+  if (!current()) return false;
+  const source = maskPreviewSource(data);
+  if (!image.naturalWidth || !image.naturalHeight || Math.abs(image.naturalWidth / image.naturalHeight - source.width / source.height) > Math.max(1 / image.naturalHeight, 1 / source.height)) throw new Error("The mask source dimensions do not match the analyzed image.");
+  Object.assign(uploadMaskPreview, {data, image, file});
+  elements.maskPreview?.classList.remove("hidden");
+  elements.uploadMediaStage?.classList.add("hidden");
+  const entries = maskPreviewEntries(data), masks = entries.filter(entry => entry.contours.length).length;
+  maskPreviewLegend(entries); renderMaskPreview();
+  const segmentationMs = data.performance?.segmentation_ms;
+  const timing = typeof segmentationMs === "number" && Number.isFinite(segmentationMs) ? ` Segmentation ${(segmentationMs / 1000).toFixed(2)}s.` : "";
+  if (elements.maskPreviewStatus) elements.maskPreviewStatus.textContent = `${masks} candidate mask${masks === 1 ? "" : "s"}; ${entries.filter(entry => entry.review).length} require ownership review.${timing} ${masks ? "Switch between recorded boxes and masks without rerunning analysis." : data.message || "Masks unavailable; recorded boxes remain available."}`;
+  return true;
+}
+function selectInspectionFish(id, {revealCard = false} = {}) {
+  const value = id == null ? "all" : String(id);
+  if (elements.maskPreviewFish) elements.maskPreviewFish.value = value;
+  renderMaskPreview();
+  let cards = elements.resultsGroups?.querySelectorAll?.("details[data-inspection-fish-id]") || [];
+  if (revealCard && value !== "all" && ![...cards].some(card => card.dataset.inspectionFishId === value)
+      && typeof resultsSource !== "undefined" && resultsSource === "upload" && typeof resultsFilter !== "undefined" && resultsFilter !== "All") {
+    resultsFilter = "All";
+    renderResultsDashboard([], {source: "upload", renderOnly: true});
+    cards = elements.resultsGroups?.querySelectorAll?.("details[data-inspection-fish-id]") || [];
+  }
+  for (const card of cards) {
+    const selected = value !== "all" && card.dataset.inspectionFishId === value;
+    card.classList.toggle("is-mask-selected", selected);
+    if (selected && revealCard) card.open = true;
+  }
+}
+function selectMaskPreviewPoint(event) {
+  const source = maskPreviewSource(uploadMaskPreview.data), canvas = elements.maskPreviewCanvas;
+  if (!source || !canvas) return;
+  const bounds = canvas.getBoundingClientRect();
+  if (!bounds.width || !bounds.height) return;
+  const x = (event.clientX - bounds.left) * source.width / bounds.width;
+  const y = (event.clientY - bounds.top) * source.height / bounds.height;
+  const polygonContains = polygon => {
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      const [xi, yi] = polygon[i], [xj, yj] = polygon[j];
+      if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+  };
+  const selection = elements.maskPreviewFish?.value || "all";
+  const masks = elements.maskPreviewMasks?.checked === true;
+  const hits = maskPreviewEntries(uploadMaskPreview.data).filter(entry => (selection === "all" || String(entry.id) === selection)
+    && (masks ? entry.contours.reduce((inside, polygon) => inside !== polygonContains(polygon), false)
+      : x >= entry.bbox[0] && x <= entry.bbox[2] && y >= entry.bbox[1] && y <= entry.bbox[3]));
+  hits.sort((a, b) => Math.hypot(x - (a.bbox[0] + a.bbox[2]) / 2, y - (a.bbox[1] + a.bbox[3]) / 2)
+    - Math.hypot(x - (b.bbox[0] + b.bbox[2]) / 2, y - (b.bbox[1] + b.bbox[3]) / 2));
+  if (hits.length) selectInspectionFish(hits[0].id, {revealCard: true});
 }
 function stopMaskPreviewTimer() {
   if (uploadMaskPreview.timer) clearInterval(uploadMaskPreview.timer);
@@ -2478,6 +2635,7 @@ function clearMaskPreview() {
   elements.maskPreviewLegend?.replaceChildren();
   elements.maskPreviewFish?.replaceChildren(Object.assign(document.createElement("option"), {value: "all", textContent: "All fish"}));
   elements.maskPreviewCancel?.classList.add("hidden");
+  elements.uploadMediaStage?.classList.remove("hidden");
 }
 function cancelMaskPreview() {
   if (!uploadMaskPreview.inFlight) return;
@@ -2716,8 +2874,12 @@ elements.uploadMode.addEventListener("click", () => toggleUpload(elements.upload
 elements.inspectMasks?.addEventListener("click", () => {
   void inspectUploadMasks();
 });
-for (const control of [elements.maskPreviewShow, elements.maskPreviewModel1, elements.maskPreviewModel2, elements.maskPreviewOpacity, elements.maskPreviewFish, elements.maskPreviewZoom]) control?.addEventListener("input", renderMaskPreview);
+for (const control of [elements.maskPreviewShow, elements.maskPreviewModel1, elements.maskPreviewBoxes, elements.maskPreviewMasks, elements.maskPreviewModel2, elements.maskPreviewCracks, elements.maskPreviewOpacity, elements.maskPreviewZoom]) control?.addEventListener("input", renderMaskPreview);
+elements.maskPreviewFish?.addEventListener("input", () => selectInspectionFish(elements.maskPreviewFish.value, {revealCard: true}));
+elements.maskPreviewCanvas?.addEventListener("click", selectMaskPreviewPoint);
 elements.maskPreviewCancel?.addEventListener("click", cancelMaskPreview);
+elements.liveDisplayBoxes?.addEventListener("input", () => setLiveVisualizationMode("boxes"));
+elements.liveDisplayMasks?.addEventListener("input", () => setLiveVisualizationMode("masks"));
 elements.segmentationOptions?.addEventListener("toggle", async () => {
   if (!elements.segmentationOptions.open || elements.segmentationOptions.dataset.statusLoaded) return;
   elements.segmentationOptions.dataset.statusLoaded = "true";
@@ -2779,7 +2941,7 @@ async function waitForVideoAnalysis(jobId, requestVersion, upload) {
 elements.analyze.addEventListener("click", async () => {
   if (!selectedUpload || uploadInFlight) return;
   const upload = selectedUpload;
-  const requestedSegmentationBackend = elements.segmentationExperiment?.checked ? "mobilesam_experimental" : null;
+  const requestedSegmentationBackend = "mobilesam_experimental";
   setUploadSelection(upload);
   if (elements.segmentationExperiment) elements.segmentationExperiment.checked = Boolean(requestedSegmentationBackend);
   closeFishZoom();
@@ -2805,7 +2967,7 @@ elements.analyze.addEventListener("click", async () => {
     const analysis = videoUpload ? await waitForVideoAnalysis(payload.job_id, requestVersion, upload) : payload;
     if (!analysis) return;
     if (!videoUpload && typeof rememberMaskPreviewAnalysis === "function") rememberMaskPreviewAnalysis(analysis, upload);
-    if (requestedSegmentationBackend && Array.isArray(analysis.fish) && analysis.fish.length && !analysis.fish.some(fish => fish.analysis?.segmentation?.backend === requestedSegmentationBackend)) throw new Error("The loaded backend did not return the requested experimental segmentation. Check MobileSAM setup and reload the updated backend before retrying.");
+    const maskBackendWarning = requestedSegmentationBackend && Array.isArray(analysis.fish) && analysis.fish.length && !analysis.fish.some(fish => fish.analysis?.segmentation?.backend === requestedSegmentationBackend) ? " Mask generation is unavailable; anatomical grading evidence is retained." : "";
     const isVideo = videoUpload;
     const isPartPreview = analysis.analysis_mode === "part_preview";
     revokeUploadPreview();
@@ -2830,8 +2992,13 @@ elements.analyze.addEventListener("click", async () => {
     elements.resultsSource.querySelector('option[value="upload"]').disabled = false;
     resultsFilter = "All"; selectResultsSource("upload"); mountResultsDashboard(true);
     elements.uploadResults.classList.remove("hidden");
+    if (!isPartPreview && typeof acceptAutomaticMaskPreview === "function") {
+      try { await acceptAutomaticMaskPreview(analysis, upload); }
+      catch (error) { if (requestVersion === uploadRequestVersion) { elements.maskPreview?.classList.remove("hidden"); elements.maskPreviewStatus.textContent = `Mask display unavailable: ${error instanceof Error ? error.message : "source image mismatch"}. Grading evidence remains recorded.`; } }
+    }
+    if (requestVersion !== uploadRequestVersion || upload !== selectedUpload) return;
     const elapsed = uploadElapsedSeconds();
-    elements.uploadStatus.textContent = normalizationError || (isPartPreview ? `Part preview: ${analysis.parts_detected || 0} parts; individual fish grading is unavailable.` : `Analysis completed in ${elapsed.toFixed(1)}s${requestedSegmentationBackend ? segmentationCompletionNote(fish) : ""}`);
+    elements.uploadStatus.textContent = normalizationError || (isPartPreview ? `Part preview: ${analysis.parts_detected || 0} parts; individual fish grading is unavailable.` : `Analysis completed in ${elapsed.toFixed(1)}s${requestedSegmentationBackend ? segmentationCompletionNote(fish) : ""}${maskBackendWarning}`);
   } catch (error) {
     if (requestVersion !== uploadRequestVersion) return;
     const elapsed = uploadElapsedSeconds();

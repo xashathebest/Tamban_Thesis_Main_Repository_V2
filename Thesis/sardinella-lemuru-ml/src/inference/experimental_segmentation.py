@@ -19,6 +19,11 @@ def segmentation_backend(value=None):
     return name
 
 
+def inspection_segmentation_backend(value=None):
+    """Automatic inspection uses SAM; explicit operators can select fallback."""
+    return segmentation_backend(value if value is not None else os.getenv("SEGMENTATION_BACKEND", "mobilesam_experimental"))
+
+
 class ExperimentalFrameSegmentation:
     def __init__(self, frame, frame_id, *, service=None):
         self.frame, self.frame_id = frame, frame_id
@@ -26,6 +31,8 @@ class ExperimentalFrameSegmentation:
         self.parents = []
         self.parts = []
         self.trusted_parts = []
+        self.reviewed_instances = {}
+        self.reviewed_ownership = {}
         self.frame_key = None
         self.candidates, self.ownership = {}, {}
         self.shadow = {"applied_to_grading": False, "reason": "No candidate analysis has run."}
@@ -35,11 +42,13 @@ class ExperimentalFrameSegmentation:
                              "embedding_calls": 0, "prompt_calls": 0, "segmentation_ms": 0.0,
                              "used_for_grading": False, "validation_status": "Not validated"}
 
-    def prepare(self, parents, parts=(), associations=None, *, trusted_parts=()):
+    def prepare(self, parents, parts=(), associations=None, *, trusted_parts=(), reviewed_instances=None):
         from src.inference.mask_ownership import validate_candidate_masks, shadow_mask_associations, trusted_prompt_points
         parents = list(parents)
         parts = list(parts)
         self.trusted_parts = list(trusted_parts)
+        self.reviewed_instances = dict(reviewed_instances or {})
+        self.reviewed_ownership = {}
         point_prompts = {p.track_id: trusted_prompt_points(p.track_id, self.trusted_parts, self.frame.shape) for p in parents}
         generation_key = (hashlib.blake2b(memoryview(np.ascontiguousarray(self.frame)), digest_size=16).hexdigest(),
                           tuple((p.track_id, tuple(p.bbox),
@@ -81,6 +90,12 @@ class ExperimentalFrameSegmentation:
                                                       associations=associations, frame_shape=self.frame.shape,
                                                       expected_frame_key=self.frame_key)
             self.shadow = shadow_mask_associations(self.candidates, self.ownership, parents, parts)
+            reviewed_candidates = {identity: {"mask": row["whole_mask"], "parent_id": identity,
+                "bbox_global": next(p.bbox for p in parents if p.track_id == identity),
+                "provenance": {"frame_key": self.frame_key}} for identity, row in self.reviewed_instances.items()}
+            self.reviewed_ownership = (validate_candidate_masks(
+                {**self.candidates, **reviewed_candidates}, parents, self.parts, associations=associations,
+                frame_shape=self.frame.shape, expected_frame_key=self.frame_key) if reviewed_candidates else {})
         except Exception as error:
             # Optional mask diagnostics must not discard the original weighted
             # verdict if an ownership validator cannot process a candidate.
@@ -103,6 +118,19 @@ class ExperimentalFrameSegmentation:
                 hashlib.blake2b(memoryview(np.ascontiguousarray(self.frame)), digest_size=16).hexdigest())
 
     def get(self, parent_id, bounds):
+        reviewed = self.reviewed_instances.get(parent_id)
+        if reviewed is not None and self.is_current() and self.reviewed_ownership.get(parent_id, {}).get("engineering_checks_passed"):
+            native = reviewed["whole_mask"]
+            local = native[bounds.y1:bounds.y2, bounds.x1:bounds.x2]
+            x, y, width, height = cv2.boundingRect(native.astype(np.uint8))
+            return local, {"source": "reviewed_native_instance_mask", "status": "reviewed_for_features",
+                "measurement_validated": True, "ownership_validated": True,
+                "validation_provenance": reviewed["validation_provenance"], "parent_track_id": parent_id,
+                "coordinate_space": "crop_local_native_pixels", "frame_id": self.frame_id,
+                "full_frame_foreground_bbox": [x,y,x+width,y+height], "full_frame_foreground_pixels": int(native.sum()),
+                "native_frame_shape": list(native.shape), "full_frame_native_mask": True,
+                "sampling": {"estimated": False, "native_output_shape": list(local.shape)},
+                "crop_bounds": [bounds.x1,bounds.y1,bounds.x2,bounds.y2]}
         candidate = self.candidates.get(parent_id, {})
         ownership = self.ownership.get(parent_id, {})
         mask = candidate.get("mask")
@@ -121,6 +149,10 @@ class ExperimentalFrameSegmentation:
                          "native_shape": list(self.frame.shape[:2]),
                          "native_output_shape": [bounds.height, bounds.width], "native_boundary_validated": False},
             "candidate_provenance": candidate.get("provenance", {}), "ownership": ownership,
+            "full_frame_foreground_bbox": ownership.get("metrics", {}).get("foreground_bbox"),
+            "full_frame_foreground_pixels": ownership.get("metrics", {}).get("foreground_pixels"),
+            "native_frame_shape": list(self.frame.shape[:2]), "full_frame_native_mask": True,
+            "crop_foreground_pixels": int(local.sum()) if local is not None else 0,
             "frame_id": self.frame_id, "parent_track_id": parent_id,
             "crop_bounds": [bounds.x1, bounds.y1, bounds.x2, bounds.y2],
             "coordinate_space": "crop_local_native_pixels", "segmentation_ms": 0.0}
@@ -133,6 +165,12 @@ class ExperimentalFrameSegmentation:
         from src.inference.mask_ownership import body_support_mask
         if not self.is_current():
             return None, {"source": "unavailable", "validated": False, "reason": "Source frame changed; Body pixels withheld."}
+        reviewed = self.reviewed_instances.get(parent_id)
+        if reviewed is not None and self.reviewed_ownership.get(parent_id, {}).get("engineering_checks_passed"):
+            return reviewed["body_mask"][bounds.y1:bounds.y2,bounds.x1:bounds.x2], {
+                "source": "reviewed_native_body_mask", "validated": True,
+                "body_region_validated": reviewed.get("body_region_validated") is True,
+                "expected_parent_id": parent_id, "validation_provenance": reviewed["validation_provenance"]}
         mask, metadata = body_support_mask(parent_id, self.candidates.get(parent_id, {}),
                                           self.ownership.get(parent_id, {}), self.trusted_parts, self.frame.shape)
         if mask is None:

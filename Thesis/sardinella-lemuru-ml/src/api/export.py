@@ -282,6 +282,32 @@ EXPORT_FIELDS.update({
     "segmentation_shadow_association": "Experimental Shadow Ownership (JSON; not applied)",
     "segmentation_candidate_evidence": "Fish Candidate Segmentation Evidence (JSON; previews omitted)",
 })
+EXPORT_FIELDS.update({
+    "representative_body_width_px": "Representative Central Body Width (px)",
+    "whole_fish_max_width_px": "Whole-fish Oriented Maximum Width (px)",
+    "whole_fish_length_to_width_ratio": "Whole-fish Oriented Length-to-Width Ratio",
+    "body_profile_length_px": "Body Profile Longitudinal Length (px)",
+    "body_width_to_length_ratio": "Body Width-to-Body-Length Ratio",
+    "body_width_profile_cv": "Body Transverse Width Profile CV",
+    "body_region_validated": "Body Region Independently Validated",
+    "geometry_ownership_validated": "Geometry Ownership Independently Validated",
+    "anatomical_measurement_units": "Anatomical Measurement Units (JSON)",
+    "anatomical_geometry_estimates": "Unvalidated Anatomical Geometry Estimates (JSON)",
+    "width_reference_metric": "Width Calibration Reference Metric",
+    "width_reference_sample_count": "Width Reviewed Reference Sample Count",
+    "structural_severity": "Reviewed Structural Severity",
+    "structural_severity_validated": "Structural Severity Independently Validated",
+    "structural_calibration_status": "Structural Grading Calibration Status",
+    "structural_score_shift": "Applied Structural Support Shift (fraction)",
+    "structural_used_for_grading": "Validated Structural Evidence Used for Grading",
+    "structural_contribution_reason": "Structural Contribution Explanation",
+    "class_a_eligibility_restricted": "Class A Eligibility Restricted by Validated Rule",
+    "class_a_eligibility_rule": "Class A Eligibility Rule and Provenance (JSON)",
+    "structural_changed_classification": "Structural Evidence Changed Classification",
+    "feature_fusion_original_grade": "Feature Fusion Original Anatomical Grade",
+    "feature_fusion_final_grade": "Feature Fusion Final Eligible Grade",
+    "feature_fusion": "Geometry and Structural Feature Fusion (JSON)",
+})
 DEFAULT_EXPORT_FIELDS = tuple(EXPORT_FIELDS)
 
 
@@ -405,11 +431,13 @@ def inspection_row(
         event = _export_events([event], source_metadata=source_metadata)[0]
     analysis = _analysis(event)
     geometry = analysis.get("geometric_support") if isinstance(analysis.get("geometric_support"), dict) else {}
+    fusion = analysis.get("feature_fusion") if isinstance(analysis.get("feature_fusion"), dict) else {}
+    final_fusion = fusion.get("schema_version") == "feature_fusion_v1" and fusion.get("final_grade") in {"Class A", "Class B", "Class C", "Rejected", "Ungraded"}
     weighted = analysis.get("weighted_scores") if isinstance(analysis.get("weighted_scores"), dict) else {}
-    final_grade = event.get("quality") or analysis.get("final_grade") or "Ungraded"
+    final_grade = fusion["final_grade"] if final_fusion else event.get("quality") or analysis.get("final_grade") or "Ungraded"
     best_grade = geometry.get("original_provisional_grade", analysis.get("best_evidence_class", analysis.get("provisional_grade")))
     best_score = geometry.get("original_provisional_support", analysis.get("best_evidence_score", analysis.get("provisional_score")))
-    final_score = analysis.get("final_score")
+    final_score = fusion.get("final_support") if final_fusion else analysis.get("final_score")
     reason_codes = analysis.get("reason_codes")
     if isinstance(reason_codes, (list, tuple)):
         reason_codes_text = ", ".join(str(code) for code in reason_codes if code)
@@ -541,15 +569,16 @@ def inspection_row(
     width_configuration = width.get("threshold_configuration") if isinstance(width.get("threshold_configuration"), dict) else {}
     inspection_source = analysis.get("inspection_source") if isinstance(analysis.get("inspection_source"), dict) else {}
     original_scores = geometry.get("original_scores") if isinstance(geometry.get("original_scores"), dict) else {}
-    final_scores = geometry.get("final_scores") if isinstance(geometry.get("final_scores"), dict) else weighted
+    final_scores = (fusion["final_scores"] if final_fusion and isinstance(fusion.get("final_scores"), dict)
+                    else geometry.get("final_scores") if isinstance(geometry.get("final_scores"), dict) else weighted)
     row.update({
         "original_weighted_grade": geometry.get("original_grade", ""),
         "original_weighted_support": _number(geometry.get("original_support"), scale=100),
         "original_weighted_provisional_grade": geometry.get("original_provisional_grade", ""),
         "original_weighted_provisional_support": _number(geometry.get("original_provisional_support"), scale=100),
         "original_weighted_scores": _json(original_scores) if original_scores else "",
-        "final_combined_grade": geometry.get("final_grade", final_grade),
-        "final_combined_support": _number(geometry.get("final_support", final_score), scale=100),
+        "final_combined_grade": final_grade if final_fusion else geometry.get("final_grade", final_grade),
+        "final_combined_support": _number(final_score if final_fusion else geometry.get("final_support", final_score), scale=100),
         "final_combined_scores": _json(final_scores),
         "score_scale": geometry.get("score_scale", "original_weighted_support" if weighted else "Unavailable"),
         "geometric_class_c_points": _number(geometry.get("class_c_points", width.get("class_c_supporting_points"))),
@@ -664,6 +693,36 @@ def inspection_row(
         "frame_mask_preprocessing_ms": _number(frame.get("mask_preprocessing_ms")),
         "frame_mask_cache_lookup_ms": _number(frame.get("mask_cache_lookup_ms")),
         "frame_wall_time_ms": _number(frame.get("total_processing_ms")),
+    })
+    for field in ("representative_body_width_px", "whole_fish_max_width_px", "whole_fish_length_to_width_ratio",
+                  "body_profile_length_px", "body_width_to_length_ratio", "body_width_profile_cv"):
+        row[field] = _number(fish_geometry.get(field)) if measured else ""
+    structural = fusion.get("structural") if isinstance(fusion.get("structural"), dict) else {}
+    eligibility = fusion.get("eligibility") if isinstance(fusion.get("eligibility"), dict) else {}
+    confirmed = (structural.get("status") == "confirmed" and structural.get("severity_validated") is True
+                 and structural.get("source_bound") is True and bool(structural.get("validation_provenance")))
+    applied = confirmed and structural.get("used_for_grading") is True
+    restricted = confirmed and eligibility.get("rule_applied") is True and eligibility.get("class_a_eligible") is False
+    units = fish_geometry.get("units")
+    row.update({
+        "body_region_validated": "Yes" if not estimated and fish_geometry.get("body_region_validated") is True else "No",
+        "geometry_ownership_validated": "Yes" if not estimated and fish_geometry.get("ownership_validated") is True else "No",
+        "anatomical_measurement_units": _json(units) if isinstance(units, dict) else "",
+        "anatomical_geometry_estimates": _json(candidates) if estimated and candidates else "",
+        "width_reference_metric": width.get("reference_metric") or width.get("metric") or "Not calibrated",
+        "width_reference_sample_count": width.get("reference_sample_count") or "",
+        "structural_severity": structural.get("severity", "unassessed") if confirmed else "Unassessed",
+        "structural_severity_validated": "Yes" if confirmed else "No",
+        "structural_calibration_status": structural.get("calibration_status") or "Not calibrated",
+        "structural_score_shift": _number(structural.get("score_shift", 0.)) if applied else 0.,
+        "structural_used_for_grading": "Yes" if applied else "No",
+        "structural_contribution_reason": structural.get("contribution_reason") or "No validated structural grading rule applied.",
+        "class_a_eligibility_restricted": "Yes" if restricted else "No",
+        "class_a_eligibility_rule": _json(eligibility) if eligibility else "",
+        "structural_changed_classification": "Yes" if applied and fusion.get("structural_changed_classification") is True else "No",
+        "feature_fusion_original_grade": fusion.get("original_grade") or geometry.get("original_grade") or "",
+        "feature_fusion_final_grade": fusion.get("final_grade") or analysis.get("final_grade") or event.get("quality") or "",
+        "feature_fusion": _json(fusion) if fusion else "",
     })
     segmentation = analysis.get("segmentation") if isinstance(analysis.get("segmentation"), dict) else {}
     experimental = segmentation.get("backend") == "mobilesam_experimental" or segmentation.get("experimental") is True

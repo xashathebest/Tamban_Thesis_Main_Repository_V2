@@ -45,7 +45,8 @@ def event():
 
 def test_candidate_exports_append_without_promoting_validation_or_changing_grade():
     specimen = event(); before = deepcopy(specimen)
-    assert DEFAULT_EXPORT_FIELDS[-len(FIELDS):] == FIELDS
+    start = DEFAULT_EXPORT_FIELDS.index(FIELDS[0])
+    assert DEFAULT_EXPORT_FIELDS[start:start + len(FIELDS)] == FIELDS
     row = inspection_row(specimen)
     assert row["grade"] == "Class B"
     assert row["segmentation_mask_score"] == .99
@@ -152,7 +153,7 @@ segmentationCompletionNote([{analysis:{segmentation:{status:"candidate",ownershi
     assert "unvalidated" in actual[3] and "do not change grades" in actual[3]
 
 
-def test_explicit_request_header_is_off_by_default_and_captured_per_analysis():
+def test_every_run_analysis_requests_automatic_masks_once_without_optin():
     script = INCLUDE + r'''
 const marker='elements.analyze.addEventListener("click", async () => {';
 let listener; const calls=[]; const status={textContent:""};
@@ -166,11 +167,10 @@ vm.runInThisContext(source.slice(start,end));
 (async()=>{await listener();elements.segmentationExperiment.checked=true;await listener();console.log(JSON.stringify(calls));})().catch(error=>{console.error(error);process.exitCode=1;});
 '''
     actual = node(script)
-    assert "X-Segmentation-Backend" not in actual[0]
-    assert actual[1]["X-Segmentation-Backend"] == "mobilesam_experimental"
+    assert len(actual) == 2
+    assert all(headers["X-Segmentation-Backend"] == "mobilesam_experimental" for headers in actual)
     html = (ROOT / "frontend/index.html").read_text(encoding="utf-8")
-    toggle = html.split('id="upload-mobilesam"', 1)[1].split(">", 1)[0]
-    assert "checked" not in toggle
+    assert 'id="upload-mobilesam"' not in html
 
 
 def test_closing_zoom_cancels_pending_old_source_image():

@@ -76,7 +76,7 @@ loaded the unchanged real Model 1 V2 and Model 2 checkpoints in an isolated
 ephemeral API process, analyzed a real project photograph, then requested actual
 MobileSAM masks through HTTP and exercised the actual browser canvas.
 
-**33 named checks and the mobile layout assertion passed.** Evidence includes:
+**25 main checks, eight lifecycle checks, and the mobile layout assertion passed.** Evidence includes:
 
 - Nine real detector boxes, nine returned candidate masks, nine accepted polygon
   entries, nine distinct colors, nonrectangular silhouette vertices, and exactly
@@ -173,6 +173,13 @@ ran on CPU: segmentation was 1,417.272 ms; the existing Model 1 CUDA call took
 1,886.501 ms including its first-call work. These are single request observations,
 not warmed GPU benchmarks. [Reload status](../results/qa/sam_preview/after_reload_status.json)
 records the loaded route and preserved configuration.
+
+A subsequent check found that the detached dashboard process had exited.
+It was restored in managed server session 30855 (process 16004), and another
+[real preview request](../results/qa/sam_preview/live_preview_restored_session.json)
+generated nine candidates with one embedding and no grading effect. CPU
+segmentation took 1,373.979 ms for that request. The final status record above
+reflects this restored session.
 
 Candidates remain **unvalidated**. Eight of the nine masks in the smoke image
 required review. One false-positive Model 1 prompt covers the white image

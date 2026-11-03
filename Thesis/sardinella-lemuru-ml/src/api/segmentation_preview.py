@@ -98,15 +98,19 @@ def _part_evidence(fish):
     return selected
 
 
-def generate_mask_preview(frame, fish, *, image_sha256, sam_service=None, model1_inference_ms=0., reused=False):
+def generate_mask_preview(frame, fish, *, image_sha256, sam_service=None, model1_inference_ms=0., reused=False, mask_context=None):
     started = perf_counter()
+    provider = getattr(mask_context, "_experimental", None) if mask_context is not None and mask_context.is_for_frame(frame) else None
+    if provider is not None:
+        sam_service = provider.service or sam_service
     if sam_service is None:
         from src.inference.mobilesam_backend import get_mobilesam_service
         sam_service = get_mobilesam_service()
-    frame_id = "mask-preview:" + uuid.uuid4().hex
-    parents = [ParentAnchor(item["id"], tuple(item["bbox"]), item.get("detector_confidence") or 0.) for item in fish]
-    provider = ExperimentalFrameSegmentation(frame, frame_id, service=sam_service)
-    provider.prepare(parents, _part_evidence(fish))
+    frame_id = provider.frame_id if provider is not None else "mask-preview:" + uuid.uuid4().hex
+    if provider is None:
+        parents = [ParentAnchor(item["id"], tuple(item["bbox"]), item.get("detector_confidence") or 0.) for item in fish]
+        provider = ExperimentalFrameSegmentation(frame, frame_id, service=sam_service)
+        provider.prepare(parents, _part_evidence(fish))
     records, errors = [], []
     generated = review_required = 0
     for item in fish:
@@ -132,7 +136,9 @@ def generate_mask_preview(frame, fish, *, image_sha256, sam_service=None, model1
         needs_review = report.get("ownership_status") != "checks_passed_unvalidated"
         review_required += int(usable and needs_review)
         records.append({"id": item["id"], "bbox": list(item["bbox"]), "parts": deepcopy(item.get("parts", [])),
-                        "segmentation": report})
+                        "segmentation": report, **({"analysis": {key: deepcopy(item["analysis"].get(key, {}))
+                            for key in ("surface_damage", "fish_geometry", "feature_fusion", "inspection_source")}}
+                            if isinstance(item.get("analysis"), dict) else {})})
     scale = min(1., 1280 / max(frame.shape[:2]))
     preview = frame if scale == 1 else cv2.resize(frame, (round(frame.shape[1] * scale), round(frame.shape[0] * scale)), interpolation=cv2.INTER_AREA)
     ok, encoded = cv2.imencode(".jpg", preview, [cv2.IMWRITE_JPEG_QUALITY, 92])

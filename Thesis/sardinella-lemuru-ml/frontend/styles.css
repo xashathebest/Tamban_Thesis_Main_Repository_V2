@@ -256,6 +256,17 @@ summary::marker { color: var(--ocean-500); }
 .mask-preview-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: 10px; }
 .mask-preview-controls label { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-size: 12px; }
 .mask-preview-controls select { max-width: 180px; min-height: 32px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text-primary); padding: 4px 7px; }
+.inspection-display-mode { display: inline-flex; padding: 3px; margin: 0; gap: 2px; min-width: 0; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.inspection-display-mode label { position: relative; cursor: pointer; }
+.inspection-display-mode input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.inspection-display-mode span { padding: 7px 11px; border-radius: 5px; color: var(--text-secondary); }
+.inspection-display-mode input:checked + span { background: var(--accent, #147b91); color: #fff; font-weight: 700; }
+.inspection-display-mode input:focus-visible + span { outline: 2px solid var(--text-primary); outline-offset: 2px; }
+.inspection-overlay-options { position: relative; font-size: 12px; }
+.inspection-overlay-options summary { cursor: pointer; }
+.inspection-overlay-options label { margin: 7px 0 0; }
+.inspection-reliability { font-size: 12px; margin-top: 9px; }
+.result-fish-card.is-mask-selected { outline: 2px solid var(--accent, #147b91); outline-offset: 2px; }
 .mask-opacity-control input { width: 95px; }
 .mask-opacity-control output { min-width: 30px; font-variant-numeric: tabular-nums; }
 .mask-preview-viewport { width: 100%; max-height: min(65vh, 650px); overflow: auto; border-radius: 6px; background: var(--navy-950); }

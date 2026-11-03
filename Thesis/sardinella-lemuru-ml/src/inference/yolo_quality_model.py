@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from functools import wraps
 import logging
+import hashlib
+from copy import deepcopy
 import os
 from pathlib import Path
 from threading import RLock
@@ -15,7 +17,7 @@ import numpy as np
 
 from src.api.domain import QualitySummary
 from src.inference.association import ParentAnchor, associate_parts_to_parents, association_summary
-from src.inference.body_width import analyze_body_width, boxes_overlap
+from src.inference.body_width import analyze_body_width, analyze_anatomical_body_width, boxes_overlap
 from src.inference.fish_geometry import load_fish_geometry_config, load_physical_calibration, measure_fish_geometry
 from src.inference.fish_geometry_pipeline import analyze_fish_geometry
 from src.inference.stage_metrics import TIMING_RELATIONSHIPS, milliseconds
@@ -669,24 +671,6 @@ class YoloQualityModel:
                 isolation_reasons.append("parent_detection_unreliable")
             feature_mask_metadata.update(parent_isolation_reliable=not isolation_reasons,
                                          parent_isolation_reasons=isolation_reasons)
-        grading_started = perf_counter()
-        verdict: FishVerdict = self._grading_engine.evaluate(
-            track_id,
-            crop,
-            list(parts),
-            stabilize=stabilize,
-            frame_id=frame_id,
-            frame_quality=quality_payload,
-            best_frame=best_frame,
-            model2_available=model2_available,
-            body_width=width,
-            fish_mask=fish_mask,
-            texture_mask=feature_mask,
-            texture_mask_metadata=feature_mask_metadata,
-        )
-        self.last_grading_seconds = perf_counter() - grading_started
-        votes = {name: round(value, 4) for name, value in verdict.weighted_scores.items()}
-        analysis = verdict.to_dict()
         # Silhouette metrology is evidence only. It never becomes an input to
         # the legacy bounding-box score or the original weighted decision.
         geometry_parts = list(parts)
@@ -715,10 +699,21 @@ class YoloQualityModel:
         if any(quality_payload.get(key) for key in (
             "frame_clipped", "out_of_frame", "parent_frame_clipped", "parent_crop_clipped",
         )):
-            geometry_mask_metadata["clipped"] = True
+            native_extent = feature_mask_metadata.get("full_frame_foreground_bbox")
+            native_size = feature_mask_metadata.get("native_frame_shape")
+            native_inside = (mask_context is not None and mask_context.backend == "mobilesam_experimental"
+                             and isinstance(native_extent, (list, tuple)) and len(native_extent) == 4
+                             and isinstance(native_size, (list, tuple)) and len(native_size) == 2
+                             and native_extent[0] > 0 and native_extent[1] > 0
+                             and native_extent[2] < native_size[1] and native_extent[3] < native_size[0])
+            geometry_mask_metadata["parent_bbox_frame_contact"] = True
+            if not native_inside:
+                geometry_mask_metadata["clipped"] = True
         geometry_started = perf_counter()
+        body_mask, body_metadata = (mask_context.trusted_body_mask(track_id, context_crop_bounds)
+                                   if mask_context is not None and context_crop_matches else (None, {}))
         try:
-            analysis["fish_geometry"] = analyze_fish_geometry(
+            geometry = analyze_fish_geometry(
                 crop, geometry_parts, parent_bbox=parent_bbox, crop_bounds=bounds,
                 frame_shape=frame_shape, overlapping=bool(width_context.get("overlapping")),
                 association_reliable=coordinate_known and model2_available
@@ -728,15 +723,33 @@ class YoloQualityModel:
                 mask_context=mask_context, parent_id=track_id,
                 config=self._fish_geometry_config, physical_calibration=self._physical_calibration,
                 source_context=width_context.get("source_context"),
+                body_mask=body_mask, body_mask_metadata=body_metadata,
             )
         except Exception as error:
             # Optional pixel diagnostics must never discard an already computed
             # weighted verdict when segmentation or metrology fails.
             LOGGER.warning("Fish %s silhouette measurement failed: %s", track_id, error, exc_info=True)
-            analysis["fish_geometry"] = measure_fish_geometry(None)
-            analysis["fish_geometry"]["reasons"].append("measurement_processing_failed")
-            analysis["fish_geometry"]["measurement_error_type"] = type(error).__name__
-        analysis["fish_geometry"].update(frame_id=frame_id, parent_track_id=track_id)
+            geometry = measure_fish_geometry(None)
+            geometry["reasons"].append("measurement_processing_failed")
+            geometry["measurement_error_type"] = type(error).__name__
+        geometry.update(frame_id=frame_id, parent_track_id=track_id)
+        geometry_seconds = perf_counter() - geometry_started
+        if ((mask_context is not None and mask_context.backend == "mobilesam_experimental")
+                or self._grading_engine.body_width_config.reference_metric == "body_width_to_fish_length_ratio"):
+            anatomical = analyze_anatomical_body_width(geometry, config=self._grading_engine.body_width_config)
+            width = {**width, **anatomical, "bbox_proxy": dict(width), "anatomical_evidence": dict(anatomical)}
+        grading_started = perf_counter()
+        verdict: FishVerdict = self._grading_engine.evaluate(
+            track_id, crop, list(parts), stabilize=stabilize, frame_id=frame_id,
+            frame_quality=quality_payload, best_frame=best_frame, model2_available=model2_available,
+            body_width=width, fish_mask=fish_mask, texture_mask=feature_mask,
+            texture_mask_metadata=feature_mask_metadata,
+            source_context=quality_payload.get("source_context") or width_context.get("source_context"),
+        )
+        self.last_grading_seconds = perf_counter() - grading_started
+        votes = {name: round(value, 4) for name, value in verdict.weighted_scores.items()}
+        analysis = verdict.to_dict()
+        analysis["fish_geometry"] = geometry
         segmentation_report = mask_context.segmentation_report(track_id) if mask_context is not None else None
         if segmentation_report is not None:
             analysis["segmentation"] = segmentation_report
@@ -761,7 +774,7 @@ class YoloQualityModel:
             "grading_engine_ms": round(self.last_grading_seconds * 1000, 3) if self.last_grading_seconds is not None else None,
             "mask_preprocessing_ms": round(mask_seconds * 1000, 3),
             "mask_lookup_total_ms": round(mask_seconds * 1000, 3),
-            "geometry_processing_ms": round((perf_counter() - geometry_started) * 1000, 3),
+            "geometry_processing_ms": round(geometry_seconds * 1000, 3),
             "hsv_processing_ms": (
                 round(self._grading_engine.last_hsv_processing_seconds * 1000, 3)
                 if self._grading_engine.last_hsv_processing_seconds is not None else None
@@ -1014,7 +1027,17 @@ class YoloQualityModel:
             frame_parts, raw_parts = self._infer_parts(frame)
             association_started = perf_counter()
             associations = associate_parts_to_parents(frame_parts, parents)
-            mask_context.prepare_instances(parents, frame_parts, associations)
+            source_context = ({"source_id": source_context} if isinstance(source_context, str) else dict(source_context or {}))
+            source_context.update(frame_pixels_sha256=hashlib.sha256(memoryview(np.ascontiguousarray(frame))).hexdigest(),
+                                  frame_width_px=frame.shape[1], frame_height_px=frame.shape[0])
+            from src.inference.reviewed_features import load_reviewed_instances
+            reviewed, review_status = load_reviewed_instances(frame, parents, source_context)
+            trusted_parts = [{"mask": row["body_mask"], "parent_track_id": identity, "region": "Body",
+                              "orientation_reliable": row.get("orientation_reliable") is True,
+                              "ownership_validated": True, "mask_validated": True,
+                              "coordinate_space": "original_frame", "validation_provenance": row["validation_provenance"]}
+                             for identity, row in reviewed.items()]
+            mask_context.prepare_instances(parents, frame_parts, associations, trusted_parts=trusted_parts, reviewed_instances=reviewed)
             self.last_association_seconds = perf_counter() - association_started
             results: dict[int, tuple[FishQualityObservation, CropBounds]] = {}
             roi_seconds = 0.0
@@ -1047,11 +1070,18 @@ class YoloQualityModel:
                 assignment_seconds += perf_counter() - assignment_started
                 quality_payload: dict[str, object] = {
                     "association": summary,
+                    "source_context": source_context,
+                    "reviewed_feature_artifacts": review_status,
                     "width_context": {
                         "overlapping": any(other.track_id != parent.track_id and boxes_overlap(parent.bbox, other.bbox) for other in parents),
                         "source_context": source_context,
                     },
                 }
+                structural = reviewed.get(parent.track_id, {}).get("structural_evidence")
+                if isinstance(structural, Mapping):
+                    structural = deepcopy(dict(structural))
+                    structural.update(review_frame_id=structural.get("frame_id"), frame_id=frame_id)
+                    quality_payload["structural_evidence"] = structural
                 grading_ambiguous = summary["ambiguous"]
                 if self._grading_engine.config.grading_mode == "tail_optional_v1":
                     grading_ambiguous = any(item["status"] == "AMBIGUOUS" and item.get("part", {}).get("region") in {"Head", "Body"}

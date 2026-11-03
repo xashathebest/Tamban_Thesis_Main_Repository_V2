@@ -81,6 +81,7 @@ class CameraInspectionService:
         segmentation_interval: int | None = None,
         segmentation_roi_padding: int | None = None,
         camera_profile_path: Path | None = None,
+        segmentation_backend: str | None = None,
     ) -> None:
         if runtime_mode not in {WHOLE_FISH_MODE, PART_PREVIEW_MODE}:
             raise ValueError(f"Unsupported runtime mode: {runtime_mode}")
@@ -104,6 +105,9 @@ class CameraInspectionService:
         self.quality_interval = quality_interval
         self.quality_roi_padding = quality_roi_padding
         self.quality_inference_mode = quality_inference_mode
+        self.segmentation_backend = segmentation_backend
+        from src.inference.segmentation_schedule import AdaptiveSegmentationSchedule
+        self._sam_schedule = AdaptiveSegmentationSchedule(minimum_frame_interval=quality_interval) if segmentation_backend == "mobilesam_experimental" else None
         self.debug_inference = os.getenv("LEMURU_DEBUG_INFERENCE", "false").strip().lower() in {"1", "true", "yes", "on"}
         self.debug_enabled = os.getenv("LEMURU_RUNTIME_DIAGNOSTICS", "false").strip().lower() in {"1", "true", "yes", "on"}
         self.debug_paused = False
@@ -201,6 +205,8 @@ class CameraInspectionService:
             self._reset_model_tracker()
             self.state.tracking.reset_active_tracks()
             self._frame_index = 0
+            if self._sam_schedule is not None:
+                self._sam_schedule.reset()
             self._model2_failure_count = 0
             self._model2_retry_after = 0.0
             self._last_segmented_frame.clear()
@@ -877,6 +883,22 @@ class CameraInspectionService:
             track = active.get(detection.track_id)
             counted = bool(track and track["counted"])
             color = (43, 145, 87)
+            mask_note = ""
+            if display.get("fish_masks"):
+                context = getattr(self, "_frame_mask_context", None)
+                provider = getattr(context, "_experimental", None) if context is not None and context.is_for_frame(frame) else None
+                candidate = provider.candidates.get(parent_id, {}) if provider is not None and provider.is_current() else {}
+                pixels = candidate.get("mask")
+                if isinstance(pixels, np.ndarray) and pixels.shape == frame.shape[:2] and pixels.dtype == np.bool_:
+                    report = provider.report(parent_id)
+                    reviewed = report.get("engineering_checks_passed") is True
+                    color = (43, 180, 100) if reviewed else (40, 95, 225)
+                    annotated[pixels] = (.62 * annotated[pixels] + .38 * np.asarray(color)).astype(np.uint8)
+                    contours, _ = cv2.findContours(pixels.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                    cv2.drawContours(annotated, contours, -1, color, 1)
+                    mask_note = " | MASK UNVALIDATED" if reviewed else " | MASK REVIEW"
+                else:
+                    mask_note = " | mask not sampled in this frame"
             if display["outlines"]:
                 cv2.rectangle(annotated, (left, top), (right, bottom), color, 2)
             identity = f"Fish #{detection.track_id}" if detection.track_id is not None else "Acquiring ID"
@@ -895,7 +917,7 @@ class CameraInspectionService:
                 regions = sorted({str(part.get("region", "")) for part in track["parts"] if isinstance(part, dict) and part.get("region")})
                 if regions:
                     label_parts.append("/".join(regions))
-            label = " | ".join(label_parts)
+            label = " | ".join(label_parts) + mask_note
             if not label:
                 continue
             _draw_readable_label(annotated, label, left, top, color, cv2)
@@ -1326,7 +1348,8 @@ class CameraInspectionService:
             return self._annotate(frame, detections, cv2)
         frame_size = (frame.shape[1], frame.shape[0])
         self._frame_index += 1
-        self._frame_mask_context = RuntimeMaskContext(frame, frame_id=self._frame_index)
+        self._frame_mask_context = RuntimeMaskContext(frame, frame_id=self._frame_index,
+            backend="geometry_only" if self._sam_schedule is not None else self.segmentation_backend)
         self._frame_damage_flags = {}
         for detection in detections:
             key = self._damage_parent_id(detection)
@@ -1408,12 +1431,17 @@ class CameraInspectionService:
                             parent_id = int(item.track_id)
                         seen_ids.add(parent_id)
                         parents.append(ParentAnchor(parent_id, item.bbox, item.confidence))
+                    if self._sam_schedule is not None:
+                        chosen_backend = self._sam_schedule.choose(parents, self._frame_index)
+                        self._frame_mask_context = RuntimeMaskContext(frame, frame_id=self._frame_index, backend=chosen_backend)
                     full_frame_results = self.quality_model.predict_full_frame(
                         frame, parents, frame_id=self._frame_index,
                         grade_track_ids={int(item.track_id) for item in eligible},
                         source_context={"source_id": f"camera:{self.camera_index}"},
                         mask_context=self._frame_mask_context,
                     )
+                    if self._sam_schedule is not None:
+                        self._sam_schedule.record(self._frame_mask_context.diagnostics().get("segmentation_ms", 0.))
                     self._runtime_metrics.record_call("model2")
                     self._runtime_metrics.record_latency("model2_inference", self.quality_model.last_inference_seconds)
                     self._runtime_metrics.record_latency("association", self.quality_model.last_association_seconds)

@@ -67,8 +67,28 @@ class BodyWidthConfig:
     geometry_min_elongation: float = 4.0
     minimum_detection_confidence: float = 0.25
     minimum_part_inside_fraction: float = 0.95
+    reference_metric: str = "axis_aligned_bounding_box_proxy"
+    reference_source_id: str | None = None
+    reference_review_provenance: str | None = None
+    reference_distribution: tuple[float, ...] = ()
+    reference_sample_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
+        if self.reference_metric not in {"axis_aligned_bounding_box_proxy", "body_width_to_fish_length_ratio"}:
+            raise ValueError("reference_metric must identify the bbox proxy or anatomical Body-width/fish-length ratio.")
+        for name in ("reference_source_id", "reference_review_provenance"):
+            value = getattr(self, name)
+            if value is not None and (not isinstance(value, str) or not value.strip()):
+                raise ValueError(f"{name} must be null or a nonempty recorded identifier.")
+        if (not isinstance(self.reference_distribution, (tuple, list))
+                or any(isinstance(value, bool) or _number(value) is None or not 0 < _number(value) < 1 for value in self.reference_distribution)):
+            raise ValueError("reference_distribution must contain finite reviewed width ratios between zero and one.")
+        object.__setattr__(self, "reference_distribution", tuple(float(value) for value in self.reference_distribution))
+        if (not isinstance(self.reference_sample_ids, (tuple, list))
+                or any(not isinstance(value, str) or not value.strip() for value in self.reference_sample_ids)
+                or len(set(self.reference_sample_ids)) != len(self.reference_sample_ids)):
+            raise ValueError("reference_sample_ids must contain unique nonempty reviewed specimen identifiers.")
+        object.__setattr__(self, "reference_sample_ids", tuple(self.reference_sample_ids))
         for name in ("scoring_enabled", "calibration_validated"):
             if not isinstance(getattr(self, name), bool):
                 raise ValueError(f"{name} must be a boolean.")
@@ -108,6 +128,12 @@ class BodyWidthConfig:
                 object.__setattr__(self, name, value)
         if self.calibration_validated and (any(value is None for value in thresholds) or not self.calibration_id or self.validation_sample_count < 1):
             raise ValueError("Validated calibration requires thresholds, provenance and reviewed labeled measurements.")
+        if self.calibration_validated and self.reference_metric == "body_width_to_fish_length_ratio" and (
+            not self.reference_source_id or not self.reference_review_provenance or not self.reference_distribution
+            or len(self.reference_distribution) != len(self.reference_sample_ids)
+            or self.validation_sample_count < len(self.reference_distribution)
+        ):
+            raise ValueError("Anatomical calibration requires reviewed reference ratios, specimen IDs and capture-context provenance.")
 
     @classmethod
     def from_mapping(cls, values: Mapping[str, object]) -> "BodyWidthConfig":
@@ -131,6 +157,65 @@ def load_body_width_config(path: str | Path | None = None) -> BodyWidthConfig:
     with location.open(encoding="utf-8") as source:
         values = yaml.safe_load(source)
     return BodyWidthConfig.from_mapping(values or {})
+
+
+def analyze_anatomical_body_width(
+    geometry: Mapping[str, object] | None, *, config: BodyWidthConfig | None = None,
+) -> dict[str, object]:
+    """Score reviewed native Body width against matching reviewed references.
+
+    The anatomical metric is maximum transverse Body width divided by whole-
+    fish longitudinal length. It is distinct from both a bbox proxy and the
+    Body-only width/Body-length diagnostic. Candidate pixels never approve
+    themselves, and reference distributions never create severity thresholds.
+    """
+    rules = config or BodyWidthConfig()
+    measured = dict(geometry or {})
+    candidate = measured.get("candidate_measurements")
+    candidate = candidate if isinstance(candidate, Mapping) else {}
+    ratio = _number(measured.get("relative_width_ratio"))
+    estimate = _number(candidate.get("relative_width_ratio"))
+    result: dict[str, object] = {
+        "algorithm_version": "anatomical_body_width_profile_v1", "status": "unavailable",
+        "measurement_method": "anatomical_mask_profile", "metric": "body_width_to_fish_length_ratio",
+        "anatomical_ratio": ratio, "candidate_anatomical_ratio": estimate,
+        "measurement_available": ratio is not None, "measurement_status": "Unavailable",
+        "reliability": measured.get("reliability", "Unavailable"), "reliable_for_scoring": False,
+        "measurement_validated": False, "reliability_reasons": list(measured.get("reasons") or []),
+        "calibration_status": "Calibrated" if rules.calibration_validated else "Not Calibrated",
+        "score_status": "Not calibrated", "width_abnormality": "Not calibrated",
+        "class_c_supporting_points": None, "score_contributed": False, "score_applied": False,
+        "applied_body_score_shift": 0., "applied_geometric_score_shift": 0.,
+        "width_changed_classification": False, "contribution_reason": "not_calibrated",
+        "normal_reference_range": [rules.normal_reference_min, rules.normal_reference_max] if rules.calibration_validated else None,
+        "reference_metric": rules.reference_metric, "reference_source_id": rules.reference_source_id,
+        "reference_review_provenance": rules.reference_review_provenance,
+        "reference_distribution": list(rules.reference_distribution), "reference_sample_count": len(rules.reference_distribution),
+        "threshold_configuration": rules.to_dict(), "units": "dimensionless",
+    }
+    valid_measurement = (measured.get("status") == "measured" and measured.get("measurement_validated") is True
+                         and measured.get("ownership_validated") is True and measured.get("body_region_validated") is True
+                         and bool(measured.get("validation_provenance")) and not result["reliability_reasons"]
+                         and ratio is not None and 0 < ratio < 1)
+    if not valid_measurement:
+        result.update(measurement_status="Unvalidated or unreliable", contribution_reason="measurement_unreliable")
+        return result
+    result.update(status="measured", measurement_status="Measured", measurement_validated=True,
+                  reliable_for_scoring=True, reliability="Reviewed native anatomical geometry")
+    if not rules.calibration_validated:
+        return result
+    if rules.reference_metric != result["metric"]:
+        result.update(score_status="Reference metric mismatch", contribution_reason="calibration_metric_mismatch")
+        return result
+    if measured.get("measurement_source_id") != rules.reference_source_id:
+        result.update(score_status="Reference context mismatch", contribution_reason="calibration_context_mismatch")
+        return result
+    points = min(10., max(0., 10. * (ratio - rules.normal_reference_max) / (rules.extreme_reference - rules.normal_reference_max)))
+    result.update(class_c_supporting_points=points, score_status="Calibrated",
+                  reviewed_reference_percentile=sum(value <= ratio for value in rules.reference_distribution) / len(rules.reference_distribution),
+                  width_abnormality="Within reviewed range" if points == 0 else "Above reviewed upper reference",
+                  contribution_reason="pending_grade_evidence" if rules.scoring_enabled else "scoring_disabled")
+    return result
 
 
 def analyze_body_width(

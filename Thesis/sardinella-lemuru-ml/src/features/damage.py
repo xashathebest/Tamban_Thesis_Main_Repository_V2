@@ -58,6 +58,45 @@ def _line_geometry(points: np.ndarray) -> tuple[np.ndarray, np.ndarray, float, f
     return direction, projected, length, elongation
 
 
+def _skeleton_geometry(points: np.ndarray) -> dict[str, object]:
+    """Bounded native-pixel candidate geometry, not biological crack length."""
+    integer = points.astype(np.int32)
+    left, top = integer.min(axis=0)
+    right, bottom = integer.max(axis=0)
+    local = np.zeros((bottom - top + 3, right - left + 3), np.uint8)
+    local[integer[:, 1] - top + 1, integer[:, 0] - left + 1] = 1
+    distance = cv2.distanceTransform(local, cv2.DIST_L2, 5)
+    remainder, skeleton = local.copy(), np.zeros_like(local)
+    cross = cv2.getStructuringElement(cv2.MORPH_CROSS, (3, 3))
+    # Retained candidates are narrow. This upper bound also prevents an
+    # unexpected broad support region from creating unbounded morphology work.
+    for _ in range(min(128, max(local.shape))):
+        eroded = cv2.erode(remainder, cross, borderType=cv2.BORDER_CONSTANT, borderValue=0)
+        opened = cv2.dilate(eroded, cross)
+        skeleton |= remainder & ~opened
+        remainder = eroded
+        if not remainder.any():
+            break
+    if remainder.any() or not skeleton.any():
+        return {"skeleton_status": "unavailable_bounded_morphology", "skeleton_length_px": None,
+                "median_width_px": None, "maximum_width_px": None, "skeleton_points": []}
+    binary = skeleton.astype(bool)
+    length = float(np.count_nonzero(binary[:, :-1] & binary[:, 1:]) + np.count_nonzero(binary[:-1] & binary[1:]))
+    length += float(np.sqrt(2) * (np.count_nonzero(binary[:-1, :-1] & binary[1:, 1:])
+                                  + np.count_nonzero(binary[1:, :-1] & binary[:-1, 1:])))
+    widths = np.maximum(1., 2. * distance[binary] - 1.)
+    y, x = np.where(binary)
+    sampled = np.column_stack((x + left - 1, y + top - 1))[::max(1, int(np.ceil(len(x) / 512)))]
+    neighbors = cv2.filter2D(skeleton, cv2.CV_16U, np.ones((3, 3), np.uint8), borderType=cv2.BORDER_CONSTANT) - skeleton
+    return {"skeleton_status": "estimated_candidate_support", "skeleton_length_px": round(length + 1., 3),
+            "skeleton_method": "bounded_morphological_cross_skeleton_graph_edge_sum",
+            "skeleton_interpretation": "Pixel graph support extent; branches may inflate extent; not validated biological fracture length.",
+            "median_width_px": round(float(np.median(widths)), 3),
+            "maximum_width_px": round(float(widths.max()), 3),
+            "branch_pixel_count": int(np.count_nonzero(binary & (neighbors > 2))),
+            "skeleton_points": sampled.astype(int).tolist(), "units": "native_image_pixels"}
+
+
 def analyze_surface_damage(
     image_rgb: np.ndarray,
     mask: np.ndarray,
@@ -84,6 +123,9 @@ def analyze_surface_damage(
         "mask_validated_for_cracks": False, "grade_adjustment": 0.0,
         "analysis_scope": "Narrow interior dark-line evidence only; boundary tears, broad fractures, and line cause require expert review.",
         "foreground_pixel_count": int(binary.sum()), "overlay_mask": np.zeros(binary.shape, dtype=np.uint8),
+        "method": "local_blackhat_dark_ridge_original_rgb_support_v2",
+        "threshold_interpretation": "Engineering noise/shape filters only; not crack severity reference ranges.",
+        "used_for_grading": False,
     }
     if metadata:
         result["mask_metadata"] = metadata
@@ -204,6 +246,16 @@ def analyze_surface_damage(
             "original_rgb_contrast_255": round(original_contrast, 2), "original_rgb_support_fraction": round(support_fraction, 3),
             "elongation": round(elongation, 3), "damage_type": "unclassified_surface_discontinuity",
         }
+        location.update(_skeleton_geometry(support_points))
+        body_length = context.get("body_length_px")
+        normalized = (context.get("anatomical_measurement_validated") is True
+                      and not isinstance(body_length, bool) and isinstance(body_length, (int, float))
+                      and np.isfinite(body_length) and body_length > 0
+                      and isinstance(location.get("skeleton_length_px"), (int, float)))
+        location["skeleton_length_to_body_length"] = (round(location["skeleton_length_px"] / body_length, 6)
+                                                     if normalized else None)
+        location["normalized_measurement_status"] = ("Reviewed anatomical denominator; candidate crack remains unvalidated."
+                                                       if normalized else "Unavailable: no reviewed anatomical Body length.")
         accepted.append((location, support_points.astype(np.int32), direction))
 
     # Repeated aligned bands are common surface/anatomical texture. Two lines

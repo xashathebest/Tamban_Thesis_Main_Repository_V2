@@ -125,6 +125,27 @@ def _field(part: Any, name: str, default: Any = None) -> Any:
     return part.get(name, default) if isinstance(part, Mapping) else getattr(part, name, default)
 
 
+def _review_provenance(value: Any) -> bool:
+    return (isinstance(value, str) and bool(value.strip())) or (isinstance(value, Mapping) and bool(value))
+
+
+def _complete_native_silhouette(metadata, bounds, frame_shape, pixels=None):
+    """Distinguish a tight ROI from real truncation using the native source."""
+    provenance = metadata.get("candidate_provenance", {})
+    foreground = _bbox(metadata.get("full_frame_foreground_bbox"))
+    if (not isinstance(provenance, Mapping) or provenance.get("coordinate_space") != "original_frame"
+            or frame_shape is None or len(frame_shape) < 2 or bounds is None or foreground is None
+            or provenance.get("mask_shape") != list(frame_shape[:2])):
+        return False
+    height, width = frame_shape[:2]
+    if not (0 < foreground[0] and 0 < foreground[1] and foreground[2] < width and foreground[3] < height
+            and bounds[0] <= foreground[0] and bounds[1] <= foreground[1]
+            and bounds[2] >= foreground[2] and bounds[3] >= foreground[3]):
+        return False
+    retained = metadata.get("full_frame_foreground_pixels")
+    return pixels is None or (isinstance(retained, Integral) and not isinstance(retained, bool) and retained == pixels)
+
+
 def _inside_fraction(inner: Sequence[float], outer: Sequence[float]) -> float:
     width = max(0.0, min(inner[2], outer[2]) - max(inner[0], outer[0]))
     height = max(0.0, min(inner[3], outer[3]) - max(inner[1], outer[1]))
@@ -224,6 +245,8 @@ def measure_fish_geometry(
     overlapping: bool = False,
     association_reliable: bool = False,
     mask_metadata: Mapping[str, Any] | None = None,
+    body_mask: np.ndarray | None = None,
+    body_mask_metadata: Mapping[str, Any] | None = None,
     config: FishGeometryConfig | Mapping[str, Any] | None = None,
     physical_calibration: PhysicalCalibration | Mapping[str, Any] | None = None,
     source_context: str | Mapping[str, Any] | None = None,
@@ -238,6 +261,7 @@ def measure_fish_geometry(
     settings = config if isinstance(config, FishGeometryConfig) else FishGeometryConfig(**(config or {}))
     calibration = physical_calibration if isinstance(physical_calibration, PhysicalCalibration) else PhysicalCalibration.from_mapping(physical_calibration or {})
     metadata = dict(mask_metadata or {})
+    body_metadata = dict(body_mask_metadata or {})
     output: dict[str, Any] = {
         "fish_length_px": None, "max_body_width_px": None, "relative_width_ratio": None,
         "fish_length_cm": None, "max_body_width_cm": None, "orientation_degrees": None,
@@ -247,6 +271,13 @@ def measure_fish_geometry(
         "measurement_definition": "Silhouette centerline length and maximum transverse silhouette width within the associated Body region",
         "mask_source": metadata.get("source", "supplied_per_fish_mask"),
         "body_region_source": None, "candidate_measurements": {},
+        "representative_body_width_px": None, "whole_fish_max_width_px": None,
+        "whole_fish_length_to_width_ratio": None, "body_profile_length_px": None,
+        "body_width_to_length_ratio": None, "body_width_profile_cv": None,
+        "ownership_validated": False, "body_region_validated": False,
+        "validation_provenance": None,
+        "units": {"length": "px", "width": "px", "ratios": "dimensionless"},
+        "measurement_source_id": source_context.get("source_id") if isinstance(source_context, Mapping) else source_context,
         "physical_calibration": _calibration_payload(calibration, frame_shape, source_context),
         "sampling": dict(metadata["sampling"]) if isinstance(metadata.get("sampling"), Mapping) else {},
     }
@@ -277,7 +308,8 @@ def measure_fish_geometry(
     if metadata.get("foreground_touches_initialization_boundary"):
         reasons.append("silhouette_may_be_truncated")
     if parent is not None and frame_shape is not None and len(frame_shape) >= 2:
-        if parent[0] <= 0 or parent[1] <= 0 or parent[2] >= int(frame_shape[1]) or parent[3] >= int(frame_shape[0]):
+        if ((parent[0] <= 0 or parent[1] <= 0 or parent[2] >= int(frame_shape[1]) or parent[3] >= int(frame_shape[0]))
+                and not _complete_native_silhouette(metadata, bounds, frame_shape)):
             reasons.append("parent_touches_frame_boundary")
     reasons[:] = list(dict.fromkeys(reasons))
     # Missing segmentation cannot erase already observed overlap or clipping.
@@ -318,7 +350,8 @@ def measure_fish_geometry(
     if secondary_fraction > settings.maximum_secondary_component_fraction:
         reasons.append("multiple_foreground_components")
     silhouette = (labels == largest).astype(np.uint8)
-    if silhouette[0].any() or silhouette[-1].any() or silhouette[:, 0].any() or silhouette[:, -1].any():
+    if ((silhouette[0].any() or silhouette[-1].any() or silhouette[:, 0].any() or silhouette[:, -1].any())
+            and not _complete_native_silhouette(metadata, bounds, frame_shape, pixels)):
         reasons.append("silhouette_touches_crop_boundary")
     contours, _ = cv2.findContours(silhouette, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     filled = np.zeros_like(silhouette)
@@ -347,6 +380,8 @@ def measure_fish_geometry(
         if not (local_parent[0] <= centroid[0] <= local_parent[2] and local_parent[1] <= centroid[1] <= local_parent[3]):
             reasons.append("foreground_parent_mismatch")
     diagnostics, columns, widths, centers, transform, lower, upper = _aligned_profile(silhouette)
+    diagnostics["whole_fish_max_width_px"] = round(float(widths.max()), 4)
+    diagnostics["whole_fish_length_to_width_ratio"] = round(diagnostics["fish_length_px"] / float(widths.max()), 6)
     diagnostics.update(foreground_pixels=pixels, component_count=component_count - 1,
                        secondary_component_fraction=round(secondary_fraction, 6), hole_fraction=round(hole_fraction, 6),
                        raw_component_count=metadata.get("raw_component_count"),
@@ -388,7 +423,22 @@ def measure_fish_geometry(
                         & (centers[:, 1] >= body_box[1]) & (centers[:, 1] <= body_box[3]))
         body_polygon = _field(body_part, "mask")
         output["body_region_source"] = "associated_body_bbox_longitudinal_region"
-        if body_polygon is not None:
+        body_pixels = None
+        if body_mask is not None:
+            if (not isinstance(body_mask, np.ndarray) or body_mask.dtype != np.bool_
+                    or body_mask.shape != silhouette.shape or not body_mask.any()):
+                reasons.append("invalid_body_segmentation")
+            else:
+                body_pixels = body_mask.astype(np.uint8)
+                body_owner = body_metadata.get("parent_track_id")
+                if (expected_parent_id is not None and body_owner is not None
+                        and str(expected_parent_id) != str(body_owner)):
+                    reasons.append("body_mask_parent_mismatch")
+                if (body_metadata.get("validated") is not True
+                        or not _review_provenance(body_metadata.get("validation_provenance"))):
+                    reasons.append("body_pixel_support_unvalidated")
+                output["body_region_source"] = "reviewed_body_pixel_support"
+        elif body_polygon is not None:
             try:
                 polygon = np.asarray(body_polygon, dtype=np.float64)
                 if polygon.ndim != 2 or polygon.shape[1] != 2 or len(polygon) < 3 or not np.isfinite(polygon).all():
@@ -396,28 +446,44 @@ def measure_fish_geometry(
                 if (polygon.min() < -1 or polygon[:, 0].max() > binary.shape[1]
                         or polygon[:, 1].max() > binary.shape[0]):
                     raise ValueError("Body polygon outside crop.")
-                body_mask = np.zeros_like(silhouette)
-                cv2.fillPoly(body_mask, [np.rint(polygon).astype(np.int32)], 1)
-                area = int(body_mask.sum())
-                if area < settings.minimum_mask_pixels or float((body_mask & silhouette).sum()) / max(1, area) < settings.minimum_part_inside_fraction:
-                    reasons.append("body_segmentation_not_associated_with_fish")
-                aligned_body = cv2.warpAffine(body_mask & silhouette, transform,
-                                             tuple(reversed(diagnostics["aligned_mask_shape"])),
-                                             flags=cv2.INTER_NEAREST)
-                available = aligned_body[:, columns].any(axis=0)
-                lower = np.argmax(aligned_body[:, columns] != 0, axis=0)
-                upper = aligned_body.shape[0] - 1 - np.argmax(aligned_body[::-1, columns] != 0, axis=0)
-                widths = np.where(available, upper - lower + 1.0, 0.0)
-                body_columns &= available
+                body_pixels = np.zeros_like(silhouette)
+                cv2.fillPoly(body_pixels, [np.rint(polygon).astype(np.int32)], 1)
                 output["body_region_source"] = "associated_body_segmentation"
             except (TypeError, ValueError, cv2.error):
                 reasons.append("invalid_body_segmentation")
+        if body_pixels is not None:
+            area = int(body_pixels.sum())
+            retained_body = body_pixels & silhouette
+            if area < settings.minimum_mask_pixels or float(retained_body.sum()) / max(1, area) < settings.minimum_part_inside_fraction:
+                reasons.append("body_segmentation_not_associated_with_fish")
+            components, _, body_stats, _ = cv2.connectedComponentsWithStats(retained_body, 8)
+            if components > 2:
+                areas = sorted((int(a) for a in body_stats[1:, cv2.CC_STAT_AREA]), reverse=True)
+                if sum(areas[1:]) / max(1, sum(areas)) > settings.maximum_secondary_component_fraction:
+                    reasons.append("fragmented_body_pixel_support")
+            aligned_body = cv2.warpAffine(retained_body, transform,
+                                         tuple(reversed(diagnostics["aligned_mask_shape"])), flags=cv2.INTER_NEAREST)
+            available = aligned_body[:, columns].any(axis=0)
+            lower = np.argmax(aligned_body[:, columns] != 0, axis=0)
+            upper = aligned_body.shape[0] - 1 - np.argmax(aligned_body[::-1, columns] != 0, axis=0)
+            widths = np.where(available, upper - lower + 1.0, 0.0)
+            body_columns &= available
         if int(body_columns.sum()) < settings.minimum_body_profile_pixels:
             reasons.append("insufficient_associated_body_profile")
         else:
             body_width = float(widths[body_columns].max())
             diagnostics["max_body_width_px"] = round(body_width, 4)
             diagnostics["relative_width_ratio"] = round(body_width / diagnostics["fish_length_px"], 6)
+            indices = np.flatnonzero(body_columns)
+            middle = indices[len(indices) // 4:len(indices) - len(indices) // 4]
+            representative = float(np.median(widths[middle]))
+            body_length = float(np.linalg.norm(np.diff(centers[indices], axis=0), axis=1).sum() + 1.)
+            profile_mean = float(np.mean(widths[indices]))
+            diagnostics.update(representative_body_width_px=round(representative, 4),
+                               representative_body_width_method="median_middle_50_percent_of_body_sections",
+                               body_profile_length_px=round(body_length, 4),
+                               body_width_to_length_ratio=round(body_width / body_length, 6),
+                               body_width_profile_cv=round(float(np.std(widths[indices])) / max(profile_mean, 1.), 6))
             if body_width < settings.minimum_transverse_pixels:
                 reasons.append("insufficient_body_width_resolution")
             if not 0 < diagnostics["relative_width_ratio"] < 1:
@@ -428,8 +494,21 @@ def measure_fish_geometry(
             output["reliability"] = "Estimated pixel geometry; native boundary not validated"
         return output
     output.update(status="measured", reliability="Reliable pixel geometry")
-    for name in ("fish_length_px", "max_body_width_px", "relative_width_ratio", "orientation_degrees"):
+    for name in ("fish_length_px", "max_body_width_px", "relative_width_ratio", "orientation_degrees",
+                 "representative_body_width_px", "whole_fish_max_width_px", "whole_fish_length_to_width_ratio",
+                 "body_profile_length_px", "body_width_to_length_ratio", "body_width_profile_cv"):
         output[name] = diagnostics[name]
+    output["representative_body_width_method"] = diagnostics["representative_body_width_method"]
+    reviewed = (metadata.get("measurement_validated") is True and metadata.get("ownership_validated") is True
+                and _review_provenance(metadata.get("validation_provenance")) and body_mask is not None
+                and body_metadata.get("validated") is True
+                and body_metadata.get("body_region_validated") is True
+                and _review_provenance(body_metadata.get("validation_provenance")))
+    if reviewed:
+        output.update(measurement_validated=True, ownership_validated=True, body_region_validated=True,
+                      measurement_validation_status="Reviewed native silhouette and Body pixel support",
+                      validation_provenance={"whole_fish": metadata["validation_provenance"],
+                                             "body": body_metadata["validation_provenance"]})
     # Only accepted geometry supplies overlays. These points retain the native
     # pixel scale and exact mask-crop origin; they never become grading inputs.
     offset = np.array((bounds[0], bounds[1]))
@@ -444,6 +523,9 @@ def measure_fish_geometry(
     contour = max(contours, key=cv2.contourArea)
     boundary = cv2.approxPolyDP(contour, 1., True).reshape(-1, 2).astype(float) + offset
     polygon = _field(body_part, "mask")
+    if body_mask is not None and body_pixels is not None:
+        body_contours, _ = cv2.findContours(body_pixels, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        polygon = cv2.approxPolyDP(max(body_contours, key=cv2.contourArea), 1., True).reshape(-1, 2)
     body_boundary = (np.asarray(polygon, dtype=float) if polygon is not None else
                      np.array(((body_box[0], body_box[1]), (body_box[2], body_box[1]),
                                (body_box[2], body_box[3]), (body_box[0], body_box[3])))) + offset

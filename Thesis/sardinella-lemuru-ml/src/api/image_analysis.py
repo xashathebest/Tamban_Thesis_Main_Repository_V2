@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import os
 from dataclasses import dataclass
 from datetime import datetime
@@ -330,7 +331,8 @@ class StillImageAnalyzer:
         if fish.damage_bounds is not None:
             draw_damage(frame, fish.damage_result, fish.damage_bounds)
 
-    def analyze(self, frame: np.ndarray, *, frame_id="still-full-frame", source_type="uploaded_photo", segmentation_backend=None) -> dict[str, object]:
+    def analyze(self, frame: np.ndarray, *, frame_id="still-full-frame", source_type="uploaded_photo", segmentation_backend=None,
+                segmentation_schedule=None, segmentation_sequence=0) -> dict[str, object]:
         processing_started = perf_counter()
         if self.detector.model is None:
             raise RuntimeError(self.detector.error or "Model 1 Fish detector is unavailable.")
@@ -338,11 +340,17 @@ class StillImageAnalyzer:
             frame = validate_image(frame, name="Uploaded image")
         except PreprocessingError as exc:
             raise ImageUploadError(str(exc)) from exc
-        mask_context = RuntimeMaskContext(frame, frame_id=frame_id, backend=segmentation_backend)
         detections: list[FishDetection] = self.detector.detect(frame)
+        if segmentation_schedule is not None:
+            segmentation_backend = segmentation_schedule.choose(
+                [ParentAnchor(i, detection.bbox, detection.confidence) for i, detection in enumerate(detections, 1)],
+                segmentation_sequence)
+        mask_context = RuntimeMaskContext(frame, frame_id=frame_id, backend=segmentation_backend)
         results: list[_UploadFish] = []
         full_frame_results: dict[int, tuple[FishQualityObservation, CropBounds]] = {}
-        if mask_context.backend == "mobilesam_experimental" and getattr(self.quality_model, "quality_inference_mode", None) != "full_frame":
+        if mask_context.backend == "mobilesam_experimental" and (
+            getattr(self.quality_model, "quality_inference_mode", None) != "full_frame" or getattr(self.quality_model, "model", None) is None
+        ):
             mask_context.prepare_instances([ParentAnchor(index, detection.bbox, detection.confidence)
                                             for index, detection in enumerate(detections, start=1)])
         if (
@@ -362,6 +370,7 @@ class StillImageAnalyzer:
                     stabilize=False,
                     frame_id=frame_id,
                     mask_context=mask_context,
+                    source_context={"source_id": source_type},
                 )
         for index, detection in enumerate(detections, start=1):
             bounded = clamp_bbox(detection.bbox, frame.shape[1], frame.shape[0])
@@ -481,6 +490,15 @@ class StillImageAnalyzer:
             payload, frame_shape=frame.shape,
             body_width_config=getattr(engine, "body_width_config", None),
         )
+        if mask_context.backend == "mobilesam_experimental":
+            from src.api.segmentation_preview import generate_mask_preview
+            completed["segmentation_preview"] = generate_mask_preview(
+                frame, completed["fish"], image_sha256=hashlib.sha256(memoryview(np.ascontiguousarray(frame))).hexdigest(),
+                mask_context=mask_context, reused=True)
+            if segmentation_schedule is not None:
+                segmentation_schedule.record(mask_context.diagnostics().get("segmentation_ms", 0.))
+        if segmentation_schedule is not None:
+            completed["segmentation_schedule"] = segmentation_schedule.diagnostics()
         total_ms = round((perf_counter() - processing_started) * 1000, 3)
         compute = getattr(self.quality_model, "compute", None)
         context_metrics = mask_context.diagnostics()
@@ -531,6 +549,9 @@ class VideoUploadAnalyzer:
             sam_interval = max(1, int(os.getenv("MOBILESAM_VIDEO_FRAME_INTERVAL", "5")))
         except ValueError:
             sam_interval = 5
+        from src.inference.segmentation_schedule import AdaptiveSegmentationSchedule
+        adaptive = (AdaptiveSegmentationSchedule(minimum_frame_interval=sam_interval)
+                    if effective_backend == "mobilesam_experimental" and type(self.analyzer).analyze is StillImageAnalyzer.analyze else None)
         started = perf_counter()
         decode_seconds = 0.0
         capture = cv2.VideoCapture(str(path))
@@ -544,6 +565,7 @@ class VideoUploadAnalyzer:
         frame_index = 0
         processed = 0
         frame_detection_counts = []
+        latest_mask_preview = None
         try:
             while True:
                 decode_started = perf_counter()
@@ -556,7 +578,11 @@ class VideoUploadAnalyzer:
                     continue
                 segmentation_options = {}
                 if effective_backend == "mobilesam_experimental":
-                    segmentation_options["segmentation_backend"] = effective_backend if processed % sam_interval == 0 else "geometry_only"
+                    if adaptive is not None:
+                        segmentation_options.update(segmentation_backend=effective_backend,
+                                                    segmentation_schedule=adaptive, segmentation_sequence=processed)
+                    else:
+                        segmentation_options["segmentation_backend"] = effective_backend if processed % sam_interval == 0 else "geometry_only"
                 elif segmentation_backend is not None:
                     segmentation_options["segmentation_backend"] = effective_backend
                 result = (self.analyzer.analyze(frame, frame_id=f"video-{frame_index}", source_type="uploaded_video", **segmentation_options)
@@ -573,6 +599,7 @@ class VideoUploadAnalyzer:
                     track_indices, detection_indices = linear_sum_assignment(costs)
                     assignments = {int(detection): int(track) for track, detection in zip(track_indices, detection_indices)
                                    if overlaps[track, detection] >= .3}
+                source_to_track = {}
                 for detection_index, fish in enumerate(result["fish"]):
                     bbox = list(fish["bbox"])
                     if detection_index not in assignments:
@@ -585,6 +612,7 @@ class VideoUploadAnalyzer:
                         track_index = assignments[detection_index]
                         match = tracks[track_index]
                     match["hits"] += 1
+                    source_to_track[fish["id"]] = track_index + 1
                     if (
                         match["fish"].get("quality") == "Ungraded" and fish.get("quality") != "Ungraded"
                     ) or float(fish.get("detector_confidence") or 0) > float(match["fish"].get("detector_confidence") or 0):
@@ -605,6 +633,14 @@ class VideoUploadAnalyzer:
                                                     "source_detection_id": match["segmentation_snapshot"].get("parent_track_id")}
                     selected["analysis"] = analysis
                     match["bbox"] = bbox
+                if isinstance(result.get("segmentation_preview"), dict):
+                    from copy import deepcopy
+                    latest_mask_preview = deepcopy(result["segmentation_preview"])
+                    latest_mask_preview["source"]["type"] = "uploaded_video_snapshot"
+                    for entry in latest_mask_preview.get("fish", []):
+                        source_id = entry["id"]
+                        entry["id"] = source_to_track.get(source_id, source_id)
+                        entry["segmentation"].update(parent_track_id=entry["id"], source_detection_id=source_id)
                 if len(annotated_frames) < 90 and (processed == 1 or processed % max(1, total_frames // 90) == 0):
                     annotated_frames.append(str(result["annotated_image"]))
                 frame_index += 1
@@ -628,6 +664,8 @@ class VideoUploadAnalyzer:
             "total_frames": total_frames or frame_index,
             "video_fps": fps,
             "analysis_mode": "video",
+            **({"segmentation_preview": latest_mask_preview} if latest_mask_preview is not None else {}),
+            **({"segmentation_schedule": adaptive.diagnostics()} if adaptive is not None else {}),
             "performance": {"total_processing_ms": round((perf_counter() - started) * 1000, 3),
                             "video_decode_ms": round(decode_seconds * 1000, 3),
                             "timing_scope": "video decode, selected-frame analysis and temporal association; excludes upload/network"},

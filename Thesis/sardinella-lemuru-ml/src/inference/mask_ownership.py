@@ -234,9 +234,20 @@ def validate_candidate_masks(
         result["metrics"]["principal_axis_ratio"] = ratio
         if ratio < rules.minimum_axis_ratio:
             fail.append("implausible_or_orientation_uncertain_silhouette")
-        if mask[0].any() or mask[-1].any() or mask[:, 0].any() or mask[:, -1].any():
+        frame_contact = bool(mask[0].any() or mask[-1].any() or mask[:, 0].any() or mask[:, -1].any())
+        parent_contact = box[0] <= 0 or box[1] <= 0 or box[2] >= shape[1] or box[3] >= shape[0]
+        result["metrics"].update(mask_touches_frame_boundary=frame_contact,
+                                  parent_bbox_touches_frame_boundary=parent_contact)
+        if frame_contact:
             fail.append("mask_touches_frame_boundary")
-        if box[0] <= 0 or box[1] <= 0 or box[2] >= shape[1] or box[3] >= shape[0]:
+        native_source = (isinstance(provenance, Mapping) and provenance.get("coordinate_space") == "original_frame"
+                         and provenance.get("mask_shape") == list(shape)
+                         and (provenance.get("backend") == "mobilesam_experimental"
+                              or provenance.get("source") == "mobilesam_box_prompt_candidate"))
+        # A detector rectangle may include image-edge background padding. The
+        # native full-frame mask can disprove silhouette clipping; a crop alone
+        # cannot. Real foreground edge contact remains a rejection above.
+        if parent_contact and (frame_contact or not native_source):
             fail.append("parent_touches_frame_boundary")
         for neighbor in parents:
             if neighbor.track_id == parent.track_id:

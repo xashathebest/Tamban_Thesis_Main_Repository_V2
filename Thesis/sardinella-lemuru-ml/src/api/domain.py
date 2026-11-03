@@ -836,6 +836,7 @@ class InspectionState:
             "features": False,
             "damage_overlays": False,
             "outlines": True,
+            "fish_masks": False,
             # Developer-only Model 2 trace layers. They are inert until the
             # runtime diagnostics endpoint explicitly enables debug capture.
             "model2_raw_boxes": False,
@@ -1011,6 +1012,12 @@ class InspectionState:
             raise ValueError(f"Unsupported display setting(s): {', '.join(sorted(invalid))}.")
         if not all(isinstance(value, bool) for value in updates.values()):
             raise ValueError("Display settings must be boolean values.")
+        if updates.get("fish_masks") and updates.get("outlines"):
+            raise ValueError("Choose Bounding Boxes or Fish Masks, not both.")
+        if updates.get("fish_masks"):
+            updates["outlines"] = False
+        elif updates.get("outlines"):
+            updates["fish_masks"] = False
         return updates
 
     def set_display_settings(self, updates: dict[str, bool]) -> None:

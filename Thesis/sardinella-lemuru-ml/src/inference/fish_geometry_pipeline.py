@@ -22,6 +22,7 @@ def analyze_fish_geometry(
     parent_bbox=None, crop_bounds=None, frame_shape=None,
     overlapping: bool = False, association_reliable: bool = False,
     fish_mask: np.ndarray | None = None, fish_mask_metadata: Mapping | None = None,
+    body_mask: np.ndarray | None = None, body_mask_metadata: Mapping | None = None,
     measurement_frame: np.ndarray | None = None,
     mask_context: RuntimeMaskContext | None = None, parent_id: int | str | None = None,
     config: FishGeometryConfig | None = None,
@@ -40,6 +41,7 @@ def analyze_fish_geometry(
     ) if key in metadata}
     mask = fish_mask
     measurement_parts = list(parts)
+    measurement_body_mask = body_mask
     measurement_bounds = crop_bounds
     source = str(metadata.get("source", ""))
     provided_instance = mask is not None and bool(source) and not source.startswith("runtime_")
@@ -81,6 +83,12 @@ def analyze_fish_geometry(
                 crop_bounds.origin if isinstance(crop_bounds, CropBounds) else crop_bounds[:2]
             )
             offset_x, offset_y = original_x - measurement_bounds.x1, original_y - measurement_bounds.y1
+            if (isinstance(body_mask, np.ndarray) and body_mask.shape == crop.shape[:2]
+                    and float(offset_x).is_integer() and float(offset_y).is_integer()):
+                x, y = int(offset_x), int(offset_y)
+                if 0 <= x and 0 <= y and x + body_mask.shape[1] <= measurement_crop.shape[1] and y + body_mask.shape[0] <= measurement_crop.shape[0]:
+                    measurement_body_mask = np.zeros(measurement_crop.shape[:2], dtype=body_mask.dtype)
+                    measurement_body_mask[y:y + body_mask.shape[0], x:x + body_mask.shape[1]] = body_mask
             measurement_parts = [replace(
                 part,
                 bbox=(part.bbox[0] + offset_x, part.bbox[1] + offset_y,
@@ -102,6 +110,7 @@ def analyze_fish_geometry(
         crop_bounds=measurement_bounds, frame_shape=frame_shape,
         overlapping=overlapping, association_reliable=association_reliable,
         mask_metadata=metadata, config=config,
+        body_mask=measurement_body_mask, body_mask_metadata=body_mask_metadata,
         physical_calibration=physical_calibration, source_context=source_context,
     )
     geometry["mask_metadata"] = metadata

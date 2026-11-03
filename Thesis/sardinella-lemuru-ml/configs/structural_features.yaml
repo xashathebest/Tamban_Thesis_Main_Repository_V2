@@ -1,0 +1,14 @@
+# No reviewed structural-severity dataset or grading standard is installed.
+# Image-processing line candidates never establish these approvals.
+enabled: false
+calibration_validated: false
+policy_id: null
+reference_set_id: null
+validation_sample_count: 0
+policy_review_provenance: {}
+major_class_a_restriction_enabled: true
+severity_metric: skeleton_length_to_body_length
+minor_upper_ratio: null
+moderate_upper_ratio: null
+maximum_structural_contribution: 0.0
+severity_support: {}

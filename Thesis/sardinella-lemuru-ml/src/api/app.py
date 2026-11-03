@@ -31,6 +31,7 @@ from src.api.event_persistence import OrderedPersistenceDispatcher
 from src.api.image_analysis import ALLOWED_VIDEO_SUFFIXES, ImageUploadError, PartPreviewImageAnalyzer, RESULTS_SCHEMA_VERSION, StillImageAnalyzer, VideoUploadAnalyzer, VideoUploadError, complete_inspection_payload, decode_uploaded_image
 from src.api.segmentation_preview import PreviewSnapshotCache, PreviewSnapshotError, generate_mask_preview
 from src.inference.body_width import BodyWidthConfig
+from src.inference.experimental_segmentation import inspection_segmentation_backend
 from src.inference.inspection_results import normalize_inspection_results
 from src.api.domain import FEATURE_CAPABILITIES, QUALITY_COUNTER_NAMES, InspectionState, TrackingConfig
 from src.api.export import DEFAULT_EXPORT_FIELDS, EXPORT_FIELDS, make_csv, make_xlsx
@@ -180,6 +181,7 @@ service = CameraInspectionService(
     quality_roi_padding=FISH_QUALITY_ROI_PADDING,
     quality_inference_mode=FISH_QUALITY_INFERENCE_MODE,
     camera_profile_path=REPO_ROOT / "configs" / "camera_settings.yaml",
+    segmentation_backend=inspection_segmentation_backend(),
 )
 image_analyzer = StillImageAnalyzer(model, quality_model, roi_padding=FISH_QUALITY_ROI_PADDING) if RUNTIME_MODE != PART_PREVIEW_MODE else None
 upload_test_model = YoloPartModel(UPLOAD_TEST_WEIGHTS_PATH, confidence=UPLOAD_TEST_CONFIDENCE, imgsz=PART_IMAGE_SIZE) if RUNTIME_MODE == PART_PREVIEW_MODE else None
@@ -2071,7 +2073,8 @@ async def normalize_inspection_results_api(request: Request) -> dict[str, object
 def experimental_segmentation_status():
     from src.inference.mobilesam_backend import get_mobilesam_service
     from src.inference.experimental_segmentation import segmentation_backend
-    return {"default_backend": segmentation_backend(), "mobilesam": get_mobilesam_service().status(),
+    return {"default_backend": inspection_segmentation_backend(), "automatic_inspection": True,
+            "mobilesam": get_mobilesam_service().status(),
             "ownership_validation": "Not validated", "used_for_grading": False}
 
 
@@ -2127,6 +2130,8 @@ async def analyze_image(request: Request) -> dict[str, object]:
                 ):
                     raise HTTPException(status_code=503, detail="Strict model integrity requires both registered checkpoints to be verified before image analysis.")
                 if image_analyzer is not None and model.model is not None:
+                    if requested_segmentation is None and isinstance(image_analyzer, StillImageAnalyzer) and isinstance(quality_model, YoloQualityModel):
+                        requested_segmentation = inspection_segmentation_backend()
                     result = (image_analyzer.analyze(frame, segmentation_backend=requested_segmentation)
                               if requested_segmentation is not None else image_analyzer.analyze(frame))
                     engine = getattr(quality_model, "_grading_engine", None)
@@ -2138,6 +2143,8 @@ async def analyze_image(request: Request) -> dict[str, object]:
                              if isinstance(completed.get("fish"), list) else None)
                     if token:
                         completed["preview_analysis_token"] = token
+                    if isinstance(completed.get("segmentation_preview"), dict):
+                        completed["segmentation_preview"]["source"]["image_sha256"] = hashlib.sha256(image_bytes).hexdigest()
                     return completed
                 if upload_test_model is not None and upload_test_model.model is not None and upload_test_analyzer is not None:
                     return upload_test_analyzer.analyze(frame)
@@ -2253,6 +2260,8 @@ def _run_video_job(job_id: str, body: bytes, filename: str, segmentation_backend
                         job["progress"] = min(99, round(processed / total * 100)) if total else 0
                         job["updated_at"] = datetime.now().astimezone().isoformat()
 
+            if segmentation_backend is None and isinstance(image_analyzer, StillImageAnalyzer) and isinstance(quality_model, YoloQualityModel):
+                segmentation_backend = inspection_segmentation_backend()
             result = (analyzer.analyze(temporary_path, update_progress, segmentation_backend=segmentation_backend)
                       if segmentation_backend is not None else analyzer.analyze(temporary_path, update_progress))
         _finish_video_job(job_id, {"status": "complete", "progress": 100, "result": result})
