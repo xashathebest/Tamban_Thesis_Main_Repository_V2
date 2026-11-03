@@ -92,7 +92,12 @@ class ExperimentalFrameSegmentation:
             self.shadow = shadow_mask_associations(self.candidates, self.ownership, parents, parts)
             reviewed_candidates = {identity: {"mask": row["whole_mask"], "parent_id": identity,
                 "bbox_global": next(p.bbox for p in parents if p.track_id == identity),
-                "provenance": {"frame_key": self.frame_key}} for identity, row in self.reviewed_instances.items()}
+                "provenance": {"frame_key": self.frame_key, "coordinate_space": "original_frame",
+                    "mask_shape": list(self.frame.shape[:2]), "source": "reviewed_native_instance_mask",
+                    "parent_id": identity,
+                    "original_bbox_global": list(next(p.bbox for p in parents if p.track_id == identity)),
+                    "validation_provenance": row.get("validation_provenance")}}
+                for identity, row in self.reviewed_instances.items()}
             self.reviewed_ownership = (validate_candidate_masks(
                 {**self.candidates, **reviewed_candidates}, parents, self.parts, associations=associations,
                 frame_shape=self.frame.shape, expected_frame_key=self.frame_key) if reviewed_candidates else {})
@@ -211,6 +216,12 @@ class ExperimentalFrameSegmentation:
             "parts": [row for row in self.shadow.get("parts", []) if row.get("proposed_track_id") == parent_id
                       or any(support.get("parent_id") == parent_id for support in row.get("supports", []))],
             "parents": {parent_id: self.shadow.get("parents", {}).get(parent_id, {})}}
+        reasons = list(ownership.get("reasons") or [])
+        if not reasons:
+            if ownership.get("engineering_checks_passed") is True:
+                reasons = ["Engineering checks passed; candidate remains unvalidated for anatomical ownership and grading."]
+            else:
+                reasons = [candidate.get("reason") or "Candidate mask ownership checks unavailable; candidate remains withheld."]
         report = {"backend": "mobilesam_experimental", "experimental": True,
             "status": candidate.get("status", "unavailable"),
             "ownership_status": ownership.get("status", "unavailable"),
@@ -221,13 +232,15 @@ class ExperimentalFrameSegmentation:
             "mask_score_unvalidated": candidate.get("score"),
             "checkpoint_sha256": candidate.get("provenance", {}).get("checkpoint_sha256"),
             "reviewed_point_prompts": candidate.get("reviewed_point_prompts", {}),
-            "reasons": ownership.get("reasons", []) or [candidate.get("reason", "Candidate unavailable.")],
+            "reasons": reasons,
             "ownership": ownership, "provenance": candidate.get("provenance", {}),
             "shadow_association": own_shadow,
             "mask_overlay": {"coordinate_space": "original_frame", "frame_id": self.frame_id,
                              "frame_width_px": self.frame.shape[1], "frame_height_px": self.frame.shape[0],
                              "contours": contours, "conflict_contours": conflicts, "candidate_only": True},
             "timings": {"embedding_ms": candidate.get("embedding_ms", candidate.get("shared_embedding_ms")), "prompt_ms": candidate.get("prompt_ms")}}
+        if candidate.get("detail") or candidate.get("error_type"):
+            report["backend_error"] = {"type": candidate.get("error_type"), "detail": candidate.get("detail")}
         self._reports[parent_id] = report
         return report
 

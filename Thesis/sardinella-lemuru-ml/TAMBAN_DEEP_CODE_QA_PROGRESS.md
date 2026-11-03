@@ -123,3 +123,63 @@ mutation. The stopped dashboard was reloaded and the real preview endpoint
 verified on port 8000. Candidate ownership remains unvalidated; no width or
 crack contribution was enabled. Training notebooks, weights, and annotations
 were preserved.
+
+## Independent non-model association repair - November 3, 2026
+
+Executed `docs/additional.md`: corrected eligible-parent competition, supported
+one-to-one ownership, uncertain-axis gates, optional-Tail conflict handling,
+contextual crops, native coordinate/debug provenance, clipping diagnostics,
+reviewed-mask boundary proof and reviewed-assignment uniqueness. The main
+viewer retains every control and adds optional per-fish association diagnostics
+with append-only exports and explicit video source/display IDs.
+
+Full CPU regression: 1,660 passed, 12 skipped, 7 warnings, 127 subtests passed,
+zero failures in 40.86 seconds. Actual Chrome passed 23 checks with zero fetches
+or model requests. The exact original seven-fish CSV photo was recovered;
+all 22 native Model 2 detections reproduce within numerical tolerance.
+Five of seven remain Ungraded. Frozen 17-image coverage changes from 108 to
+105 Ungraded out of 117, without independent ownership accuracy claims.
+
+See [the integrated report](docs/additional_audit.md),
+[association audit](docs/additional_association_audit.md), and
+[reproduction report](docs/additional_reproduction.md). Both trained models,
+detector thresholds, annotations and training notebooks remain unchanged.
+Uncalibrated width evidence contributes nothing. Existing numbered scientific
+readiness and expert-approval gates remain unchanged.
+
+## End-to-end runtime validation - November 3, 2026
+
+Validated actual CPU Model 1 V2, Model 2 and MobileSAM on 24 isolated,
+overlapping, touching, clipped and rotated image cases, preserving a real
+working-source baseline and exact native outputs for paired software replay.
+Every case used one detector call per model, one shared SAM embedding and
+zero GrabCut calls. All native/crop/trace/approval invariants passed; all 16
+automatic verdicts retained correct weighted arithmetic. The 17-photo cohort
+remains 105/117 Ungraded; required Head/Body ownership remains the main gate.
+
+Fixed exact required-part contradictions in full-frame and crop adapters,
+double-translated live debug coordinates, misleading mask success messages,
+silent Excel JSON truncation, and source/display ID collisions in structural
+video overlays. The actual nine-fish HTTP result now preserves all 347 fields
+per fish in CSV/XLSX, with 45 truncated cells before and zero after.
+
+Final suite: 1,715 passed, 12 skipped, 7 warnings, 127 subtests passed, zero
+failures in 43.32 seconds. Actual HTTP/Chrome passed 46 checks plus four
+lifecycle checks and mobile validation; final recorded-real-payload replay
+passed 16 checks without model requests. Models, thresholds, training files,
+annotations, weighted grading and all existing controls remain preserved.
+
+See [the end-to-end report](docs/runtime_e2e_validation.md) and
+`results/qa/runtime_e2e/`. Grading accuracy and ownership precision remain
+unmeasured because independent expert truth is absent. Existing scientific
+readiness/approval gates remain unchanged. The running live GPU service and
+training processes were not restarted or reconfigured.
+
+Final requested QA recheck: 1,715 passed, 12 skipped, 7 warnings, 127 subtests
+passed in 43.50 seconds; all 24 source-bound replay cases passed; actual
+HTTP/Chrome passed 46 checks plus four lifecycle checks and mobile layout;
+the final real-result frontend replay passed 16 checks without model calls.
+All 347 export fields per fish survived CSV/XLSX exactly, with zero lost
+evidence. No additional production changes were needed. See
+[the QA recheck](docs/runtime_e2e_qa_recheck.md) and
+`results/qa/runtime_e2e/recheck/` for fresh logs and scope limitations.

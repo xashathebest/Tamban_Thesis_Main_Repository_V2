@@ -26,6 +26,7 @@ const elements = {
   segmentationOptions: $("upload-segmentation-options"), segmentationExperiment: $("upload-mobilesam"), segmentationNote: $("upload-segmentation-note"), inspectMasks: $("inspect-upload-masks"),
   maskPreview: $("upload-mask-preview"), maskPreviewCanvas: $("upload-mask-canvas"), maskPreviewStatus: $("upload-mask-status"), maskPreviewShow: $("upload-mask-show"), maskPreviewModel1: $("upload-mask-model1"), maskPreviewModel2: $("upload-mask-model2"), maskPreviewOpacity: $("upload-mask-opacity"), maskPreviewOpacityValue: $("upload-mask-opacity-value"), maskPreviewFish: $("upload-mask-fish"), maskPreviewZoom: $("upload-mask-zoom"), maskPreviewCancel: $("upload-mask-cancel"), maskPreviewLegend: $("upload-mask-legend"),
   maskPreviewBoxes: $("upload-display-boxes"), maskPreviewMasks: $("upload-display-masks"), maskPreviewCracks: $("upload-mask-cracks"),
+  maskPreviewAssociation: $("upload-association-debug"), maskPreviewAssociationStatus: $("upload-association-debug-status"), maskPreviewAssociationLegend: $("upload-association-debug-legend"),
   maskPreviewViewport: $("upload-mask-viewport"),
   maskPreviewLoading: $("upload-mask-loading"),
   liveDisplayBoxes: $("live-display-boxes"), liveDisplayMasks: $("live-display-masks"),
@@ -1244,6 +1245,54 @@ function lazyResultSection(parent, title, key, build, expanded = new Set()) {
   const populate = () => { if (!details.open || built) return; built = true; const body = document.createElement("div"); body.className = "result-section-body"; build(body); details.append(body); };
   details.addEventListener("toggle", populate); details.open = expanded.has(key); parent.append(details); populate(); return details;
 }
+function anatomicalAssociationEvidence(fish) {
+  const analysis = fish?.analysis || {}, inference = analysis.quality_inference || {};
+  const association = inference.association || analysis.association || fish?.association || {};
+  const debug = analysis.model2_debug || {};
+  const id = fish?.track_id ?? fish?.id ?? fish?.fish_id;
+  const sourceParentId = fish?.source_parent_id ?? fish?.sourceParentId ?? association.source_parent_id
+    ?? fish?.source_detection_id ?? analysis.inspection_source?.source_detection_id ?? id;
+  return {id, sourceParentId, inference, association, debug,
+    parts: Array.isArray(association.parts) ? association.parts.filter(row => row && typeof row === "object") : []};
+}
+function anatomicalAssociationRows(fish) {
+  const evidence = anatomicalAssociationEvidence(fish);
+  const show = value => value == null || value === "" ? "Not recorded" : typeof value === "object" ? JSON.stringify(value) : String(value);
+  const rows = [];
+  const detectionKey = part => JSON.stringify([part.source_class_id ?? part.source_class_name ?? part.region, part.bbox, part.confidence]);
+  const recorded = new Set();
+  for (const row of evidence.parts) {
+    const part = row.part || {}; recorded.add(detectionKey(part));
+    const candidates = Array.isArray(row.candidates) && row.candidates.length ? row.candidates : [null];
+    const parentIds = row.candidate_parent_ids || row.candidates?.map(candidate => candidate.track_id) || [];
+    const sourceIds = fish?.sourceIdNamespace === true || fish?.source_parent_id != null || evidence.association.source_parent_id != null || String(evidence.sourceParentId) !== String(evidence.id);
+    const owned = String(row.track_id) === String(evidence.sourceParentId);
+    const status = row.status === "ASSIGNED" ? `ASSIGNED to ${sourceIds ? "source " : ""}Fish #${row.track_id}${owned ? sourceIds ? ` (display Fish #${evidence.id})` : "" : " (candidate only here)"}` : row.status || "Not recorded";
+    for (const candidate of candidates) rows.push([
+      `${part.region || "Part"}: ${part.source_class_name || part.grade || "detector candidate"}`,
+      show(part.confidence), show(part.bbox), show(parentIds),
+      candidate ? `Fish #${candidate.track_id}: ${show(candidate.score)}` : "Not recorded",
+      show(candidate?.orientation ? {...candidate.orientation, anatomical_checks: row.anatomical_checks} : candidate?.longitudinal_position == null ? null : {longitudinal_position: candidate.longitudinal_position}),
+      show(candidate?.mask || (candidate?.mask_support == null ? null : {support: candidate.mask_support})),
+      show(row.clipping || part.clipping || evidence.association.clipping || evidence.inference.clipping),
+      show(row.acceptance_thresholds || evidence.association.acceptance_thresholds), status,
+      show(row.reason || (row.status === "ASSIGNED" ? "Accepted by recorded association rules" : null)),
+      show(candidate?.failed_checks), show({coordinate_space: part.coordinate_space || evidence.association.coordinate_space,
+        frame_id: part.frame_id ?? evidence.association.frame_id, source_parent_id: evidence.sourceParentId, display_parent_id: evidence.id}),
+    ]);
+  }
+  for (const part of Array.isArray(evidence.debug.raw_detections) ? evidence.debug.raw_detections : []) {
+    if (!part || recorded.has(detectionKey(part))) continue;
+    const rejected = (Array.isArray(evidence.debug.rejected_detections) ? evidence.debug.rejected_detections : []).find(item => item && detectionKey(item) === detectionKey(part));
+    const reason = part.rejection_reason || part.reason || rejected?.rejection_reason || rejected?.reason;
+    rows.push([`${part.region || "Part"}: ${part.source_class_name || "raw detector candidate"}`,
+      show(part.confidence), show(part.bbox), "Not recorded", "Not recorded", "Not recorded", "Not recorded",
+      show(part.clipping || evidence.association.clipping || evidence.inference.clipping), show(evidence.debug.selection_threshold),
+      `${part.association_status || part.selection_status || (rejected ? "NOT SELECTED for this fish" : "RAW")}; ownership not established`, reason || "No association decision recorded for this raw detection", "Not recorded",
+      show({coordinate_space: part.coordinate_space || evidence.debug.coordinate_space, frame_id: part.frame_id ?? evidence.debug.frame_id})]);
+  }
+  return rows.length ? rows : [["No anatomical association diagnostics were recorded for this fish.", ...Array(12).fill("Not recorded")]];
+}
 function appendResultCard(parent, event) {
   const grade = resultGrade(event); const details = document.createElement("details"); details.className = "result-fish-card";
   const key = resultIdentity(event, resultDatasets[resultsSource].scope); const expanded = resultDisclosureStates.get(resultsSource) || new Set();
@@ -1290,6 +1339,14 @@ function appendResultCard(parent, event) {
     lazyResultSection(body, "F. Processing and Hardware", `${key}:F`, (section) => {
       appendResultTable(section, ["Processing diagnostic", "Recorded value"], inspectionPerformanceRows(event, resultDatasets[resultsSource].metadata));
     }, expanded);
+    lazyResultSection(body, "Anatomical Association Debug View", `${key}:association`, (section) => {
+      section.append(Object.assign(document.createElement("p"), {className: "muted", textContent: "Raw detections and candidate parents are diagnostic evidence. A candidate is owned by this fish only when its recorded assignment says so. Missing historical diagnostics are shown as Not recorded."}));
+      appendResultTable(section, ["Part / detector label", "Raw confidence (0–1)", "Recorded bounding box", "Candidate Fish IDs", "Candidate matching score", "Orientation compatibility", "Mask compatibility", "Image / crop clipping", "Acceptance thresholds", "Final assignment", "Decision reason", "Failed candidate checks", "Coordinate provenance"], anatomicalAssociationRows(event));
+      const inspect = Object.assign(document.createElement("button"), {type: "button", className: "button quiet", textContent: "Show candidates for this fish in main viewer"});
+      inspect.disabled = event._inspection_source !== "upload" && resultsSource !== "upload";
+      inspect.addEventListener("click", () => { selectInspectionFish(event.track_id ?? event.id ?? event.fish_id); if (elements.maskPreviewAssociation) elements.maskPreviewAssociation.checked = true; renderMaskPreview(); });
+      section.append(inspect);
+    }, expanded);
     if (event.analysis?.segmentation?.backend === "mobilesam_experimental" || event.analysis?.segmentation?.experimental === true) {
       lazyResultSection(body, "Mask ownership and reliability", `${key}:G`, (section) => {
         appendResultTable(section, ["Segmentation evidence", "Recorded value"], segmentationEvidenceRows(event));
@@ -1301,7 +1358,10 @@ function appendResultCard(parent, event) {
     }
     details.append(body);
   };
-  details.addEventListener("toggle", () => { populate(); if (details.open && resultsSource === "upload" && typeof selectInspectionFish === "function" && typeof uploadMaskPreview !== "undefined" && uploadMaskPreview.data) selectInspectionFish(details.dataset.inspectionFishId); }); details.open = expanded.has(`fish:${key}`); parent.append(details); populate(); return details;
+  summary.addEventListener("click", () => {
+    if (!details.open && resultsSource === "upload" && typeof selectInspectionFish === "function" && typeof uploadMaskPreview !== "undefined" && uploadMaskPreview.data) selectInspectionFish(details.dataset.inspectionFishId);
+  });
+  details.addEventListener("toggle", populate); details.open = expanded.has(`fish:${key}`); parent.append(details); populate(); return details;
 }
 function renderResultsDashboard(history, {source = "live", complete = false, metadata = {}, scope = null, renderOnly = false} = {}) {
   if (!renderOnly) {
@@ -1598,12 +1658,17 @@ function resultExportRecord(event) {
     "Feature fusion original anatomical grade": fusion.original_grade || geometry.original_grade || "",
     "Feature fusion final eligible grade": fusion.final_grade || aiFinalGrade(event),
     "Geometry and structural feature fusion": JSON.stringify(fusion),
+    "Anatomical association diagnostics": JSON.stringify(analysis.quality_inference?.association || analysis.association || event.association || {}),
+    "Anatomical part decisions and candidate scores": JSON.stringify((analysis.quality_inference?.association || analysis.association || event.association || {}).parts || []),
+    "Anatomical inference and clipping provenance": JSON.stringify(analysis.quality_inference || {}),
+    "Raw Model 2 detection diagnostics": JSON.stringify(analysis.model2_debug || {}),
   };
 }
 async function exportResultsCsv() {
   if (!selectedResultEvents().every(hasCompleteInspectionAnalysis) && !await ensureNormalizedResultsForExport()) return;
   const records = selectedResultEvents().map(resultExportRecord);
   const appendedFields = ["Estimated fish length (px; sampled mask)", "Estimated maximum body width (px; sampled mask)", "Estimated relative body width ratio", "Estimated geometry interpretation", "Geometry sampling and uncertainty", "Shared Frame Stage Performance", "Process GPU Memory", "Fish segmentation backend", "Fish candidate mask status", "Fish candidate ownership checks", "Fish candidate validation", "Segmentation model mask score (not ownership confidence)", "Fish candidate reliability explanation", "Segmentation checkpoint SHA-256", "Segmentation original frame ID", "Shared image embedding (ms; do not sum across fish)", "Fish candidate mask decoding (ms)", "Experimental mask used for grading", "Experimental shadow ownership (not applied)", "Fish candidate segmentation evidence (previews omitted)"];
+  appendedFields.push("Anatomical association diagnostics", "Anatomical part decisions and candidate scores", "Anatomical inference and clipping provenance", "Raw Model 2 detection diagnostics");
   const allHeaders = [...new Set(records.flatMap((record) => Object.keys(record)))];
   const headers = [...allHeaders.filter((name) => !appendedFields.includes(name)), ...appendedFields.filter((name) => allHeaders.includes(name))];
   if (!headers.length) headers.push("Fish ID", "Final classification", "Complete fish event");
@@ -2476,6 +2541,10 @@ function maskPreviewEntries(data) {
   const source = maskPreviewSource(data);
   if (!source) return [];
   const seen = new Set();
+  const identityMap = data.source?.fish_id_mapping;
+  const mappingComplete = identityMap && typeof identityMap === "object" && !Array.isArray(identityMap)
+    && (Array.isArray(data.fish) ? data.fish : []).every(fish => String(identityMap[fish.source_parent_id ?? fish.id]) === String(fish.id))
+    && new Set(Object.values(identityMap).map(String)).size === Object.keys(identityMap).length;
   const validBox = box => Array.isArray(box) && box.length === 4 && box.every(value => typeof value === "number" && Number.isFinite(value)) && box[0] >= 0 && box[1] >= 0 && box[2] > box[0] && box[3] > box[1] && box[2] <= source.width && box[3] <= source.height;
   return (Array.isArray(data.fish) ? data.fish : []).slice(0, 64).flatMap((fish, index) => {
     const id = fish?.id;
@@ -2484,14 +2553,26 @@ function maskPreviewEntries(data) {
     const segmentation = fish.segmentation || fish.analysis?.segmentation || {};
     const overlay = segmentationOverlayEvidence({id, analysis: {segmentation}}, source.frameId, source.width, source.height);
     if (segmentation.preview_usable === false) overlay.contours = [];
+    const sourceParentId = fish.source_parent_id ?? fish.analysis?.quality_inference?.association?.source_parent_id ?? id;
+    const sourceNamespace = fish.source_parent_id != null || fish.analysis?.quality_inference?.association?.source_parent_id != null || segmentation.source_detection_id != null;
+    const sourceIdentityVerified = fish.source_parent_id != null || fish.analysis?.quality_inference?.association?.source_parent_id != null
+      || segmentation.source_detection_id == null || String(segmentation.source_detection_id) === String(id);
+    const ownsPart = part => !sourceIdentityVerified ? false : sourceNamespace ? part.source_parent_id != null
+      ? String(part.source_parent_id) === String(sourceParentId)
+      : part.parent_id_space === "display" ? String(part.parent_track_id) === String(id)
+      : part.parent_track_id != null && String(part.parent_track_id) === String(sourceParentId)
+      : part.parent_track_id == null || String(part.parent_track_id) === String(id);
     const parts = overlay.frame_matches && Array.isArray(fish.parts) ? fish.parts.filter(part => validBox(part?.bbox)
       && (!part.coordinate_space || part.coordinate_space === "original_frame")
-      && (part.parent_track_id == null || String(part.parent_track_id) === String(id))
+      && ownsPart(part)
       && (!part.association?.status || part.association.status === "ASSIGNED")
       && (!part.association_status || part.association_status === "ASSIGNED")) : [];
     const review = segmentation.ownership_status !== "checks_passed_unvalidated" || segmentation.engineering_checks_passed !== true;
     const reasons = Array.isArray(segmentation.reasons) ? segmentation.reasons.filter(value => typeof value === "string" && value).join("; ") : "";
-    return [{id, bbox: fish.bbox, parts, analysis: fish.analysis || {}, segmentation, contours: overlay.contours, conflictContours: overlay.conflict_contours || [],
+    return [{id, sourceParentId, sourceIdNamespace: sourceNamespace,
+      associationIdMap: mappingComplete ? identityMap : null,
+      sourceIdentityVerified,
+      bbox: fish.bbox, parts, analysis: fish.analysis || {}, segmentation, contours: overlay.contours, conflictContours: overlay.conflict_contours || [],
       review, reason: reasons || overlay.reason, color: maskPreviewColor(index), frameMatches: overlay.frame_matches}];
   });
 }
@@ -2502,12 +2583,72 @@ function maskPreviewPolygons(context, polygons) {
     context.closePath();
   }
 }
+function anatomicalAssociationOverlay(entry, source) {
+  const evidence = anatomicalAssociationEvidence(entry), output = [];
+  const valid = (part, metadata) => {
+    const space = part.coordinate_space || metadata.coordinate_space;
+    const frame = part.frame_id ?? metadata.frame_id ?? metadata.source?.frame_id;
+    const width = part.frame_width_px ?? metadata.frame_width_px ?? metadata.source?.frame_width_px;
+    const height = part.frame_height_px ?? metadata.frame_height_px ?? metadata.source?.frame_height_px;
+    const box = part.bbox;
+    return space === "original_frame" && frame != null && String(frame) === String(source.frameId)
+      && width === source.width && height === source.height && Array.isArray(box) && box.length === 4
+      && box.every(value => typeof value === "number" && Number.isFinite(value)) && box[0] >= 0 && box[1] >= 0
+      && box[2] > box[0] && box[3] > box[1] && box[2] <= source.width && box[3] <= source.height;
+  };
+  const intersects = box => box[0] < entry.bbox[2] && box[2] > entry.bbox[0] && box[1] < entry.bbox[3] && box[3] > entry.bbox[1];
+  for (const part of Array.isArray(evidence.debug.raw_detections) ? evidence.debug.raw_detections : []) {
+    if (!part || !valid(part, evidence.debug) || !intersects(part.bbox)) continue;
+    output.push({bbox: part.bbox, kind: "raw", color: "#38bdf8", label: `${part.region || "Part"} RAW; ownership unestablished`});
+  }
+  for (const row of evidence.parts) {
+    const part = row.part || {};
+    const candidates = row.candidate_parent_ids || row.candidates?.map(candidate => candidate.track_id) || [];
+    const relevant = String(row.track_id) === String(evidence.sourceParentId) || candidates.some(id => String(id) === String(evidence.sourceParentId));
+    if (!relevant || !valid(part, evidence.association)) continue;
+    const owned = entry.sourceIdentityVerified !== false && row.status === "ASSIGNED" && String(row.track_id) === String(evidence.sourceParentId);
+    const uncertain = row.status === "AMBIGUOUS" || (row.status === "ASSIGNED" && !owned);
+    const kind = owned ? "accepted" : uncertain ? "ambiguous" : "rejected";
+    const ownerLabel = entry.associationIdMap && entry.associationIdMap[row.track_id] != null ? `#${entry.associationIdMap[row.track_id]}`
+      : entry.sourceIdNamespace || String(evidence.sourceParentId) !== String(entry.id) || entry.sourceIdentityVerified === false ? `source Fish #${row.track_id}` : `#${row.track_id}`;
+    const decision = owned ? `ACCEPTED for #${entry.id}` : row.status === "ASSIGNED" ? entry.sourceIdentityVerified === false ? `source assignment #${row.track_id}; display identity unverified` : `owned by ${ownerLabel}; candidate only for #${entry.id}` : `${row.status || "UNASSIGNED"}; candidate only`;
+    output.push({bbox: part.bbox, kind, color: owned ? "#22c55e" : uncertain ? "#fbbf24" : "#fb7185", label: `${part.region || "Part"} ${decision}`});
+  }
+  return output;
+}
+function renderAnatomicalAssociationDebug(context, entries, source, selection, line, font) {
+  const status = elements.maskPreviewAssociationStatus, legend = elements.maskPreviewAssociationLegend;
+  const enabled = elements.maskPreviewAssociation?.checked === true;
+  status?.classList[enabled ? "remove" : "add"]("hidden"); legend?.classList[enabled ? "remove" : "add"]("hidden");
+  if (!enabled) return;
+  if (selection === "all") { if (status) status.textContent = "Highlight one Fish ID to inspect its raw detections and candidate ownership. The debug toggle reuses this analysis."; return; }
+  const entry = entries.find(item => String(item.id) === selection);
+  const records = entry ? anatomicalAssociationOverlay(entry, source) : [];
+  for (const row of records) {
+    const [left, top, right, bottom] = row.bbox;
+    context.save(); context.globalAlpha = 1; context.strokeStyle = row.color; context.fillStyle = row.color;
+    context.lineWidth = row.kind === "raw" ? line * 2.5 : line * 1.2;
+    context.setLineDash(row.kind === "accepted" ? [] : row.kind === "raw" ? [line, line * 2] : [line * 4, line * 2]);
+    context.strokeRect(left, top, right - left, bottom - top); context.setLineDash([]);
+    context.font = `600 ${font * .7}px system-ui`;
+    context.fillText(row.label, left + line, Math.max(font, Math.min(source.height - line, top + (row.kind === "raw" ? font : font * 2))));
+    context.restore();
+  }
+  if (status) status.textContent = records.length ? `Fish #${selection}: ${records.length} recorded diagnostic overlays. Raw and candidate boxes do not establish ownership. Expand this fish's Anatomical Association Debug View for scores and rejection reasons. No models or grading were rerun.` : `Fish #${selection}: no source-matched native-pixel association overlays were recorded. Its diagnostic table remains available; uncertain coordinates are not drawn.`;
+}
 function renderMaskPreview() {
   const data = uploadMaskPreview.data, image = uploadMaskPreview.image;
+  if (!elements.maskPreviewAssociation?.checked) {
+    elements.maskPreviewAssociationStatus?.classList.add("hidden"); elements.maskPreviewAssociationLegend?.classList.add("hidden");
+  }
   const source = maskPreviewSource(data);
   if (!source || !image || uploadMaskPreview.file !== selectedUpload || !elements.maskPreviewCanvas) {
     elements.maskPreviewViewport?.classList.add("hidden");
     if (elements.maskPreviewMasks?.checked && elements.maskPreviewStatus) elements.maskPreviewStatus.textContent = "Fish masks are unavailable for this analysis. The original image and bounding-box results remain available.";
+    if (elements.maskPreviewAssociation?.checked && elements.maskPreviewAssociationStatus) {
+      elements.maskPreviewAssociationStatus.classList.remove("hidden");
+      elements.maskPreviewAssociationStatus.textContent = "Anatomical debug overlays are unavailable until the current analysis source image is ready. Recorded diagnostics remain in each fish's evidence panel. No additional inference was requested.";
+    }
     return;
   }
   const canvas = elements.maskPreviewCanvas;
@@ -2526,7 +2667,7 @@ function renderMaskPreview() {
   const showBoxes = elements.maskPreviewBoxes?.checked === true || elements.maskPreviewModel1?.checked === true;
   if (elements.maskPreviewViewport && elements.uploadImage && elements.uploadVideo) {
     elements.uploadMediaStage?.classList.remove("hidden");
-    if (maskMode) {
+    if (maskMode || elements.maskPreviewAssociation?.checked === true) {
       if (!uploadMaskPreview.mainMedia) uploadMaskPreview.mainMedia = elements.uploadImage.classList.contains("hidden") ? "video" : "image";
       elements.uploadImage.classList.add("hidden"); elements.uploadVideo.classList.add("hidden");
       elements.maskPreviewViewport.classList.remove("hidden"); elements.uploadFishTargets?.classList.add("hidden");
@@ -2561,7 +2702,10 @@ function renderMaskPreview() {
     if (elements.maskPreviewCracks?.checked) {
       const damage = entry.analysis.surface_damage || {};
       const sameFrame = damage.frame_id != null && String(damage.frame_id) === String(source.frameId);
-      const sameParent = String(damage.parent_track_id ?? entry.id) === String(entry.id);
+      const damageSourceParent = damage.source_parent_id ?? damage.parent_track_id;
+      const sameParent = entry.sourceIdentityVerified !== false && (entry.sourceIdNamespace
+        ? damageSourceParent != null && String(damageSourceParent) === String(entry.sourceParentId)
+        : String(damage.parent_track_id ?? entry.id) === String(entry.id));
       const allowed = sameFrame && sameParent && ["suspected", "validated"].includes(damage.status);
       const bounds = damage.crop_bounds;
       const offset = damage.coordinate_space === "crop_local_native_pixels" && Array.isArray(bounds) && bounds.length === 4 ? bounds.slice(0, 2) : damage.coordinate_space === "original_frame" ? [0, 0] : null;
@@ -2584,6 +2728,7 @@ function renderMaskPreview() {
     }
     context.restore();
   }
+  if (typeof renderAnatomicalAssociationDebug === "function") renderAnatomicalAssociationDebug(context, entries, source, selection, line, font);
 }
 function rememberMaskPreviewAnalysis(analysis, file) {
   uploadMaskPreview.analysisToken = typeof analysis?.preview_analysis_token === "string" ? analysis.preview_analysis_token : null;
@@ -2773,6 +2918,8 @@ function stopMaskPreviewTimer() {
   uploadMaskPreview.timer = null;
 }
 function clearMaskPreview() {
+  if (elements.maskPreviewAssociation) elements.maskPreviewAssociation.checked = false;
+  elements.maskPreviewAssociationStatus?.classList.add("hidden"); elements.maskPreviewAssociationLegend?.classList.add("hidden");
   const previousMainMedia = uploadMaskPreview.mainMedia;
   uploadMaskPreview.version += 1; uploadMaskPreview.controller?.abort(); stopMaskPreviewTimer();
   stopMaskPreparationTimer(); setMaskViewBusy(false);
@@ -3046,7 +3193,7 @@ elements.uploadMode.addEventListener("click", () => toggleUpload(elements.upload
 elements.inspectMasks?.addEventListener("click", () => {
   void inspectUploadMasks();
 });
-for (const control of [elements.maskPreviewShow, elements.maskPreviewModel1, elements.maskPreviewModel2, elements.maskPreviewCracks, elements.maskPreviewOpacity, elements.maskPreviewZoom]) control?.addEventListener("input", renderMaskPreview);
+for (const control of [elements.maskPreviewShow, elements.maskPreviewModel1, elements.maskPreviewModel2, elements.maskPreviewCracks, elements.maskPreviewAssociation, elements.maskPreviewOpacity, elements.maskPreviewZoom]) control?.addEventListener("input", renderMaskPreview);
 elements.maskPreviewBoxes?.addEventListener("change", () => { if (elements.maskPreviewBoxes.checked) void setMainViewerMode("boxes"); });
 elements.maskPreviewMasks?.addEventListener("change", () => { if (elements.maskPreviewMasks.checked) void setMainViewerMode("masks"); });
 elements.maskPreviewFish?.addEventListener("input", () => selectInspectionFish(elements.maskPreviewFish.value, {revealCard: true}));

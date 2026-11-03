@@ -469,3 +469,21 @@ inference. Concurrent Model 1/association edits were preserved separately.
 The audit did not reload the live GPU backend. Reload a previously loaded
 process at a suitable time after training permits the existing models to load;
 the feature changes need no new checkpoint integration.
+
+## Anatomical association and contextual crops
+
+The [additional audit](docs/additional_audit.md) documents the non-model
+association, cropping, clipping, source-ID and debug-view repairs. Existing
+model weights, inference thresholds and weighted grading requirements are
+preserved. It includes the correct seven-fish original-image reproduction,
+exact changed files, scoped before/after coverage, and remaining ownership
+uncertainty. Full regression: 1,660 passed and 12 skipped; the main viewer
+passed 23 actual Chrome checks without additional model requests.
+
+The follow-up [end-to-end validation](docs/runtime_e2e_validation.md) runs the
+actual unchanged detectors and MobileSAM on 24 image cases plus HTTP/Chrome
+and complete CSV/XLSX round trips. It fixes required-anatomy contradictions,
+live debug coordinate translation, mask status explanations, Excel evidence
+truncation and video source-ID overlays. Final regression: 1,715 passed,
+12 skipped; real HTTP/Chrome checks passed. Fish-level accuracy remains
+unmeasured without independent ownership and final-grade truth.

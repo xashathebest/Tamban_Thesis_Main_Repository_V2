@@ -172,21 +172,29 @@ def validate_candidate_masks(
         if prompt_box is not None and (_box(prompt_box) is None or not np.allclose(_box(prompt_box), box, rtol=0, atol=.001)):
             fail.append("candidate_prompt_box_mismatch")
         provenance = _field(candidate, "provenance", {})
+        reviewed_native_source = False
         if isinstance(provenance, Mapping):
             # The backend retains both the original detection and the clipped
             # prompt. Checking only a legacy top-level bbox silently bypasses
             # identity checks for real MobileSAM candidates.
             backend_candidate = (provenance.get("backend") == "mobilesam_experimental"
                                  or provenance.get("source") == "mobilesam_box_prompt_candidate")
+            reviewed_candidate = provenance.get("source") == "reviewed_native_instance_mask"
+            review = provenance.get("validation_provenance")
+            reviewed_native_source = bool(reviewed_candidate and isinstance(review, Mapping)
+                and all(isinstance(review.get(key), str) and review[key].strip()
+                        for key in ("reviewer", "review_id", "reference_set_id")))
+            if reviewed_candidate and not reviewed_native_source:
+                fail.append("reviewed_mask_provenance_unavailable")
             recorded_owner = provenance.get("parent_id")
-            if ((backend_candidate and (candidate_owner is None or recorded_owner is None))
+            if (((backend_candidate or reviewed_candidate) and (candidate_owner is None or recorded_owner is None))
                     or (recorded_owner is not None and
                         (isinstance(recorded_owner, bool) or recorded_owner != parent.track_id))):
                 fail.append("candidate_parent_identity_mismatch")
             original_box = provenance.get("original_bbox_global")
             native_prompt = provenance.get("prompt_bbox_global")
             expected_prompt = np.clip(box, [0, 0, 0, 0], [shape[1], shape[0], shape[1], shape[0]])
-            if ((backend_candidate or original_box is not None)
+            if ((backend_candidate or reviewed_candidate or original_box is not None)
                     and (_box(original_box) is None or not np.allclose(_box(original_box), box, rtol=0, atol=.001))):
                 fail.append("candidate_prompt_box_mismatch")
             if ((backend_candidate or native_prompt is not None)
@@ -196,7 +204,7 @@ def validate_candidate_masks(
             shape_matches = (isinstance(recorded_shape, (list, tuple)) and len(recorded_shape) == 2
                              and all(isinstance(v, (int, np.integer)) and not isinstance(v, (bool, np.bool_))
                                      and v == expected for v, expected in zip(recorded_shape, shape)))
-            if backend_candidate and (provenance.get("coordinate_space") != "original_frame" or not shape_matches):
+            if (backend_candidate or reviewed_candidate) and (provenance.get("coordinate_space") != "original_frame" or not shape_matches):
                 fail.append("candidate_native_coordinates_mismatch")
         if expected_frame_key is not None:
             recorded_frame_key = provenance.get("frame_key") if isinstance(provenance, Mapping) else None
@@ -243,7 +251,8 @@ def validate_candidate_masks(
         native_source = (isinstance(provenance, Mapping) and provenance.get("coordinate_space") == "original_frame"
                          and provenance.get("mask_shape") == list(shape)
                          and (provenance.get("backend") == "mobilesam_experimental"
-                              or provenance.get("source") == "mobilesam_box_prompt_candidate"))
+                              or provenance.get("source") == "mobilesam_box_prompt_candidate"
+                              or reviewed_native_source))
         # A detector rectangle may include image-edge background padding. The
         # native full-frame mask can disprove silhouette clipping; a crop alone
         # cannot. Real foreground edge contact remains a rejection above.

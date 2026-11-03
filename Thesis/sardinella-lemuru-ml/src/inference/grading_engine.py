@@ -64,6 +64,27 @@ def _empty_scores() -> dict[str, float]:
     return {grade: 0.0 for grade in GRADE_NAMES}
 
 
+def _clipping_state(quality: Mapping[str, object]) -> tuple[bool, bool]:
+    """Separate original-image clipping from an analysis ROI losing pixels.
+
+    Explicit parent-frame evidence overrides the legacy detector-box contact
+    flag. Crop clipping can explain missing evidence, but cannot establish
+    that the fish extends outside the original source image.
+    """
+    frame_clipped = bool(quality.get("out_of_frame") or quality.get(
+        "parent_frame_clipped", quality.get("frame_clipped", False)))
+    crop_clipped = bool(quality.get("parent_crop_clipped") or quality.get("crop_clipped"))
+    reasons = quality.get("reasons", ())
+    if not quality.get("usable", True) and isinstance(reasons, (list, tuple, set)):
+        for value in reasons:
+            reason = str(value).strip().lower()
+            if reason in {"frame_clipped", "parent_frame_clipped", "out_of_frame", "bbox_outside_frame"}:
+                frame_clipped = True
+            elif reason == "crop_clipped" or reason.endswith(("_crop_clipped", "_roi_clipped")):
+                crop_clipped = True
+    return frame_clipped, crop_clipped
+
+
 def _safe_mean(values: Iterable[object]) -> float | None:
     finite = [number for value in values if (number := _finite(value)) is not None]
     return sum(finite) / len(finite) if finite else None
@@ -816,7 +837,7 @@ class WeightedGradingEngine:
             UG_ASSOCIATION_AMBIGUOUS: "Model 2 part-to-parent association is ambiguous, so no verdict was issued.",
             UG_MISSING_PART_EVIDENCE: "Required " + " and ".join(self.config.to_policy().required_regions()) + " evidence was not reliably observed; this is not a physical missing-part claim.",
             UG_MODEL2_UNAVAILABLE: "Model 2 produced no reliable Head, Body, or Tail evidence.",
-            UG_OUT_OF_FRAME: "Reliable part evidence may have been lost because a crop touched a frame boundary.",
+            UG_OUT_OF_FRAME: "Required anatomical evidence is unavailable and the original image boundary was flagged.",
             UG_FRAME_QUALITY: "No candidate crop passed the configured frame-quality gate.",
             UG_INSUFFICIENT_REGIONS: f"Fewer than {self.config.active_minimum_regions()} reliable regions were observed.",
             UG_TWO_PART_EVIDENCE: "The experimental two-part policy also requires reliable Head or Tail evidence.",
@@ -909,7 +930,8 @@ class WeightedGradingEngine:
         current_rejected_reasons = Counter(
             str(reason).lower() for reason in latest_reasons
         ) if not latest_quality.get("usable", True) and isinstance(latest_reasons, (list, tuple, set)) else Counter()
-        inferred_out_of_frame = out_of_frame or any("clipp" in reason or "out_of_frame" in reason for reason in current_rejected_reasons)
+        parent_frame_clipped, parent_crop_clipped = _clipping_state(latest_quality)
+        inferred_out_of_frame = out_of_frame or parent_frame_clipped
         # Retain the original Model 2 weighted classification. The old Body
         # redistribution is available only for explicitly versioned replay.
         raw_scores = {region: dict(scores) for region, scores in aggregate_scores.items()}
@@ -943,19 +965,12 @@ class WeightedGradingEngine:
         provisional = decision.top_grade
         provisional_score = decision.top_support
 
-        parent_frame_clipped = bool(
-            latest_quality.get("parent_frame_clipped", latest_quality.get("frame_clipped", False))
-        )
-        parent_crop_clipped = bool(
-            latest_quality.get("parent_crop_clipped", latest_quality.get("crop_clipped", False))
-        )
-
         def visibility_for(status: str, *, observed: bool) -> str:
             if observed:
                 return "PRESENT"
             if parent_frame_clipped:
                 return "PARENT_FRAME_CLIPPED"
-            if parent_crop_clipped or status == "frame_clipped":
+            if parent_crop_clipped:
                 return "PARENT_CROP_CLIPPED"
             if status == "below_threshold":
                 return "BELOW_THRESHOLD"
@@ -1240,12 +1255,7 @@ class WeightedGradingEngine:
             inferred_association_status = str(quality_payload.get("association_status") or "") or None
         if bool(quality_payload.get("association_ambiguous", False)):
             inferred_association_status = "ambiguous"
-        inferred_out_of_frame = bool(
-            quality_payload.get("out_of_frame", False)
-            or quality_payload.get("parent_frame_clipped", False)
-            or quality_payload.get("parent_crop_clipped", False)
-            or quality_payload.get("crop_clipped", False)
-        )
+        inferred_out_of_frame, _ = _clipping_state(quality_payload)
         frame = self._frame_evidence(
             crop_bgr, parts, frame_id=frame_id, frame_quality=quality_payload, fish_mask=fish_mask,
             texture_mask=texture_mask, texture_mask_metadata=texture_mask_metadata,

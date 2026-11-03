@@ -1,0 +1,1529 @@
+{
+  "scope": "Actual CPU FP32 frozen detections from three project development test images. No expert fish/part ownership labels; regression of supported software decisions only.",
+  "model_sha256": {
+    "fish_parent_detector": "c79f597c2ed51b45ac2911cdbc744f8d2a4bea2411efc6a6ec0d4bcab35901e2",
+    "yolo26m_partdet": "f74cd336b6ba9274f3bbbad845f64d03d0d4cc78e79cf1c0392d0b07d1d53222"
+  },
+  "records": [
+    {
+      "scenario": "WIN_20260823_22_09_34_Pro_jpg.rf.5b4ee02a0f77df29287b889dd0d840e1",
+      "cohort": "current_17_test_images",
+      "source": {
+        "path": "C:\\Users\\User\\Downloads\\Tamban_Thesis_Main_Repository\\Thesis\\sardinella-lemuru-ml\\Dried Fish Quality Grading.v7i.coco-segmentation\\test\\WIN_20260823_22_09_34_Pro_jpg.rf.5b4ee02a0f77df29287b889dd0d840e1.jpg",
+        "sha256": "abe6adf32ff25a818693a7c3b59bb6826aee597b1c9bebe9ba4d5afad8330369",
+        "operation": "original native pixels",
+        "native_shape": [
+          640,
+          640
+        ],
+        "benchmark_shape": [
+          640,
+          640
+        ]
+      },
+      "detections": [
+        {
+          "id": 1,
+          "bbox": [
+            2.739105224609375,
+            282.0981750488281,
+            230.8813934326172,
+            484.4696960449219
+          ],
+          "confidence": 0.9258442521095276
+        },
+        {
+          "id": 2,
+          "bbox": [
+            438.76019287109375,
+            140.08895874023438,
+            559.3956909179688,
+            294.70599365234375
+          ],
+          "confidence": 0.9090988636016846
+        },
+        {
+          "id": 3,
+          "bbox": [
+            0.6005604863166809,
+            224.55606079101562,
+            234.9122314453125,
+            394.1312561035156
+          ],
+          "confidence": 0.9070870876312256
+        },
+        {
+          "id": 4,
+          "bbox": [
+            316.63604736328125,
+            139.60455322265625,
+            411.2767333984375,
+            395.0576171875
+          ],
+          "confidence": 0.9010604619979858
+        },
+        {
+          "id": 5,
+          "bbox": [
+            240.26010131835938,
+            294.0870056152344,
+            324.93792724609375,
+            500.27880859375
+          ],
+          "confidence": 0.6955624222755432
+        },
+        {
+          "id": 6,
+          "bbox": [
+            294.84381103515625,
+            335.1610107421875,
+            382.0596008300781,
+            501.3013000488281
+          ],
+          "confidence": 0.6347523927688599
+        }
+      ],
+      "parts": [
+        {
+          "source_class_id": 7,
+          "source_class_name": "Grade_C_Head",
+          "region": "Head",
+          "grade": "Class C",
+          "confidence": 0.8566722869873047,
+          "bbox": [
+            0.0,
+            423.08221435546875,
+            67.82909393310547,
+            488.05810546875
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 6,
+          "source_class_name": "Grade_C_Body",
+          "region": "Body",
+          "grade": "Class C",
+          "confidence": 0.8144001364707947,
+          "bbox": [
+            294.7611999511719,
+            381.5164489746094,
+            383.22479248046875,
+            500.62890625
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 6,
+          "source_class_name": "Grade_C_Body",
+          "region": "Body",
+          "grade": "Class C",
+          "confidence": 0.8011478781700134,
+          "bbox": [
+            238.75634765625,
+            332.09344482421875,
+            323.593994140625,
+            476.55230712890625
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 6,
+          "source_class_name": "Grade_C_Body",
+          "region": "Body",
+          "grade": "Class C",
+          "confidence": 0.8007837533950806,
+          "bbox": [
+            34.60981750488281,
+            254.59034729003906,
+            191.69212341308594,
+            373.5010070800781
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 6,
+          "source_class_name": "Grade_C_Body",
+          "region": "Body",
+          "grade": "Class C",
+          "confidence": 0.7997760772705078,
+          "bbox": [
+            48.91739273071289,
+            318.098388671875,
+            192.20968627929688,
+            452.3676452636719
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 7,
+          "source_class_name": "Grade_C_Head",
+          "region": "Head",
+          "grade": "Class C",
+          "confidence": 0.797100305557251,
+          "bbox": [
+            0.020901361480355263,
+            329.8224182128906,
+            46.5840950012207,
+            396.12591552734375
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 8,
+          "source_class_name": "Grade_C_Tail",
+          "region": "Tail",
+          "grade": "Class C",
+          "confidence": 0.7916768789291382,
+          "bbox": [
+            505.2450256347656,
+            243.47242736816406,
+            562.701904296875,
+            296.5473937988281
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 7,
+          "source_class_name": "Grade_C_Head",
+          "region": "Head",
+          "grade": "Class C",
+          "confidence": 0.7888988852500916,
+          "bbox": [
+            315.3436279296875,
+            316.4974365234375,
+            373.19757080078125,
+            397.228515625
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 8,
+          "source_class_name": "Grade_C_Tail",
+          "region": "Tail",
+          "grade": "Class C",
+          "confidence": 0.7748392224311829,
+          "bbox": [
+            185.73162841796875,
+            222.24969482421875,
+            239.42776489257812,
+            275.4757995605469
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 8,
+          "source_class_name": "Grade_C_Tail",
+          "region": "Tail",
+          "grade": "Class C",
+          "confidence": 0.7170347571372986,
+          "bbox": [
+            182.034912109375,
+            280.7272033691406,
+            232.16236877441406,
+            329.7207336425781
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 6,
+          "source_class_name": "Grade_C_Body",
+          "region": "Body",
+          "grade": "Class C",
+          "confidence": 0.6456267237663269,
+          "bbox": [
+            320.89532470703125,
+            141.0840301513672,
+            418.2974548339844,
+            323.2515869140625
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 6,
+          "source_class_name": "Grade_C_Body",
+          "region": "Body",
+          "grade": "Class C",
+          "confidence": 0.6011580228805542,
+          "bbox": [
+            433.2142028808594,
+            139.04916381835938,
+            536.580078125,
+            253.511474609375
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 7,
+          "source_class_name": "Grade_C_Head",
+          "region": "Head",
+          "grade": "Class C",
+          "confidence": 0.42528772354125977,
+          "bbox": [
+            234.04527282714844,
+            463.3273010253906,
+            295.3338623046875,
+            500.3640441894531
+          ],
+          "mask": null
+        }
+      ],
+      "raw_parts": [
+        {
+          "source_class_id": 7,
+          "source_class_name": "Grade_C_Head",
+          "region": "Head",
+          "grade": "Class C",
+          "confidence": 0.8566722869873047,
+          "bbox": [
+            0.0,
+            423.08221435546875,
+            67.82909393310547,
+            488.05810546875
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 6,
+          "source_class_name": "Grade_C_Body",
+          "region": "Body",
+          "grade": "Class C",
+          "confidence": 0.8144001364707947,
+          "bbox": [
+            294.7611999511719,
+            381.5164489746094,
+            383.22479248046875,
+            500.62890625
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 6,
+          "source_class_name": "Grade_C_Body",
+          "region": "Body",
+          "grade": "Class C",
+          "confidence": 0.8011478781700134,
+          "bbox": [
+            238.75634765625,
+            332.09344482421875,
+            323.593994140625,
+            476.55230712890625
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 6,
+          "source_class_name": "Grade_C_Body",
+          "region": "Body",
+          "grade": "Class C",
+          "confidence": 0.8007837533950806,
+          "bbox": [
+            34.60981750488281,
+            254.59034729003906,
+            191.69212341308594,
+            373.5010070800781
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 6,
+          "source_class_name": "Grade_C_Body",
+          "region": "Body",
+          "grade": "Class C",
+          "confidence": 0.7997760772705078,
+          "bbox": [
+            48.91739273071289,
+            318.098388671875,
+            192.20968627929688,
+            452.3676452636719
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 7,
+          "source_class_name": "Grade_C_Head",
+          "region": "Head",
+          "grade": "Class C",
+          "confidence": 0.797100305557251,
+          "bbox": [
+            0.020901361480355263,
+            329.8224182128906,
+            46.5840950012207,
+            396.12591552734375
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 8,
+          "source_class_name": "Grade_C_Tail",
+          "region": "Tail",
+          "grade": "Class C",
+          "confidence": 0.7916768789291382,
+          "bbox": [
+            505.2450256347656,
+            243.47242736816406,
+            562.701904296875,
+            296.5473937988281
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 7,
+          "source_class_name": "Grade_C_Head",
+          "region": "Head",
+          "grade": "Class C",
+          "confidence": 0.7888988852500916,
+          "bbox": [
+            315.3436279296875,
+            316.4974365234375,
+            373.19757080078125,
+            397.228515625
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 8,
+          "source_class_name": "Grade_C_Tail",
+          "region": "Tail",
+          "grade": "Class C",
+          "confidence": 0.7748392224311829,
+          "bbox": [
+            185.73162841796875,
+            222.24969482421875,
+            239.42776489257812,
+            275.4757995605469
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 8,
+          "source_class_name": "Grade_C_Tail",
+          "region": "Tail",
+          "grade": "Class C",
+          "confidence": 0.7170347571372986,
+          "bbox": [
+            182.034912109375,
+            280.7272033691406,
+            232.16236877441406,
+            329.7207336425781
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 6,
+          "source_class_name": "Grade_C_Body",
+          "region": "Body",
+          "grade": "Class C",
+          "confidence": 0.6456267237663269,
+          "bbox": [
+            320.89532470703125,
+            141.0840301513672,
+            418.2974548339844,
+            323.2515869140625
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 6,
+          "source_class_name": "Grade_C_Body",
+          "region": "Body",
+          "grade": "Class C",
+          "confidence": 0.6011580228805542,
+          "bbox": [
+            433.2142028808594,
+            139.04916381835938,
+            536.580078125,
+            253.511474609375
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 7,
+          "source_class_name": "Grade_C_Head",
+          "region": "Head",
+          "grade": "Class C",
+          "confidence": 0.42528772354125977,
+          "bbox": [
+            234.04527282714844,
+            463.3273010253906,
+            295.3338623046875,
+            500.3640441894531
+          ],
+          "mask": null
+        }
+      ],
+      "detector_ms": 123.67180000001099,
+      "part_model_ms": 348.83679999620654,
+      "provenance": "Actual unchanged CPU FP32 detectors; one frozen pass, no segmentation or association during collection."
+    },
+    {
+      "scenario": "WIN_20260902_18_40_32_Pro_jpg.rf.2bf77c6d7eff30709e54ef354898feb4",
+      "cohort": "current_17_test_images",
+      "source": {
+        "path": "C:\\Users\\User\\Downloads\\Tamban_Thesis_Main_Repository\\Thesis\\sardinella-lemuru-ml\\Dried Fish Quality Grading.v7i.coco-segmentation\\test\\WIN_20260902_18_40_32_Pro_jpg.rf.2bf77c6d7eff30709e54ef354898feb4.jpg",
+        "sha256": "eca39d87cbc6e77cf413a954123023bc5f305b3ec5506aea5ce5a670420ca4bf",
+        "operation": "original native pixels",
+        "native_shape": [
+          640,
+          640
+        ],
+        "benchmark_shape": [
+          640,
+          640
+        ]
+      },
+      "detections": [
+        {
+          "id": 1,
+          "bbox": [
+            167.6374053955078,
+            209.23486328125,
+            375.3880615234375,
+            342.9906005859375
+          ],
+          "confidence": 0.9201158881187439
+        },
+        {
+          "id": 2,
+          "bbox": [
+            319.9143981933594,
+            152.9081268310547,
+            515.6124877929688,
+            273.9573974609375
+          ],
+          "confidence": 0.9076928496360779
+        },
+        {
+          "id": 3,
+          "bbox": [
+            508.87109375,
+            263.3246154785156,
+            637.3400268554688,
+            385.8240966796875
+          ],
+          "confidence": 0.8887302279472351
+        },
+        {
+          "id": 4,
+          "bbox": [
+            176.82525634765625,
+            140.02235412597656,
+            282.6785583496094,
+            287.99163818359375
+          ],
+          "confidence": 0.8864524960517883
+        },
+        {
+          "id": 5,
+          "bbox": [
+            224.67457580566406,
+            367.3050842285156,
+            520.6842041015625,
+            466.7267761230469
+          ],
+          "confidence": 0.8538019061088562
+        },
+        {
+          "id": 6,
+          "bbox": [
+            149.1358184814453,
+            371.54541015625,
+            299.51690673828125,
+            479.7754821777344
+          ],
+          "confidence": 0.7531587481498718
+        },
+        {
+          "id": 7,
+          "bbox": [
+            145.8199005126953,
+            202.56338500976562,
+            191.62205505371094,
+            385.9344177246094
+          ],
+          "confidence": 0.6722643375396729
+        },
+        {
+          "id": 8,
+          "bbox": [
+            352.7935485839844,
+            238.68955993652344,
+            408.0342102050781,
+            347.7796325683594
+          ],
+          "confidence": 0.6598427891731262
+        }
+      ],
+      "parts": [
+        {
+          "source_class_id": 10,
+          "source_class_name": "Rejected_Head",
+          "region": "Head",
+          "grade": "Rejected",
+          "confidence": 0.8239508271217346,
+          "bbox": [
+            349.2077331542969,
+            240.725341796875,
+            417.2999267578125,
+            352.6642761230469
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 9,
+          "source_class_name": "Rejected_Body",
+          "region": "Body",
+          "grade": "Rejected",
+          "confidence": 0.8108611106872559,
+          "bbox": [
+            540.9263916015625,
+            296.8901062011719,
+            638.9903564453125,
+            392.6584777832031
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 9,
+          "source_class_name": "Rejected_Body",
+          "region": "Body",
+          "grade": "Rejected",
+          "confidence": 0.7877235412597656,
+          "bbox": [
+            190.3597412109375,
+            246.79623413085938,
+            345.7206726074219,
+            351.4381408691406
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 9,
+          "source_class_name": "Rejected_Body",
+          "region": "Body",
+          "grade": "Rejected",
+          "confidence": 0.7707241177558899,
+          "bbox": [
+            359.1876220703125,
+            163.1173858642578,
+            505.8807067871094,
+            279.0129699707031
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 10,
+          "source_class_name": "Rejected_Head",
+          "region": "Head",
+          "grade": "Rejected",
+          "confidence": 0.756568968296051,
+          "bbox": [
+            463.1043395996094,
+            392.6466064453125,
+            535.1072998046875,
+            486.4847106933594
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 9,
+          "source_class_name": "Rejected_Body",
+          "region": "Body",
+          "grade": "Rejected",
+          "confidence": 0.7501153945922852,
+          "bbox": [
+            178.25486755371094,
+            168.90731811523438,
+            278.0288391113281,
+            291.8104553222656
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 9,
+          "source_class_name": "Rejected_Body",
+          "region": "Body",
+          "grade": "Rejected",
+          "confidence": 0.7490682005882263,
+          "bbox": [
+            134.88758850097656,
+            199.70440673828125,
+            196.90042114257812,
+            346.5196228027344
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 10,
+          "source_class_name": "Rejected_Head",
+          "region": "Head",
+          "grade": "Rejected",
+          "confidence": 0.7231432199478149,
+          "bbox": [
+            221.85357666015625,
+            381.6003723144531,
+            298.8985595703125,
+            439.45123291015625
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 9,
+          "source_class_name": "Rejected_Body",
+          "region": "Body",
+          "grade": "Rejected",
+          "confidence": 0.685616135597229,
+          "bbox": [
+            285.0821228027344,
+            359.335205078125,
+            464.8639831542969,
+            451.845947265625
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 10,
+          "source_class_name": "Rejected_Head",
+          "region": "Head",
+          "grade": "Rejected",
+          "confidence": 0.6765025854110718,
+          "bbox": [
+            315.9132385253906,
+            204.46902465820312,
+            381.5564880371094,
+            272.13677978515625
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 11,
+          "source_class_name": "Rejected_Tail",
+          "region": "Tail",
+          "grade": "Rejected",
+          "confidence": 0.6393867135047913,
+          "bbox": [
+            314.96539306640625,
+            148.30601501464844,
+            361.97222900390625,
+            190.13351440429688
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 10,
+          "source_class_name": "Rejected_Head",
+          "region": "Head",
+          "grade": "Rejected",
+          "confidence": 0.6274653673171997,
+          "bbox": [
+            505.3599853515625,
+            257.4436340332031,
+            572.1753540039062,
+            320.5133056640625
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 10,
+          "source_class_name": "Rejected_Head",
+          "region": "Head",
+          "grade": "Rejected",
+          "confidence": 0.5363370776176453,
+          "bbox": [
+            224.8863067626953,
+            139.101806640625,
+            290.12322998046875,
+            188.25006103515625
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 9,
+          "source_class_name": "Rejected_Body",
+          "region": "Body",
+          "grade": "Rejected",
+          "confidence": 0.48420268297195435,
+          "bbox": [
+            182.6868438720703,
+            394.81915283203125,
+            311.02392578125,
+            481.9668884277344
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 11,
+          "source_class_name": "Rejected_Tail",
+          "region": "Tail",
+          "grade": "Rejected",
+          "confidence": 0.4050963521003723,
+          "bbox": [
+            143.46336364746094,
+            347.1705017089844,
+            179.86294555664062,
+            393.3487854003906
+          ],
+          "mask": null
+        }
+      ],
+      "raw_parts": [
+        {
+          "source_class_id": 10,
+          "source_class_name": "Rejected_Head",
+          "region": "Head",
+          "grade": "Rejected",
+          "confidence": 0.8239508271217346,
+          "bbox": [
+            349.2077331542969,
+            240.725341796875,
+            417.2999267578125,
+            352.6642761230469
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 9,
+          "source_class_name": "Rejected_Body",
+          "region": "Body",
+          "grade": "Rejected",
+          "confidence": 0.8108611106872559,
+          "bbox": [
+            540.9263916015625,
+            296.8901062011719,
+            638.9903564453125,
+            392.6584777832031
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 9,
+          "source_class_name": "Rejected_Body",
+          "region": "Body",
+          "grade": "Rejected",
+          "confidence": 0.7877235412597656,
+          "bbox": [
+            190.3597412109375,
+            246.79623413085938,
+            345.7206726074219,
+            351.4381408691406
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 9,
+          "source_class_name": "Rejected_Body",
+          "region": "Body",
+          "grade": "Rejected",
+          "confidence": 0.7707241177558899,
+          "bbox": [
+            359.1876220703125,
+            163.1173858642578,
+            505.8807067871094,
+            279.0129699707031
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 10,
+          "source_class_name": "Rejected_Head",
+          "region": "Head",
+          "grade": "Rejected",
+          "confidence": 0.756568968296051,
+          "bbox": [
+            463.1043395996094,
+            392.6466064453125,
+            535.1072998046875,
+            486.4847106933594
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 9,
+          "source_class_name": "Rejected_Body",
+          "region": "Body",
+          "grade": "Rejected",
+          "confidence": 0.7501153945922852,
+          "bbox": [
+            178.25486755371094,
+            168.90731811523438,
+            278.0288391113281,
+            291.8104553222656
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 9,
+          "source_class_name": "Rejected_Body",
+          "region": "Body",
+          "grade": "Rejected",
+          "confidence": 0.7490682005882263,
+          "bbox": [
+            134.88758850097656,
+            199.70440673828125,
+            196.90042114257812,
+            346.5196228027344
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 10,
+          "source_class_name": "Rejected_Head",
+          "region": "Head",
+          "grade": "Rejected",
+          "confidence": 0.7231432199478149,
+          "bbox": [
+            221.85357666015625,
+            381.6003723144531,
+            298.8985595703125,
+            439.45123291015625
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 9,
+          "source_class_name": "Rejected_Body",
+          "region": "Body",
+          "grade": "Rejected",
+          "confidence": 0.685616135597229,
+          "bbox": [
+            285.0821228027344,
+            359.335205078125,
+            464.8639831542969,
+            451.845947265625
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 10,
+          "source_class_name": "Rejected_Head",
+          "region": "Head",
+          "grade": "Rejected",
+          "confidence": 0.6765025854110718,
+          "bbox": [
+            315.9132385253906,
+            204.46902465820312,
+            381.5564880371094,
+            272.13677978515625
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 11,
+          "source_class_name": "Rejected_Tail",
+          "region": "Tail",
+          "grade": "Rejected",
+          "confidence": 0.6393867135047913,
+          "bbox": [
+            314.96539306640625,
+            148.30601501464844,
+            361.97222900390625,
+            190.13351440429688
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 10,
+          "source_class_name": "Rejected_Head",
+          "region": "Head",
+          "grade": "Rejected",
+          "confidence": 0.6274653673171997,
+          "bbox": [
+            505.3599853515625,
+            257.4436340332031,
+            572.1753540039062,
+            320.5133056640625
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 10,
+          "source_class_name": "Rejected_Head",
+          "region": "Head",
+          "grade": "Rejected",
+          "confidence": 0.5363370776176453,
+          "bbox": [
+            224.8863067626953,
+            139.101806640625,
+            290.12322998046875,
+            188.25006103515625
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 9,
+          "source_class_name": "Rejected_Body",
+          "region": "Body",
+          "grade": "Rejected",
+          "confidence": 0.48420268297195435,
+          "bbox": [
+            182.6868438720703,
+            394.81915283203125,
+            311.02392578125,
+            481.9668884277344
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 11,
+          "source_class_name": "Rejected_Tail",
+          "region": "Tail",
+          "grade": "Rejected",
+          "confidence": 0.4050963521003723,
+          "bbox": [
+            143.46336364746094,
+            347.1705017089844,
+            179.86294555664062,
+            393.3487854003906
+          ],
+          "mask": null
+        }
+      ],
+      "detector_ms": 123.34679999912623,
+      "part_model_ms": 335.74480000243057,
+      "provenance": "Actual unchanged CPU FP32 detectors; one frozen pass, no segmentation or association during collection."
+    },
+    {
+      "scenario": "WIN_20260902_18_56_53_Pro_jpg.rf.4ad82d7d47d6866451206cd87366e7c7",
+      "cohort": "current_17_test_images",
+      "source": {
+        "path": "C:\\Users\\User\\Downloads\\Tamban_Thesis_Main_Repository\\Thesis\\sardinella-lemuru-ml\\Dried Fish Quality Grading.v7i.coco-segmentation\\test\\WIN_20260902_18_56_53_Pro_jpg.rf.4ad82d7d47d6866451206cd87366e7c7.jpg",
+        "sha256": "6f0e634f28ec6bc3f0910e43c56d103107c3ce819d7bee44210164fe57144268",
+        "operation": "original native pixels",
+        "native_shape": [
+          640,
+          640
+        ],
+        "benchmark_shape": [
+          640,
+          640
+        ]
+      },
+      "detections": [
+        {
+          "id": 1,
+          "bbox": [
+            23.552207946777344,
+            245.82803344726562,
+            179.57550048828125,
+            499.80517578125
+          ],
+          "confidence": 0.8890697956085205
+        },
+        {
+          "id": 2,
+          "bbox": [
+            331.703369140625,
+            252.97166442871094,
+            485.8200988769531,
+            347.3760986328125
+          ],
+          "confidence": 0.8455802202224731
+        },
+        {
+          "id": 3,
+          "bbox": [
+            300.0968933105469,
+            181.4698028564453,
+            566.4008178710938,
+            277.0443420410156
+          ],
+          "confidence": 0.8123648762702942
+        },
+        {
+          "id": 4,
+          "bbox": [
+            127.16839599609375,
+            286.86334228515625,
+            224.6833953857422,
+            447.87042236328125
+          ],
+          "confidence": 0.7084186673164368
+        },
+        {
+          "id": 5,
+          "bbox": [
+            487.12933349609375,
+            320.2616882324219,
+            636.0393676757812,
+            409.10211181640625
+          ],
+          "confidence": 0.6433674693107605
+        },
+        {
+          "id": 6,
+          "bbox": [
+            413.7680358886719,
+            348.937255859375,
+            473.94525146484375,
+            498.63238525390625
+          ],
+          "confidence": 0.5682307481765747
+        },
+        {
+          "id": 7,
+          "bbox": [
+            93.96659851074219,
+            152.4112091064453,
+            334.1863098144531,
+            404.5024108886719
+          ],
+          "confidence": 0.510667622089386
+        }
+      ],
+      "parts": [
+        {
+          "source_class_id": 9,
+          "source_class_name": "Rejected_Body",
+          "region": "Body",
+          "grade": "Rejected",
+          "confidence": 0.8438474535942078,
+          "bbox": [
+            408.53173828125,
+            347.445556640625,
+            474.7806091308594,
+            462.9210205078125
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 9,
+          "source_class_name": "Rejected_Body",
+          "region": "Body",
+          "grade": "Rejected",
+          "confidence": 0.822805643081665,
+          "bbox": [
+            343.39190673828125,
+            251.8652801513672,
+            433.4223327636719,
+            327.1592712402344
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 9,
+          "source_class_name": "Rejected_Body",
+          "region": "Body",
+          "grade": "Rejected",
+          "confidence": 0.8195632696151733,
+          "bbox": [
+            483.5428771972656,
+            320.1344299316406,
+            584.8990478515625,
+            414.83197021484375
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 10,
+          "source_class_name": "Rejected_Head",
+          "region": "Head",
+          "grade": "Rejected",
+          "confidence": 0.8105764389038086,
+          "bbox": [
+            122.86160278320312,
+            280.8393249511719,
+            191.20286560058594,
+            353.175048828125
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 9,
+          "source_class_name": "Rejected_Body",
+          "region": "Body",
+          "grade": "Rejected",
+          "confidence": 0.8032326102256775,
+          "bbox": [
+            361.01324462890625,
+            180.14544677734375,
+            565.604736328125,
+            260.66253662109375
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 10,
+          "source_class_name": "Rejected_Head",
+          "region": "Head",
+          "grade": "Rejected",
+          "confidence": 0.7901003360748291,
+          "bbox": [
+            415.613525390625,
+            285.0419616699219,
+            490.36968994140625,
+            351.234375
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 9,
+          "source_class_name": "Rejected_Body",
+          "region": "Body",
+          "grade": "Rejected",
+          "confidence": 0.7853817343711853,
+          "bbox": [
+            149.93515014648438,
+            344.0190124511719,
+            208.90916442871094,
+            448.67852783203125
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 9,
+          "source_class_name": "Rejected_Body",
+          "region": "Body",
+          "grade": "Rejected",
+          "confidence": 0.7623844742774963,
+          "bbox": [
+            66.93598175048828,
+            343.5962829589844,
+            165.55076599121094,
+            479.1049499511719
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 9,
+          "source_class_name": "Rejected_Body",
+          "region": "Body",
+          "grade": "Rejected",
+          "confidence": 0.7576595544815063,
+          "bbox": [
+            195.50042724609375,
+            253.7337646484375,
+            281.6085205078125,
+            384.4178466796875
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 10,
+          "source_class_name": "Rejected_Head",
+          "region": "Head",
+          "grade": "Rejected",
+          "confidence": 0.7344748973846436,
+          "bbox": [
+            567.904541015625,
+            316.83441162109375,
+            638.5165405273438,
+            371.08294677734375
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 10,
+          "source_class_name": "Rejected_Head",
+          "region": "Head",
+          "grade": "Rejected",
+          "confidence": 0.6905772089958191,
+          "bbox": [
+            265.4542236328125,
+            355.31298828125,
+            334.6156921386719,
+            409.0888366699219
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 11,
+          "source_class_name": "Rejected_Tail",
+          "region": "Tail",
+          "grade": "Rejected",
+          "confidence": 0.546213686466217,
+          "bbox": [
+            429.2699890136719,
+            456.95269775390625,
+            482.13702392578125,
+            500.7679138183594
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 9,
+          "source_class_name": "Rejected_Body",
+          "region": "Body",
+          "grade": "Rejected",
+          "confidence": 0.4581461250782013,
+          "bbox": [
+            293.6114807128906,
+            210.24725341796875,
+            369.0419921875,
+            278.9981384277344
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 11,
+          "source_class_name": "Rejected_Tail",
+          "region": "Tail",
+          "grade": "Rejected",
+          "confidence": 0.3526494801044464,
+          "bbox": [
+            270.1878356933594,
+            189.99607849121094,
+            309.89459228515625,
+            230.78175354003906
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 10,
+          "source_class_name": "Rejected_Head",
+          "region": "Head",
+          "grade": "Rejected",
+          "confidence": 0.34317320585250854,
+          "bbox": [
+            19.802675247192383,
+            257.4097595214844,
+            94.64502716064453,
+            345.68988037109375
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 10,
+          "source_class_name": "Rejected_Head",
+          "region": "Head",
+          "grade": "Rejected",
+          "confidence": 0.2923123240470886,
+          "bbox": [
+            19.293289184570312,
+            287.69708251953125,
+            88.90482330322266,
+            344.4014892578125
+          ],
+          "mask": null
+        }
+      ],
+      "raw_parts": [
+        {
+          "source_class_id": 9,
+          "source_class_name": "Rejected_Body",
+          "region": "Body",
+          "grade": "Rejected",
+          "confidence": 0.8438474535942078,
+          "bbox": [
+            408.53173828125,
+            347.445556640625,
+            474.7806091308594,
+            462.9210205078125
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 9,
+          "source_class_name": "Rejected_Body",
+          "region": "Body",
+          "grade": "Rejected",
+          "confidence": 0.822805643081665,
+          "bbox": [
+            343.39190673828125,
+            251.8652801513672,
+            433.4223327636719,
+            327.1592712402344
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 9,
+          "source_class_name": "Rejected_Body",
+          "region": "Body",
+          "grade": "Rejected",
+          "confidence": 0.8195632696151733,
+          "bbox": [
+            483.5428771972656,
+            320.1344299316406,
+            584.8990478515625,
+            414.83197021484375
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 10,
+          "source_class_name": "Rejected_Head",
+          "region": "Head",
+          "grade": "Rejected",
+          "confidence": 0.8105764389038086,
+          "bbox": [
+            122.86160278320312,
+            280.8393249511719,
+            191.20286560058594,
+            353.175048828125
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 9,
+          "source_class_name": "Rejected_Body",
+          "region": "Body",
+          "grade": "Rejected",
+          "confidence": 0.8032326102256775,
+          "bbox": [
+            361.01324462890625,
+            180.14544677734375,
+            565.604736328125,
+            260.66253662109375
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 10,
+          "source_class_name": "Rejected_Head",
+          "region": "Head",
+          "grade": "Rejected",
+          "confidence": 0.7901003360748291,
+          "bbox": [
+            415.613525390625,
+            285.0419616699219,
+            490.36968994140625,
+            351.234375
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 9,
+          "source_class_name": "Rejected_Body",
+          "region": "Body",
+          "grade": "Rejected",
+          "confidence": 0.7853817343711853,
+          "bbox": [
+            149.93515014648438,
+            344.0190124511719,
+            208.90916442871094,
+            448.67852783203125
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 9,
+          "source_class_name": "Rejected_Body",
+          "region": "Body",
+          "grade": "Rejected",
+          "confidence": 0.7623844742774963,
+          "bbox": [
+            66.93598175048828,
+            343.5962829589844,
+            165.55076599121094,
+            479.1049499511719
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 9,
+          "source_class_name": "Rejected_Body",
+          "region": "Body",
+          "grade": "Rejected",
+          "confidence": 0.7576595544815063,
+          "bbox": [
+            195.50042724609375,
+            253.7337646484375,
+            281.6085205078125,
+            384.4178466796875
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 10,
+          "source_class_name": "Rejected_Head",
+          "region": "Head",
+          "grade": "Rejected",
+          "confidence": 0.7344748973846436,
+          "bbox": [
+            567.904541015625,
+            316.83441162109375,
+            638.5165405273438,
+            371.08294677734375
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 10,
+          "source_class_name": "Rejected_Head",
+          "region": "Head",
+          "grade": "Rejected",
+          "confidence": 0.6905772089958191,
+          "bbox": [
+            265.4542236328125,
+            355.31298828125,
+            334.6156921386719,
+            409.0888366699219
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 11,
+          "source_class_name": "Rejected_Tail",
+          "region": "Tail",
+          "grade": "Rejected",
+          "confidence": 0.546213686466217,
+          "bbox": [
+            429.2699890136719,
+            456.95269775390625,
+            482.13702392578125,
+            500.7679138183594
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 9,
+          "source_class_name": "Rejected_Body",
+          "region": "Body",
+          "grade": "Rejected",
+          "confidence": 0.4581461250782013,
+          "bbox": [
+            293.6114807128906,
+            210.24725341796875,
+            369.0419921875,
+            278.9981384277344
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 11,
+          "source_class_name": "Rejected_Tail",
+          "region": "Tail",
+          "grade": "Rejected",
+          "confidence": 0.3526494801044464,
+          "bbox": [
+            270.1878356933594,
+            189.99607849121094,
+            309.89459228515625,
+            230.78175354003906
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 10,
+          "source_class_name": "Rejected_Head",
+          "region": "Head",
+          "grade": "Rejected",
+          "confidence": 0.34317320585250854,
+          "bbox": [
+            19.802675247192383,
+            257.4097595214844,
+            94.64502716064453,
+            345.68988037109375
+          ],
+          "mask": null
+        },
+        {
+          "source_class_id": 10,
+          "source_class_name": "Rejected_Head",
+          "region": "Head",
+          "grade": "Rejected",
+          "confidence": 0.2923123240470886,
+          "bbox": [
+            19.293289184570312,
+            287.69708251953125,
+            88.90482330322266,
+            344.4014892578125
+          ],
+          "mask": null
+        }
+      ],
+      "detector_ms": 122.95030000677798,
+      "part_model_ms": 335.830399999395,
+      "provenance": "Actual unchanged CPU FP32 detectors; one frozen pass, no segmentation or association during collection."
+    }
+  ]
+}

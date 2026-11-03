@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 from datetime import date, datetime
+import hashlib
 from io import BytesIO, StringIO
 import json
 import math
@@ -307,6 +308,12 @@ EXPORT_FIELDS.update({
     "feature_fusion_original_grade": "Feature Fusion Original Anatomical Grade",
     "feature_fusion_final_grade": "Feature Fusion Final Eligible Grade",
     "feature_fusion": "Geometry and Structural Feature Fusion (JSON)",
+})
+EXPORT_FIELDS.update({
+    "anatomical_association_diagnostics": "Anatomical Association Diagnostics (JSON)",
+    "anatomical_part_decisions": "Anatomical Part Decisions and Candidate Scores (JSON)",
+    "anatomical_inference_provenance": "Anatomical Inference and Clipping Provenance (JSON)",
+    "model2_raw_detection_diagnostics": "Raw Model 2 Detection Diagnostics (JSON)",
 })
 DEFAULT_EXPORT_FIELDS = tuple(EXPORT_FIELDS)
 
@@ -824,6 +831,15 @@ def inspection_row(
             box_width, box_height = _box_dimensions(bbox)
             row[f"{prefix}_bbox_width_px"] = _number(box_width)
             row[f"{prefix}_bbox_height_px"] = _number(box_height)
+    inference = analysis.get("quality_inference") if isinstance(analysis.get("quality_inference"), dict) else {}
+    association = inference.get("association") or analysis.get("association") or event.get("association")
+    association = association if isinstance(association, dict) else {}
+    row.update({
+        "anatomical_association_diagnostics": _json(association),
+        "anatomical_part_decisions": _json(association.get("parts", [])),
+        "anatomical_inference_provenance": _json(inference),
+        "model2_raw_detection_diagnostics": _json(analysis.get("model2_debug", {})),
+    })
     return row
 
 
@@ -899,13 +915,50 @@ def make_xlsx(
         raise RuntimeError("Excel export requires openpyxl. Install the project requirements.") from exc
     selected, event_rows = tuple(fields), _export_events(events, source_metadata=source_metadata)
     workbook = Workbook()
+    extended_rows = []
+
+    def append(sheet, values, *, field_keys=(), fish_id=""):
+        """Retain long source text before openpyxl silently truncates cells."""
+        from openpyxl.utils import get_column_letter
+        rendered = []
+        row_number = sheet.max_row + 1
+        for column, value in enumerate(values, start=1):
+            if not isinstance(value, str) or len(value.encode("utf-16-le")) // 2 <= 32767:
+                rendered.append(value)
+                continue
+            # Excel counts UTF-16 units. Avoid splitting a supplementary
+            # Unicode character or exceeding the limit with emoji/review text.
+            chunks, start, units = [], 0, 0
+            for index, character in enumerate(value):
+                size = 2 if ord(character) > 0xFFFF else 1
+                if units + size > 30000:
+                    chunks.append(value[start:index])
+                    start, units = index, 0
+                units += size
+            chunks.append(value[start:])
+            record_key = f"{sheet.title}!{get_column_letter(column)}{row_number}"
+            digest = hashlib.sha256(value.encode("utf-8")).hexdigest()
+            field = field_keys[column - 1] if column <= len(field_keys) else str(sheet.cell(1, column).value or "")
+            reference = {"sheet": "Extended Evidence", "record_key": record_key, "chunk_count": len(chunks),
+                         "character_count": len(value), "sha256": digest, "contains_full_value": False}
+            try:
+                json.loads(value)
+                replacement = json.dumps({"xlsx_extended_evidence": reference}, ensure_ascii=False)
+            except (ValueError, TypeError):
+                replacement = f"Full text stored in Extended Evidence: {record_key}; {len(chunks)} chunks; SHA-256 {digest}"
+            rendered.append(replacement)
+            for number, chunk in enumerate(chunks, start=1):
+                extended_rows.append([record_key, sheet.title, row_number, get_column_letter(column), field,
+                                      fish_id, number, len(chunks), digest, chunk])
+        sheet.append(rendered)
+
     inspections = workbook.active
     inspections.title = "Fish Inspections"
     inspections.append([EXPORT_FIELDS[field] for field in selected])
     _style_header(inspections)
     for event in event_rows:
         row = inspection_row(event, _normalized=True)
-        inspections.append([row[field] for field in selected])
+        append(inspections, [row[field] for field in selected], field_keys=selected, fish_id=row["fish_id"])
     inspections.freeze_panes = "A2"
     for column in inspections.columns:
         inspections.column_dimensions[column[0].column_letter].width = min(48, max(14, max(len(str(cell.value or "")) for cell in column) + 2))
@@ -914,7 +967,7 @@ def make_xlsx(
     summary_sheet.append(["Metric", "Value"])
     _style_header(summary_sheet)
     for label, value in summary.items():
-        summary_sheet.append([label, value])
+        append(summary_sheet, [label, value])
     summary_sheet.column_dimensions["A"].width, summary_sheet.column_dimensions["B"].width = 42, 26
 
     feature_sheet = workbook.create_sheet("Feature Summary")
@@ -958,7 +1011,7 @@ def make_xlsx(
         )
         for label, key in rule_keys:
             value = rules.get(key)
-            rule_sheet.append([label, "" if value is None else value, "Recorded" if key in rules else "Not recorded"])
+            append(rule_sheet, [label, "" if value is None else value, "Recorded" if key in rules else "Not recorded"])
         threshold_key = "active_final_verdict_threshold" if "active_final_verdict_threshold" in rules else "final_verdict_threshold"
         rule_sheet.append(["Final verdict threshold", rules.get(threshold_key, ""), "Recorded" if threshold_key in rules else "Not recorded"])
         width_rules = rules.get("body_width")
@@ -966,7 +1019,7 @@ def make_xlsx(
             rule_sheet.append(["Geometric scoring method", width_rules.get("scoring_method", "body_component_v1"), "Recorded"])
             rule_sheet.append(["Width scoring enabled", width_rules.get("scoring_enabled", False), "Recorded"])
             rule_sheet.append(["Width calibration validated", width_rules.get("calibration_validated", False), "Recorded"])
-            rule_sheet.append(["Complete width configuration", _json(dict(width_rules)), "Recorded"])
+            append(rule_sheet, ["Complete width configuration", _json(dict(width_rules)), "Recorded"])
     rule_sheet.column_dimensions["A"].width, rule_sheet.column_dimensions["B"].width, rule_sheet.column_dimensions["C"].width = 30, 96, 42
 
     review_sheet = workbook.create_sheet("Review Queue")
@@ -978,10 +1031,10 @@ def make_xlsx(
         if analysis.get("verdict_status") != "NEEDS_REVIEW" or event.get("manual_override"):
             continue
         row = inspection_row(event, _normalized=True)
-        review_sheet.append([
+        append(review_sheet, [
             row["fish_id"], row["timestamp"], row["best_evidence_class"], row["best_evidence_score"],
             row["original_weight_coverage"], row["observed_regions"], row["verdict_reason"], row["manual_grade"],
-        ])
+        ], fish_id=row["fish_id"])
     for column, width in {"A": 14, "B": 27, "C": 22, "D": 16, "E": 22, "F": 28, "G": 74, "H": 18}.items():
         review_sheet.column_dimensions[column].width = width
     review_sheet.freeze_panes = "A2"
@@ -995,7 +1048,7 @@ def make_xlsx(
                 rendered = json.dumps(value, ensure_ascii=False, sort_keys=True, default=str)
             else:
                 rendered = "" if value is None else value
-            configuration_sheet.append([str(key), rendered])
+            append(configuration_sheet, [str(key), rendered])
         configuration_sheet.column_dimensions["A"].width = 32
         configuration_sheet.column_dimensions["B"].width = 100
         configuration_sheet.freeze_panes = "A2"
@@ -1005,7 +1058,7 @@ def make_xlsx(
         _style_header(configuration_sheet)
         for configuration in configurations:
             policy = configuration.get("grading_config")
-            configuration_sheet.append([
+            append(configuration_sheet, [
                 configuration.get("session_id") or "Not recorded", configuration.get("model1_sha256") or "",
                 configuration.get("model2_sha256") or "", configuration.get("grading_config_hash") or "",
                 json.dumps(policy, ensure_ascii=False, sort_keys=True, default=str) if isinstance(policy, Mapping) else "",
@@ -1021,6 +1074,18 @@ def make_xlsx(
             mapping_sheet.append([row_number, event.get("session_id") or "Not recorded"])
         mapping_sheet.column_dimensions["A"].width, mapping_sheet.column_dimensions["B"].width = 25, 40
         mapping_sheet.freeze_panes = "A2"
+    if extended_rows:
+        evidence = workbook.create_sheet("Extended Evidence")
+        evidence.append(["Record key", "Source sheet", "Source row", "Source column", "Field key", "Fish ID",
+                         "Chunk number", "Chunk count", "SHA-256", "Text chunk"])
+        _style_header(evidence)
+        for row in extended_rows:
+            evidence.append(row)
+        evidence.freeze_panes = "A2"
+        evidence.auto_filter.ref = evidence.dimensions
+        for column in "ABCDEFGHI":
+            evidence.column_dimensions[column].width = 24 if column != "I" else 68
+        evidence.column_dimensions["J"].width = 100
     # Workbook text originates partly in operator-entered/session data. Force
     # formula-looking strings to remain literal values in every sheet.
     for sheet in workbook.worksheets:

@@ -686,6 +686,39 @@ def measurement_roi_padding(bbox: Any) -> int:
     return max(8, int(np.ceil(.06 * max(values[2] - values[0], values[3] - values[1]))))
 
 
+def crop_assigned_evidence(
+    frame: Any,
+    parent_bbox: Any,
+    owned_bboxes: Any = (),
+    *,
+    padding: int = 0,
+) -> tuple[np.ndarray, CropBounds]:
+    """Keep already-associated native parts intact without changing ownership.
+
+    Association accepts some boxes extending beyond a detector parent. A
+    parent-only crop used to truncate those accepted pixels. Extend the ROI
+    around that evidence and reuse the measurement margin for context only
+    when extension is necessary. No extra detection is selected from the
+    expanded pixels, and the Model 1 anchor remains unchanged.
+    """
+    source = validate_image(frame, name="Assigned evidence source")
+    height, width = source.shape[:2]
+    parent = clamp_bbox(parent_bbox, width, height)
+    if parent is None:
+        raise PreprocessingError("Assigned evidence requires a visible parent box.")
+    envelope = list(parent)
+    for box in owned_bboxes:
+        bounded = clamp_bbox(box, width, height)
+        if bounded is not None:
+            envelope = [min(envelope[0], bounded[0]), min(envelope[1], bounded[1]),
+                        max(envelope[2], bounded[2]), max(envelope[3], bounded[3])]
+    # Validate the configured padding even if the adaptive margin is larger.
+    if isinstance(padding, bool) or not isinstance(padding, Integral) or padding < 0:
+        raise PreprocessingError("FISH_SEGMENTATION_ROI_PADDING must be a non-negative integer.")
+    contextual_padding = max(padding, measurement_roi_padding(parent)) if envelope != list(parent) else padding
+    return crop_fish(source, envelope, padding=contextual_padding)
+
+
 def measurement_crop_bounds(frame: Any, bbox: Any) -> CropBounds:
     """Return the one shared padded ROI for measurement and mask projection."""
     _, bounds = crop_fish(frame, bbox, padding=measurement_roi_padding(bbox))

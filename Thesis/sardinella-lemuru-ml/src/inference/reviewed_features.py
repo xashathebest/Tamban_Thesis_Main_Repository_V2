@@ -128,4 +128,21 @@ def refine_reviewed_associations(rows, reviewed, frame_shape):
             if not support.size or not support.any():
                 row = replace(row,status="UNASSIGNED",track_id=None,reason="reviewed_instance_excludes_part")
         result.append(row)
+    # Explicit labels run after the geometric one-to-one pass. They can move
+    # a detection onto a fish that already has that anatomical region, or
+    # accidentally claim two detections of the same region in one artifact.
+    # Neither reviewed-label order nor detector confidence resolves this
+    # contradiction. Withhold the entire conflicting region for review.
+    groups = {}
+    for index, row in enumerate(result):
+        if row.status == "ASSIGNED" and row.track_id is not None:
+            groups.setdefault((row.track_id, row.part.region), []).append(index)
+    for (owner, _), indexes in groups.items():
+        if len(indexes) < 2 or not any(
+                result[index].reason == "source_bound_reviewed_part_and_instance_pixels" for index in indexes):
+            continue
+        for index in indexes:
+            result[index] = replace(result[index], status="AMBIGUOUS", track_id=None,
+                confidence=None, margin=None, ambiguous_track_ids=(owner,),
+                reason="reviewed_region_ownership_conflict")
     return result

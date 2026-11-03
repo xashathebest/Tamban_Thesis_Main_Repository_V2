@@ -28,7 +28,7 @@ from src.inference.yolo_fish_detector import YoloFishDetector
 from src.inference.yolo_quality_model import MAX_QUALITY_ROI_PADDING, QUALITY_INFERENCE_MODES, FishQualityObservation, YoloQualityModel
 from src.inference.part_types import PartDetection
 from src.inference.part_model import YoloPartModel
-from src.inference.preprocessing import CropBounds, RuntimeMaskContext, crop_fish, generate_runtime_fish_mask, translate_bbox_to_frame
+from src.inference.preprocessing import CropBounds, RuntimeMaskContext, clamp_bbox, crop_fish, generate_runtime_fish_mask, translate_bbox_to_frame
 from src.features.damage import analyze_surface_damage
 
 
@@ -923,8 +923,8 @@ class CameraInspectionService:
             _draw_readable_label(annotated, label, left, top, color, cv2)
         return annotated
 
-    def _annotate_debug_parts(self, annotated: Any, items: object, crop_bounds: CropBounds, color: tuple[int, int, int], prefix: str, cv2: Any) -> None:
-        """Draw a debug-only Model 2 layer from serialized crop-local boxes."""
+    def _annotate_debug_parts(self, annotated: Any, items: object, crop_bounds: CropBounds, color: tuple[int, int, int], prefix: str, cv2: Any, *, coordinate_space: str = "crop_local") -> None:
+        """Draw the declared native or crop-local debug coordinates once."""
 
         if not isinstance(items, list):
             return
@@ -935,7 +935,19 @@ class CameraInspectionService:
             bbox = item.get("bbox")
             if not isinstance(bbox, (list, tuple)) or len(bbox) != 4:
                 continue
-            translated = translate_bbox_to_frame(tuple(float(value) for value in bbox), crop_bounds, width, height)
+            try:
+                values = tuple(float(value) for value in bbox)
+            except (TypeError, ValueError, OverflowError):
+                continue
+            if not np.isfinite(values).all():
+                continue
+            space = item.get("coordinate_space", coordinate_space)
+            if space == "original_frame":
+                translated = clamp_bbox(values, width, height)
+            elif space in {"crop_local", "full_frame_then_crop_local"}:
+                translated = translate_bbox_to_frame(values, crop_bounds, width, height)
+            else:
+                continue
             if translated is None:
                 continue
             left, top, right, bottom = (int(round(value)) for value in translated)
@@ -988,13 +1000,21 @@ class CameraInspectionService:
             if display.get("features") and geometry.get("frame_id") == self._frame_index:
                 draw_geometry(annotated, geometry)
             if self.debug_enabled and isinstance(debug, Mapping):
+                # Model 2 overlays can be retained between scheduled frames.
+                # Native diagnostic candidates describe their own source frame;
+                # never paint a different frame or image-size snapshot as fresh.
+                if ((debug.get("frame_id") is not None and str(debug["frame_id"]) != str(self._frame_index))
+                        or debug.get("frame_width_px") not in (None, width)
+                        or debug.get("frame_height_px") not in (None, height)):
+                    continue
+                space = debug.get("coordinate_space", "crop_local")
                 if display.get("model2_raw_boxes", False):
-                    self._annotate_debug_parts(annotated, debug.get("raw_detections"), crop_bounds, (0, 255, 255), "Raw", cv2)
+                    self._annotate_debug_parts(annotated, debug.get("raw_detections"), crop_bounds, (0, 255, 255), "Raw", cv2, coordinate_space=space)
                 if display.get("model2_associated_boxes", False):
-                    self._annotate_debug_parts(annotated, debug.get("selected_detections"), crop_bounds, (255, 255, 0), "Associated", cv2)
+                    self._annotate_debug_parts(annotated, debug.get("selected_detections"), crop_bounds, (255, 255, 0), "Associated", cv2, coordinate_space=space)
                 if display.get("model2_rejected_boxes", False):
-                    self._annotate_debug_parts(annotated, debug.get("rejected_detections"), crop_bounds, (0, 0, 255), "Rejected", cv2)
-                    self._annotate_debug_parts(annotated, debug.get("unassigned_detections"), crop_bounds, (0, 90, 255), "Unassigned", cv2)
+                    self._annotate_debug_parts(annotated, debug.get("rejected_detections"), crop_bounds, (0, 0, 255), "Rejected", cv2, coordinate_space=space)
+                    self._annotate_debug_parts(annotated, debug.get("unassigned_detections"), crop_bounds, (0, 90, 255), "Unassigned", cv2, coordinate_space=space)
         return annotated
 
     def _annotate_part_preview(self, frame: Any, detections: list[PartDetection], cv2: Any) -> Any:

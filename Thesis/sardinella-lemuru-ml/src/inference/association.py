@@ -1,16 +1,15 @@
 """Conservative Model 2 part-to-Model 1 fish association.
 
-This module deliberately works only with geometry exposed by the two deployed
-detectors.  It does not infer occlusion, physical anatomy loss, or a fish
-orientation.  A part is assigned only when one parent has enough geometric
-support and is clearly better than every alternative; otherwise it is kept
-unassigned for an explicit Ungraded decision upstream.
+This module works with native-frame detector geometry and optional reliable
+instance geometry. It never infers occlusion or physical anatomy loss. A part
+needs independent ownership support before global one-to-one selection; an
+occupied parent must never send a duplicate to a less-supported neighbor.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from math import hypot
+from math import hypot, isfinite
 from typing import Iterable, Sequence
 
 from src.inference.part_types import PartDetection
@@ -33,6 +32,38 @@ def _center(box: BBox) -> tuple[float, float]:
     return ((box[0] + box[2]) / 2.0, (box[1] + box[3]) / 2.0)
 
 
+def required_pair_geometry(
+    head_bbox: BBox, body_bbox: BBox, *, reliable_axis: tuple[float, float] | None = None,
+) -> dict[str, object]:
+    """Report strong required-pair contradictions in either inference mode.
+
+    Natural ROI overlap is allowed. Exact concentric evidence cannot establish
+    two independent regions. Transverse order is checked only when a caller
+    explicitly supplies a reliable axis; no direction is guessed from boxes.
+    This helper never changes confidence, ownership scores or grading weights.
+    """
+    coincident = _center(head_bbox) == _center(body_bbox)
+    transverse_overlap = None
+    if reliable_axis is not None:
+        axis_x, axis_y = reliable_axis
+        length = hypot(axis_x, axis_y)
+        if isfinite(length) and length > 1e-9:
+            axis_x, axis_y = axis_x / length, axis_y / length
+
+            def interval(box):
+                x1, y1, x2, y2 = box
+                values = [-axis_y * x + axis_x * y for x, y in ((x1, y1), (x1, y2), (x2, y1), (x2, y2))]
+                return min(values), max(values)
+
+            first, second = interval(head_bbox), interval(body_bbox)
+            transverse_overlap = bool(max(first[0], second[0]) <= min(first[1], second[1]))
+    return {
+        "head_body_centers_coincident": coincident,
+        "head_body_axis_overlap": transverse_overlap,
+        "required_pair_inconsistent": coincident or transverse_overlap is False,
+    }
+
+
 def _polygon_contains(point: tuple[float, float], polygon: tuple[tuple[float, float], ...]) -> bool:
     """Return whether a point is inside a simple polygon."""
 
@@ -53,11 +84,25 @@ def _parent_axis(parent: ParentAnchor) -> tuple[float, float]:
     if parent.orientation is not None:
         dx, dy = parent.orientation
         length = hypot(dx, dy)
-        if length > 1e-9:
+        if isfinite(length) and length > 1e-9:
             return dx / length, dy / length
     width = parent.bbox[2] - parent.bbox[0]
     height = parent.bbox[3] - parent.bbox[1]
     return (1.0, 0.0) if width >= height else (0.0, 1.0)
+
+
+def _reliable_axis(parent: ParentAnchor) -> bool:
+    return bool(parent.orientation is not None and parent.orientation_reliable
+                and all(isfinite(value) for value in parent.orientation)
+                and hypot(*parent.orientation) > 1e-9)
+
+
+def _thresholds(rules: AssociationConfig) -> tuple[tuple[str, float], ...]:
+    return tuple((name, float(getattr(rules, name))) for name in (
+        "minimum_part_inside_fraction", "minimum_association_score",
+        "minimum_association_margin", "center_padding_fraction",
+        "minimum_anatomical_alignment", "maximum_longitudinal_span",
+    ))
 
 
 def _longitudinal_position(part_bbox: BBox, parent: ParentAnchor) -> float:
@@ -81,7 +126,7 @@ def _longitudinal_position(part_bbox: BBox, parent: ParentAnchor) -> float:
 
 @dataclass(frozen=True)
 class AssociationConfig:
-    """Validated, non-scientific geometric acceptance settings.
+    """Configurable engineering settings for geometric ownership checks.
 
     These settings govern ownership only.  They never alter a Model 2 raw
     confidence or the fish-level grading policy.
@@ -121,6 +166,11 @@ class ParentAnchor:
     # the same ownership implementation without changing its API.
     mask: tuple[tuple[float, float], ...] | None = None
     orientation: tuple[float, float] | None = None
+    # Callers must not label a SAM candidate axis as validated ownership.
+    # An engineering-only axis can be exposed without enabling hard gates.
+    orientation_reliable: bool = True
+    orientation_source: str | None = None
+    mask_provenance: str | None = None
 
 
 @dataclass(frozen=True)
@@ -135,6 +185,15 @@ class AssociationScore:
     mask_support: float = 0.0
     longitudinal_position: float | None = None
     detector_confidence: float | None = None
+    eligible: bool | None = None
+    failed_checks: tuple[str, ...] = ()
+    acceptance_thresholds: tuple[tuple[str, float], ...] = ()
+    orientation_axis: tuple[float, float] | None = None
+    orientation_source: str | None = None
+    orientation_reliable: bool = False
+    transverse_position: float | None = None
+    mask_provided: bool = False
+    mask_provenance: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -152,6 +211,23 @@ class AssociationScore:
                 round(self.detector_confidence, 6)
                 if self.detector_confidence is not None else None
             ),
+            "eligible": self.eligible,
+            "failed_checks": list(self.failed_checks),
+            "acceptance_thresholds": dict(self.acceptance_thresholds),
+            "orientation": {
+                "axis": list(self.orientation_axis) if self.orientation_axis is not None else None,
+                "source": self.orientation_source,
+                "reliable": self.orientation_reliable,
+                "longitudinal_position": self.longitudinal_position,
+                "transverse_position": self.transverse_position,
+                "head_tail_direction_known": False,
+            },
+            "mask": {
+                "provided": self.mask_provided,
+                "center_support": self.mask_support if self.mask_provided else None,
+                "provenance": self.mask_provenance,
+                "role": "supporting_geometry_only",
+            },
         }
 
 
@@ -169,6 +245,8 @@ class PartAssociation:
     # Only parents within the configured margin of the strongest candidate
     # participate in an ambiguity. Other scored parents are diagnostic only.
     ambiguous_track_ids: tuple[int, ...] = ()
+    acceptance_thresholds: tuple[tuple[str, float], ...] = ()
+    anatomical_checks: tuple[tuple[str, object], ...] = ()
 
     @property
     def ambiguous(self) -> bool:
@@ -184,6 +262,9 @@ class PartAssociation:
             "reason": self.reason,
             "candidates": [candidate.to_dict() for candidate in self.candidates],
             "ambiguous_track_ids": list(self.ambiguous_track_ids),
+            "candidate_parent_ids": [candidate.track_id for candidate in self.candidates],
+            "acceptance_thresholds": dict(self.acceptance_thresholds),
+            "anatomical_checks": dict(self.anatomical_checks),
         }
 
 
@@ -198,8 +279,11 @@ def score_part_parent(
     rules = config or AssociationConfig()
     part_area = _area(part_bbox)
     parent_area = _area(parent.bbox)
-    if part_area <= 0.0 or parent_area <= 0.0:
-        return AssociationScore(parent.track_id, 0.0, 0.0, False, 1.0)
+    if (not all(isfinite(value) for value in (*part_bbox, *parent.bbox))
+            or part_area <= 0.0 or parent_area <= 0.0):
+        return AssociationScore(parent.track_id, 0.0, 0.0, False, 1.0,
+                                eligible=False, failed_checks=("invalid_geometry",),
+                                acceptance_thresholds=_thresholds(rules))
     inside_fraction = _intersection(part_bbox, parent.bbox) / part_area
     px, py = _center(part_bbox)
     x1, y1, x2, y2 = parent.bbox
@@ -214,6 +298,9 @@ def score_part_parent(
     if parent.mask and len(parent.mask) >= 3:
         mask_support = 1.0 if _polygon_contains((px, py), parent.mask) else 0.0
     longitudinal_position = _longitudinal_position(part_bbox, parent)
+    axis_x, axis_y = _parent_axis(parent)
+    half_cross_extent = max(1.0, abs(axis_y) * (x2 - x1) / 2.0 + abs(axis_x) * (y2 - y1) / 2.0)
+    transverse_position = (-(px - cx) * axis_y + (py - cy) * axis_x) / half_cross_extent
     # Containment only creates a candidate. The mask, center, and proximity
     # cues are deliberately bounded so a rectangle cannot establish ownership
     # by itself when neighboring fish compete for the same region.
@@ -228,6 +315,11 @@ def score_part_parent(
         + 0.22 * mask_support
         + 0.05 * (confidence_support or 0.0)
     )
+    failed_checks = tuple(reason for failed, reason in (
+        (inside_fraction < rules.minimum_part_inside_fraction, "part_not_contained"),
+        (not center_inside, "part_center_outside"),
+        (score < rules.minimum_association_score, "association_score_below_threshold"),
+    ) if failed)
     return AssociationScore(
         parent.track_id,
         min(1.0, max(0.0, score)),
@@ -237,6 +329,16 @@ def score_part_parent(
         mask_support,
         longitudinal_position,
         confidence_support,
+        eligible=not failed_checks,
+        failed_checks=failed_checks,
+        acceptance_thresholds=_thresholds(rules),
+        orientation_axis=(axis_x, axis_y),
+        orientation_source=(parent.orientation_source or "caller_supplied_axis")
+            if parent.orientation is not None else "bbox_major_axis_hint",
+        orientation_reliable=_reliable_axis(parent),
+        transverse_position=transverse_position,
+        mask_provided=bool(parent.mask and len(parent.mask) >= 3),
+        mask_provenance=(parent.mask_provenance or "caller_supplied_instance_geometry") if parent.mask else None,
     )
 
 
@@ -254,13 +356,11 @@ def associate_parts_to_parents(
 
     rules = config or AssociationConfig()
     results: list[PartAssociation] = []
-    candidate_scores: list[tuple[AssociationScore, ...]] = []
     for part in parts:
         candidates = tuple(sorted(
             (score_part_parent(part.bbox, parent, rules, part.confidence) for parent in parents),
             key=lambda value: (-value.score, value.track_id),
         ))
-        candidate_scores.append(candidates)
         results.append(PartAssociation(
             part=part,
             status="UNASSIGNED",
@@ -268,98 +368,44 @@ def associate_parts_to_parents(
             confidence=None,
             margin=None,
             candidates=candidates,
+            acceptance_thresholds=_thresholds(rules),
         ))
 
-    def eligible(score: AssociationScore) -> bool:
-        return (
-            score.part_inside_fraction >= rules.minimum_part_inside_fraction
-            and score.center_inside
-            and score.score >= rules.minimum_association_score
-        )
-
-    # Solve each region as a small maximum-weight matching. The skip option
-    # preserves safe abstention, while the parent set prevents two physical
-    # detections of one region from being assigned to one fish.
-    by_region: dict[str, list[int]] = {}
+    # First establish independent ownership. Only eligible parents can claim
+    # a part or veto it as a competing owner. Rejected scores are still kept
+    # above so a reviewer can inspect every threshold failure.
     for index, item in enumerate(results):
-        by_region.setdefault(item.part.region, []).append(index)
-    for region_indexes in by_region.values():
-        memo: dict[tuple[int, tuple[int, ...]], tuple[float, tuple[int | None, ...]]] = {}
+        eligible = tuple(candidate for candidate in item.candidates if candidate.eligible)
+        if not eligible:
+            reason = (item.candidates[0].failed_checks[0]
+                      if item.candidates and item.candidates[0].failed_checks else "no_visible_parent")
+            results[index] = replace(item, reason=reason)
+            continue
+        top = eligible[0]
+        margin = top.score - eligible[1].score if len(eligible) > 1 else top.score
+        if len(eligible) > 1 and margin < rules.minimum_association_margin:
+            results[index] = replace(
+                item, status="AMBIGUOUS", margin=margin,
+                ambiguous_track_ids=tuple(candidate.track_id for candidate in eligible
+                    if top.score - candidate.score < rules.minimum_association_margin),
+                reason="competing_parent_geometry",
+            )
+        else:
+            results[index] = replace(item, status="ASSIGNED", track_id=top.track_id,
+                                     confidence=top.score, margin=margin)
 
-        def solve(position: int, used: tuple[int, ...]) -> tuple[float, tuple[int | None, ...]]:
-            key = (position, used)
-            if key in memo:
-                return memo[key]
-            if position >= len(region_indexes):
-                return 0.0, ()
-            index = region_indexes[position]
-            best_score, remainder = solve(position + 1, used)
-            best_assignment = (None,) + remainder
-            for candidate in candidate_scores[index]:
-                if not eligible(candidate) or candidate.track_id in used:
-                    continue
-                next_score, next_assignment = solve(
-                    position + 1,
-                    tuple(sorted((*used, candidate.track_id))),
-                )
-                total = candidate.score + next_score
-                if total > best_score:
-                    best_score = total
-                    best_assignment = (candidate.track_id,) + next_assignment
-            memo[key] = best_score, best_assignment
-            return memo[key]
-
-        _, assignment = solve(0, ())
-        for position, index in enumerate(region_indexes):
-            candidates = candidate_scores[index]
-            top = candidates[0] if candidates else None
-            second = candidates[1] if len(candidates) > 1 else None
-            margin = (
-                top.score - second.score
-                if top is not None and second is not None
-                else (top.score if top is not None else None)
-            )
-            assigned_id = assignment[position] if position < len(assignment) else None
-            if assigned_id is None or top is None or not eligible(top):
-                continue
-            close_candidates = tuple(
-                candidate.track_id
-                for candidate in candidates
-                if top.score - candidate.score < rules.minimum_association_margin
-            )
-            if second is not None and margin is not None and margin < rules.minimum_association_margin:
-                results[index] = replace(
-                    results[index],
-                    status="AMBIGUOUS",
-                    margin=margin,
-                    ambiguous_track_ids=close_candidates,
-                    reason="competing_parent_geometry",
-                )
-                continue
-            selected = next(
-                (candidate for candidate in candidates if candidate.track_id == assigned_id),
-                None,
-            )
-            if selected is not None:
-                results[index] = replace(
-                    results[index],
-                    status="ASSIGNED",
-                    track_id=assigned_id,
-                    confidence=selected.score,
-                    margin=margin,
-                )
-    # A Model 2 full-frame detection can be geometrically plausible for a
-    # parent while still duplicate another Head/Body/Tail candidate for that
-    # same parent.  The canonical per-fish input intentionally has one
-    # selected anatomical region per frame.  Choose the strongest raw Model 2
-    # detector evidence (then association support) and leave all other same-
-    # region candidates explicitly unassigned; never merge them as independent
-    # anatomical evidence or fabricate an ambiguity claim.
+    # Global one-to-one selection is constrained to independently supported
+    # ownership edges. Maximizing unconstrained total score used to send the
+    # second Head for fish 1 to fish 2 despite both Heads favoring fish 1.
+    # An ambiguous detection also must not reserve a parent from a clear one.
+    # Head, Body, Tail priority is explicit and no optional region steals a
+    # required region. Duplicates remain visible, never reassigned by vacancy.
     assigned_by_region: dict[tuple[int, str], list[int]] = {}
     for index, result in enumerate(results):
         if result.status == "ASSIGNED" and result.track_id is not None:
             assigned_by_region.setdefault((result.track_id, result.part.region), []).append(index)
-    for indexes in assigned_by_region.values():
+    for key in sorted(assigned_by_region, key=lambda value: ({"Head": 0, "Body": 1, "Tail": 2}.get(value[1], 3), value[0])):
+        indexes = assigned_by_region[key]
         if len(indexes) < 2:
             continue
         winner = min(
@@ -381,30 +427,12 @@ def associate_parts_to_parents(
                 confidence=None,
                 reason="duplicate_region_for_parent",
             )
-    # Matching may leave a lower-confidence duplicate unassigned before the
-    # legacy duplicate pass above sees it. Keep the explicit reason for
-    # diagnostics and for callers that distinguish duplicate evidence from a
-    # missing anatomical region.
-    selected_by_region = {
-        (item.track_id, item.part.region): index
-        for index, item in enumerate(results)
-        if item.status == "ASSIGNED" and item.track_id is not None
-    }
-    for index, item in enumerate(results):
-        if item.status != "UNASSIGNED" or item.reason is not None:
-            continue
-        for candidate in item.candidates:
-            key = (candidate.track_id, item.part.region)
-            if key in selected_by_region and eligible(candidate):
-                results[index] = replace(item, reason="duplicate_region_for_parent")
-                break
-
-    # A rectangle can still produce a superficially valid Head/Body/Tail set
-    # when a neighboring part is inside it. Reject only the conflicting
-    # anatomical evidence; isolated valid regions remain usable. Direction is
-    # intentionally symmetric because a box alone cannot identify head versus
-    # tail for rotated or opposite-facing fish.
-    for track_id in {parent.track_id for parent in parents}:
+    # Native 2-D separation remains meaningful when an AABB cannot determine
+    # fish orientation. A guessed horizontal/vertical projection must not
+    # invalidate a diagonal fish. A reliable supplied axis additionally checks
+    # Body alignment and directionless Head–Body–Tail ordering.
+    for parent in parents:
+        track_id = parent.track_id
         assigned = [
             (index, item) for index, item in enumerate(results)
             if item.track_id == track_id and item.status == "ASSIGNED"
@@ -412,44 +440,70 @@ def associate_parts_to_parents(
         by_region = {item.part.region: (index, item) for index, item in assigned}
         head = by_region.get("Head")
         tail = by_region.get("Tail")
+        body = by_region.get("Body")
+        reliable_axis = _reliable_axis(parent)
+        diagonal = max(1.0, hypot(parent.bbox[2] - parent.bbox[0], parent.bbox[3] - parent.bbox[1]))
+
+        def separation(first, second):
+            return 2.0 * hypot(*(a - b for a, b in zip(first.part.center, second.part.center))) / diagonal
+
+        def score(item):
+            return next(candidate for candidate in item.candidates if candidate.track_id == track_id)
+
+        head_body_distinct = bool(head and body and separation(head[1], body[1]) >= rules.minimum_anatomical_alignment)
+        pair_checks = (required_pair_geometry(head[1].part.bbox, body[1].part.bbox,
+                          reliable_axis=_parent_axis(parent) if reliable_axis else None)
+                       if head and body else {})
+        head_body_axis_overlap = pair_checks.get("head_body_axis_overlap")
+        independent_head_body = head_body_distinct and head_body_axis_overlap is not False
+        # A required Head and Body cannot be established by concentric
+        # detections of the same image location. Likewise an explicitly
+        # reliable axis cannot support anatomically disjoint transverse
+        # intervals. These contradictions apply with or without a Tail.
+        # Ordinary overlap and uncertain axes remain diagnostic only; no
+        # additional distance, IoU or confidence threshold is introduced.
+        head_body_centers_coincident = pair_checks.get("head_body_centers_coincident")
+        required_pair_inconsistent = pair_checks.get("required_pair_inconsistent") is True
+        checks = {
+            "parent_axis_reliable": reliable_axis,
+            "axis_source": (parent.orientation_source or "caller_supplied_axis")
+                if parent.orientation is not None else "bbox_major_axis_hint",
+            "head_body_distinct": head_body_distinct if head and body else None,
+            "head_body_axis_overlap": head_body_axis_overlap,
+            "head_body_centers_coincident": head_body_centers_coincident if head and body else None,
+            "required_pair_inconsistent": required_pair_inconsistent if head and body else None,
+            "head_tail_separation_2d": separation(head[1], tail[1]) if head and tail else None,
+        }
+        for index, item in assigned:
+            results[index] = replace(item, anatomical_checks=tuple(checks.items()))
+        if required_pair_inconsistent:
+            for index, _ in (head, body):
+                results[index] = replace(results[index], status="AMBIGUOUS", track_id=None,
+                    confidence=None, reason="required_anatomical_group_inconsistent",
+                    ambiguous_track_ids=(track_id,))
+            continue
         if head is None or tail is None:
             continue
-        head_score = next(
-            (candidate for candidate in head[1].candidates if candidate.track_id == track_id), None
-        )
-        tail_score = next(
-            (candidate for candidate in tail[1].candidates if candidate.track_id == track_id), None
-        )
-        body = by_region.get("Body")
-        body_score = (
-            next(
-                (candidate for candidate in body[1].candidates if candidate.track_id == track_id),
-                None,
-            )
-            if body is not None else None
-        )
-        if head_score is None or tail_score is None:
-            continue
-        head_position = head_score.longitudinal_position
-        tail_position = tail_score.longitudinal_position
-        body_position = body_score.longitudinal_position if body_score is not None else 0.0
-        if head_position is None or tail_position is None or body_position is None:
-            continue
-        # Both regions collapsing into the same short longitudinal segment is
-        # a common signature of a neighboring part crossing the parent ROI.
-        separated = abs(head_position - tail_position) >= rules.minimum_anatomical_alignment
-        opposite_sides = head_position * tail_position <= 0.0
-        body_between = min(head_position, tail_position) <= body_position <= max(head_position, tail_position)
-        implausible_group = (
-            not separated
-            or (body_score is not None and not body_between)
-            or (body_score is not None and not opposite_sides
-                and abs(head_position - tail_position) > rules.maximum_longitudinal_span)
-        )
+        head_position = score(head[1]).longitudinal_position
+        tail_position = score(tail[1]).longitudinal_position
+        body_position = score(body[1]).longitudinal_position if body else None
+        collapsed_2d = separation(head[1], tail[1]) < rules.minimum_anatomical_alignment
+        axis_inconsistent = False
+        if reliable_axis and head_position is not None and tail_position is not None:
+            axis_inconsistent = abs(head_position - tail_position) < rules.minimum_anatomical_alignment
+            if body_position is not None:
+                axis_inconsistent |= not min(head_position, tail_position) <= body_position <= max(head_position, tail_position)
+                axis_inconsistent |= (head_position * tail_position > 0.0
+                    and abs(head_position - tail_position) > rules.maximum_longitudinal_span)
+        implausible_group = collapsed_2d or axis_inconsistent
         if implausible_group:
-            for index, item in (head, tail):
+            # Tail is optional. It cannot invalidate an independently supported
+            # required Head/Body pair. Without that support keep the true
+            # Head/Tail conflict ambiguous rather than inventing an owner.
+            conflicts = (tail,) if independent_head_body else (head, tail)
+            for index, _ in conflicts:
                 results[index] = replace(
-                    item,
+                    results[index],
                     status="AMBIGUOUS",
                     track_id=None,
                     confidence=None,

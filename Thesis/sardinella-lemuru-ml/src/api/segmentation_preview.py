@@ -137,7 +137,8 @@ def generate_mask_preview(frame, fish, *, image_sha256, sam_service=None, model1
         review_required += int(usable and needs_review)
         records.append({"id": item["id"], "bbox": list(item["bbox"]), "parts": deepcopy(item.get("parts", [])),
                         "segmentation": report, **({"analysis": {key: deepcopy(item["analysis"].get(key, {}))
-                            for key in ("surface_damage", "fish_geometry", "feature_fusion", "inspection_source")}}
+                            for key in ("surface_damage", "fish_geometry", "feature_fusion", "inspection_source",
+                                        "quality_inference", "model2_debug", "model1_detection")}}
                             if isinstance(item.get("analysis"), dict) else {})})
     scale = min(1., 1280 / max(frame.shape[:2]))
     preview = frame if scale == 1 else cv2.resize(frame, (round(frame.shape[1] * scale), round(frame.shape[0] * scale)), interpolation=cv2.INTER_AREA)

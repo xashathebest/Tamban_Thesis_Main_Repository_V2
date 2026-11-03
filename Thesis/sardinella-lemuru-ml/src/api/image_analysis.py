@@ -257,7 +257,7 @@ class StillImageAnalyzer:
         debug = analysis.get("model2_debug")
         if isinstance(debug, dict) and fish.crop_bounds is not None:
             debug = dict(debug)
-            for key in ("raw_detections", "selected_detections", "unassigned_detections"):
+            for key in ("raw_detections", "selected_detections", "rejected_detections", "unassigned_detections"):
                 values = debug.get(key)
                 if not isinstance(values, list):
                     continue
@@ -266,6 +266,9 @@ class StillImageAnalyzer:
                     if not isinstance(value, dict):
                         continue
                     item = dict(value)
+                    if item.get("coordinate_space", debug.get("coordinate_space")) == "original_frame":
+                        normalized.append(item)
+                        continue
                     box = item.get("bbox")
                     translated = translate_bbox_to_frame(
                         tuple(float(number) for number in box),
@@ -278,6 +281,7 @@ class StillImageAnalyzer:
                         item["coordinate_space"] = "original_frame"
                         normalized.append(item)
                 debug[key] = normalized
+            debug.update(coordinate_space="original_frame", frame_width_px=frame_width, frame_height_px=frame_height)
             analysis["model2_debug"] = debug
         analysis["performance"] = {**analysis.get("performance", {}),
                                    "structural_damage_ms": fish.structural_damage_ms}
@@ -469,6 +473,11 @@ class StillImageAnalyzer:
         for payload in payloads:
             payload["timestamp"] = analyzed_at
             payload["analysis"]["inspection_source"].update(type=source_type, frame_id=frame_id)
+            debug = payload["analysis"].get("model2_debug")
+            if isinstance(debug, dict) and debug.get("coordinate_space") == "original_frame":
+                # A crop observation may have a per-fish grading token. The
+                # translated debug boxes belong to this source image instead.
+                debug["frame_id"] = frame_id
             if mask_context.backend == "mobilesam_experimental":
                 report = mask_context.segmentation_report(payload["id"])
                 payload["analysis"]["segmentation"] = report
@@ -638,10 +647,15 @@ class VideoUploadAnalyzer:
                     from copy import deepcopy
                     latest_mask_preview = deepcopy(result["segmentation_preview"])
                     latest_mask_preview["source"]["type"] = "uploaded_video_snapshot"
+                    latest_mask_preview["source"]["fish_id_mapping"] = dict(source_to_track)
                     for entry in latest_mask_preview.get("fish", []):
                         source_id = entry["id"]
+                        entry["source_parent_id"] = source_id
                         entry["id"] = source_to_track.get(source_id, source_id)
                         entry["segmentation"].update(parent_track_id=entry["id"], source_detection_id=source_id)
+                        for part in entry.get("parts", []):
+                            part["source_parent_id"] = source_id
+                            part["parent_track_id"] = entry["id"]
                 if len(annotated_frames) < 90 and (processed == 1 or processed % max(1, total_frames // 90) == 0):
                     annotated_frames.append(str(result["annotated_image"]))
                 frame_index += 1

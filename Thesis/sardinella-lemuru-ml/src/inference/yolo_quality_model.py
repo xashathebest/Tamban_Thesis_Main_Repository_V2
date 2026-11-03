@@ -16,7 +16,7 @@ from typing import Any, Callable, Mapping, Sequence
 import numpy as np
 
 from src.api.domain import QualitySummary
-from src.inference.association import ParentAnchor, associate_parts_to_parents, association_summary
+from src.inference.association import ParentAnchor, associate_parts_to_parents, association_summary, required_pair_geometry
 from src.inference.body_width import analyze_body_width, analyze_anatomical_body_width, boxes_overlap
 from src.inference.fish_geometry import load_fish_geometry_config, load_physical_calibration, measure_fish_geometry
 from src.inference.fish_geometry_pipeline import analyze_fish_geometry
@@ -25,7 +25,7 @@ from src.inference.frame_quality import BestFrameSelection, BestFrameSelector, F
 from src.inference.grading_engine import FishVerdict, WeightedGradingEngine
 from src.inference.model_traceability import full_sha256
 from src.inference.part_types import PartDetection
-from src.inference.preprocessing import CropBounds, RuntimeMaskContext, clamp_bbox, crop_fish, measurement_crop_bounds, validate_image
+from src.inference.preprocessing import CropBounds, RuntimeMaskContext, clamp_bbox, crop_assigned_evidence, crop_fish, measurement_crop_bounds, validate_image
 from src.inference.compute import resolve_compute, timed_elapsed, timed_start
 from src.preprocessing.audit_v7_exports import SOURCE_CLASSES
 from src.preprocessing.dataset_utils import project_root
@@ -830,7 +830,7 @@ class YoloQualityModel:
         # payloads; do not leak Python objects into durable history metadata.
         analysis["quality_inference"] = {
             key: value for key, value in inference_metadata.items()
-            if key not in {"raw_detections", "selected_detections", "unassigned_detections"}
+            if key not in {"raw_detections", "selected_detections", "unassigned_detections", "detector_selected_detections"}
         }
         raw_detections = inference_metadata.get("raw_detections", ())
         selected_detections = inference_metadata.get("selected_detections", ())
@@ -839,18 +839,32 @@ class YoloQualityModel:
             selected_payload = [item.to_dict() if isinstance(item, PartDetection) else dict(item) for item in selected_detections if isinstance(item, (PartDetection, Mapping))]
             selected_keys = {
                 (item.get("source_class_id"), tuple(item.get("bbox", ())), item.get("confidence"))
-                for item in selected_payload
+                for item in (part.to_dict() if isinstance(part, PartDetection) else part
+                             for part in inference_metadata.get("detector_selected_detections", selected_payload))
             }
+            rejected_payload = []
+            for item in raw_payload:
+                if (item.get("source_class_id"), tuple(item.get("bbox", ())), item.get("confidence")) not in selected_keys:
+                    reason = ("below_detector_confidence" if item.get("confidence", 0) < self.confidence_threshold
+                              else "not_selected_by_detector_postprocessing")
+                    rejected_payload.append({**item, "rejection_reason": reason})
+            debug_coordinates = inference_metadata.get("debug_coordinate_space", "crop_local")
             analysis["model2_debug"] = {
                 "raw_detections": raw_payload,
                 "selected_detections": selected_payload,
-                "rejected_detections": [
-                    item for item in raw_payload
-                    if (item.get("source_class_id"), tuple(item.get("bbox", ())), item.get("confidence")) not in selected_keys
-                ],
+                "rejected_detections": rejected_payload,
                 "selection_threshold": self.confidence_threshold,
-                "coordinate_space": "crop_local" if inference_metadata.get("mode") == "crop" else "full_frame_then_crop_local",
+                "coordinate_space": debug_coordinates,
+                "frame_id": frame_id,
+                "frame_width_px": frame_shape[1] if frame_shape else None,
+                "frame_height_px": frame_shape[0] if frame_shape else None,
+                "raw_scope": "decoded_native_detections_after_model_NMS; pre_NMS_logits_unavailable",
+                "raw_confidence_floor": .001 if self.debug_raw_output else self.confidence_threshold,
+                "detector_selected_count": len(selected_keys),
             }
+            for rows in (raw_payload, selected_payload, rejected_payload):
+                for row in rows:
+                    row["coordinate_space"] = debug_coordinates
             unassigned = inference_metadata.get("unassigned_detections", ())
             if isinstance(unassigned, Sequence) and not isinstance(unassigned, (str, bytes)):
                 analysis["model2_debug"]["unassigned_detections"] = [
@@ -885,13 +899,34 @@ class YoloQualityModel:
         try:
             crop = validate_image(crop_bgr, name="Fish ROI")
             parts, raw_parts = self._infer_parts(crop)
+            quality_payload = dict(frame_quality or {})
+            required_geometry = None
+            # Crop mode bypasses full-frame parent matching, but its strongest
+            # required detections still cannot describe the same anatomical
+            # location. Reuse the exact contradiction check; do not introduce
+            # a parent-association score gate into this legacy inference mode.
+            required = {}
+            for region in ("Head", "Body"):
+                candidates = [part for part in parts if part.region == region]
+                if candidates:
+                    required[region] = min(candidates, key=lambda part: (-part.confidence, part.source_class_id, part.bbox))
+            if len(required) == 2:
+                head, body = required["Head"], required["Body"]
+                required_geometry = {**required_pair_geometry(head.bbox, body.bbox),
+                    "head_bbox": list(head.bbox), "body_bbox": list(body.bbox),
+                    "coordinate_space": "crop_local", "frame_id": frame_id,
+                    "selection": "strongest_detector_confidence_per_required_region",
+                    "reason": None}
+                if required_geometry["required_pair_inconsistent"]:
+                    required_geometry["reason"] = "required_anatomical_group_inconsistent"
+                    quality_payload.update(association_ambiguous=True, required_pair_geometry=required_geometry)
             return self._grade_parts(
                 crop,
                 track_id,
                 parts,
                 stabilize=stabilize,
                 frame_id=frame_id,
-                frame_quality=frame_quality,
+                frame_quality=quality_payload,
                 detection_confidence=detection_confidence,
                 parent_bbox=parent_bbox,
                 frame_shape=frame_shape,
@@ -902,6 +937,7 @@ class YoloQualityModel:
                     "roi_padding": self.roi_padding,
                     "raw_detections": raw_parts,
                     "selected_detections": parts,
+                    **({"required_pair_geometry": required_geometry} if required_geometry is not None else {}),
                     "model2_input_size": [self.image_size, self.image_size],
                     "resize_method": "Ultralytics letterbox inside model.predict",
                 },
@@ -1037,44 +1073,60 @@ class YoloQualityModel:
             reviewed, review_status = load_reviewed_instances(frame, parents, source_context)
             if reviewed:
                 associations = refine_reviewed_associations(associations, reviewed, frame.shape)
+            # Segmentation has its own measured wall time. It is not part of
+            # matching latency and must not inflate the association counter.
+            self.last_association_seconds = perf_counter() - association_started
             trusted_parts = [{"mask": row["body_mask"], "parent_track_id": identity, "region": "Body",
                               "orientation_reliable": row.get("orientation_reliable") is True,
                               "ownership_validated": True, "mask_validated": True,
                               "coordinate_space": "original_frame", "validation_provenance": row["validation_provenance"]}
                              for identity, row in reviewed.items()]
             mask_context.prepare_instances(parents, frame_parts, associations, trusted_parts=trusted_parts, reviewed_instances=reviewed)
-            self.last_association_seconds = perf_counter() - association_started
             results: dict[int, tuple[FishQualityObservation, CropBounds]] = {}
             roi_seconds = 0.0
             assignment_seconds = 0.0
             for parent in parents:
                 if parent.track_id not in selected_ids:
                     continue
+                owned_parts = [item.part for item in associations if item.status == "ASSIGNED" and item.track_id == parent.track_id]
                 roi_started = perf_counter()
-                crop, bounds = crop_fish(frame, parent.bbox, padding=self.roi_padding)
+                crop, bounds = crop_assigned_evidence(frame, parent.bbox, [part.bbox for part in owned_parts], padding=self.roi_padding)
                 roi_seconds += perf_counter() - roi_started
                 assignment_started = perf_counter()
-                raw_crop_parts = [
-                    translated
-                    for part in raw_parts
-                    if (translated := self._part_to_crop(part, bounds.origin, crop.shape)) is not None
-                ]
                 assigned_parts = [
                     translated
-                    for item in associations
-                    if item.status == "ASSIGNED" and item.track_id == parent.track_id
-                    if (translated := self._part_to_crop(item.part, bounds.origin, crop.shape)) is not None
-                ]
-                unassigned_parts = [
-                    translated
-                    for item in associations
-                    if item.status != "ASSIGNED"
-                    if (translated := self._part_to_crop(item.part, bounds.origin, crop.shape)) is not None
+                    for part in owned_parts
+                    if (translated := self._part_to_crop(part, bounds.origin, crop.shape)) is not None
                 ]
                 summary = association_summary(associations, parent.track_id)
+                summary.update(coordinate_space="original_frame", frame_id=frame_id,
+                               frame_width_px=frame.shape[1], frame_height_px=frame.shape[0])
+                summary["clipping"] = {
+                    "parent_box_frame_contact": parent.bbox[0] <= 0 or parent.bbox[1] <= 0 or parent.bbox[2] >= frame.shape[1] or parent.bbox[3] >= frame.shape[0],
+                    "analysis_crop_frame_contact": bounds.x1 == 0 or bounds.y1 == 0 or bounds.x2 == frame.shape[1] or bounds.y2 == frame.shape[0],
+                    "crop_bounds": [bounds.x1, bounds.y1, bounds.x2, bounds.y2],
+                    "context_expanded_for_owned_parts": any(part.bbox[0] < parent.bbox[0] or part.bbox[1] < parent.bbox[1] or part.bbox[2] > parent.bbox[2] or part.bbox[3] > parent.bbox[3] for part in owned_parts),
+                    "native_silhouette_clipped": None,
+                    "note": "Box or crop contact alone does not establish silhouette clipping or anatomical absence.",
+                }
+                for row in summary["parts"]:
+                    box = row["part"]["bbox"]
+                    row["part"]["coordinate_space"] = "original_frame"
+                    row["clipping"] = {
+                        "image_border_contact": box[0] <= 0 or box[1] <= 0 or box[2] >= frame.shape[1] or box[3] >= frame.shape[0],
+                        "outside_native_image": box[0] < 0 or box[1] < 0 or box[2] > frame.shape[1] or box[3] > frame.shape[0],
+                        "outside_analysis_crop": box[0] < bounds.x1 or box[1] < bounds.y1 or box[2] > bounds.x2 or box[3] > bounds.y2,
+                        "used_for_grading": row["status"] == "ASSIGNED" and row.get("track_id") == parent.track_id,
+                    }
                 assignment_seconds += perf_counter() - assignment_started
                 quality_payload: dict[str, object] = {
                     "association": summary,
+                    # Assessment.frame_clipped historically means detector-box
+                    # contact. It cannot establish lost anatomical pixels.
+                    # Keep the raw contact diagnostic and explicit quality
+                    # rejection, while leaving native silhouette clipping
+                    # unknown unless independently checked evidence proves it.
+                    "parent_frame_clipped": None,
                     "source_context": source_context,
                     "reviewed_feature_artifacts": review_status,
                     "width_context": {
@@ -1084,6 +1136,9 @@ class YoloQualityModel:
                 }
                 reviewed_checks = getattr(getattr(mask_context, "_experimental", None), "reviewed_ownership", {}).get(parent.track_id, {})
                 reviewed_usable = parent.track_id in reviewed and reviewed_checks.get("engineering_checks_passed") is True
+                if reviewed_usable:
+                    quality_payload["parent_frame_clipped"] = False
+                    summary["clipping"]["native_silhouette_clipped"] = False
                 if parent.track_id in reviewed and not reviewed_usable:
                     quality_payload["association_ambiguous"] = True
                     quality_payload["reviewed_feature_artifacts"] = {**review_status,
@@ -1111,7 +1166,7 @@ class YoloQualityModel:
                     detection_confidence=parent.confidence,
                     parent_bbox=parent.bbox,
                     frame_shape=frame.shape,
-                    original_parts=[item.part for item in associations if item.status == "ASSIGNED" and item.track_id == parent.track_id],
+                    original_parts=owned_parts,
                     measurement_frame=frame,
                     mask_context=mask_context,
                     inference_metadata={
@@ -1120,9 +1175,11 @@ class YoloQualityModel:
                         "crop_bounds": [bounds.x1, bounds.y1, bounds.x2, bounds.y2],
                         "padding_hit_frame_limits": bounds.x1 == 0 or bounds.y1 == 0 or bounds.x2 == frame.shape[1] or bounds.y2 == frame.shape[0],
                         "association": summary,
-                        "raw_detections": raw_crop_parts,
-                        "selected_detections": assigned_parts,
-                        "unassigned_detections": unassigned_parts,
+                        "raw_detections": raw_parts,
+                        "selected_detections": owned_parts,
+                        "detector_selected_detections": frame_parts,
+                        "unassigned_detections": [item.part for item in associations if item.status != "ASSIGNED"],
+                        "debug_coordinate_space": "original_frame",
                         "model2_input_size": [self.image_size, self.image_size],
                         "resize_method": "Ultralytics letterbox inside model.predict",
                     },

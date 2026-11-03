@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#FFFFFF">
     <title>Tamban Quality Inspection System | Live Inspection</title>
-    <link rel="stylesheet" href="/assets/styles.css?v=mask-view-loading-20261103">
+    <link rel="stylesheet" href="/assets/styles.css?v=runtime-e2e-20261103">
   </head>
   <body>
     <svg class="icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -230,12 +230,6 @@
                     <button class="button quiet" id="upload-mode-button" type="button" aria-controls="upload-workspace" aria-expanded="false">Analyze Media</button>
                   </div>
                   <p class="control-feedback hidden" id="control-feedback" role="status" aria-live="polite"></p>
-                  <fieldset class="inspection-display-mode" aria-label="Live inspection visualization mode">
-                    <legend class="visually-hidden">Live display</legend>
-                    <label><input id="live-display-boxes" type="radio" name="live-display-mode" value="boxes" checked><span>Bounding Boxes</span></label>
-                    <label title="Show colored fish-mask samples"><input id="live-display-masks" type="radio" name="live-display-mode" value="masks"><span class="mask-mode-colors" aria-hidden="true"></span><span>Colored Fish Masks</span></label>
-                  </fieldset>
-                  <p class="muted">Adaptive mask samples are labeled when unavailable; changing the display does not regrade fish.</p>
                 </div>
                 <details class="overlay-settings">
                   <summary>Feed display options</summary>
@@ -398,8 +392,10 @@
                     <label class="mask-opacity-control">Opacity <input id="upload-mask-opacity" type="range" min="0" max="80" value="40" step="5"><output id="upload-mask-opacity-value" for="upload-mask-opacity">40%</output></label>
                     <label>Highlight <select id="upload-mask-fish" aria-label="Highlight fish mask"><option value="all">All fish</option></select></label>
                     <label>Zoom <select id="upload-mask-zoom" aria-label="Mask preview zoom"><option value="1">Fit image</option><option value="1.5">150%</option><option value="2">200%</option><option value="3">300%</option></select></label>
-                    <details class="inspection-overlay-options"><summary>Evidence overlays</summary><label><input id="upload-mask-show" type="checkbox" checked> Fish masks visibility</label><label><input id="upload-mask-model1" type="checkbox" checked> Model 1 boxes</label><label><input id="upload-mask-model2" type="checkbox"> Assigned Model 2 parts</label><label><input id="upload-mask-cracks" type="checkbox"> Structural candidates</label></details>
+                    <details class="inspection-overlay-options"><summary>Evidence overlays</summary><label><input id="upload-mask-show" type="checkbox" checked> Fish masks visibility</label><label><input id="upload-mask-model1" type="checkbox" checked> Model 1 boxes</label><label><input id="upload-mask-model2" type="checkbox"> Assigned Model 2 parts</label><label><input id="upload-mask-cracks" type="checkbox"> Structural candidates</label><label><input id="upload-association-debug" type="checkbox" aria-describedby="upload-association-debug-status"> Anatomical Association Debug View</label></details>
                   </div>
+                  <p id="upload-association-debug-status" class="association-debug-status hidden" role="status" aria-live="polite"></p>
+                  <ul id="upload-association-debug-legend" class="association-debug-legend hidden" aria-label="Anatomical debug colors"><li data-kind="raw">Raw detector candidate</li><li data-kind="accepted">Accepted for highlighted fish</li><li data-kind="rejected">Rejected / unassigned candidate</li><li data-kind="ambiguous">Ambiguous / owned by another fish</li></ul>
                   <details class="inspection-reliability"><summary>Mask reliability and ownership</summary><ul id="upload-mask-legend" class="mask-preview-legend" aria-label="Fish mask reliability"></ul></details>
                   <p class="muted">Fish Masks shows the shaded fish in the main image below. Switching the view or opacity reuses this completed analysis. Dashed boundaries identify masks requiring review. All overlay settings remain available.</p>
                 </section>
@@ -817,7 +813,6 @@
           <span>Show part labels</span>
           <input id="settings-features" type="checkbox">
         </label>
-        <p class="muted">Choose Bounding Boxes or Fish Masks beside the live inspection view.</p>
       </section>
     </aside>
     <aside class="settings-drawer camera-calibration-drawer surface" id="camera-calibration-drawer" aria-label="Camera calibration" aria-hidden="true" role="dialog" aria-modal="true" inert tabindex="-1">
@@ -1134,6 +1129,6 @@
         </div>
       </div>
     </section>
-    <script src="/assets/app.js?v=mask-view-loading-20261103" defer></script>
+    <script src="/assets/app.js?v=runtime-e2e-20261103" defer></script>
   </body>
 </html>
