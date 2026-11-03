@@ -80,3 +80,52 @@ def load_reviewed_instances(frame, parents, source_context=None):
                           "conflicting_review_ids": sorted(duplicates), "frame_pixels_sha256": digest}
     except (OSError, ValueError, TypeError, AttributeError) as error:
         return {}, {"status": "unavailable", "approved_records": 0, "reason": str(error)}
+
+
+def refine_reviewed_associations(rows, reviewed, frame_shape):
+    """Exclude contradictory pixels; only explicit reviewed labels assign parts.
+
+    SAM candidates never enter this function. Masks alone do not resolve a
+    neighboring Head/Body box: assignment requires a matching reviewed part
+    record as well as the independently reviewed native fish pixels.
+    """
+    from dataclasses import replace
+    conflicts = {}
+    identities = list(reviewed)
+    for index, first in enumerate(identities):
+        for second in identities[index+1:]:
+            if np.any(reviewed[first]["whole_mask"] & reviewed[second]["whole_mask"]):
+                conflicts.setdefault(first,set()).add(second)
+                conflicts.setdefault(second,set()).add(first)
+    result = []
+    for row in rows:
+        x1,y1,x2,y2 = row.part.bbox
+        left,top = max(0,math.floor(x1)),max(0,math.floor(y1))
+        right,bottom = min(frame_shape[1],math.ceil(x2)),min(frame_shape[0],math.ceil(y2))
+        claims = []
+        for identity, record in reviewed.items():
+            support = record["whole_mask"][top:bottom,left:right]
+            if identity in conflicts or not support.size or not support.any():
+                continue
+            for claim in record.get("part_ownership", []):
+                if not isinstance(claim,dict) or claim.get("reviewed") is not True or claim.get("region") != row.part.region:
+                    continue
+                box = claim.get("bbox")
+                if (claim.get("source_class_id") == row.part.source_class_id and isinstance(box,list) and len(box)==4
+                        and all(isinstance(v,(int,float)) and not isinstance(v,bool) and math.isfinite(v) for v in box)
+                        and np.allclose(box,row.part.bbox,rtol=0,atol=.001)):
+                    claims.append(identity)
+                    break
+        if row.track_id in conflicts:
+            owners = tuple(sorted({row.track_id,*conflicts[row.track_id]}))
+            row = replace(row,status="AMBIGUOUS",track_id=None,ambiguous_track_ids=owners,reason="reviewed_pixel_ownership_conflict")
+        elif len(claims)>1:
+            row = replace(row,status="AMBIGUOUS",track_id=None,ambiguous_track_ids=tuple(sorted(claims)),reason="conflicting_reviewed_part_labels")
+        elif len(claims)==1:
+            row = replace(row,status="ASSIGNED",track_id=claims[0],ambiguous_track_ids=(),reason="source_bound_reviewed_part_and_instance_pixels")
+        elif row.status=="ASSIGNED" and row.track_id in reviewed:
+            support = reviewed[row.track_id]["whole_mask"][top:bottom,left:right]
+            if not support.size or not support.any():
+                row = replace(row,status="UNASSIGNED",track_id=None,reason="reviewed_instance_excludes_part")
+        result.append(row)
+    return result

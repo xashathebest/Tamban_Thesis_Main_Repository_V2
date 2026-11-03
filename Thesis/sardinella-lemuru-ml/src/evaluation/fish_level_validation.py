@@ -337,6 +337,7 @@ class EvaluationRules:
     minimum_track_observations: int = 2
     temporal_evidence_limit: int = 120
     body_width: Mapping[str, Any] | None = None
+    structural_features: Mapping[str, Any] | None = None
 
     def __post_init__(self) -> None:
         try:
@@ -365,6 +366,13 @@ class EvaluationRules:
             except (TypeError, ValueError) as exc:
                 raise FishLevelValidationError(f"Invalid body_width replay configuration: {exc}") from exc
             object.__setattr__(self, "body_width", config.to_dict())
+        if self.structural_features is not None:
+            from src.inference.feature_fusion import StructuralFusionConfig
+            try:
+                structural = StructuralFusionConfig(**dict(self.structural_features))
+            except (TypeError, ValueError) as exc:
+                raise FishLevelValidationError(f"Invalid structural replay configuration: {exc}") from exc
+            object.__setattr__(self, "structural_features", structural.to_dict())
 
     def to_policy(self) -> GradingPolicy:
         """Return the exact pure policy used by live inference.
@@ -428,7 +436,7 @@ class EvaluationRules:
             "deprecated_minimum_final_score_used", "active_final_verdict_threshold",
             "frame_quality", "best_frame", "hsv_adjustment", "storage",
             "weights", "part_weights", "rejected_override", "temporal",
-            "body_width",
+            "body_width", "structural_features",
         }
         metadata_keys = {"name", "id", "description", "notes", "metadata", "config_version", "dataset_split"}
         source_allowed = direct_keys | (metadata_keys if source is values else set())
@@ -436,7 +444,7 @@ class EvaluationRules:
         if unknown:
             raise FishLevelValidationError(f"Unknown evaluation rule configuration key(s): {', '.join(unknown)}.")
         if source is not values:
-            root_unknown = sorted(str(key) for key in values if key not in metadata_keys | {"grading", "storage", "body_width"})
+            root_unknown = sorted(str(key) for key in values if key not in metadata_keys | {"grading", "storage", "body_width", "structural_features"})
             if root_unknown:
                 raise FishLevelValidationError(f"Unknown evaluation rule wrapper key(s): {', '.join(root_unknown)}.")
         weight_unknown = sorted(str(key) for key in weights if key not in {"body", "head", "tail", "Body", "Head", "Tail"})
@@ -587,6 +595,7 @@ class EvaluationRules:
                 minimum_track_observations=int(raw["minimum_track_observations"]),
                 temporal_evidence_limit=int(raw["temporal_evidence_limit"]),
                 body_width=source.get("body_width", values.get("body_width")),
+                structural_features=source.get("structural_features", values.get("structural_features")),
             )
         except (TypeError, ValueError) as exc:
             raise FishLevelValidationError(f"Invalid evaluation rule configuration: {exc}") from exc
@@ -604,6 +613,8 @@ class EvaluationRules:
         })
         if self.body_width is not None:
             values["body_width"] = dict(self.body_width)
+        if self.structural_features is not None:
+            values["structural_features"] = dict(self.structural_features)
         return values
 
 
@@ -709,6 +720,7 @@ def recompute_final_verdict(record: Mapping[str, Any] | object, rules: Evaluatio
         ),
         rules.to_policy(),
     )
+    anatomical_decision = decision
     geometric_support = None
     if width_replay is not None and width_config.scoring_method == "post_weighted_v2":
         from src.inference.geometric_support import integrate_geometric_support
@@ -716,6 +728,15 @@ def recompute_final_verdict(record: Mapping[str, Any] | object, rules: Evaluatio
         decision, width_replay, geometric_support = integrate_geometric_support(
             decision, width_replay, width_config, rules.to_policy(), part_scores=scores,
         )
+    structural_fusion = None
+    if rules.structural_features is not None:
+        from src.inference.feature_fusion import StructuralFusionConfig, integrate_structural_support, feature_fusion_report
+        latest = _as_mapping(_as_mapping(analysis.get("frame_quality")).get("latest"))
+        decision, structural, eligibility = integrate_structural_support(
+            decision, latest.get("structural_evidence"), StructuralFusionConfig(**rules.structural_features), rules.to_policy(),
+            fish_id=payload.get("track_id", payload.get("id", payload.get("fish_id"))), frame_id=latest.get("frame_id"),
+            source_context=latest.get("source_context"))
+        structural_fusion = feature_fusion_report(anatomical_decision, geometric_support or {}, structural, eligibility, decision)
     result = {
         "final_grade": decision.final_grade or UNGRADED,
         "final_support": decision.final_support,
@@ -746,6 +767,8 @@ def recompute_final_verdict(record: Mapping[str, Any] | object, rules: Evaluatio
         result["body_width"] = width_replay
     if geometric_support is not None:
         result["geometric_support"] = geometric_support
+    if structural_fusion is not None:
+        result["feature_fusion"] = structural_fusion
     return result
 
 

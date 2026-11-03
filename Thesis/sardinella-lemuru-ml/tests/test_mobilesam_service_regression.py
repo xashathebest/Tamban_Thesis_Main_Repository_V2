@@ -110,9 +110,12 @@ def test_clipped_native_prompt_compares_against_clipped_original_parent(settings
     candidate = candidate_from_service(settings, image, parent)
     assert candidate["provenance"]["original_bbox_global"] == [-20, 30, 280, 90]
     assert candidate["provenance"]["prompt_bbox_global"] == [0, 30, 280, 90]
-    reasons = validate(candidate, parent)["reasons"]
+    result = validate(candidate, parent)
+    reasons = result["reasons"]
     assert "candidate_prompt_box_mismatch" not in reasons
-    assert "parent_touches_frame_boundary" in reasons
+    assert result["metrics"]["parent_bbox_touches_frame_boundary"] is True
+    assert result["metrics"]["mask_touches_frame_boundary"] is False
+    assert "parent_touches_frame_boundary" not in reasons  # Native foreground proves the padded detection is intact.
     candidate["provenance"]["prompt_bbox_global"] = [-20, 30, 280, 90]
     assert "candidate_prompt_box_mismatch" in validate(candidate, parent)["reasons"]
 

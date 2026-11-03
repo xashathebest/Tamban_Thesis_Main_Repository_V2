@@ -19,6 +19,7 @@ AUTOMATIC = INCLUDE + HARNESS + r'''
 for(const name of ["acceptAutomaticMaskPreview","selectInspectionFish"])include(name);
 elements.maskPreviewBoxes=new Element();elements.maskPreviewMasks=new Element();elements.maskPreviewCracks=new Element();
 elements.maskPreviewBoxes.checked=true;elements.maskPreviewMasks.checked=false;elements.maskPreviewCracks.checked=false;
+elements.maskPreviewModel1.checked=false;
 elements.uploadMediaStage=new Element();
 global.networkCalls=0;global.fetch=async()=>{networkCalls++;throw new Error("Display controls must not rerun analysis");};
 '''
@@ -32,7 +33,7 @@ const preview=JSON.parse(fs.readFileSync(0,"utf8"));const before=JSON.stringify(
 console.log(JSON.stringify({accepted,networkCalls,width:elements.maskPreviewCanvas.width,height:elements.maskPreviewCanvas.height,
   visible:!elements.maskPreview.hidden,originalHidden:elements.uploadMediaStage.hidden,draws,status:elements.maskPreviewStatus.textContent,unchanged:before===JSON.stringify(preview)}));})();
 ''', specimen)
-    assert actual["accepted"] and actual["visible"] and actual["originalHidden"]
+    assert actual["accepted"] and actual["visible"] and not actual["originalHidden"]
     assert actual["networkCalls"] == 0 and actual["unchanged"]
     assert (actual["width"], actual["height"]) == (500, 300)
     assert sum(row[0] == "box" for row in actual["draws"]) == 2
@@ -114,7 +115,9 @@ def test_primary_dom_has_one_exclusive_mode_and_no_manual_sam_button():
     source = (ROOT / "frontend/index.html").read_text(encoding="utf-8")
     assert 'id="upload-display-boxes" type="radio" name="upload-display-mode"' in source
     assert 'id="upload-display-masks" type="radio" name="upload-display-mode"' in source
-    for old in ('id="upload-mask-show"', 'id="upload-mask-model1"', 'id="inspect-upload-masks"', 'id="upload-mobilesam"'):
+    for setting in ('id="upload-mask-show"', 'id="upload-mask-model1"'):
+        assert setting in source  # The main-view toggle adds a mode; existing overlay controls remain.
+    for old in ('id="inspect-upload-masks"', 'id="upload-mobilesam"'):
         assert old not in source
 
 

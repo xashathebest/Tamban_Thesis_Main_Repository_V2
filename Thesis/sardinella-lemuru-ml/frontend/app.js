@@ -26,6 +26,8 @@ const elements = {
   segmentationOptions: $("upload-segmentation-options"), segmentationExperiment: $("upload-mobilesam"), segmentationNote: $("upload-segmentation-note"), inspectMasks: $("inspect-upload-masks"),
   maskPreview: $("upload-mask-preview"), maskPreviewCanvas: $("upload-mask-canvas"), maskPreviewStatus: $("upload-mask-status"), maskPreviewShow: $("upload-mask-show"), maskPreviewModel1: $("upload-mask-model1"), maskPreviewModel2: $("upload-mask-model2"), maskPreviewOpacity: $("upload-mask-opacity"), maskPreviewOpacityValue: $("upload-mask-opacity-value"), maskPreviewFish: $("upload-mask-fish"), maskPreviewZoom: $("upload-mask-zoom"), maskPreviewCancel: $("upload-mask-cancel"), maskPreviewLegend: $("upload-mask-legend"),
   maskPreviewBoxes: $("upload-display-boxes"), maskPreviewMasks: $("upload-display-masks"), maskPreviewCracks: $("upload-mask-cracks"),
+  maskPreviewViewport: $("upload-mask-viewport"),
+  maskPreviewLoading: $("upload-mask-loading"),
   liveDisplayBoxes: $("live-display-boxes"), liveDisplayMasks: $("live-display-masks"),
   fishZoomModal: $("fish-zoom-modal"), fishZoomClose: $("fish-zoom-close"), fishZoomViewport: $("fish-zoom-viewport"), fishZoomCanvas: $("fish-zoom-canvas"), fishZoomTitle: $("fish-zoom-title"), fishZoomSubtitle: $("fish-zoom-subtitle"), fishZoomLevel: $("fish-zoom-level"), fishZoomDetails: $("fish-zoom-details"), fishZoomChoices: $("fish-zoom-choices"), fishZoomIn: $("fish-zoom-in"), fishZoomOut: $("fish-zoom-out"), fishZoomReset: $("fish-zoom-reset"), fishZoomOriginal: $("fish-zoom-original"), fishZoomAnnotations: $("fish-zoom-annotations"), fishZoomModel1: $("fish-zoom-model1"), fishZoomModel2: $("fish-zoom-model2"), fishZoomMask: $("fish-zoom-mask"), fishZoomCracks: $("fish-zoom-cracks"),
   kpiGrid: $("kpi-grid"), featureCounterGrid: $("feature-counter-grid"), threshold: $("threshold"), openConfidence: $("open-confidence-button"),
@@ -90,7 +92,7 @@ let uploadStartedAt = 0;
 let uploadPreviewUrl = null;
 let uploadFrameTimer = null;
 let uploadAnnotatedSource = null;
-const uploadMaskPreview = {data: null, image: null, file: null, version: 0, controller: null, inFlight: false, timer: null, startedAt: 0, analysisToken: null, analysisFile: null};
+const uploadMaskPreview = {data: null, image: null, file: null, version: 0, controller: null, inFlight: false, timer: null, startedAt: 0, analysisToken: null, analysisFile: null, mainMedia: null};
 const fishZoom = { image: null, detection: null, detections: [], source: "", crop: null, scale: 1, panX: 0, panY: 0, dragging: false, lastX: 0, lastY: 0, previousFocus: null, frameId: null, nativeWidth: null, nativeHeight: null };
 let fishZoomRequestVersion = 0;
 let exportInFlight = false;
@@ -713,7 +715,7 @@ function surfaceDamageRows(event) {
     ["Parent crop in original frame", Array.isArray(damage.crop_bounds) ? damage.crop_bounds.join(", ") : "Unavailable: parent crop was not recorded"],
     ["Mask source", damage.mask_source || "Unavailable: no foreground mask recorded"],
     ["Explanation", damage.reason || "Structural damage evidence was not recorded for this observation."],
-    ["Automatic grade effect", confirmed && structural.used_for_grading === true ? String(structural.contribution_reason || "Validated structural rule applied").replaceAll("_", " ") : "None; unvalidated candidates do not change grading"],
+    ["Automatic grade effect", confirmed && structural.used_for_grading === true ? String(structural.contribution_reason || "Validated structural rule applied").replaceAll("_", " ") : "None; supporting diagnostic evidence"],
   ];
 }
 function textureEvidenceRows(event) {
@@ -1261,6 +1263,7 @@ function appendResultCard(parent, event) {
       section.append(Object.assign(document.createElement("p"), {className: "muted", textContent: "Detection confidence, part confidence, weighted support and geometric points describe different evidence; support is not measured accuracy."}));
     }, expanded);
     lazyResultSection(body, "Geometry & Structural Evidence", `${key}:B`, (section) => {
+      section.append(Object.assign(document.createElement("p"), {className: "muted", textContent: "Unreliable measurements remain visible as diagnostics. Grade support is not measured accuracy; geometric support cannot bypass missing evidence."}));
       section.append(Object.assign(document.createElement("h4"), {textContent: "Body geometry"}));
       appendResultTable(section, ["Measurement / evidence", "Value"], geometryStructuralRows(event));
       section.append(Object.assign(document.createElement("h4"), {textContent: "Structural damage"}));
@@ -1291,7 +1294,7 @@ function appendResultCard(parent, event) {
       lazyResultSection(body, "Mask ownership and reliability", `${key}:G`, (section) => {
         appendResultTable(section, ["Segmentation evidence", "Recorded value"], segmentationEvidenceRows(event));
         const inspect = Object.assign(document.createElement("button"), {type: "button", className: "button quiet", textContent: "Highlight this fish"});
-        inspect.addEventListener("click", () => { if (elements.maskPreviewMasks) elements.maskPreviewMasks.checked = true; if (elements.maskPreviewBoxes) elements.maskPreviewBoxes.checked = false; selectInspectionFish(event.track_id ?? event.id ?? event.fish_id); });
+        inspect.addEventListener("click", () => { void setMainViewerMode("masks").then(() => selectInspectionFish(event.track_id ?? event.id ?? event.fish_id)); });
         inspect.disabled = event._inspection_source !== "upload" && resultsSource !== "upload";
         section.append(inspect);
       }, expanded);
@@ -1357,6 +1360,13 @@ function renderResultsDashboard(history, {source = "live", complete = false, met
       const more = document.createElement("button"); more.type = "button"; more.className = "button quiet result-load-more";
       const batch = () => { const end = Math.min(rendered + 50, groupRows.length); for (; rendered < end; rendered++) appendResultCard(cards, groupRows[rendered]); more.textContent = `Show next ${Math.min(50, groupRows.length - rendered)} fish (${rendered} / ${groupRows.length})`; more.hidden = rendered >= groupRows.length; };
       more.addEventListener("click", batch); group.append(cards, more); batch();
+    };
+    group.ensureFishCard = (identity) => {
+      group.open = true; populate();
+      const find = () => [...group.querySelectorAll("details[data-inspection-fish-id]")].find(card => card.dataset.inspectionFishId === String(identity));
+      let card = find(), more = group.querySelector(".result-load-more");
+      while (!card && more && !more.hidden) { more.click(); card = find(); }
+      return card;
     };
     group.addEventListener("toggle", populate); group.open = expanded.has(`group:${grade}`) || resultsFilter !== "All"; elements.resultsGroups.append(group); populate();
   });
@@ -2495,7 +2505,11 @@ function maskPreviewPolygons(context, polygons) {
 function renderMaskPreview() {
   const data = uploadMaskPreview.data, image = uploadMaskPreview.image;
   const source = maskPreviewSource(data);
-  if (!source || !image || uploadMaskPreview.file !== selectedUpload || !elements.maskPreviewCanvas) return;
+  if (!source || !image || uploadMaskPreview.file !== selectedUpload || !elements.maskPreviewCanvas) {
+    elements.maskPreviewViewport?.classList.add("hidden");
+    if (elements.maskPreviewMasks?.checked && elements.maskPreviewStatus) elements.maskPreviewStatus.textContent = "Fish masks are unavailable for this analysis. The original image and bounding-box results remain available.";
+    return;
+  }
   const canvas = elements.maskPreviewCanvas;
   const pixelScale = Math.min(1, 2048 / Math.max(source.width, source.height));
   canvas.width = Math.max(1, Math.round(source.width * pixelScale)); canvas.height = Math.max(1, Math.round(source.height * pixelScale));
@@ -2507,8 +2521,22 @@ function renderMaskPreview() {
   if (elements.maskPreviewOpacityValue) elements.maskPreviewOpacityValue.textContent = `${Math.round(opacity * 100)}%`;
   const selection = elements.maskPreviewFish?.value || "all";
   const entries = maskPreviewEntries(data).filter(item => selection === "all" || String(item.id) === selection);
-  const showMasks = elements.maskPreviewMasks ? elements.maskPreviewMasks.checked : elements.maskPreviewShow?.checked !== false;
-  const showBoxes = elements.maskPreviewBoxes ? elements.maskPreviewBoxes.checked : elements.maskPreviewModel1?.checked !== false;
+  const maskMode = elements.maskPreviewMasks ? elements.maskPreviewMasks.checked : true;
+  const showMasks = maskMode && elements.maskPreviewShow?.checked !== false;
+  const showBoxes = elements.maskPreviewBoxes?.checked === true || elements.maskPreviewModel1?.checked === true;
+  if (elements.maskPreviewViewport && elements.uploadImage && elements.uploadVideo) {
+    elements.uploadMediaStage?.classList.remove("hidden");
+    if (maskMode) {
+      if (!uploadMaskPreview.mainMedia) uploadMaskPreview.mainMedia = elements.uploadImage.classList.contains("hidden") ? "video" : "image";
+      elements.uploadImage.classList.add("hidden"); elements.uploadVideo.classList.add("hidden");
+      elements.maskPreviewViewport.classList.remove("hidden"); elements.uploadFishTargets?.classList.add("hidden");
+    } else {
+      elements.maskPreviewViewport.classList.add("hidden");
+      const original = uploadMaskPreview.mainMedia === "video" ? elements.uploadVideo : elements.uploadImage;
+      original.classList.remove("hidden"); elements.uploadFishTargets?.classList.remove("hidden");
+      if (typeof renderFishClickTargets === "function" && typeof resultDatasets !== "undefined") renderFishClickTargets("upload", resultDatasets.upload.rows);
+    }
+  }
   const line = Math.max(1.5, source.width / 750), font = Math.max(12, source.width / 75);
   for (const entry of entries) {
     context.save(); context.strokeStyle = entry.color; context.fillStyle = entry.color; context.lineWidth = line;
@@ -2561,25 +2589,132 @@ function rememberMaskPreviewAnalysis(analysis, file) {
   uploadMaskPreview.analysisToken = typeof analysis?.preview_analysis_token === "string" ? analysis.preview_analysis_token : null;
   uploadMaskPreview.analysisFile = file;
 }
+function setMaskViewBusy(busy) {
+  elements.maskPreview?.setAttribute("aria-busy", String(busy));
+  elements.uploadMediaStage?.setAttribute("aria-busy", String(busy));
+  if (busy) elements.maskPreviewLoading?.classList.remove("hidden");
+  else elements.maskPreviewLoading?.classList.add("hidden");
+}
+function restoreOriginalUploadView() {
+  elements.maskPreviewViewport?.classList.add("hidden");
+  elements.uploadMediaStage?.classList.remove("hidden");
+  const original = uploadMaskPreview.mainMedia === "video" || (!uploadMaskPreview.mainMedia && elements.uploadImage?.classList.contains?.("hidden") && elements.uploadVideo?.src) ? elements.uploadVideo : elements.uploadImage;
+  original?.classList.remove("hidden"); elements.uploadFishTargets?.classList.remove("hidden");
+  if (elements.maskPreviewBoxes) elements.maskPreviewBoxes.checked = true;
+  if (elements.maskPreviewMasks) elements.maskPreviewMasks.checked = false;
+}
+function stopMaskPreparationTimer() {
+  if (uploadMaskPreview.prepareTimer) clearInterval(uploadMaskPreview.prepareTimer);
+  uploadMaskPreview.prepareTimer = null;
+}
 async function acceptAutomaticMaskPreview(analysis, file) {
-  const data = analysis?.segmentation_preview;
-  if (!data || !maskPreviewSource(data) || typeof data.preview_image !== "string") return false;
+  if (file !== selectedUpload) return false;
+  uploadMaskPreview.analysis = analysis; uploadMaskPreview.analysisFile = file;
+  if (uploadMaskPreview.preparation && uploadMaskPreview.preparingFile === file) return uploadMaskPreview.preparation;
+  const version = uploadMaskPreview.version, started = performance.now();
+  const current = () => version === uploadMaskPreview.version && file === selectedUpload;
+  elements.maskPreview?.classList.remove("hidden"); setMaskViewBusy(true);
+  const tick = () => { if (current() && elements.maskPreviewStatus) elements.maskPreviewStatus.textContent = `Preparing fish-mask view… ${((performance.now() - started) / 1000).toFixed(1)}s`; };
+  tick(); stopMaskPreparationTimer(); uploadMaskPreview.prepareTimer = setInterval(tick, 100);
+  uploadMaskPreview.preparingFile = file;
+  const task = prepareRecordedMaskPreview(analysis, file);
+  uploadMaskPreview.preparation = task;
+  try { return await task; }
+  catch (error) {
+    if (current()) {
+      restoreOriginalUploadView();
+      if (elements.maskPreviewStatus) elements.maskPreviewStatus.textContent = `Mask view failed: ${error.message || error}. The original result is unchanged.`;
+    }
+    throw error;
+  } finally {
+    if (current()) { stopMaskPreparationTimer(); setMaskViewBusy(false); uploadMaskPreview.preparation = null; uploadMaskPreview.preparingFile = null; }
+  }
+}
+async function prepareRecordedMaskPreview(analysis, file) {
+  let data = analysis?.segmentation_preview;
+  let temporarySource = null;
+  if (!data && Array.isArray(analysis?.fish) && file === selectedUpload && !isVideoUpload(file)
+      ) {
+    const recorded = analysis.fish.filter(fish => fish?.analysis?.segmentation?.mask_overlay);
+    const overlay = recorded[0]?.analysis.segmentation.mask_overlay;
+    if (overlay && overlay.coordinate_space === "original_frame") {
+      const matching = recorded.filter(fish => {
+        const candidate = fish.analysis.segmentation.mask_overlay;
+        return String(candidate.frame_id) === String(overlay.frame_id)
+          && candidate.frame_width_px === overlay.frame_width_px && candidate.frame_height_px === overlay.frame_height_px;
+      });
+      const originalSource = typeof uploadPreviewUrl === "string" && uploadPreviewUrl ? uploadPreviewUrl : (temporarySource = URL.createObjectURL(file));
+      data = {status: "generated", preview_image: originalSource,
+        source: {frame_id: overlay.frame_id, frame_width_px: overlay.frame_width_px, frame_height_px: overlay.frame_height_px},
+        fish: matching.map(fish => ({id: fish.track_id ?? fish.id, bbox: fish.bbox, parts: fish.parts || [],
+          analysis: fish.analysis, segmentation: fish.analysis.segmentation})),
+        performance: {segmentation_ms: analysis.performance?.segmentation_processing_ms}};
+    }
+  }
+  if (!data || !maskPreviewSource(data) || typeof data.preview_image !== "string") {
+    if (temporarySource) URL.revokeObjectURL(temporarySource);
+    if (file === selectedUpload) {
+      elements.maskPreview?.classList.remove("hidden");
+      if (elements.maskPreviewStatus) elements.maskPreviewStatus.textContent = "Fish masks are unavailable for this analysis. Bounding Boxes displays the original result.";
+    }
+    return false;
+  }
   const version = uploadMaskPreview.version;
   const current = () => version === uploadMaskPreview.version && file === selectedUpload;
   const image = new Image();
-  await new Promise((resolve, reject) => { image.onload = resolve; image.onerror = () => reject(new Error("The analyzed source image could not be displayed.")); image.src = data.preview_image; });
+  try {
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error("The mask source image took too long to load. Switch back to Bounding Boxes and retry.")), 15000);
+      image.onload = () => { clearTimeout(timeout); resolve(); };
+      image.onerror = () => { clearTimeout(timeout); reject(new Error("The analyzed source image could not be displayed.")); };
+      image.src = data.preview_image;
+    });
+  } finally { if (temporarySource) URL.revokeObjectURL(temporarySource); }
   if (!current()) return false;
   const source = maskPreviewSource(data);
   if (!image.naturalWidth || !image.naturalHeight || Math.abs(image.naturalWidth / image.naturalHeight - source.width / source.height) > Math.max(1 / image.naturalHeight, 1 / source.height)) throw new Error("The mask source dimensions do not match the analyzed image.");
   Object.assign(uploadMaskPreview, {data, image, file});
   elements.maskPreview?.classList.remove("hidden");
-  elements.uploadMediaStage?.classList.add("hidden");
+  elements.uploadMediaStage?.classList.remove("hidden");
   const entries = maskPreviewEntries(data), masks = entries.filter(entry => entry.contours.length).length;
   maskPreviewLegend(entries); renderMaskPreview();
   const segmentationMs = data.performance?.segmentation_ms;
   const timing = typeof segmentationMs === "number" && Number.isFinite(segmentationMs) ? ` Segmentation ${(segmentationMs / 1000).toFixed(2)}s.` : "";
-  if (elements.maskPreviewStatus) elements.maskPreviewStatus.textContent = `${masks} candidate mask${masks === 1 ? "" : "s"}; ${entries.filter(entry => entry.review).length} require ownership review.${timing} ${masks ? "Switch between recorded boxes and masks without rerunning analysis." : data.message || "Masks unavailable; recorded boxes remain available."}`;
+  const snapshot = data.source?.type === "uploaded_video_snapshot" ? `Mask snapshot from ${data.source.frame_id}. ` : "";
+  if (elements.maskPreviewStatus) elements.maskPreviewStatus.textContent = `${snapshot}${masks} candidate mask${masks === 1 ? "" : "s"}; ${entries.filter(entry => entry.review).length} require ownership review.${timing} ${masks ? "Choose Fish Masks to show the shaded view in the main image without rerunning analysis." : data.message || "Masks unavailable; recorded boxes remain available."}`;
   return true;
+}
+async function setMainViewerMode(mode) {
+  if (elements.maskPreviewBoxes) elements.maskPreviewBoxes.checked = mode !== "masks";
+  if (elements.maskPreviewMasks) elements.maskPreviewMasks.checked = mode === "masks";
+  if (mode !== "masks") { restoreOriginalUploadView(); renderMaskPreview(); return; }
+  const file = selectedUpload, version = uploadMaskPreview.version;
+  try {
+    if (!(uploadMaskPreview.data && uploadMaskPreview.image && uploadMaskPreview.file === file)) {
+      if (uploadMaskPreview.analysisFile === file && uploadMaskPreview.analysis) {
+        await acceptAutomaticMaskPreview(uploadMaskPreview.analysis, file);
+      }
+      if (file !== selectedUpload || version !== uploadMaskPreview.version) return;
+      if (!uploadMaskPreview.data || !uploadMaskPreview.image) {
+        if (isVideoUpload(file)) throw new Error("No mask snapshot was recorded for this video. Its original analysis remains available.");
+        if (uploadInFlight) throw new Error("Analysis is still running. Its fish masks will appear when analysis completes.");
+        await inspectUploadMasks({viewMode: "masks"});
+        return;
+      }
+    }
+    if (file !== selectedUpload || !elements.maskPreviewMasks?.checked) return;
+    const entries = maskPreviewEntries(uploadMaskPreview.data), count = entries.filter(entry => entry.contours.length).length;
+    if (!count) throw new Error(uploadMaskPreview.data.message || "No usable fish masks were returned for this analysis.");
+    renderMaskPreview();
+    const hint = elements.maskPreviewShow?.checked === false ? " Mask visibility is off; enable it under Evidence overlays." : Number(elements.maskPreviewOpacity?.value) === 0 ? " Opacity is 0%; increase it to see the masks." : "";
+    if (elements.maskPreviewStatus) elements.maskPreviewStatus.textContent = `Showing ${count} cached candidate masks. No models or grading were rerun.${hint}`;
+  } catch (error) {
+    if (file === selectedUpload && version === uploadMaskPreview.version) {
+      setMaskViewBusy(false);
+      restoreOriginalUploadView();
+      if (elements.maskPreviewStatus) elements.maskPreviewStatus.textContent = `Mask view failed: ${error.message || error}`;
+    }
+  }
 }
 function selectInspectionFish(id, {revealCard = false} = {}) {
   const value = id == null ? "all" : String(id);
@@ -2591,6 +2726,17 @@ function selectInspectionFish(id, {revealCard = false} = {}) {
     resultsFilter = "All";
     renderResultsDashboard([], {source: "upload", renderOnly: true});
     cards = elements.resultsGroups?.querySelectorAll?.("details[data-inspection-fish-id]") || [];
+  }
+  if (revealCard && value !== "all" && ![...cards].some(card => card.dataset.inspectionFishId === value)
+      && typeof resultDatasets !== "undefined") {
+    const event = (resultDatasets.upload?.rows || []).find(row => String(row.track_id ?? row.id ?? row.fish_id ?? "") === value);
+    if (event) {
+      const grade = resultGrade(event);
+      for (const group of elements.resultsGroups?.querySelectorAll?.("details.result-grade-group") || []) {
+        if (group.dataset.grade === grade) group.ensureFishCard?.(value);
+      }
+      cards = elements.resultsGroups?.querySelectorAll?.("details[data-inspection-fish-id]") || [];
+    }
   }
   for (const card of cards) {
     const selected = value !== "all" && card.dataset.inspectionFishId === value;
@@ -2627,8 +2773,17 @@ function stopMaskPreviewTimer() {
   uploadMaskPreview.timer = null;
 }
 function clearMaskPreview() {
+  const previousMainMedia = uploadMaskPreview.mainMedia;
   uploadMaskPreview.version += 1; uploadMaskPreview.controller?.abort(); stopMaskPreviewTimer();
-  Object.assign(uploadMaskPreview, {data: null, image: null, file: null, controller: null, inFlight: false, startedAt: 0, analysisToken: null, analysisFile: null});
+  stopMaskPreparationTimer(); setMaskViewBusy(false);
+  Object.assign(uploadMaskPreview, {data: null, image: null, file: null, controller: null, inFlight: false, startedAt: 0, analysisToken: null, analysisFile: null, mainMedia: null});
+  Object.assign(uploadMaskPreview, {analysis: null, preparation: null, preparingFile: null});
+  elements.maskPreviewViewport?.classList.add("hidden");
+  elements.uploadFishTargets?.classList.remove("hidden");
+  if (previousMainMedia === "image") elements.uploadImage?.classList.remove("hidden");
+  if (previousMainMedia === "video") elements.uploadVideo?.classList.remove("hidden");
+  if (elements.maskPreviewBoxes) elements.maskPreviewBoxes.checked = true;
+  if (elements.maskPreviewMasks) elements.maskPreviewMasks.checked = false;
   if (elements.maskPreview) { elements.maskPreview.classList.add("hidden"); elements.maskPreview.setAttribute("aria-busy", "false"); }
   if (elements.maskPreviewCanvas) { elements.maskPreviewCanvas.width = 0; elements.maskPreviewCanvas.height = 0; }
   if (elements.maskPreviewStatus) elements.maskPreviewStatus.textContent = "";
@@ -2640,7 +2795,9 @@ function clearMaskPreview() {
 function cancelMaskPreview() {
   if (!uploadMaskPreview.inFlight) return;
   const seconds = (performance.now() - uploadMaskPreview.startedAt) / 1000;
+  const saved = {analysis: uploadMaskPreview.analysis, analysisToken: uploadMaskPreview.analysisToken, analysisFile: uploadMaskPreview.analysisFile};
   clearMaskPreview();
+  if (saved.analysisFile === selectedUpload) Object.assign(uploadMaskPreview, saved);
   elements.maskPreview?.classList.remove("hidden");
   if (elements.maskPreviewStatus) elements.maskPreviewStatus.textContent = `Mask request canceled after ${seconds.toFixed(1)}s. No masks were applied.`;
   updateUploadControls();
@@ -2656,18 +2813,25 @@ function maskPreviewLegend(entries) {
     item.append(swatch, label); elements.maskPreviewLegend?.append(item);
   }
 }
-async function inspectUploadMasks() {
+async function inspectUploadMasks({viewMode = null} = {}) {
   if (!selectedUpload || isVideoUpload(selectedUpload) || uploadInFlight || uploadMaskPreview.inFlight) return;
   const file = selectedUpload, analysisToken = uploadMaskPreview.analysisFile === file ? uploadMaskPreview.analysisToken : null;
+  const recordedAnalysis = uploadMaskPreview.analysisFile === file ? uploadMaskPreview.analysis : null;
   clearMaskPreview();
+  if (viewMode === "masks") { if (elements.maskPreviewMasks) elements.maskPreviewMasks.checked = true; if (elements.maskPreviewBoxes) elements.maskPreviewBoxes.checked = false; }
   const version = uploadMaskPreview.version;
   uploadMaskPreview.file = file; uploadMaskPreview.inFlight = true; uploadMaskPreview.startedAt = performance.now();
+  Object.assign(uploadMaskPreview, {analysis: recordedAnalysis, analysisToken, analysisFile: file});
   uploadMaskPreview.controller = new AbortController();
   elements.maskPreview?.classList.remove("hidden"); elements.maskPreview?.setAttribute("aria-busy", "true");
+  setMaskViewBusy(true);
   elements.maskPreviewCancel?.classList.remove("hidden");
   const current = () => version === uploadMaskPreview.version && file === selectedUpload;
   const tick = () => { if (current() && elements.maskPreviewStatus) elements.maskPreviewStatus.textContent = `Loading MobileSAM and generating fish masks… ${((performance.now() - uploadMaskPreview.startedAt) / 1000).toFixed(1)}s`; };
   tick(); uploadMaskPreview.timer = setInterval(tick, 100); updateUploadControls();
+  let timedOut = false;
+  const requestController = uploadMaskPreview.controller;
+  const requestTimeout = setTimeout(() => { timedOut = true; requestController.abort(); }, 120000);
   try {
     const response = await fetch("/api/segmentation/preview", {method: "POST", headers: {"Content-Type": file.type || "application/octet-stream", "X-Filename": file.name, ...(analysisToken ? {"X-Preview-Analysis-Token": analysisToken} : {})}, body: file, signal: uploadMaskPreview.controller.signal});
     const data = await response.json().catch(() => ({}));
@@ -2681,7 +2845,12 @@ async function inspectUploadMasks() {
     }
     if (typeof data.preview_image !== "string" || !data.preview_image.startsWith("data:image/")) throw new Error("Matching original-image preview unavailable; masks withheld.");
     const image = new Image();
-    await new Promise((resolve, reject) => { image.onload = resolve; image.onerror = () => reject(new Error("The original-image mask preview could not be decoded.")); image.src = data.preview_image; });
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error("The returned mask image took too long to load.")), 15000);
+      image.onload = () => { clearTimeout(timeout); resolve(); };
+      image.onerror = () => { clearTimeout(timeout); reject(new Error("The original-image mask preview could not be decoded.")); };
+      image.src = data.preview_image;
+    });
     if (!current()) return;
     const ratio = image.naturalWidth / image.naturalHeight, expected = source.width / source.height;
     if (!Number.isFinite(ratio) || Math.abs(ratio / expected - 1) > .015) throw new Error("Original-image preview dimensions disagree with mask coordinates; masks withheld.");
@@ -2695,12 +2864,15 @@ async function inspectUploadMasks() {
   } catch (error) {
     if (!current()) return;
     uploadMaskPreview.data = null; uploadMaskPreview.image = null;
+    restoreOriginalUploadView();
     if (elements.maskPreviewCanvas) { elements.maskPreviewCanvas.width = 0; elements.maskPreviewCanvas.height = 0; }
     const elapsed = (performance.now() - uploadMaskPreview.startedAt) / 1000;
-    elements.maskPreviewStatus.textContent = `${error?.name === "AbortError" ? "Mask request canceled" : error instanceof Error ? error.message : "Segmentation failed"} (${elapsed.toFixed(1)}s). No masks were applied.`;
+    elements.maskPreviewStatus.textContent = `${timedOut ? "Mask generation timed out after 120 seconds. Check backend availability and retry." : error?.name === "AbortError" ? "Mask request canceled" : error instanceof Error ? error.message : "Segmentation failed"} (${elapsed.toFixed(1)}s). No masks were applied.`;
   } finally {
+    clearTimeout(requestTimeout);
     if (!current()) return;
     uploadMaskPreview.inFlight = false; uploadMaskPreview.controller = null; stopMaskPreviewTimer();
+    setMaskViewBusy(false);
     elements.maskPreview?.setAttribute("aria-busy", "false"); elements.maskPreviewCancel?.classList.add("hidden"); updateUploadControls();
   }
 }
@@ -2874,7 +3046,9 @@ elements.uploadMode.addEventListener("click", () => toggleUpload(elements.upload
 elements.inspectMasks?.addEventListener("click", () => {
   void inspectUploadMasks();
 });
-for (const control of [elements.maskPreviewShow, elements.maskPreviewModel1, elements.maskPreviewBoxes, elements.maskPreviewMasks, elements.maskPreviewModel2, elements.maskPreviewCracks, elements.maskPreviewOpacity, elements.maskPreviewZoom]) control?.addEventListener("input", renderMaskPreview);
+for (const control of [elements.maskPreviewShow, elements.maskPreviewModel1, elements.maskPreviewModel2, elements.maskPreviewCracks, elements.maskPreviewOpacity, elements.maskPreviewZoom]) control?.addEventListener("input", renderMaskPreview);
+elements.maskPreviewBoxes?.addEventListener("change", () => { if (elements.maskPreviewBoxes.checked) void setMainViewerMode("boxes"); });
+elements.maskPreviewMasks?.addEventListener("change", () => { if (elements.maskPreviewMasks.checked) void setMainViewerMode("masks"); });
 elements.maskPreviewFish?.addEventListener("input", () => selectInspectionFish(elements.maskPreviewFish.value, {revealCard: true}));
 elements.maskPreviewCanvas?.addEventListener("click", selectMaskPreviewPoint);
 elements.maskPreviewCancel?.addEventListener("click", cancelMaskPreview);

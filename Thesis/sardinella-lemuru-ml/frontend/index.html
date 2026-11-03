@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#FFFFFF">
     <title>Tamban Quality Inspection System | Live Inspection</title>
-    <link rel="stylesheet" href="/assets/styles.css?v=bodyanalysis2">
+    <link rel="stylesheet" href="/assets/styles.css?v=mask-view-loading-20261103">
   </head>
   <body>
     <svg class="icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -233,7 +233,7 @@
                   <fieldset class="inspection-display-mode" aria-label="Live inspection visualization mode">
                     <legend class="visually-hidden">Live display</legend>
                     <label><input id="live-display-boxes" type="radio" name="live-display-mode" value="boxes" checked><span>Bounding Boxes</span></label>
-                    <label><input id="live-display-masks" type="radio" name="live-display-mode" value="masks"><span>Fish Masks</span></label>
+                    <label title="Show colored fish-mask samples"><input id="live-display-masks" type="radio" name="live-display-mode" value="masks"><span class="mask-mode-colors" aria-hidden="true"></span><span>Colored Fish Masks</span></label>
                   </fieldset>
                   <p class="muted">Adaptive mask samples are labeled when unavailable; changing the display does not regrade fish.</p>
                 </div>
@@ -388,21 +388,20 @@
               </div>
               <p class="muted" id="upload-segmentation-note">Analysis automatically generates fish-mask candidates. Only independently validated measurements and configured grading rules may change a grade.</p>
                 <section id="upload-mask-preview" class="mask-preview hidden" aria-label="Fish inspection visualization" aria-busy="false">
-                  <p id="upload-mask-status" class="mask-preview-status" role="status" aria-live="polite" aria-atomic="true"></p>
+                  <div class="mask-view-status-line"><span id="upload-mask-loading" class="mask-view-spinner hidden" aria-hidden="true"></span><p id="upload-mask-status" class="mask-preview-status" role="status" aria-live="polite" aria-atomic="true"></p><button id="upload-mask-cancel" class="button quiet hidden" type="button">Cancel</button></div>
                   <div class="mask-preview-controls">
                     <fieldset class="inspection-display-mode" aria-label="Inspection visualization mode">
                       <legend class="visually-hidden">Display</legend>
                       <label><input id="upload-display-boxes" type="radio" name="upload-display-mode" value="boxes" checked><span>Bounding Boxes</span></label>
-                      <label><input id="upload-display-masks" type="radio" name="upload-display-mode" value="masks"><span>Fish Masks</span></label>
+                      <label title="Show the colored fish silhouettes from this analysis"><input id="upload-display-masks" type="radio" name="upload-display-mode" value="masks"><span class="mask-mode-colors" aria-hidden="true"></span><span>Fish Masks</span></label>
                     </fieldset>
                     <label class="mask-opacity-control">Opacity <input id="upload-mask-opacity" type="range" min="0" max="80" value="40" step="5"><output id="upload-mask-opacity-value" for="upload-mask-opacity">40%</output></label>
                     <label>Highlight <select id="upload-mask-fish" aria-label="Highlight fish mask"><option value="all">All fish</option></select></label>
                     <label>Zoom <select id="upload-mask-zoom" aria-label="Mask preview zoom"><option value="1">Fit image</option><option value="1.5">150%</option><option value="2">200%</option><option value="3">300%</option></select></label>
-                    <details class="inspection-overlay-options"><summary>Evidence overlays</summary><label><input id="upload-mask-model2" type="checkbox"> Assigned parts</label><label><input id="upload-mask-cracks" type="checkbox"> Structural candidates</label></details>
+                    <details class="inspection-overlay-options"><summary>Evidence overlays</summary><label><input id="upload-mask-show" type="checkbox" checked> Fish masks visibility</label><label><input id="upload-mask-model1" type="checkbox" checked> Model 1 boxes</label><label><input id="upload-mask-model2" type="checkbox"> Assigned Model 2 parts</label><label><input id="upload-mask-cracks" type="checkbox"> Structural candidates</label></details>
                   </div>
-                  <div class="mask-preview-viewport"><canvas id="upload-mask-canvas" aria-label="Original photo with experimental fish silhouettes"></canvas></div>
                   <details class="inspection-reliability"><summary>Mask reliability and ownership</summary><ul id="upload-mask-legend" class="mask-preview-legend" aria-label="Fish mask reliability"></ul></details>
-                  <p class="muted">Switching the display reuses this completed analysis. Dashed boundaries identify masks requiring review. Feature contributions and eligibility rules are explained inside each fish card.</p>
+                  <p class="muted">Fish Masks shows the shaded fish in the main image below. Switching the view or opacity reuses this completed analysis. Dashed boundaries identify masks requiring review. All overlay settings remain available.</p>
                 </section>
               <div class="upload-analysis-progress hidden" id="upload-analysis-progress" role="status" aria-live="polite" aria-label="Media analysis in progress">
                 <div class="upload-progress-track" aria-hidden="true"><i></i></div>
@@ -410,6 +409,7 @@
               <div class="fish-media-stage upload-media-stage" id="upload-media-stage">
                 <img id="upload-result-image" class="upload-image hidden" alt="Selected or annotated fish photo">
                 <video id="upload-result-video" class="upload-image upload-video hidden" controls muted playsinline></video>
+                <div id="upload-mask-viewport" class="mask-preview-viewport hidden"><canvas id="upload-mask-canvas" aria-label="Original photo with experimental fish silhouettes"></canvas></div>
                 <div class="fish-click-targets" id="upload-fish-targets" aria-label="Detected fish"></div>
               </div>
               <div class="upload-results hidden" id="upload-results"></div>
@@ -1134,6 +1134,6 @@
         </div>
       </div>
     </section>
-    <script src="/assets/app.js?v=mobilesam1" defer></script>
+    <script src="/assets/app.js?v=mask-view-loading-20261103" defer></script>
   </body>
 </html>

@@ -53,7 +53,7 @@ class Element {
 global.document={createElement:()=>new Element()};global.draws=[];
 const context={setTransform:(...args)=>draws.push(["transform",...args]),drawImage:(...args)=>draws.push(["image",...args.slice(1)]),save(){},restore(){},beginPath(){},closePath(){},moveTo:(...args)=>draws.push(["point",...args]),lineTo(){},fill:()=>draws.push(["fill"]),stroke(){},setLineDash(){},strokeRect:(...args)=>draws.push(["box",...args]),fillRect(){},measureText:text=>({width:text.length*8}),fillText:(text)=>draws.push(["text",text])};
 global.elements={};
-for(const key of ["maskPreview","maskPreviewCanvas","maskPreviewStatus","maskPreviewShow","maskPreviewModel1","maskPreviewModel2","maskPreviewOpacity","maskPreviewOpacityValue","maskPreviewFish","maskPreviewZoom","maskPreviewCancel","maskPreviewLegend"])elements[key]=new Element();
+for(const key of ["maskPreview","maskPreviewCanvas","maskPreviewStatus","maskPreviewLoading","maskPreviewShow","maskPreviewModel1","maskPreviewModel2","maskPreviewOpacity","maskPreviewOpacityValue","maskPreviewFish","maskPreviewZoom","maskPreviewCancel","maskPreviewLegend"])elements[key]=new Element();
 elements.maskPreviewCanvas.getContext=()=>context;elements.maskPreviewOpacity.value="40";elements.maskPreviewFish.value="all";elements.maskPreviewZoom.value="1";elements.maskPreviewModel2.checked=false;
 global.selectedUpload={name:"actual-fish.jpg",type:"image/jpeg"};global.uploadInFlight=false;
 global.uploadMaskPreview={data:null,image:null,file:null,version:0,controller:null,inFlight:false,timer:null,startedAt:0,analysisToken:"existing-analysis",analysisFile:selectedUpload};
@@ -61,7 +61,7 @@ global.controlsUpdated=0;global.updateUploadControls=()=>controlsUpdated++;
 global.isVideoUpload=file=>Boolean(file?.type.startsWith("video/"));
 global.setInterval=()=>1;global.clearInterval=()=>{};
 global.Image=class{constructor(){this.naturalWidth=250;this.naturalHeight=150;}set src(value){queueMicrotask(()=>this.onload());}};
-for(const name of ["maskPreviewPolygons","renderMaskPreview","rememberMaskPreviewAnalysis","stopMaskPreviewTimer","clearMaskPreview","cancelMaskPreview","maskPreviewLegend","inspectUploadMasks"])include(name);
+for(const name of ["maskPreviewPolygons","renderMaskPreview","rememberMaskPreviewAnalysis","setMaskViewBusy","restoreOriginalUploadView","stopMaskPreparationTimer","prepareRecordedMaskPreview","stopMaskPreviewTimer","clearMaskPreview","cancelMaskPreview","maskPreviewLegend","inspectUploadMasks"])include(name);
 '''
 
 

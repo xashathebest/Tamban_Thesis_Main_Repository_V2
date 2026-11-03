@@ -206,6 +206,7 @@ def normalize_inspection_result(
     saved_width = _mapping(analysis.get("body_width"))
     saved_geometry = _mapping(analysis.get("geometric_support"))
     complete_geometry = "original_grade" in saved_geometry and "final_grade" in saved_geometry
+    recorded_fusion = _mapping(analysis.get("feature_fusion")).get("schema_version") == "feature_fusion_v1"
     body = max((part for part in original_parts if part.region == "Body"), key=lambda item: item.confidence, default=None)
     inconsistent = bool(body is not None and (saved_width.get("measurement_status") == "Missing Detection" or saved_width.get("body_width_px") is None))
     needs_width = not saved_width or inconsistent or not _mapping(saved_width.get("threshold_configuration"))
@@ -286,7 +287,7 @@ def normalize_inspection_result(
                 width["reliability_reasons"] = list(dict.fromkeys([*width.get("reliability_reasons", []), "roi_proxy_calibration_not_validated"]))
     width.setdefault("relative_width_proxy_source", "detector_bounding_boxes")
     analysis["body_width"] = width
-    if not complete_geometry or needs_width:
+    if not complete_geometry or (needs_width and not recorded_fusion):
         decision = _recorded_decision(result, analysis)
         final, width, geometry = integrate_geometric_support(decision, width, config, _policy(analysis), part_scores=_scores(analysis))
         if not isinstance(analysis.get("weighted_scores"), Mapping):

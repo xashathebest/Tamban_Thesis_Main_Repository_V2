@@ -760,7 +760,7 @@ class YoloQualityModel:
             "observation_frame_id": frame_id, "parent_track_id": track_id,
             "crop_bounds": list(bounds) if bounds is not None else None,
             "coordinate_space": "crop_local_native_pixels" if bounds is not None else "unverified_crop",
-            "scope": "current_parent_crop", "measurement_validated": False,
+            "scope": "current_parent_crop", "measurement_validated": feature_mask_metadata.get("measurement_validated") is True,
             "mask_validated_for_cracks": False,
         }
         if mask_context is not None and measurement_frame is not None and mask_context.is_for_frame(measurement_frame):
@@ -927,6 +927,8 @@ class YoloQualityModel:
         parent_bbox: tuple[float, float, float, float] | None = None,
         frame_shape: tuple[int, ...] | None = None,
         error: str | None = None,
+        measurement_frame: np.ndarray | None = None,
+        mask_context: RuntimeMaskContext | None = None,
     ) -> FishQualityObservation:
         """Record an explicit abstention when the local Model 2 is unavailable.
 
@@ -949,6 +951,7 @@ class YoloQualityModel:
                 frame_shape=frame_shape,
                 inference_metadata={"mode": self.quality_inference_mode, "roi_padding": self.roi_padding, "model2_status": "unavailable"},
                 model2_available=False,
+                measurement_frame=measurement_frame, mask_context=mask_context,
             )
         except Exception as exc:
             raise YoloQualityModelInferenceError(f"Could not record Model 2 unavailability: {exc}") from exc
@@ -1030,8 +1033,10 @@ class YoloQualityModel:
             source_context = ({"source_id": source_context} if isinstance(source_context, str) else dict(source_context or {}))
             source_context.update(frame_pixels_sha256=hashlib.sha256(memoryview(np.ascontiguousarray(frame))).hexdigest(),
                                   frame_width_px=frame.shape[1], frame_height_px=frame.shape[0])
-            from src.inference.reviewed_features import load_reviewed_instances
+            from src.inference.reviewed_features import load_reviewed_instances, refine_reviewed_associations
             reviewed, review_status = load_reviewed_instances(frame, parents, source_context)
+            if reviewed:
+                associations = refine_reviewed_associations(associations, reviewed, frame.shape)
             trusted_parts = [{"mask": row["body_mask"], "parent_track_id": identity, "region": "Body",
                               "orientation_reliable": row.get("orientation_reliable") is True,
                               "ownership_validated": True, "mask_validated": True,
@@ -1077,7 +1082,13 @@ class YoloQualityModel:
                         "source_context": source_context,
                     },
                 }
-                structural = reviewed.get(parent.track_id, {}).get("structural_evidence")
+                reviewed_checks = getattr(getattr(mask_context, "_experimental", None), "reviewed_ownership", {}).get(parent.track_id, {})
+                reviewed_usable = parent.track_id in reviewed and reviewed_checks.get("engineering_checks_passed") is True
+                if parent.track_id in reviewed and not reviewed_usable:
+                    quality_payload["association_ambiguous"] = True
+                    quality_payload["reviewed_feature_artifacts"] = {**review_status,
+                        "parent_review_status": "withheld", "reasons": reviewed_checks.get("reasons", [])}
+                structural = reviewed.get(parent.track_id, {}).get("structural_evidence") if reviewed_usable else None
                 if isinstance(structural, Mapping):
                     structural = deepcopy(dict(structural))
                     structural.update(review_frame_id=structural.get("frame_id"), frame_id=frame_id)

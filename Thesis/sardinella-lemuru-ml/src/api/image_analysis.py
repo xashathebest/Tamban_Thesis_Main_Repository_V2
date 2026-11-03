@@ -393,6 +393,7 @@ class StillImageAnalyzer:
                         detection_confidence=detection.confidence,
                         parent_bbox=bounded,
                         frame_shape=frame.shape,
+                        measurement_frame=frame, mask_context=mask_context,
                     )
                 elif self.quality_model.quality_inference_mode == "full_frame":
                     quality_result, crop_bounds = full_frame_results[index]
