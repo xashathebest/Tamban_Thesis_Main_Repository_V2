@@ -33,6 +33,10 @@ When an automatic mode is enabled, its measured numeric exposure/gain or white
 balance values are observations and are not replayed as manual settings.
 
 Choose the camera before starting the backend, then restart it after a change.
+The live view and the Camera Calibration drawer both list the responsive device
+indexes and switch the shared capture, restarting the worker on the selected
+device. The camera you select last is remembered and used as the startup default
+until `LEMURU_CAMERA_INDEX` overrides it.
 In the currently observed Windows device order, index `0` is HP True Vision,
 index `1` is Logitech C270, and index `2` is OBS Virtual Camera. Device order can
 change after reconnection. From the project directory in PowerShell:

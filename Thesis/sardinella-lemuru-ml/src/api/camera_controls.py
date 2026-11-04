@@ -765,6 +765,17 @@ class CameraHardwareController:
             LOGGER.warning("[CAMERA] Could not read inspection profile %s: %s", self.profile_path, exc)
             return {}
 
+    def select_camera_index(self, device_index: int) -> None:
+        """Point the next capture at another device index.
+
+        The calibration profile keeps the index it was saved on, so a different
+        camera still receives automatic defaults instead of another device's
+        saved settings.
+        """
+
+        with self.lock:
+            self.camera_index = device_index
+
     def save_camera_profile(
         self,
         reference: dict[str, object] | None = None,

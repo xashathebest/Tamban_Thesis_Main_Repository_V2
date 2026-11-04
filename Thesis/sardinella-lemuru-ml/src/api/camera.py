@@ -395,11 +395,82 @@ class CameraInspectionService:
             "image_statistics": statistics,
             "pending_reference_scenes": pending_reference_scenes,
             "configured_camera_index": self.camera_index,
-            "configured_camera_note": "Camera index is selected at backend startup; set LEMURU_CAMERA_INDEX and restart to change it.",
+            "configured_camera_note": "The camera index can be changed at runtime; the last selection is remembered as the default for the next start, and LEMURU_CAMERA_INDEX overrides it.",
             "open_attempts": open_attempts,
             "condition_warning": warnings[0] if warnings else None,
             "condition_warnings": warnings,
             "profile": profile,
+        }
+
+    @staticmethod
+    def _camera_scan_limit() -> int:
+        """Bound device probing so a missing driver cannot stall the request."""
+
+        try:
+            value = int(os.getenv("LEMURU_CAMERA_SCAN_LIMIT", "6"))
+        except (TypeError, ValueError):
+            value = 6
+        return max(1, min(value, 12))
+
+    def validate_camera_index(self, device_index: object) -> int:
+        """Accept only an integer index inside the bounded scan range."""
+
+        if isinstance(device_index, bool) or not isinstance(device_index, int):
+            raise CameraControlError("Camera device index must be an integer.")
+        limit = self._camera_scan_limit()
+        if not 0 <= device_index < limit:
+            raise CameraControlError(f"Camera device index must be between 0 and {limit - 1}.")
+        return device_index
+
+    def set_camera_index(self, device_index: int) -> None:
+        """Select the device index the next camera worker opens."""
+
+        self.camera_index = device_index
+        self.camera_controls.select_camera_index(device_index)
+
+    def camera_devices(self, cv2: Any | None = None) -> dict[str, object]:
+        """Probe a bounded index range so an operator can select a camera.
+
+        OpenCV exposes indexes, not physical device names, so availability is
+        reported per index. The active device is reported without reopening it,
+        and every other probed handle is released immediately.
+        """
+
+        backend_module = cv2
+        if backend_module is None:
+            import cv2 as backend_module  # type: ignore[no-redef]
+        candidates = self._capture_backend_candidates(backend_module)
+        preferred = self._requested_capture_backend() or self._saved_preferred_backend()
+        if preferred is not None:
+            candidates.sort(key=lambda candidate: 0 if candidate[2] == preferred else 1)
+        _, backend, _ = candidates[0]
+        limit = self._camera_scan_limit()
+        active_index = self.camera_index if self.has_live_worker() else None
+        devices: list[dict[str, object]] = []
+        for index in range(limit):
+            if index == active_index:
+                devices.append({"index": index, "name": f"Camera #{index}", "available": True, "active": True})
+                continue
+            capture = None
+            try:
+                capture = backend_module.VideoCapture(index, backend) if backend is not None else backend_module.VideoCapture(index)
+                available = bool(capture.isOpened())
+            except Exception as exc:
+                LOGGER.info("[CAMERA] Probe of camera index %s failed: %s", index, exc)
+                available = False
+            finally:
+                if capture is not None:
+                    try:
+                        capture.release()
+                    except Exception:
+                        pass
+            devices.append({"index": index, "name": f"Camera #{index}", "available": available, "active": False})
+        return {
+            "devices": devices,
+            "configured_camera_index": self.camera_index,
+            "scan_limit": limit,
+            "active": active_index is not None,
+            "note": "OpenCV reports device indexes, not brand names. Compare the live preview to identify the EMEET webcam.",
         }
 
     def set_runtime_diagnostics(self, updates: Mapping[str, object]) -> dict[str, object]:

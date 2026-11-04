@@ -41,6 +41,14 @@ class CameraCalibrationUiTests(unittest.TestCase):
         ):
             self.assertIn(f"{field}:", script)
 
+    def test_camera_device_selector_is_present_and_wired(self) -> None:
+        markup = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+        for identifier in ("camera-device-select", "camera-device-refresh-button", "camera-device-note"):
+            self.assertIn(f'id="{identifier}"', markup)
+        script = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+        self.assertIn('fetch("/api/camera/devices")', script)
+        self.assertIn('cameraRequest("/api/camera/select", { device_index: index })', script)
+
 
 if __name__ == "__main__":
     unittest.main()

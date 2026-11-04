@@ -16,7 +16,7 @@ const elements = {
   pageTitle: $("page-title"), pageSubtitle: $("page-subtitle"),
   cameraPill: $("camera-pill"), modelPill: $("model-pill"), devicePill: $("device-pill"), liveModelSelector: $("live-model-selector"),
   alert: $("alert"), alertTitle: $("alert-title"), alertCopy: $("alert-copy"), alertDetails: $("alert-details"),
-  liveBadge: $("live-badge"), inspectionState: $("inspection-state"), webcam: $("webcam-button"), start: $("start-button"), emptyStart: $("empty-start-button"), reset: $("reset-button"),
+  liveBadge: $("live-badge"), inspectionState: $("inspection-state"), webcam: $("webcam-button"), liveCameraSelect: $("live-camera-select"), start: $("start-button"), emptyStart: $("empty-start-button"), reset: $("reset-button"),
   video: $("video-feed"), placeholder: $("video-placeholder"), placeholderTitle: $("placeholder-title"), placeholderCopy: $("placeholder-copy"), liveMediaStage: $("live-media-stage"), liveFishTargets: $("live-fish-targets"),
   feedFps: $("feed-fps"), feedResolution: $("feed-resolution"), previewMode: $("preview-mode-button"), previewDescription: $("preview-mode-description"),
   resultEmpty: $("result-empty"), resultActive: $("result-active"), resultEmptyTitle: $("result-empty-title"), resultEmptyCopy: $("result-empty-copy"),
@@ -45,6 +45,7 @@ const elements = {
   cameraDeviceName: $("camera-device-name"), cameraConnection: $("camera-connection"), cameraLockBadge: $("camera-lock-badge"), cameraCaptureResolution: $("camera-capture-resolution"), cameraProcessingResolution: $("camera-processing-resolution"), cameraHardwareFps: $("camera-hardware-fps"), cameraBackend: $("camera-backend"), cameraProfileName: $("camera-profile-name"), cameraLockState: $("camera-lock-state"),
   calibrationMode: $("calibration-mode-toggle"), cameraControlNote: $("camera-control-note"), cameraControlList: $("camera-control-list"), imageStatistics: $("image-statistics-section"), statFrameBrightness: $("stat-frame-brightness"), statFishBrightness: $("stat-fish-brightness"), statBackgroundBrightness: $("stat-background-brightness"), statContrast: $("stat-contrast"), cameraConditionWarning: $("camera-condition-warning"),
   cameraReset: $("camera-reset-button"), cameraLoadProfile: $("camera-load-profile-button"), cameraSaveProfile: $("camera-save-profile-button"), cameraLock: $("camera-lock-button"), cameraCalibrationMessage: $("camera-calibration-message"),
+  cameraDeviceSelect: $("camera-device-select"), cameraDeviceRefresh: $("camera-device-refresh-button"), cameraDeviceNote: $("camera-device-note"),
   cameraProfileConfirmation: $("camera-profile-confirmation"), cameraRecordEmptyReference: $("camera-record-empty-reference-button"), cameraRecordFishReference: $("camera-record-fish-reference-button"), cameraOperatorName: $("camera-operator-name"), cameraInstallationDeviceIdentity: $("camera-install-device-identity"), cameraInstallationHeight: $("camera-install-camera-height"), cameraInstallationAngle: $("camera-install-camera-angle"), cameraInstallationConveyor: $("camera-install-conveyor-position"), cameraInstallationLighting: $("camera-install-lighting-position"), cameraConfirmProfile: $("camera-confirm-profile-button"),
   slider: $("confidence-slider"), settingsThreshold: $("settings-threshold"), confidenceMinus: $("confidence-minus"), confidencePlus: $("confidence-plus"), resetConfidence: $("reset-confidence-button"),
   qualitySlider: $("quality-confidence-slider"), settingsQualityThreshold: $("settings-quality-threshold"), qualityConfidenceMinus: $("quality-confidence-minus"), qualityConfidencePlus: $("quality-confidence-plus"), resetQualityConfidence: $("reset-quality-confidence-button"),
@@ -2444,6 +2445,66 @@ async function loadCameraCalibration() {
     const response = await fetch("/api/camera/settings"); const data = await response.json(); if (!response.ok) throw new Error(data.detail || "Camera settings unavailable.");
     renderCameraCalibration(data);
   } catch (error) { setCameraCalibrationMessage(error instanceof Error ? error.message : "Camera settings unavailable.", true); }
+  void loadCameraDevices();
+}
+
+function renderCameraDevices(data) {
+  const devices = Array.isArray(data?.devices) ? data.devices : [];
+  const configured = finiteNumber(data?.configured_camera_index);
+  const targets = [elements.cameraDeviceSelect, elements.liveCameraSelect].filter(Boolean);
+  const usable = devices.filter((device) => device?.active || device?.available).length;
+  targets.forEach((select) => {
+    select.replaceChildren();
+    if (!devices.length) {
+      const option = document.createElement("option"); option.value = ""; option.textContent = "No camera indexes responded"; select.append(option);
+      select.disabled = true; return;
+    }
+    devices.forEach((device) => {
+      const index = finiteNumber(device?.index);
+      if (index == null) return;
+      const option = document.createElement("option"); option.value = String(index);
+      const state = device?.active ? "active" : device?.available ? "available" : "unavailable";
+      option.textContent = `Camera #${index} (${state})`;
+      option.disabled = !device?.active && device?.available === false;
+      select.append(option);
+    });
+    select.disabled = false;
+    if (configured != null) {
+      if (![...select.options].some((option) => option.value === String(configured))) {
+        const option = document.createElement("option"); option.value = String(configured); option.textContent = `Camera #${configured} (active)`; select.prepend(option);
+      }
+      select.value = String(configured);
+    }
+  });
+  elements.cameraDeviceNote.textContent = devices.length ? `${usable} of ${devices.length} indexes responded` : "No cameras found";
+}
+
+async function loadCameraDevices() {
+  elements.cameraDeviceNote.textContent = "Detecting cameras…";
+  elements.cameraDeviceSelect.disabled = true;
+  if (elements.liveCameraSelect) elements.liveCameraSelect.disabled = true;
+  try {
+    const response = await fetch("/api/camera/devices"); const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || "Camera devices unavailable.");
+    renderCameraDevices(data);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Camera devices unavailable.";
+    elements.cameraDeviceNote.textContent = message;
+    if (elements.liveCameraSelect) {
+      elements.liveCameraSelect.replaceChildren(new Option("Camera switching unavailable — restart the dashboard", ""));
+      elements.liveCameraSelect.disabled = true;
+    }
+  }
+}
+
+async function selectCameraDevice(index) {
+  const previous = finiteNumber(cameraCalibrationStatus?.configured_camera_index);
+  const result = await cameraRequest("/api/camera/select", { device_index: index });
+  if (!result) { if (previous != null) [elements.cameraDeviceSelect, elements.liveCameraSelect].filter(Boolean).forEach((select) => { select.value = String(previous); }); return; }
+  if (!result.changed) setCameraCalibrationMessage(`Camera #${index} is already active.`, false);
+  else if (result.restarted) setCameraCalibrationMessage(`Switched to camera #${index}. Inspection restarted.`, false);
+  else setCameraCalibrationMessage(`Selected camera #${index}. Start inspection to connect it.`, false);
+  await loadCameraDevices();
 }
 async function cameraRequest(path, payload = undefined, successMessage = null) {
   try {
@@ -3700,6 +3761,15 @@ elements.calibrationMode.addEventListener("change", () => postCameraSettings({ c
     if (missing.length) { setCameraCalibrationMessage(`Confirmation needs: ${missing.join(", ")}.`, true); return; }
     cameraRequest("/api/camera/profile/confirm", { operator_confirmed: true, operator_name: elements.cameraOperatorName.value.trim() || null, installation }, "Calibration profile explicitly confirmed. Lock the camera before collecting study data.");
   });
+elements.cameraDeviceRefresh.addEventListener("click", () => { void loadCameraDevices(); });
+elements.cameraDeviceSelect.addEventListener("change", () => {
+  const index = Number(elements.cameraDeviceSelect.value);
+  if (Number.isInteger(index)) void selectCameraDevice(index);
+});
+if (elements.liveCameraSelect) elements.liveCameraSelect.addEventListener("change", () => {
+  const index = Number(elements.liveCameraSelect.value);
+  if (Number.isInteger(index)) void selectCameraDevice(index);
+});
 elements.slider.addEventListener("input", () => setConfidence(elements.slider.value)); elements.slider.addEventListener("change", () => setConfidence(elements.slider.value, true)); elements.confidenceMinus.addEventListener("click", () => setConfidence(Number(elements.slider.value) - 1, true)); elements.confidencePlus.addEventListener("click", () => setConfidence(Number(elements.slider.value) + 1, true)); elements.resetConfidence.addEventListener("click", () => setConfidence(defaultConfidence * 100, true));
 elements.qualitySlider.addEventListener("input", () => setQualityConfidence(elements.qualitySlider.value)); elements.qualitySlider.addEventListener("change", () => setQualityConfidence(elements.qualitySlider.value, true)); elements.qualityConfidenceMinus.addEventListener("click", () => setQualityConfidence(Number(elements.qualitySlider.value) - 1, true)); elements.qualityConfidencePlus.addEventListener("click", () => setQualityConfidence(Number(elements.qualitySlider.value) + 1, true)); elements.resetQualityConfidence.addEventListener("click", () => setQualityConfidence(defaultQualityConfidence * 100, true));
 elements.debugRuntimeEnabled.addEventListener("change", () => postRuntimeDiagnostics({ enabled: elements.debugRuntimeEnabled.checked }));
@@ -3801,4 +3871,4 @@ async function initializeLanSecurity() {
     getStatus();
   } catch (_) { lanReady = false; setTimeout(initializeLanSecurity, 3000); }
 }
-initializeLanSecurity(); void loadModelSelector(); void loadResultsDashboard(); setInterval(getStatus, 900); setInterval(loadResultsDashboard, 2500);
+initializeLanSecurity(); void loadModelSelector(); void loadResultsDashboard(); void loadCameraDevices(); setInterval(getStatus, 900); setInterval(loadResultsDashboard, 2500);

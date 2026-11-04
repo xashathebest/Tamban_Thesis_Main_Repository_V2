@@ -118,7 +118,41 @@ FISH_UPLOAD_MAX_DIMENSION = int(os.getenv("FISH_UPLOAD_MAX_DIMENSION", "4096"))
 FISH_UPLOAD_MAX_PIXELS = int(os.getenv("FISH_UPLOAD_MAX_PIXELS", str(16 * 1024 * 1024)))
 PART_CONFIDENCE = float(os.getenv("LEMURU_PART_CONFIDENCE", os.getenv("LEMURU_CONFIDENCE", "0.25")))
 PART_IMAGE_SIZE = int(PART_CONFIG.get("imgsz", 640))
-CAMERA_INDEX = int(os.getenv("LEMURU_CAMERA_INDEX", "0"))
+CAMERA_DEFAULT_PATH = REPO_ROOT / "configs" / "active_camera.json"
+
+
+def _persisted_camera_index() -> int:
+    """Read the camera index remembered from the last explicit selection."""
+
+    try:
+        data = json.loads(CAMERA_DEFAULT_PATH.read_text(encoding="utf-8"))
+        index = data.get("device_index") if isinstance(data, dict) else None
+    except (OSError, json.JSONDecodeError):
+        return 0
+    if isinstance(index, bool) or not isinstance(index, int) or index < 0:
+        return 0
+    return index
+
+
+def _persist_camera_index(device_index: int) -> None:
+    """Atomically remember the selected camera index as the startup default."""
+
+    temporary_path: Path | None = None
+    try:
+        CAMERA_DEFAULT_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=CAMERA_DEFAULT_PATH.parent,
+                                         prefix=".active_camera_", suffix=".tmp", delete=False) as handle:
+            temporary_path = Path(handle.name)
+            json.dump({"device_index": device_index}, handle, indent=2)
+        os.replace(temporary_path, CAMERA_DEFAULT_PATH)
+    except OSError as exc:
+        LOGGER.warning("Could not persist camera default index: %s", exc)
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+
+
+CAMERA_INDEX = int(os.getenv("LEMURU_CAMERA_INDEX", str(_persisted_camera_index())))
 RUNTIME_MODE = resolve_runtime_mode(os.getenv("LEMURU_MODE"))
 FISH_QUALITY_INFERENCE_MODE = resolve_quality_inference_mode(
     _REQUESTED_FISH_QUALITY_INFERENCE_MODE,
@@ -1270,6 +1304,40 @@ def get_camera_capabilities() -> dict[str, object]:
     status = service.camera_status()
     capabilities = status.get("capabilities")
     return capabilities if isinstance(capabilities, dict) else {"available": False, "reason": "Camera capabilities are unavailable.", "properties": {}}
+
+
+@app.get("/api/camera/devices")
+def get_camera_devices() -> dict[str, object]:
+    """List selectable camera indexes without claiming physical device names."""
+
+    return service.camera_devices()
+
+
+@app.post("/api/camera/select")
+async def select_camera_device(request: Request) -> dict[str, object]:
+    """Switch the shared capture to another device index and restart inspection."""
+
+    payload = await _camera_payload(request)
+    unknown_keys = sorted(str(key) for key in set(payload) - {"device_index"})
+    if unknown_keys:
+        raise HTTPException(status_code=422, detail=f"Unsupported camera-selection field(s): {', '.join(unknown_keys)}.")
+    try:
+        device_index = service.validate_camera_index(payload.get("device_index"))
+    except CameraControlError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+    with _model_change_lock:
+        if device_index == service.camera_index:
+            return {"success": True, "changed": False, "device_index": device_index, "restarted": False, "camera": service.camera_status()}
+        was_running = service.has_live_worker()
+        if was_running:
+            # Wait for full finalization so the new worker can claim the device.
+            service.stop(timeout=None)
+            if inspection_sessions.active and not service.has_live_worker():
+                _close_durable_session("camera switch", timeout=EVENT_PERSISTENCE_DRAIN_TIMEOUT_SECONDS)
+        service.set_camera_index(device_index)
+        _persist_camera_index(device_index)
+        restarted = bool(start_inspection().get("started")) if was_running else False
+    return {"success": True, "changed": True, "device_index": device_index, "restarted": restarted, "camera": service.camera_status()}
 
 
 async def _camera_payload(request: Request) -> dict[str, object]:

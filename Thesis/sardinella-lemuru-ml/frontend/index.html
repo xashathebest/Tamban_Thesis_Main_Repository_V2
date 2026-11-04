@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#FFFFFF">
     <title>Tamban Quality Inspection System | Live Inspection</title>
-    <link rel="stylesheet" href="/assets/styles.css?v=fish-click-zoom-20261104">
+    <link rel="stylesheet" href="/assets/styles.css?v=live-camera-picker-20261104">
   </head>
   <body>
     <svg class="icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -197,6 +197,12 @@
                     </select>
                   </div>
                   <div class="camera-readout">
+                    <label class="live-camera-picker">
+                      <span class="visually-hidden">Active camera device</span>
+                      <select id="live-camera-select" aria-label="Active camera device" disabled>
+                        <option>Detecting cameras…</option>
+                      </select>
+                    </label>
                     <button class="button quiet webcam-switch" id="webcam-button" type="button" disabled>Use webcam</button>
                     <span class="live-badge neutral" id="live-badge">OFFLINE</span>
                     <span id="feed-fps">AI processing: 0.0 FPS</span>
@@ -863,6 +869,18 @@
         </div>
       </dl>
       <section class="calibration-section">
+        <div class="calibration-section-head">
+          <h3>Camera device</h3>
+          <span id="camera-device-note">Detecting cameras…</span>
+        </div>
+        <div class="camera-device-controls">
+          <label for="camera-device-select">Active camera</label>
+          <select id="camera-device-select" aria-describedby="camera-device-help"></select>
+          <button class="button quiet" id="camera-device-refresh-button" type="button">Rescan devices</button>
+        </div>
+        <p class="muted" id="camera-device-help">Switching restarts the inspection worker on the selected device. OpenCV reports indexes, not brand names, so compare the live preview to identify the EMEET webcam. The last camera you select is remembered as the default for the next start.</p>
+      </section>
+      <section class="calibration-section">
         <label class="calibration-switch">
           <span>
             <strong>Calibration Mode</strong>
@@ -1136,6 +1154,6 @@
         </div>
       </div>
     </section>
-    <script src="/assets/app.js?v=fish-click-zoom-20261104" defer></script>
+    <script src="/assets/app.js?v=live-camera-picker-20261104" defer></script>
   </body>
 </html>

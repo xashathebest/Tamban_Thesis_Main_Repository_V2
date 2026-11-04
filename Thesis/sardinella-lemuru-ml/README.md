@@ -1,4 +1,4 @@
-﻿# Sardinella Lemuru — Tamban Quality Grading System
+# Sardinella Lemuru — Tamban Quality Grading System
 
 A local inspection dashboard for automated Sardinella lemuru (Tamban dried fish)
 quality grading using a two-model YOLO pipeline.
@@ -140,7 +140,8 @@ remaining validation gates, see [the UI/FPS handoff](docs/ui_fps_handoff.md).
 | FISH_UPLOAD_MAX_BYTES | 10485760 | Maximum encoded image upload size in bytes |
 | FISH_UPLOAD_MAX_DIMENSION | 4096 | Maximum image width or height in pixels |
 | FISH_UPLOAD_MAX_PIXELS | 16777216 | Maximum decoded image pixel count |
-| LEMURU_CAMERA_INDEX | 0 | OpenCV camera index |
+| LEMURU_CAMERA_INDEX | (remembered) | Startup OpenCV camera index. When unset, the backend starts on the camera last chosen in the dashboard (saved to configs/active_camera.json); set this env var to override that and pin a fixed default. |
+| LEMURU_CAMERA_SCAN_LIMIT | 6 | Highest device index + 1 probed when listing cameras (bounded 1-12) |
 | LEMURU_DECISION_DEADLINE_SECONDS | unset | Optional independently approved limit from first persistent Model 1 detection to the virtual count-line decision. It records `met`/`missed` telemetry only and never changes a fish count, class, or grade. |
 | LEMURU_MODE | (runtime) | part_preview enables upload-test segmentation |
 | FISH_RAW_PREVIEW_ENABLED | 0 | Set to 1 before startup to offer a separate raw camera preview. It has no AI overlays and is capped at 15 frames per second; Runtime Diagnostics reports this browser's observed MJPEG image-load rate, while browser paint/network latency remains unmeasured. The processed feed remains the default. |

@@ -129,6 +129,9 @@ summary::marker { color: var(--ocean-500); }
 .live-model-selector:disabled { color: var(--text-muted); opacity: .8; }
 .camera-readout { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; width: 100%; order: 3; color: var(--text-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
 .webcam-switch { display: inline-flex !important; width: auto !important; height: 28px; min-height: 28px; padding: 4px 10px; white-space: nowrap; }
+.live-camera-picker { display: inline-flex; align-items: center; }
+.live-camera-picker select { height: 28px; min-height: 28px; max-width: 190px; padding: 3px 26px 3px 8px; color: var(--text-primary); background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); font: inherit; font-size: 11px; font-weight: 600; }
+.live-camera-picker select:disabled { color: var(--text-muted); opacity: .8; }
 .camera-readout .live-badge { height: 28px; min-height: 28px; padding-block: 4px; }
 .video-stage { position: relative; display: grid; place-items: center; width: 100%; aspect-ratio: 4 / 3; min-height: 250px; background: var(--navy-950); border-block: 1px solid var(--navy-900); overflow: hidden; }
 .video-stage img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
@@ -572,6 +575,10 @@ td:first-child { padding-bottom: 9px; margin-bottom: 3px; border-bottom: 1px sol
 .calibration-section-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px; }
 .calibration-section-head span { color: var(--text-muted); font-size: 11px; }
 .camera-control-list { display: grid; gap: 12px; margin-top: 12px; }
+.camera-device-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; align-items: center; margin-top: 12px; }
+.camera-device-controls label { grid-column: 1 / -1; font-size: 12px; font-weight: 600; }
+.camera-device-controls select { min-height: 36px; font-size: 12px; }
+.camera-device-controls .button { white-space: nowrap; }
 .camera-control { display: grid; gap: 8px; padding: 12px; background: var(--background); border: 1px solid var(--border); border-radius: var(--radius-sm); }
 .camera-control.unsupported { background: var(--neutral-soft); }
 .camera-control-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
