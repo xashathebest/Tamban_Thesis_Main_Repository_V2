@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#FFFFFF">
     <title>Tamban Quality Inspection System | Live Inspection</title>
-    <link rel="stylesheet" href="/assets/styles.css?v=runtime-e2e-20261103">
+    <link rel="stylesheet" href="/assets/styles.css?v=fish-click-zoom-20261104">
   </head>
   <body>
     <svg class="icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -392,12 +392,16 @@
                     <label class="mask-opacity-control">Opacity <input id="upload-mask-opacity" type="range" min="0" max="80" value="40" step="5"><output id="upload-mask-opacity-value" for="upload-mask-opacity">40%</output></label>
                     <label>Highlight <select id="upload-mask-fish" aria-label="Highlight fish mask"><option value="all">All fish</option></select></label>
                     <label>Zoom <select id="upload-mask-zoom" aria-label="Mask preview zoom"><option value="1">Fit image</option><option value="1.5">150%</option><option value="2">200%</option><option value="3">300%</option></select></label>
-                    <details class="inspection-overlay-options"><summary>Evidence overlays</summary><label><input id="upload-mask-show" type="checkbox" checked> Fish masks visibility</label><label><input id="upload-mask-model1" type="checkbox" checked> Model 1 boxes</label><label><input id="upload-mask-model2" type="checkbox"> Assigned Model 2 parts</label><label><input id="upload-mask-cracks" type="checkbox"> Structural candidates</label><label><input id="upload-association-debug" type="checkbox" aria-describedby="upload-association-debug-status"> Anatomical Association Debug View</label></details>
+                    <label><input id="upload-mask-measurements" type="checkbox"> Show Measurements</label>
+                    <label><input id="upload-mask-cracks" type="checkbox"> Show Cracks</label>
+                    <details class="inspection-overlay-options"><summary>Evidence overlays</summary><label><input id="upload-mask-show" type="checkbox" checked> Fish masks visibility</label><label><input id="upload-mask-model1" type="checkbox" checked> Model 1 boxes</label><label><input id="upload-mask-model2" type="checkbox"> Assigned Model 2 parts</label><label><input id="upload-association-debug" type="checkbox" aria-describedby="upload-association-debug-status"> Anatomical Association Debug View</label></details>
                   </div>
+                  <p id="upload-mask-overlay-status" class="mask-overlay-status hidden" role="status" aria-live="polite" aria-atomic="true"></p>
                   <p id="upload-association-debug-status" class="association-debug-status hidden" role="status" aria-live="polite"></p>
                   <ul id="upload-association-debug-legend" class="association-debug-legend hidden" aria-label="Anatomical debug colors"><li data-kind="raw">Raw detector candidate</li><li data-kind="accepted">Accepted for highlighted fish</li><li data-kind="rejected">Rejected / unassigned candidate</li><li data-kind="ambiguous">Ambiguous / owned by another fish</li></ul>
                   <details class="inspection-reliability"><summary>Mask reliability and ownership</summary><ul id="upload-mask-legend" class="mask-preview-legend" aria-label="Fish mask reliability"></ul></details>
-                  <p class="muted">Fish Masks shows the shaded fish in the main image below. Switching the view or opacity reuses this completed analysis. Dashed boundaries identify masks requiring review. All overlay settings remain available.</p>
+                  <p class="muted">Click a shaded fish or its bounding box to open its zoom view. Switching the view or opacity reuses this completed analysis. Dashed boundaries identify masks requiring review. Click a crack candidate to inspect its evidence.</p>
+                  <p class="measurement-overlay-key"><span>Length</span><span>Maximum Body width</span><span>Representative Body section</span> · Dashed measurements are Estimated; solid measurements are Validated. Crack outlines locate review candidates.</p>
                 </section>
               <div class="upload-analysis-progress hidden" id="upload-analysis-progress" role="status" aria-live="polite" aria-label="Media analysis in progress">
                 <div class="upload-progress-track" aria-hidden="true"><i></i></div>
@@ -408,6 +412,8 @@
                 <div id="upload-mask-viewport" class="mask-preview-viewport hidden"><canvas id="upload-mask-canvas" aria-label="Original photo with experimental fish silhouettes"></canvas></div>
                 <div class="fish-click-targets" id="upload-fish-targets" aria-label="Detected fish"></div>
               </div>
+              <div id="upload-mask-evidence" class="mask-inspection-evidence" aria-label="Geometry and structural damage per fish"></div>
+              <section id="upload-crack-details" class="crack-candidate-details hidden" aria-label="Selected crack candidate" aria-live="polite"></section>
               <div class="upload-results hidden" id="upload-results"></div>
             </section>
             <section class="results-dashboard surface" id="recent-inspections">
@@ -1121,7 +1127,8 @@
               <label><input id="fish-zoom-model1" type="checkbox" checked><span>Model 1 box</span></label>
               <label><input id="fish-zoom-model2" type="checkbox" checked><span>Assigned Model 2 parts</span></label>
               <label><input id="fish-zoom-mask" type="checkbox"><span>Candidate / feature mask (unvalidated)</span></label>
-              <label><input id="fish-zoom-cracks" type="checkbox" checked><span>Suspected cracks</span></label>
+              <label><input id="fish-zoom-measurements" type="checkbox"><span>Show Measurements</span></label>
+              <label><input id="fish-zoom-cracks" type="checkbox" checked><span>Show Cracks</span></label>
             </fieldset>
             <div class="fish-zoom-details" id="fish-zoom-details"></div>
             <div class="fish-zoom-choices hidden" id="fish-zoom-choices" aria-label="Overlapping fish choices"></div>
@@ -1129,6 +1136,6 @@
         </div>
       </div>
     </section>
-    <script src="/assets/app.js?v=runtime-e2e-20261103" defer></script>
+    <script src="/assets/app.js?v=fish-click-zoom-20261104" defer></script>
   </body>
 </html>

@@ -14,7 +14,9 @@ import numpy as np
 
 from src.inference.association import ParentAnchor
 from src.inference.experimental_segmentation import ExperimentalFrameSegmentation
+from src.inference.fish_geometry import measure_fish_geometry
 from src.inference.part_types import PartDetection
+from src.inference.preprocessing import measurement_crop_bounds
 
 
 class PreviewSnapshotError(ValueError):
@@ -98,6 +100,123 @@ def _part_evidence(fish):
     return selected
 
 
+def _source_bound(record, frame, frame_id, parent_id):
+    return (isinstance(record, dict) and record.get("frame_id") == frame_id
+            and str(record.get("source_parent_id", record.get("parent_track_id"))) == str(parent_id)
+            and (record.get("frame_width_px") is None or record["frame_width_px"] == frame.shape[1])
+            and (record.get("frame_height_px") is None or record["frame_height_px"] == frame.shape[0]))
+
+
+def _preview_analysis(frame, item, provider, report):
+    """Supply native display evidence without a detector, regrade, or inference.
+
+    An on-demand snapshot intentionally has no saved analysis. Its already
+    generated native candidate can still supply estimated diagnostic axes.
+    Saved crack locations are reusable only for this exact frame and parent.
+    """
+    parent_id, frame_id = item["id"], provider.frame_id
+    original = item.get("analysis") if isinstance(item.get("analysis"), dict) else {}
+    analysis = {key: deepcopy(original[key]) for key in
+                ("quality_inference", "model2_debug", "model1_detection") if key in original}
+    saved = original.get("fish_geometry", {})
+    saved = saved if isinstance(saved, dict) else {}
+    visual = saved.get("visualization") or saved.get("candidate_visualization") or {}
+    # Still-photo frame labels repeat across uploads; a matching label alone
+    # cannot authorize borrowing coordinates from different original pixels.
+    saved_segmentation = original.get("segmentation", {})
+    saved_segmentation = saved_segmentation if isinstance(saved_segmentation, dict) else {}
+    mask_metadata = saved.get("mask_metadata", {})
+    source_keys = [saved_segmentation.get("provenance", {}).get("frame_key"),
+                   mask_metadata.get("candidate_provenance", {}).get("frame_key")]
+    source_matches = (getattr(provider, "frame_key", None) is not None
+                      and provider.frame_key in source_keys)
+    reuse_geometry = (report.get("engineering_checks_passed") is True
+                      and source_matches and _source_bound(saved, frame, frame_id, parent_id)
+                      and _source_bound(visual, frame, frame_id, parent_id)
+                      and visual.get("coordinate_space") == "original_frame"
+                      and visual.get("frame_width_px") == frame.shape[1]
+                      and visual.get("frame_height_px") == frame.shape[0]
+                      and bool(visual.get("length_path") or visual.get("principal_axis")))
+    if reuse_geometry:
+        geometry = deepcopy(saved)
+        for key in ("body_width", "feature_fusion"):
+            if isinstance(original.get(key), dict):
+                analysis[key] = deepcopy(original[key])
+    else:
+        try:
+            bounds = measurement_crop_bounds(frame, item["bbox"])
+            get_mask = getattr(provider, "get", None)
+            mask, metadata = get_mask(parent_id, bounds) if callable(get_mask) else (None, {})
+            metadata = {**metadata, "expected_parent_id": parent_id, "frame_id": frame_id,
+                        "parent_track_id": parent_id}
+            if report.get("engineering_checks_passed") is not True:
+                metadata["context_reliability_reasons"] = ["mask_ownership_unreliable"]
+            parts = []
+            for part in item.get("parts", []):
+                try:
+                    owner = part.get("source_parent_id", part.get("parent_track_id"))
+                    if (owner is not None and str(owner) != str(parent_id)
+                            or part.get("coordinate_space", "original_frame") != "original_frame"
+                            or part.get("frame_id", frame_id) != frame_id
+                            or part.get("association_status", "ASSIGNED") != "ASSIGNED"
+                            or part.get("association", {}).get("status", "ASSIGNED") != "ASSIGNED"):
+                        continue
+                    box = part["bbox"]
+                    if (len(box) != 4 or any(isinstance(v, bool) or not isinstance(v, (int, float))
+                                            or not math.isfinite(v) for v in box)):
+                        continue
+                    local = (box[0] - bounds.x1, box[1] - bounds.y1,
+                             box[2] - bounds.x1, box[3] - bounds.y1)
+                    polygon = part.get("mask")
+                    polygon = ([(x - bounds.x1, y - bounds.y1) for x, y in polygon]
+                               if polygon is not None and part.get("mask_coordinate_space", "original_frame") == "original_frame"
+                               else None)
+                    parts.append(PartDetection.from_source_class(part["source_class_id"], part["confidence"], local, polygon))
+                except (KeyError, TypeError, ValueError):
+                    continue
+            get_body = getattr(provider, "body_mask", None)
+            body_mask, body_metadata = get_body(parent_id, bounds) if callable(get_body) else (None, {})
+            box = item["bbox"]
+            overlapping = any(other.track_id != parent_id
+                and min(box[2], other.bbox[2]) > max(box[0], other.bbox[0])
+                and min(box[3], other.bbox[3]) > max(box[1], other.bbox[1])
+                for other in getattr(provider, "parents", []))
+            geometry = measure_fish_geometry(
+                mask, parts, parent_bbox=box, crop_bounds=bounds, frame_shape=frame.shape,
+                overlapping=overlapping, association_reliable=report.get("engineering_checks_passed") is True,
+                mask_metadata=metadata, body_mask=body_mask, body_mask_metadata=body_metadata,
+            )
+            geometry.update(mask_metadata=metadata, mask_crop_bounds=[bounds.x1, bounds.y1, bounds.x2, bounds.y2])
+        except Exception as error:
+            geometry = measure_fish_geometry(None)
+            geometry["reasons"].append("preview_geometry_processing_failed")
+            geometry["measurement_error_type"] = type(error).__name__
+        geometry.update(frame_id=frame_id, parent_track_id=parent_id, frame_width_px=frame.shape[1],
+                        frame_height_px=frame.shape[0], display_only=True, used_for_grading=False,
+                        display_geometry_source="Already generated native candidate mask; no models or grading rerun.")
+        analysis["body_width"] = {
+            "status": "unavailable", "width_abnormality": "Unavailable: no reviewed anatomical width reference",
+            "candidate_anatomical_ratio": geometry.get("candidate_measurements", {}).get("relative_width_ratio"),
+            "reason": "Preview geometry is display evidence only; Body ownership and a normal-width reference remain unvalidated.",
+            "score_contributed": False, "used_for_grading": False,
+        }
+    analysis["fish_geometry"] = geometry
+    damage = original.get("surface_damage", {})
+    if source_matches and _source_bound(damage, frame, frame_id, parent_id):
+        analysis["surface_damage"] = deepcopy(damage)
+    else:
+        analysis["surface_damage"] = {
+            "status": "unavailable", "validation_status": "unvalidated", "locations": [],
+            "severity": "unassessed", "mask_validated_for_cracks": False, "used_for_grading": False,
+            "frame_id": frame_id, "parent_track_id": parent_id, "coordinate_space": "original_frame",
+            "frame_width_px": frame.shape[1], "frame_height_px": frame.shape[0],
+            "reason": "No source-matched crack candidates were recorded for this preview. A reviewed, correctly owned Body pixel mask is required; MobileSAM candidate masks do not establish Body anatomy or absence of cracks.",
+        }
+    analysis["inspection_source"] = {"type": "mask_preview", "frame_id": frame_id,
+                                     "frame_width_px": frame.shape[1], "frame_height_px": frame.shape[0]}
+    return analysis
+
+
 def generate_mask_preview(frame, fish, *, image_sha256, sam_service=None, model1_inference_ms=0., reused=False, mask_context=None):
     started = perf_counter()
     provider = getattr(mask_context, "_experimental", None) if mask_context is not None and mask_context.is_for_frame(frame) else None
@@ -136,10 +255,7 @@ def generate_mask_preview(frame, fish, *, image_sha256, sam_service=None, model1
         needs_review = report.get("ownership_status") != "checks_passed_unvalidated"
         review_required += int(usable and needs_review)
         records.append({"id": item["id"], "bbox": list(item["bbox"]), "parts": deepcopy(item.get("parts", [])),
-                        "segmentation": report, **({"analysis": {key: deepcopy(item["analysis"].get(key, {}))
-                            for key in ("surface_damage", "fish_geometry", "feature_fusion", "inspection_source",
-                                        "quality_inference", "model2_debug", "model1_detection")}}
-                            if isinstance(item.get("analysis"), dict) else {})})
+                        "segmentation": report, "analysis": _preview_analysis(frame, item, provider, report)})
     scale = min(1., 1280 / max(frame.shape[:2]))
     preview = frame if scale == 1 else cv2.resize(frame, (round(frame.shape[1] * scale), round(frame.shape[0] * scale)), interpolation=cv2.INTER_AREA)
     ok, encoded = cv2.imencode(".jpg", preview, [cv2.IMWRITE_JPEG_QUALITY, 92])

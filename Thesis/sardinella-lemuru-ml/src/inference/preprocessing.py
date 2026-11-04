@@ -162,6 +162,22 @@ class RuntimeMaskContext:
     def trusted_body_mask(self, parent_id, bounds):
         return self._experimental.body_mask(parent_id, bounds) if self._experimental is not None else (None, {})
 
+    def experimental_fish_mask(self, parent_id, bounds):
+        """Native diagnostic support; never replaces the grading foreground."""
+        if self._experimental is None:
+            return None, {"status": "unavailable", "reason": "No experimental instance mask was generated.",
+                          "experimental": True, "measurement_validated": False, "used_for_grading": False}
+        return self.cached_feature(parent_id, bounds, "experimental_fish_support_v1",
+                                   lambda: self._experimental.experimental_fish_mask(parent_id, bounds))
+
+    def experimental_body_mask(self, parent_id, bounds):
+        """Reuse fish-specific unvalidated Body pixels only as diagnostics."""
+        if self._experimental is None:
+            return None, {"status": "unavailable", "reason": "No experimental Body support was generated.",
+                          "experimental": True, "validated": False, "used_for_grading": False}
+        return self.cached_feature(parent_id, bounds, "experimental_body_support_v1",
+                                   lambda: self._experimental.experimental_body_mask(parent_id, bounds))
+
     def _roi_key(self, parent_id: int | str, bounds: CropBounds, *, settings: RuntimeMaskSettings | None = None) -> tuple[tuple, np.ndarray]:
         if isinstance(parent_id, bool) or not isinstance(parent_id, (Integral, str)):
             raise PreprocessingError("Runtime mask parent ID must be an integer or string.")

@@ -61,7 +61,7 @@ global.controlsUpdated=0;global.updateUploadControls=()=>controlsUpdated++;
 global.isVideoUpload=file=>Boolean(file?.type.startsWith("video/"));
 global.setInterval=()=>1;global.clearInterval=()=>{};
 global.Image=class{constructor(){this.naturalWidth=250;this.naturalHeight=150;}set src(value){queueMicrotask(()=>this.onload());}};
-for(const name of ["maskPreviewPolygons","renderMaskPreview","rememberMaskPreviewAnalysis","setMaskViewBusy","restoreOriginalUploadView","stopMaskPreparationTimer","prepareRecordedMaskPreview","stopMaskPreviewTimer","clearMaskPreview","cancelMaskPreview","maskPreviewLegend","inspectUploadMasks"])include(name);
+for(const name of ["inspectionEvidenceScope","measurementOverlayEvidence","crackOverlayEvidence","drawInspectionMeasurements","crackCandidateAtPoint","drawInspectionCracks","maskPreviewPolygons","renderMaskPreview","rememberMaskPreviewAnalysis","setMaskViewBusy","restoreOriginalUploadView","stopMaskPreparationTimer","prepareRecordedMaskPreview","stopMaskPreviewTimer","clearMaskPreview","cancelMaskPreview","maskPreviewLegend","inspectUploadMasks"])include(name);
 '''
 
 

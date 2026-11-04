@@ -235,6 +235,122 @@ def _aligned_profile(binary: np.ndarray):
     return diagnostics, columns, widths, original_centers, transform, lower, upper
 
 
+def _geometry_visualization(
+    *, bounds, frame_shape, metadata, reasons, centers, columns, widths,
+    transform, lower, upper, body_columns, diagnostics, contours,
+    body_box=None, body_part=None, body_pixels=None,
+):
+    """Expose observed profile coordinates without promoting rejected metrics.
+
+    A sampled/unreviewed native-coordinate silhouette can be inspected as an
+    estimate. Failed ownership, association, shape, or placement checks do not
+    establish a corresponding fish and therefore do not supply display lines.
+    """
+    permitted_estimate_reasons = {
+        "resampled_foreground_requires_native_validation",
+        "experimental_mask_requires_ownership_validation",
+        "body_pixel_support_unvalidated",
+    }
+    ownership = metadata.get("ownership", {})
+    provenance = metadata.get("candidate_provenance", {})
+    parent_id = metadata.get("expected_parent_id", metadata.get("parent_track_id"))
+    native_shape = list(frame_shape[:2]) if frame_shape is not None and len(frame_shape) >= 2 else None
+    isolated_native_candidate = (
+        metadata.get("source") == "mobilesam_experimental_candidate"
+        and metadata.get("backend") == "mobilesam_experimental"
+        and metadata.get("experimental") is True
+        and metadata.get("parent_isolation_reliable") is True
+        and parent_id is not None
+        and isinstance(ownership, Mapping) and isinstance(provenance, Mapping)
+        and ownership.get("status") == "checks_passed_unvalidated"
+        and ownership.get("engineering_checks_passed") is True
+        and ownership.get("mask_geometry_checks_passed") is True
+        and ownership.get("reasons") == [] and ownership.get("conflicting_parent_ids") == []
+        and ownership.get("coordinate_space") == "original_frame"
+        and ownership.get("frame_shape") == native_shape
+        and provenance.get("coordinate_space") == "original_frame"
+        and provenance.get("mask_shape") == native_shape
+        and str(ownership.get("parent_id")) == str(parent_id)
+        and str(provenance.get("parent_id")) == str(parent_id)
+    )
+    if isolated_native_candidate:
+        # Detector rectangles can overlap while the native instance-mask
+        # ownership checks still pass. Permit their existing computed axes for
+        # inspection only; the scalar reliability/grade gates below stay intact.
+        permitted_estimate_reasons.add("overlapping_parent_fish")
+    body_only_reasons = {
+        "associated_body_region_unavailable", "multiple_body_associations", "body_outside_parent",
+        "invalid_body_segmentation", "body_mask_parent_mismatch", "body_pixel_support_unvalidated",
+        "body_segmentation_not_associated_with_fish", "fragmented_body_pixel_support",
+        "insufficient_associated_body_profile", "insufficient_body_width_resolution",
+    }
+    result = {
+        "coordinate_space": "original_frame", "status": "unavailable", "measured": False,
+        "frame_id": metadata.get("frame_id"),
+        "parent_track_id": metadata.get("expected_parent_id", metadata.get("parent_track_id", metadata.get("instance_id"))),
+        "frame_width_px": int(frame_shape[1]) if frame_shape is not None and len(frame_shape) >= 2 else None,
+        "frame_height_px": int(frame_shape[0]) if frame_shape is not None and len(frame_shape) >= 2 else None,
+        "reasons": list(reasons), "used_for_grading": False,
+        "measurement_validated": False,
+        "bbox_overlap_display_only": bool(isolated_native_candidate and "overlapping_parent_fish" in reasons),
+    }
+    if (bounds is None or frame_shape is None or len(frame_shape) < 2
+            or any(reason not in permitted_estimate_reasons | body_only_reasons for reason in reasons)):
+        return result
+    offset = np.array((bounds[0], bounds[1]))
+    inverse = cv2.invertAffineTransform(transform)
+
+    def to_frame(points):
+        local = np.asarray(points, dtype=np.float64)
+        original = local @ inverse[:, :2].T + inverse[:, 2] + offset
+        return np.round(original, 3).tolist()
+
+    # Preserve both actual centerline endpoints and its estimated path. Width
+    # sections remain perpendicular to the same PCA coordinate system.
+    path_indices = np.unique(np.linspace(0, len(centers) - 1, min(512, len(centers))).astype(int))
+    result.update(
+        status="estimated", measured=not bool(reasons), crop_bounds=list(bounds),
+        principal_axis=np.round(np.array((centers[0], centers[-1])) + offset, 3).tolist(),
+        length_path=np.round(centers[path_indices] + offset, 3).tolist(),
+        length_method="native_silhouette_polynomial_centerline",
+        pixel_extent_convention="Pixel-center spans; reported lengths and section widths include one pixel of support.",
+    )
+    body_indices = np.flatnonzero(body_columns)
+    body_blockers = [reason for reason in reasons if reason in body_only_reasons - permitted_estimate_reasons]
+    result["body_width_status"] = "unavailable" if body_blockers else "estimated"
+    result["body_width_reasons"] = body_blockers
+    if not body_blockers and len(body_indices) and diagnostics.get("max_body_width_px") is not None:
+        widest = int(body_indices[np.argmax(widths[body_indices])])
+        result["width_axis"] = to_frame(((columns[widest], lower[widest]), (columns[widest], upper[widest])))
+        middle = body_indices[len(body_indices) // 4:len(body_indices) - len(body_indices) // 4]
+        # A median of an even number of sections need not itself be an observed
+        # width. Draw a real section, and disclose its value independently.
+        difference = np.abs(widths[middle] - diagnostics["representative_body_width_px"])
+        nearest = middle[np.isclose(difference, difference.min())]
+        representative = int(nearest[np.argmin(np.abs(nearest - np.median(middle)))])
+        result["representative_width_axis"] = to_frame(
+            ((columns[representative], lower[representative]), (columns[representative], upper[representative])))
+        result["representative_width_axis_value_px"] = round(float(widths[representative]), 4)
+        result["representative_width_axis_method"] = "Observed central Body section nearest the median central-section width."
+    contour = max(contours, key=cv2.contourArea)
+    boundary = cv2.approxPolyDP(contour, 1., True).reshape(-1, 2).astype(float) + offset
+    result["silhouette_boundary"] = np.round(boundary, 3).tolist()
+    if body_blockers:
+        return result
+    polygon = _field(body_part, "mask") if body_part is not None else None
+    if body_pixels is not None:
+        body_contours, _ = cv2.findContours(body_pixels, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        if body_contours:
+            polygon = cv2.approxPolyDP(max(body_contours, key=cv2.contourArea), 1., True).reshape(-1, 2)
+    if polygon is not None or body_box is not None:
+        body_boundary = (np.asarray(polygon, dtype=float) if polygon is not None else
+                         np.array(((body_box[0], body_box[1]), (body_box[2], body_box[1]),
+                                   (body_box[2], body_box[3]), (body_box[0], body_box[3])))) + offset
+        result.update(body_region_boundary=np.round(body_boundary, 3).tolist(),
+                      body_boundary_kind="segmentation" if polygon is not None else "detection_box_approximation")
+    return result
+
+
 def measure_fish_geometry(
     mask: np.ndarray | None,
     parts: Sequence[Any] = (),
@@ -399,6 +515,8 @@ def measure_fish_geometry(
     if float(np.median(widths)) < settings.minimum_transverse_pixels:
         reasons.append("insufficient_transverse_resolution")
     body_candidates = []
+    body_columns = np.zeros(len(columns), dtype=bool)
+    body_box, body_part, body_pixels = None, None, None
     for part in parts:
         try:
             confidence = float(_field(part, "confidence", 0))
@@ -489,6 +607,12 @@ def measure_fish_geometry(
             if not 0 < diagnostics["relative_width_ratio"] < 1:
                 reasons.append("implausible_silhouette_dimensions")
     output["reasons"] = list(dict.fromkeys(reasons))
+    output["candidate_visualization"] = _geometry_visualization(
+        bounds=bounds, frame_shape=frame_shape, metadata=metadata, reasons=output["reasons"],
+        centers=centers, columns=columns, widths=widths, transform=transform, lower=lower, upper=upper,
+        body_columns=body_columns, diagnostics=diagnostics, contours=contours,
+        body_box=body_box, body_part=body_part, body_pixels=body_pixels,
+    )
     if output["reasons"]:
         if any(reason in output["reasons"] for reason in ("resampled_foreground_requires_native_validation", "experimental_mask_requires_ownership_validation")):
             output["reliability"] = "Estimated pixel geometry; native boundary not validated"
@@ -509,33 +633,12 @@ def measure_fish_geometry(
                       measurement_validation_status="Reviewed native silhouette and Body pixel support",
                       validation_provenance={"whole_fish": metadata["validation_provenance"],
                                              "body": body_metadata["validation_provenance"]})
-    # Only accepted geometry supplies overlays. These points retain the native
-    # pixel scale and exact mask-crop origin; they never become grading inputs.
-    offset = np.array((bounds[0], bounds[1]))
-    inverse = cv2.invertAffineTransform(transform)
-    def to_frame(points):
-        local = np.asarray(points, dtype=np.float64)
-        original = local @ inverse[:, :2].T + inverse[:, 2] + offset
-        return np.round(original, 3).tolist()
-    body_indices = np.flatnonzero(body_columns)
-    widest = int(body_indices[np.argmax(widths[body_indices])])
-    width_axis = to_frame(((columns[widest], lower[widest]), (columns[widest], upper[widest])))
-    contour = max(contours, key=cv2.contourArea)
-    boundary = cv2.approxPolyDP(contour, 1., True).reshape(-1, 2).astype(float) + offset
-    polygon = _field(body_part, "mask")
-    if body_mask is not None and body_pixels is not None:
-        body_contours, _ = cv2.findContours(body_pixels, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        polygon = cv2.approxPolyDP(max(body_contours, key=cv2.contourArea), 1., True).reshape(-1, 2)
-    body_boundary = (np.asarray(polygon, dtype=float) if polygon is not None else
-                     np.array(((body_box[0], body_box[1]), (body_box[2], body_box[1]),
-                               (body_box[2], body_box[3]), (body_box[0], body_box[3])))) + offset
+    # Accepted geometry retains the legacy overlay field. Estimated candidate
+    # coordinates are separate and never change measured fields or grading.
     output["visualization"] = {
-        "coordinate_space": "original_frame", "measured": True,
-        "principal_axis": np.round(np.array((centers[0], centers[-1])) + offset, 3).tolist(),
-        "width_axis": width_axis, "silhouette_boundary": np.round(boundary, 3).tolist(),
-        "body_region_boundary": np.round(body_boundary, 3).tolist(),
-        "body_boundary_kind": "segmentation" if polygon is not None else "detection_box_approximation",
-        "crop_bounds": list(bounds),
+        **output["candidate_visualization"], "measured": True,
+        "status": "validated" if reviewed else "estimated", "measurement_validated": reviewed,
+        "body_width_status": "validated" if reviewed else "estimated",
     }
     if output["physical_calibration"]["validated"]:
         output["fish_length_cm"] = round(output["fish_length_px"] / calibration.pixels_per_cm, 6)

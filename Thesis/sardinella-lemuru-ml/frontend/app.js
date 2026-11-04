@@ -25,12 +25,13 @@ const elements = {
   uploadMode: $("upload-mode-button"), closeUpload: $("close-upload-button"), uploadWorkspace: $("upload-workspace"), uploadInput: $("upload-input"), selectUpload: $("select-upload-button"), uploadFileName: $("upload-file-name"), analyze: $("analyze-button"), uploadStatus: $("upload-status"), uploadProgress: $("upload-analysis-progress"), uploadImage: $("upload-result-image"), uploadVideo: $("upload-result-video"), uploadResults: $("upload-results"), uploadMediaStage: $("upload-media-stage"), uploadFishTargets: $("upload-fish-targets"),
   segmentationOptions: $("upload-segmentation-options"), segmentationExperiment: $("upload-mobilesam"), segmentationNote: $("upload-segmentation-note"), inspectMasks: $("inspect-upload-masks"),
   maskPreview: $("upload-mask-preview"), maskPreviewCanvas: $("upload-mask-canvas"), maskPreviewStatus: $("upload-mask-status"), maskPreviewShow: $("upload-mask-show"), maskPreviewModel1: $("upload-mask-model1"), maskPreviewModel2: $("upload-mask-model2"), maskPreviewOpacity: $("upload-mask-opacity"), maskPreviewOpacityValue: $("upload-mask-opacity-value"), maskPreviewFish: $("upload-mask-fish"), maskPreviewZoom: $("upload-mask-zoom"), maskPreviewCancel: $("upload-mask-cancel"), maskPreviewLegend: $("upload-mask-legend"),
-  maskPreviewBoxes: $("upload-display-boxes"), maskPreviewMasks: $("upload-display-masks"), maskPreviewCracks: $("upload-mask-cracks"),
-  maskPreviewAssociation: $("upload-association-debug"), maskPreviewAssociationStatus: $("upload-association-debug-status"), maskPreviewAssociationLegend: $("upload-association-debug-legend"),
+  maskPreviewBoxes: $("upload-display-boxes"), maskPreviewMasks: $("upload-display-masks"), maskPreviewCracks: $("upload-mask-cracks"), maskPreviewMeasurements: $("upload-mask-measurements"), maskPreviewEvidence: $("upload-mask-evidence"), maskPreviewCrackDetails: $("upload-crack-details"),
+  maskPreviewAssociation: $("upload-association-debug"), maskPreviewAssociationStatus: $("upload-association-debug-status"), maskPreviewAssociationLegend: $("upload-association-debug-legend"), maskPreviewOverlayStatus: $("upload-mask-overlay-status"),
   maskPreviewViewport: $("upload-mask-viewport"),
   maskPreviewLoading: $("upload-mask-loading"),
   liveDisplayBoxes: $("live-display-boxes"), liveDisplayMasks: $("live-display-masks"),
   fishZoomModal: $("fish-zoom-modal"), fishZoomClose: $("fish-zoom-close"), fishZoomViewport: $("fish-zoom-viewport"), fishZoomCanvas: $("fish-zoom-canvas"), fishZoomTitle: $("fish-zoom-title"), fishZoomSubtitle: $("fish-zoom-subtitle"), fishZoomLevel: $("fish-zoom-level"), fishZoomDetails: $("fish-zoom-details"), fishZoomChoices: $("fish-zoom-choices"), fishZoomIn: $("fish-zoom-in"), fishZoomOut: $("fish-zoom-out"), fishZoomReset: $("fish-zoom-reset"), fishZoomOriginal: $("fish-zoom-original"), fishZoomAnnotations: $("fish-zoom-annotations"), fishZoomModel1: $("fish-zoom-model1"), fishZoomModel2: $("fish-zoom-model2"), fishZoomMask: $("fish-zoom-mask"), fishZoomCracks: $("fish-zoom-cracks"),
+  fishZoomMeasurements: $("fish-zoom-measurements"),
   kpiGrid: $("kpi-grid"), featureCounterGrid: $("feature-counter-grid"), threshold: $("threshold"), openConfidence: $("open-confidence-button"),
   gradeChartEmpty: $("grade-chart-empty"), gradeChart: $("grade-chart"), gradeDonut: $("grade-donut"), gradeTotal: $("grade-total"), gradeLegend: $("grade-legend"),
   featureChartEmpty: $("feature-chart-empty"), featureChart: $("feature-chart"), throughputChartEmpty: $("throughput-chart-empty"), throughputChart: $("throughput-chart"), throughputLine: $("throughput-line"), throughputCaption: $("throughput-caption"),
@@ -93,7 +94,7 @@ let uploadStartedAt = 0;
 let uploadPreviewUrl = null;
 let uploadFrameTimer = null;
 let uploadAnnotatedSource = null;
-const uploadMaskPreview = {data: null, image: null, file: null, version: 0, controller: null, inFlight: false, timer: null, startedAt: 0, analysisToken: null, analysisFile: null, mainMedia: null};
+const uploadMaskPreview = {data: null, image: null, file: null, version: 0, controller: null, inFlight: false, timer: null, startedAt: 0, analysisToken: null, analysisFile: null, mainMedia: null, selectedCrack: null};
 const fishZoom = { image: null, detection: null, detections: [], source: "", crop: null, scale: 1, panX: 0, panY: 0, dragging: false, lastX: 0, lastY: 0, previousFocus: null, frameId: null, nativeWidth: null, nativeHeight: null };
 let fishZoomRequestVersion = 0;
 let exportInFlight = false;
@@ -212,25 +213,32 @@ function fishZoomId(fish) { return fish?.track_id ?? fish?.id ?? fish?.fish_id ?
 function fishZoomGrade(fish) { return fish?.quality || fish?.final_grade || fish?.final_class || fish?.grade || "Ungraded"; }
 function fishZoomConfidence(fish) { return fish?.quality_confidence ?? fish?.final_confidence ?? fish?.detector_confidence ?? fish?.current_confidence; }
 function fishZoomMedia(kind) {
-  return kind === "live" ? elements.video : (elements.uploadImage.classList.contains("hidden") ? elements.uploadVideo : elements.uploadImage);
+  if (kind === "live") return elements.video;
+  return !elements.uploadVideo.classList.contains("hidden") ? elements.uploadVideo : elements.uploadImage;
 }
-function fishZoomGeometry(media, stage) {
-  const width = media?.naturalWidth || media?.videoWidth || 0;
-  const height = media?.naturalHeight || media?.videoHeight || 0;
+function fishZoomGeometry(media, stage, nativeSource = null) {
+  const width = nativeSource?.width || media?.naturalWidth || media?.videoWidth || 0;
+  const height = nativeSource?.height || media?.naturalHeight || media?.videoHeight || 0;
   if (!width || !height || !stage) return null;
   const mediaRect = media.getBoundingClientRect(); const stageRect = stage.getBoundingClientRect();
-  const scale = Math.min(mediaRect.width / width, mediaRect.height / height);
-  return {width, height, scale, left: mediaRect.left - stageRect.left + (mediaRect.width - width * scale) / 2, top: mediaRect.top - stageRect.top + (mediaRect.height - height * scale) / 2};
+  const style = typeof getComputedStyle === "function" ? getComputedStyle(media) : {};
+  const inset = name => parseFloat(style[name]) || 0;
+  const leftInset = inset("borderLeftWidth") + inset("paddingLeft"), topInset = inset("borderTopWidth") + inset("paddingTop");
+  const contentWidth = mediaRect.width - leftInset - inset("borderRightWidth") - inset("paddingRight");
+  const contentHeight = mediaRect.height - topInset - inset("borderBottomWidth") - inset("paddingBottom");
+  const scale = Math.min(contentWidth / width, contentHeight / height);
+  return scale > 0 ? {width, height, scale, left: mediaRect.left - stageRect.left + leftInset + (contentWidth - width * scale) / 2, top: mediaRect.top - stageRect.top + topInset + (contentHeight - height * scale) / 2} : null;
 }
-function fishZoomPoint(event, media, stage) {
-  const geometry = fishZoomGeometry(media, stage);
+function fishZoomPoint(event, media, stage, nativeSource = null) {
+  const geometry = fishZoomGeometry(media, stage, nativeSource);
   if (!geometry) return null;
   const rect = stage.getBoundingClientRect();
   return [(event.clientX - rect.left - geometry.left) / geometry.scale, (event.clientY - rect.top - geometry.top) / geometry.scale];
 }
 function fishZoomHits(event, kind, detections) {
   const media = fishZoomMedia(kind); const stage = kind === "live" ? elements.liveMediaStage : elements.uploadMediaStage;
-  const point = fishZoomPoint(event, media, stage);
+  const nativeSource = kind === "upload" && uploadMaskPreview.file === selectedUpload ? maskPreviewSource(uploadMaskPreview.data) : null;
+  const point = fishZoomPoint(event, media, stage, nativeSource);
   if (!point) return [];
   return detections.filter((fish) => {
     const box = fishZoomBox(fish?.bbox); return box && point[0] >= box[0] && point[0] <= box[2] && point[1] >= box[1] && point[1] <= box[3];
@@ -242,18 +250,24 @@ function renderFishClickTargets(kind, detections) {
   const media = fishZoomMedia(kind);
   if (!stage || !targetLayer || !media) return;
   targetLayer.replaceChildren();
-  const geometry = fishZoomGeometry(media, stage);
-  if (!geometry) {
-    if ((media.naturalWidth || media.videoWidth) > 0) requestAnimationFrame(() => renderFishClickTargets(kind, detections));
-    return;
-  }
+  if (kind === "upload" && (media.classList?.contains("hidden") || (elements.maskPreviewViewport && !elements.maskPreviewViewport.classList.contains("hidden")))) return;
+  const nativeSource = kind === "upload" && uploadMaskPreview.file === selectedUpload ? maskPreviewSource(uploadMaskPreview.data) : null;
+  const geometry = fishZoomGeometry(media, stage, nativeSource);
+  if (!geometry) return;
   detections.filter((fish) => fishZoomBox(fish?.bbox)).forEach((fish) => {
     const [left, top, right, bottom] = fishZoomBox(fish.bbox);
     const target = document.createElement("button"); target.type = "button"; target.className = "fish-click-target";
     target.style.left = `${geometry.left + left * geometry.scale}px`; target.style.top = `${geometry.top + top * geometry.scale}px`;
     target.style.width = `${Math.max(18, (right - left) * geometry.scale)}px`; target.style.height = `${Math.max(18, (bottom - top) * geometry.scale)}px`;
     target.dataset.fishId = String(fishZoomId(fish)); target.setAttribute("aria-label", `Inspect fish ${fishZoomId(fish)}`);
-    target.addEventListener("click", (event) => { event.stopPropagation(); openFishZoom(kind, detections, fish); });
+    target.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (kind === "upload" && typeof openMaskPreviewFishZoom === "function" && uploadMaskPreview.file === selectedUpload) {
+        const entry = maskPreviewEntries(uploadMaskPreview.data).find(item => String(item.id) === String(fishZoomId(fish)));
+        if (entry && uploadMaskPreview.image) { void openMaskPreviewFishZoom(entry); return; }
+      }
+      void openFishZoom(kind, detections, fish);
+    });
     targetLayer.append(target);
   });
 }
@@ -355,6 +369,28 @@ function renderFishZoomDetails(fish) {
   elements.fishZoomDetails.replaceChildren();
   const rows = fishZoomDetailRows(fish);
   if (fishZoomAnalysis(fish).segmentation?.backend === "mobilesam_experimental") rows.push(["Candidate overlay", segmentationOverlayEvidence(fish, fishZoom.frameId, fishZoom.nativeWidth, fishZoom.nativeHeight).reason]);
+  if (typeof inspectionFishEvidenceEntry === "function" && typeof measurementOverlayEvidence === "function" && typeof crackOverlayEvidence === "function") {
+    const source = {width: fishZoom.nativeWidth, height: fishZoom.nativeHeight, frameId: fishZoom.frameId};
+    const entry = inspectionFishEvidenceEntry(fish);
+    const geometry = measurementOverlayEvidence(entry, source), cracks = crackOverlayEvidence(entry, source);
+    const number = value => typeof value === "number" && Number.isFinite(value) && value >= 0 ? String(Number(value.toFixed(3))) : "Unavailable";
+    rows.push(["Geometry", geometry.status], ["Geometry reliability", geometry.reason]);
+    for (const [label, key] of [["Length (px)", "fish_length_px"], ["Maximum Body width (px)", "max_body_width_px"], ["Representative Body width (px)", "representative_body_width_px"], ["Body width / fish length", "relative_width_ratio"]]) {
+      const value = geometry.values?.[key], numeric = typeof value === "number" && Number.isFinite(value) && value > 0;
+      const reliability = geometry.status === "Unavailable" ? "Estimated diagnostic; overlay unavailable" : geometry.status;
+      rows.push([label, numeric ? `${number(value)} · ${reliability}` : "Unavailable"]);
+    }
+    rows.push(["Crack evidence", cracks.candidates.length ? `${cracks.candidates.length} localized candidate${cracks.candidates.length === 1 ? "" : "s"}; click an outline to inspect` : cracks.reason]);
+    const selected = cracks.candidates.find(item => item.id === fishZoom.selectedCrackId);
+    if (selected) {
+      const location = selected.location || {}, [left, top, right, bottom] = selected.bbox;
+      rows.push(["Selected candidate", `#${selected.index + 1}`], ["Original-image location", `x ${number(left)}, y ${number(top)}`],
+        ["Candidate bounds (px)", `${number(right - left)} × ${number(bottom - top)}`],
+        ["Estimated extent (px)", number(location.estimated_length_px)],
+        ["Severity", selected.severity || "Unassessed"], ["Validation", selected.status],
+        ["Interpretation", "Surface-line candidate; a visible outline does not establish a biological crack."]);
+    }
+  }
   rows.forEach(([label, value]) => {
     const row = document.createElement("div"); row.className = "fish-zoom-detail-row";
     row.append(Object.assign(document.createElement("span"), {textContent: label}), Object.assign(document.createElement("strong"), {textContent: value})); elements.fishZoomDetails.append(row);
@@ -377,9 +413,11 @@ function drawFishZoomOverlay(context, fish, crop, width, height) {
   if (elements.fishZoomMask.checked) {
     if (experimental) {
       const unreliable = /unreliable|ambiguous|conflict|reject|unavailable/i.test(String(segmentation.ownership_status || segmentation.status));
-      context.fillStyle = unreliable ? "rgb(255 180 84 / 22%)" : "rgb(101 199 229 / 22%)";
-      context.strokeStyle = unreliable ? "#ffb454" : "#65c7e5"; context.lineWidth = Math.max(1, width / 420);
-      candidate.contours.forEach(polygon => { context.beginPath(); polygon.forEach((point, index) => { if (index) context.lineTo(point[0] - crop[0], point[1] - crop[1]); else context.moveTo(point[0] - crop[0], point[1] - crop[1]); }); context.closePath(); context.fill(); context.stroke(); });
+      const color = fish._maskColor, opacity = typeof fishZoom.maskOpacity === "number" ? Math.max(0, Math.min(.8, fishZoom.maskOpacity)) : .22;
+      context.fillStyle = color || (unreliable ? "#ffb454" : "#65c7e5");
+      context.strokeStyle = color || (unreliable ? "#ffb454" : "#65c7e5"); context.lineWidth = Math.max(1, width / 420);
+      context.beginPath(); candidate.contours.forEach(polygon => { polygon.forEach((point, index) => { if (index) context.lineTo(point[0] - crop[0], point[1] - crop[1]); else context.moveTo(point[0] - crop[0], point[1] - crop[1]); }); context.closePath(); });
+      context.globalAlpha = opacity; context.fill("evenodd"); context.globalAlpha = 1; context.stroke();
       context.strokeStyle = "#ff536b"; context.setLineDash([5, 3]);
       (candidate.conflict_contours || []).forEach(polygon => { context.beginPath(); polygon.forEach((point, index) => { if (index) context.lineTo(point[0] - crop[0], point[1] - crop[1]); else context.moveTo(point[0] - crop[0], point[1] - crop[1]); }); context.closePath(); context.stroke(); }); context.setLineDash([]);
     } else {
@@ -389,19 +427,20 @@ function drawFishZoomOverlay(context, fish, crop, width, height) {
       }
     }
   }
-  if (elements.fishZoomCracks.checked && (!experimental || (candidate.frame_matches && String(analysis.surface_damage?.frame_id ?? "") === String(fishZoom.frameId)))) {
-    const damage = analysis.surface_damage || analysis.structural_evidence || {};
-    const locations = Array.isArray(damage.locations) ? damage.locations : [];
-    locations.forEach((location) => { const box = fishZoomRelativeBox(location.bbox, crop); if (!box) return; context.strokeStyle = "#ff536b"; context.lineWidth = Math.max(2, width / 300); context.setLineDash([6, 4]); context.strokeRect(box[0], box[1], box[2] - box[0], box[3] - box[1]); context.setLineDash([]); });
-  }
-  if (annotations && (!experimental || String(analysis.fish_geometry?.frame_id ?? "") === String(fishZoom.frameId))) {
-    const visualization = analysis.fish_geometry?.visualization || analysis.body_width?.visualization || {};
-    [["length_line", "#c0ee96"], ["width_line", "#65c7e5"], ["major_axis", "#c0ee96"], ["minor_axis", "#65c7e5"]].forEach(([key, color]) => {
-      const line = visualization[key]; const points = Array.isArray(line) && line.length === 4 && Number.isFinite(Number(line[0])) ? [[line[0], line[1]], [line[2], line[3]]] : line;
-      if (!Array.isArray(points) || points.length < 2) return;
-      const first = points[0]; const last = points[points.length - 1]; if (!Array.isArray(first) || !Array.isArray(last)) return;
-      context.strokeStyle = color; context.lineWidth = Math.max(2, width / 360); context.beginPath(); context.moveTo(first[0] - crop[0], first[1] - crop[1]); points.slice(1).forEach((point) => context.lineTo(point[0] - crop[0], point[1] - crop[1])); context.stroke();
-    });
+  if (typeof inspectionFishEvidenceEntry === "function") {
+    const source = {width: fishZoom.nativeWidth, height: fishZoom.nativeHeight, frameId: fishZoom.frameId};
+    const entry = inspectionFishEvidenceEntry(fish, !experimental || candidate.frame_matches);
+    const line = Math.max(1, width / 420), font = Math.max(9, width / 38);
+    // Both views draw the same original-frame evidence. The existing modal
+    // transform handles image scaling/pan; only the native crop origin differs.
+    context.save(); context.translate(-crop[0], -crop[1]);
+    if (elements.fishZoomMeasurements?.checked && typeof measurementOverlayEvidence === "function" && typeof drawInspectionMeasurements === "function") {
+      drawInspectionMeasurements(context, measurementOverlayEvidence(entry, source), source, line, font);
+    }
+    if (elements.fishZoomCracks?.checked && typeof crackOverlayEvidence === "function" && typeof drawInspectionCracks === "function") {
+      drawInspectionCracks(context, crackOverlayEvidence(entry, source), line, font, fishZoom.selectedCrackId);
+    }
+    context.restore();
   }
 }
 function renderFishZoom() {
@@ -414,6 +453,7 @@ function renderFishZoom() {
   const baseScale = Math.min(viewWidth / cropWidth, viewHeight / cropHeight) * .9; const drawScale = baseScale * fishZoom.scale;
   const drawWidth = cropWidth * drawScale; const drawHeight = cropHeight * drawScale;
   const x = (viewWidth - drawWidth) / 2 + fishZoom.panX; const y = (viewHeight - drawHeight) / 2 + fishZoom.panY;
+  fishZoom.drawTransform = {x, y, scale: drawScale, viewWidth, viewHeight};
   context.imageSmoothingEnabled = true; context.imageSmoothingQuality = "high";
   const sourceScaleX = fishZoom.image.naturalWidth / (fishZoom.nativeWidth || fishZoom.image.naturalWidth);
   const sourceScaleY = fishZoom.image.naturalHeight / (fishZoom.nativeHeight || fishZoom.image.naturalHeight);
@@ -424,6 +464,7 @@ function renderFishZoom() {
 }
 function selectFishZoom(fish) {
   const displayed = segmentationSnapshotObservation(fish, fishZoom.frameId);
+  fishZoom.selectedCrackId = null; fishZoom.drawTransform = null;
   fishZoom.detection = displayed; const box = fishZoomBox(displayed?.bbox);
   if (!box) { fishZoom.crop = null; elements.fishZoomTitle.textContent = `Fish #${fishZoomId(fish)}`; elements.fishZoomSubtitle.textContent = "Matching mask-frame bounding box unavailable; overlay withheld"; renderFishZoomDetails(displayed); return; }
   const width = fishZoom.nativeWidth || fishZoom.image.naturalWidth; const height = fishZoom.nativeHeight || fishZoom.image.naturalHeight; const padding = Math.max(12, Math.round(Math.max(box[2] - box[0], box[3] - box[1]) * .12));
@@ -431,13 +472,31 @@ function selectFishZoom(fish) {
   elements.fishZoomTitle.textContent = `Fish #${fishZoomId(fish)}`; elements.fishZoomSubtitle.textContent = `${fishZoom.source === "live" ? "Live frame frozen for inspection" : "Selected inspection frame"} · pipeline continues normally`;
   renderFishZoomDetails(displayed); renderFishZoom();
 }
-async function openFishZoom(kind, detections, selected) {
+function selectFishZoomCrackPoint(event) {
+  if (!elements.fishZoomCracks?.checked || !fishZoom.crop || !fishZoom.drawTransform || fishZoom.suppressCrackClick
+      || typeof inspectionFishEvidenceEntry !== "function" || typeof crackOverlayEvidence !== "function") return;
+  const bounds = elements.fishZoomCanvas.getBoundingClientRect(), transform = fishZoom.drawTransform;
+  if (!bounds.width || !bounds.height || transform.scale <= 0) return;
+  const x = fishZoom.crop[0] + ((event.clientX - bounds.left) * transform.viewWidth / bounds.width - transform.x) / transform.scale;
+  const y = fishZoom.crop[1] + ((event.clientY - bounds.top) * transform.viewHeight / bounds.height - transform.y) / transform.scale;
+  const source = {width: fishZoom.nativeWidth, height: fishZoom.nativeHeight, frameId: fishZoom.frameId};
+  const evidence = crackOverlayEvidence(inspectionFishEvidenceEntry(fishZoom.detection), source);
+  const tolerance = 5 * Math.max(transform.viewWidth / bounds.width, transform.viewHeight / bounds.height) / transform.scale;
+  const selected = typeof crackCandidateAtPoint === "function" ? crackCandidateAtPoint(evidence.candidates, x, y, tolerance)
+    : evidence.candidates.filter(item => x >= item.bbox[0] && x <= item.bbox[2] && y >= item.bbox[1] && y <= item.bbox[3])
+      .sort((a, b) => (a.bbox[2] - a.bbox[0]) * (a.bbox[3] - a.bbox[1]) - (b.bbox[2] - b.bbox[0]) * (b.bbox[3] - b.bbox[1]))[0];
+  if (!selected) return;
+  fishZoom.selectedCrackId = selected.id;
+  renderFishZoomDetails(fishZoom.detection); renderFishZoom();
+}
+async function openFishZoom(kind, detections, selected, options = {}) {
   const requestVersion = ++fishZoomRequestVersion;
   const media = fishZoomMedia(kind); let temporaryUrl = null;
   const analysis = fishZoomAnalysis(selected); const segmentation = analysis.segmentation || {}; const overlay = segmentation.mask_overlay || {};
   const matchingPreview = typeof overlay.source_preview_image === "string" && /^data:image\/(jpeg|png|webp);base64,/.test(overlay.source_preview_image) ? overlay.source_preview_image : null;
   const stillSource = kind === "upload" && selectedUpload && !isVideoUpload(selectedUpload);
-  const frame = matchingPreview || (kind === "live"
+  const cached = options.source;
+  const frame = cached?.image || matchingPreview || (kind === "live"
     ? captureFishZoomFrame(media)
     : (elements.uploadVideo.classList.contains("hidden")
       ? (selectedUpload && !isVideoUpload(selectedUpload) ? (temporaryUrl = URL.createObjectURL(selectedUpload)) : uploadAnnotatedSource)
@@ -446,16 +505,26 @@ async function openFishZoom(kind, detections, selected) {
   try {
     fishZoom.image = null; fishZoom.detection = null;
     elements.fishZoomCanvas.width = 0; elements.fishZoomCanvas.height = 0;
-    const image = await fishZoomImage(frame);
+    const image = cached?.image || await fishZoomImage(frame);
     if (requestVersion !== fishZoomRequestVersion) return;
-    fishZoom.image = image; fishZoom.source = kind; fishZoom.detections = detections; fishZoom.previousFocus = document.activeElement;
-    fishZoom.frameId = matchingPreview || stillSource ? overlay.frame_id ?? segmentation.frame_id ?? analysis.inspection_source?.frame_id ?? null : null;
-    fishZoom.nativeWidth = matchingPreview ? overlay.frame_width_px ?? overlay.frame_width ?? fishZoom.image.naturalWidth : fishZoom.image.naturalWidth;
-    fishZoom.nativeHeight = matchingPreview ? overlay.frame_height_px ?? overlay.frame_height ?? fishZoom.image.naturalHeight : fishZoom.image.naturalHeight;
+    if (cached && (![cached.width, cached.height].every(value => typeof value === "number" && Number.isFinite(value) && value > 0) || cached.frameId == null)) throw new Error("Matching native image coordinates are unavailable for this fish.");
+    if (elements.fishZoomModal.classList.contains("hidden")) fishZoom.previousFocus = document.activeElement;
+    fishZoom.image = image; fishZoom.source = kind; fishZoom.detections = detections;
+    fishZoom.frameId = cached ? cached.frameId : matchingPreview || stillSource ? overlay.frame_id ?? segmentation.frame_id ?? analysis.inspection_source?.frame_id ?? null : null;
+    fishZoom.nativeWidth = cached ? cached.width : matchingPreview ? overlay.frame_width_px ?? overlay.frame_width ?? fishZoom.image.naturalWidth : fishZoom.image.naturalWidth;
+    fishZoom.nativeHeight = cached ? cached.height : matchingPreview ? overlay.frame_height_px ?? overlay.frame_height ?? fishZoom.image.naturalHeight : fishZoom.image.naturalHeight;
+    if (options.layers) {
+      for (const [key, control] of [["mask", elements.fishZoomMask], ["boxes", elements.fishZoomModel1], ["parts", elements.fishZoomModel2], ["measurements", elements.fishZoomMeasurements], ["cracks", elements.fishZoomCracks]]) if (control && typeof options.layers[key] === "boolean") control.checked = options.layers[key];
+      if (elements.fishZoomAnnotations) elements.fishZoomAnnotations.checked = true;
+      fishZoom.maskOpacity = options.layers.opacity;
+    }
     elements.fishZoomModal.classList.remove("hidden"); document.body.classList.add("panel-open"); selectFishZoom(selected);
     elements.fishZoomChoices.replaceChildren();
     if (detections.length > 1) {
-      elements.fishZoomChoices.classList.remove("hidden"); detections.forEach((fish) => { const button = document.createElement("button"); button.type = "button"; button.className = "button quiet"; button.textContent = `Fish #${fishZoomId(fish)} · ${fishZoomGrade(fish)}`; button.addEventListener("click", () => openFishZoom(kind, detections, fish)); elements.fishZoomChoices.append(button); });
+      elements.fishZoomChoices.classList.remove("hidden"); detections.forEach((fish) => { const button = document.createElement("button"); button.type = "button"; button.className = "button quiet"; button.textContent = `Fish #${fishZoomId(fish)} · ${fishZoomGrade(fish)}`; button.addEventListener("click", () => {
+        if (cached) selectInspectionFish(fishZoomId(fish), {revealCard: true});
+        void openFishZoom(kind, detections, fish, {...options, layers: null});
+      }); elements.fishZoomChoices.append(button); });
     } else elements.fishZoomChoices.classList.add("hidden");
     elements.fishZoomClose.focus({preventScroll: true});
   } catch (error) { elements.uploadStatus.textContent = error instanceof Error ? error.message : "Fish detail unavailable."; }
@@ -463,9 +532,21 @@ async function openFishZoom(kind, detections, selected) {
 }
 function closeFishZoom() {
     fishZoomRequestVersion += 1;
-  elements.fishZoomModal.classList.add("hidden"); document.body.classList.remove("panel-open"); fishZoom.image = null;
+  elements.fishZoomModal.classList.add("hidden");
+  if (typeof updateScrim === "function") updateScrim(); else document.body.classList.remove("panel-open");
+  fishZoom.image = null;
     fishZoom.detection = null; fishZoom.frameId = null; fishZoom.nativeWidth = null; fishZoom.nativeHeight = null;
   if (fishZoom.previousFocus?.focus) fishZoom.previousFocus.focus({preventScroll: true});
+}
+function handleFishZoomKeydown(event) {
+  if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); closeFishZoom(); return; }
+  if (event.key !== "Tab") return;
+  event.stopPropagation();
+  const controls = [...elements.fishZoomModal.querySelectorAll('button, input, select, [tabindex="0"]')].filter(control => !control.disabled && control.getClientRects().length);
+  const first = controls[0], last = controls.at(-1);
+  if (!first) return;
+  if (event.shiftKey && (document.activeElement === first || !elements.fishZoomModal.contains(document.activeElement))) { event.preventDefault(); last.focus(); }
+  else if (!event.shiftKey && (document.activeElement === last || !elements.fishZoomModal.contains(document.activeElement))) { event.preventDefault(); first.focus(); }
 }
 
 function attachStream() {
@@ -845,7 +926,7 @@ function bodyWidthRows(event) {
     ["Body measurement source", fishGeometry.body_region_source === "associated_body_segmentation" ? "Associated Body segmentation" : fishGeometry.body_region_source === "associated_body_bbox_longitudinal_region" ? "Silhouette across the associated Body detection" : "Unavailable"],
     ["Fish measurement method", String(fishGeometry.method || "Unavailable").replaceAll("_", " ")],
     ["Fish orientation (degrees)", geometryNumber(fishGeometry.orientation_degrees)],
-    ["Measurement overlay", measured && fishGeometry.visualization?.measured === true ? "Measured axes, endpoints and silhouette boundary appear on the annotated image" : "Unavailable: no reliable measurement overlay recorded"],
+    ["Measurement overlay", measured && fishGeometry.visualization?.measured === true ? `${fishGeometry.visualization.status === "validated" ? "Validated" : "Estimated"} axes recorded; enable Show Measurements to inspect` : fishGeometry.candidate_visualization?.status === "estimated" ? "Estimated native-image geometry recorded; enable Show Measurements to inspect supported axes" : "Unavailable: no supported measurement endpoints recorded"],
     ["Physical calibration", samEstimated ? "Not applied: experimental mask ownership and anatomical boundary are not validated" : estimated ? "Not applied: sampled foreground boundary is not validated" : [physical.status || "Not calibrated", physical.reason ? String(physical.reason).replaceAll("_", " ") : ""].filter(Boolean).join(": ")],
     ...physicalRows,
     ["Silhouette measurement used for grading", !estimated && fishGeometry.used_for_grading === true ? "Yes" : "No"],
@@ -2576,6 +2657,225 @@ function maskPreviewEntries(data) {
       review, reason: reasons || overlay.reason, color: maskPreviewColor(index), frameMatches: overlay.frame_matches}];
   });
 }
+function inspectionFishEvidenceEntry(fish, frameMatches = true) {
+  const analysis = fish?.analysis || fish?.quality_analysis || {}, id = fishZoomId(fish);
+  const segmentation = fish?.segmentation || analysis.segmentation || {};
+  const sourceParentId = fish.source_parent_id ?? analysis.quality_inference?.association?.source_parent_id ?? id;
+  return {id, bbox: fish.bbox, analysis, segmentation, frameMatches, sourceParentId,
+    sourceIdNamespace: fish.source_parent_id != null || analysis.quality_inference?.association?.source_parent_id != null || segmentation.source_detection_id != null,
+    sourceIdentityVerified: fish.source_parent_id != null || analysis.quality_inference?.association?.source_parent_id != null || segmentation.source_detection_id == null || String(segmentation.source_detection_id) === String(id)};
+}
+function inspectionEvidenceScope(record, entry, source) {
+  if (entry.sourceIdentityVerified === false) return "Fish ownership cannot be matched to the source detection.";
+  if (!source || record.frame_id == null || String(record.frame_id) !== String(source.frameId)) return "Matching original-image frame was not recorded.";
+  const parent = record.source_parent_id ?? record.parent_track_id;
+  if (parent == null || String(parent) !== String(entry.sourceIdNamespace ? entry.sourceParentId : entry.id)) return "Measurement ownership does not match this fish.";
+  if ((record.frame_width_px != null && record.frame_width_px !== source.width) || (record.frame_height_px != null && record.frame_height_px !== source.height)) return "Evidence and original-image dimensions do not match.";
+  return "";
+}
+function measurementOverlayEvidence(entry, source) {
+  const geometry = entry.analysis?.fish_geometry || {}, sampling = geometry.sampling || {};
+  const estimated = sampling.estimated === true || geometry.status !== "measured";
+  const visualization = estimated ? geometry.candidate_visualization || {} : geometry.visualization || {};
+  const values = estimated ? geometry.candidate_measurements || {} : geometry;
+  const reasons = [...(Array.isArray(geometry.reasons) ? geometry.reasons : []), ...(Array.isArray(visualization.reasons) ? visualization.reasons : [])];
+  const explanation = reasons.filter(Boolean).map(value => String(value).replaceAll("_", " ")).filter((value, index, all) => all.indexOf(value) === index).join("; ");
+  const unavailable = reason => ({status: "Unavailable", reason: [reason, explanation].filter(Boolean).join(" "), lines: [], values, geometry});
+  if (!Object.keys(geometry).length) return unavailable("No per-fish geometry was recorded.");
+  if (geometry.frame_id != null && String(geometry.frame_id) !== String(source?.frameId)) return unavailable("Geometry values and the original-image frame do not match.");
+  const valueParent = geometry.source_parent_id ?? geometry.parent_track_id;
+  if (valueParent != null && String(valueParent) !== String(entry.sourceIdNamespace ? entry.sourceParentId : entry.id)) return unavailable("Geometry values belong to another source fish.");
+  if ((geometry.frame_width_px != null && geometry.frame_width_px !== source?.width) || (geometry.frame_height_px != null && geometry.frame_height_px !== source?.height)) return unavailable("Geometry value dimensions do not match the original image.");
+  const scope = inspectionEvidenceScope({...geometry, ...visualization}, entry, source);
+  if (scope) return unavailable(scope);
+  if (visualization.coordinate_space !== "original_frame" || ![visualization.frame_width_px ?? geometry.frame_width_px, visualization.frame_height_px ?? geometry.frame_height_px].every((value, index) => value === (index ? source.height : source.width))) return unavailable("Original-image measurement endpoints or dimensions were not recorded.");
+  if (visualization.status === "unavailable" || visualization.available === false) return unavailable("Measurement placement is unreliable; endpoints are withheld.");
+  const validPoints = points => Array.isArray(points) && points.length >= 2 && points.length <= 4096 && points.every(point => Array.isArray(point) && point.length === 2 && point.every(value => typeof value === "number" && Number.isFinite(value)) && point[0] >= 0 && point[1] >= 0 && point[0] <= source.width && point[1] <= source.height);
+  const provenance = geometry.validation_provenance;
+  const reviewed = Boolean(typeof provenance === "string" ? provenance.trim() : provenance && typeof provenance === "object" && Object.keys(provenance).length);
+  const status = !estimated && geometry.measurement_validated === true && geometry.ownership_validated === true && geometry.body_region_validated === true && reviewed && visualization.status === "validated" ? "Validated" : "Estimated";
+  const lines = [];
+  for (const [key, points, value, label] of [
+    ["length", visualization.length_path || visualization.principal_axis, values.fish_length_px, "Length"],
+    ["maximum", visualization.width_axis, values.max_body_width_px, "Max Body width"],
+    ["representative", visualization.representative_width_axis, visualization.representative_width_axis_value_px ?? values.representative_body_width_px, "Representative Body section"],
+  ]) {
+    if (typeof value !== "number" || !Number.isFinite(value) || value <= 0 || !validPoints(points) || !points.some(point => point[0] !== points[0][0] || point[1] !== points[0][1])) continue;
+    lines.push({key, points, value, label, status});
+  }
+  if (!lines.length) return unavailable("No supported measurement endpoints were returned. Values alone cannot locate an overlay.");
+  return {status, reason: explanation || (status === "Validated" ? "Reviewed measurement and ownership evidence recorded." : "Computed silhouette geometry; anatomical accuracy has not been independently validated."), lines, values, geometry};
+}
+function crackOverlayEvidence(entry, source) {
+  const damage = entry.analysis?.surface_damage || {};
+  const unavailable = reason => ({candidates: [], reason, damage});
+  const scope = inspectionEvidenceScope(damage, entry, source);
+  if (scope) return unavailable(scope);
+  if (!["suspected", "validated"].includes(damage.status)) return unavailable(damage.reason || (Array.isArray(damage.reasons) ? damage.reasons.join("; ") : "") || "No reliable crack evidence was recorded.");
+  const finite = value => typeof value === "number" && Number.isFinite(value);
+  const bounds = damage.crop_bounds;
+  const cropValid = Array.isArray(bounds) && bounds.length === 4 && bounds.every(finite) && bounds[0] >= 0 && bounds[1] >= 0 && bounds[2] > bounds[0] && bounds[3] > bounds[1] && bounds[2] <= source.width && bounds[3] <= source.height;
+  const local = damage.coordinate_space === "crop_local_native_pixels";
+  if (damage.coordinate_space !== "original_frame" && !(local && cropValid)) return unavailable("Native crack coordinate provenance or crop bounds were not recorded.");
+  if (damage.coordinate_space === "original_frame" && bounds != null && !cropValid) return unavailable("Recorded crack crop bounds disagree with the original image.");
+  const offset = local ? bounds.slice(0, 2) : [0, 0];
+  const provenance = damage.validation_provenance;
+  const reviewed = Boolean(typeof provenance === "string" ? provenance.trim() : provenance && typeof provenance === "object" && Object.keys(provenance).length);
+  const validated = damage.validation_status === "validated" && damage.mask_validated_for_cracks === true && reviewed;
+  const candidates = (Array.isArray(damage.locations) ? damage.locations : []).slice(0, 64).flatMap((location, index) => {
+    if (!location || ![location.x, location.y, location.width, location.height].every(finite) || location.x < 0 || location.y < 0 || location.width <= 0 || location.height <= 0) return [];
+    const bbox = [location.x + offset[0], location.y + offset[1], location.x + offset[0] + location.width, location.y + offset[1] + location.height];
+    if (bbox[2] > source.width || bbox[3] > source.height || (cropValid && (bbox[0] < bounds[0] || bbox[1] < bounds[1] || bbox[2] > bounds[2] || bbox[3] > bounds[3]))) return [];
+    const point = p => Array.isArray(p) && p.length === 2 && p.every(finite) && p[0] + offset[0] >= bbox[0] && p[1] + offset[1] >= bbox[1] && p[0] + offset[0] <= bbox[2] && p[1] + offset[1] <= bbox[3];
+    const contours = (Array.isArray(location.contours) ? location.contours : []).slice(0, 64).filter(polygon => Array.isArray(polygon) && polygon.length >= 3 && polygon.length <= 4096 && polygon.every(point)).map(polygon => polygon.map(p => [p[0] + offset[0], p[1] + offset[1]]));
+    const severity = validated && location.severity_validated === true && ["minor", "moderate", "major"].includes(location.severity) ? location.severity : "Unassessed";
+    return [{id: `${entry.id}:${index}`, index, bbox, contours, location, status: validated ? "Validated" : "Estimated", severity,
+      outline: contours.length ? "Detected support outline" : "Recorded candidate bounds", reason: damage.reason || damage.severity_reason || "Surface discontinuity candidate; cause requires review."}];
+  });
+  return {candidates, reason: candidates.length ? "Recorded surface-discontinuity candidates; review does not establish a biological fracture." : "No source-matched native crack locations were recorded.", damage};
+}
+function drawInspectionMeasurements(context, evidence, source, line, font) {
+  if (!evidence.lines.length) return;
+  const labels = evidence.lines.map(measurement => {
+    let label = `${measurement.label}: ${Number(measurement.value.toFixed(2))} px · ${evidence.status}`;
+    if (measurement.key === "length" && typeof evidence.values.relative_width_ratio === "number" && Number.isFinite(evidence.values.relative_width_ratio)) label += ` · W/L ${Number(evidence.values.relative_width_ratio.toFixed(4))}`;
+    return label;
+  });
+  context.save(); context.font = `600 ${font * .75}px system-ui`;
+  const textWidths = labels.map(label => context.measureText(label).width); context.restore();
+  const points = evidence.lines.flatMap(measurement => measurement.points);
+  const rowHeight = font + line * 4;
+  const labelX = Math.max(0, Math.min(source.width - Math.max(...textWidths) - line * 4, Math.max(...points.map(point => point[0])) + line * 3));
+  const labelY = Math.max(font, Math.min(source.height - (evidence.lines.length - 1) * rowHeight - line * 3, Math.max(...points.map(point => point[1])) + font));
+  for (const [index, measurement] of evidence.lines.entries()) {
+    const colors = {length: "#d9ff88", maximum: "#65e6ff", representative: "#ffc6ff"};
+    context.save(); context.globalAlpha = 1; context.lineWidth = line * 1.3; context.strokeStyle = colors[measurement.key];
+    context.setLineDash(evidence.status === "Validated" ? [] : [line * 4, line * 2]);
+    context.beginPath(); measurement.points.forEach((point, index) => index ? context.lineTo(...point) : context.moveTo(...point)); context.stroke(); context.setLineDash([]);
+    context.font = `600 ${font * .75}px system-ui`;
+    const y = labelY + index * rowHeight;
+    context.fillStyle = "rgb(7 29 43 / 90%)"; context.fillRect(labelX, y - font * .8, textWidths[index] + line * 4, font + line * 2);
+    context.fillStyle = colors[measurement.key]; context.fillText(labels[index], labelX + line * 2, y); context.restore();
+  }
+}
+function crackCandidateAtPoint(candidates, x, y, tolerance = 0) {
+  const contains = polygon => {
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      const [a, b] = [polygon[i], polygon[j]], dx = b[0] - a[0], dy = b[1] - a[1];
+      const fraction = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / (dx * dx + dy * dy || 1)));
+      if (Math.hypot(x - a[0] - fraction * dx, y - a[1] - fraction * dy) <= tolerance) return true;
+      if ((a[1] > y) !== (b[1] > y) && x < dx * (y - a[1]) / (dy || 1) + a[0]) inside = !inside;
+    }
+    return inside;
+  };
+  return candidates.filter(candidate => candidate.contours.length ? candidate.contours.some(contains) : x >= candidate.bbox[0] - tolerance && x <= candidate.bbox[2] + tolerance && y >= candidate.bbox[1] - tolerance && y <= candidate.bbox[3] + tolerance)
+    .sort((a, b) => (a.bbox[2] - a.bbox[0]) * (a.bbox[3] - a.bbox[1]) - (b.bbox[2] - b.bbox[0]) * (b.bbox[3] - b.bbox[1]))[0] || null;
+}
+function drawInspectionCracks(context, evidence, line, font, selectedId = null) {
+  for (const candidate of evidence.candidates) {
+    const color = {minor: "#fde047", moderate: "#fb923c", major: "#ff536b"}[candidate.severity] || "#ffffff";
+    context.save(); context.globalAlpha = 1; context.strokeStyle = "#071d2b"; context.lineWidth = line * 3;
+    const outline = () => { if (candidate.contours.length) { maskPreviewPolygons(context, candidate.contours); context.stroke(); } else { const [left, top, right, bottom] = candidate.bbox; context.strokeRect(left, top, right - left, bottom - top); } };
+    if (candidate.contours.length) outline(); context.strokeStyle = color; context.lineWidth = candidate.id === selectedId ? line * 1.8 : line;
+    context.setLineDash(candidate.status === "Validated" ? [] : [line * 2, line * 2]); outline(); context.setLineDash([]);
+    context.font = `600 ${font * .7}px system-ui`; context.fillStyle = color;
+    context.fillText(`Candidate ${candidate.index + 1} · ${candidate.severity === "Unassessed" ? "severity unassessed" : candidate.severity} · ${candidate.status}`, candidate.bbox[0] + line, Math.max(font, candidate.bbox[1] - line * 2)); context.restore();
+  }
+}
+function inspectionEvidenceNumber(value, status, unit = "px") {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? `${Number(value.toFixed(4))}${unit ? ` ${unit}` : ""} · ${status}` : "Unavailable";
+}
+function showCrackCandidate(entry, candidate, source) {
+  uploadMaskPreview.selectedCrack = candidate.id;
+  if (elements.maskPreviewFish) elements.maskPreviewFish.value = String(entry.id);
+  renderMaskPreview();
+  const panel = elements.maskPreviewCrackDetails;
+  if (!panel) return;
+  panel.replaceChildren(); panel.classList.remove("hidden");
+  const heading = document.createElement("h4"); heading.textContent = `Fish #${entry.id} · Crack candidate ${candidate.index + 1}`;
+  const location = candidate.location, [left, top, right, bottom] = candidate.bbox;
+  const rows = [
+    ["Location", `Original image (${Number(left.toFixed(2))}, ${Number(top.toFixed(2))}) to (${Number(right.toFixed(2))}, ${Number(bottom.toFixed(2))}) px; frame ${source.frameId}`],
+    ["Estimated size", `${Number((right - left).toFixed(2))} × ${Number((bottom - top).toFixed(2))} px candidate bounds`],
+    ["Straight-line support extent", inspectionEvidenceNumber(location.estimated_length_px, "Estimated")],
+    ["Skeleton support extent", inspectionEvidenceNumber(location.skeleton_length_px, "Estimated")],
+    ["Severity", candidate.severity], ["Validation", candidate.status === "Validated" ? "Validated with recorded provenance" : "Estimated candidate; not validated as a crack"],
+    ["Outline", candidate.outline], ["Interpretation", candidate.reason],
+  ];
+  panel.append(heading); const list = document.createElement("dl");
+  rows.forEach(([label, value]) => { const row = document.createElement("div"); row.append(Object.assign(document.createElement("dt"), {textContent: label}), Object.assign(document.createElement("dd"), {textContent: value})); list.append(row); }); panel.append(list);
+}
+function overlayPreviewFeedback(entries, source) {
+  const measurements = elements.maskPreviewMeasurements?.checked === true;
+  const cracks = elements.maskPreviewCracks?.checked === true;
+  if (!measurements && !cracks) return "";
+  const summarize = rows => rows.slice(0, 3).map(([id, reason]) => `Fish #${id}: ${reason}`).join(" ") + (rows.length > 3 ? ` ${rows.length - 3} more fish have unavailable evidence; see the per-fish details below the image.` : "");
+  const messages = [];
+  if (!source || !entries.length) {
+    if (measurements) messages.push("Measurements unavailable: no matching recorded fish geometry is ready for the selected image and Fish ID.");
+    if (cracks) messages.push("Crack overlay unavailable: no matching recorded crack locations are ready for the selected image and Fish ID. This does not establish absence of cracks.");
+    return messages.join(" ");
+  }
+  if (measurements) {
+    const evidence = entries.map(entry => ({entry, result: measurementOverlayEvidence(entry, source)}));
+    const count = evidence.reduce((total, item) => total + item.result.lines.length, 0), shown = evidence.filter(item => item.result.lines.length).length;
+    const missing = evidence.filter(item => !item.result.lines.length).map(({entry, result}) => [entry.id, result.reason]);
+    messages.push(count ? `Measurements: showing ${count} supported line${count === 1 ? "" : "s"} on ${shown} fish. Dashed lines are Estimated; solid lines are Validated.` : "Measurements unavailable: no supported measurement lines can be drawn for this selection.");
+    if (missing.length) messages.push(summarize(missing));
+    if (evidence.some(({result}) => Object.keys(result.geometry).length && !result.geometry.candidate_visualization && !result.geometry.visualization)) messages.push("This result has no recorded measurement endpoints. After the updated backend is running, run analysis once to record them; checkbox changes never rerun models.");
+  }
+  if (cracks) {
+    const evidence = entries.map(entry => ({entry, result: crackOverlayEvidence(entry, source)}));
+    const count = evidence.reduce((total, item) => total + item.result.candidates.length, 0);
+    const missing = evidence.filter(item => !item.result.candidates.length).map(({entry, result}) => [entry.id, result.reason]);
+    messages.push(count ? `Cracks: showing ${count} recorded candidate${count === 1 ? "" : "s"}. Click an outline to inspect its validation and severity.` : "Crack overlay unavailable: no reliable candidate locations were recorded for this selection.");
+    if (missing.length) messages.push(summarize(missing));
+    messages.push("No reliable crack evidence does not establish absence of cracks.");
+  }
+  return messages.join(" ");
+}
+function renderMaskOverlayFeedback(entries, source) {
+  const status = elements.maskPreviewOverlayStatus;
+  if (!status) return;
+  const message = overlayPreviewFeedback(entries, source);
+  status.textContent = message; status.classList[message ? "remove" : "add"]("hidden");
+}
+function renderMaskInspectionEvidence(entries, source) {
+  const container = elements.maskPreviewEvidence;
+  if (!container) return;
+  const open = new Set([...container.querySelectorAll("details[open]")].map(item => item.dataset.fishId));
+  container.replaceChildren();
+  for (const entry of entries) {
+    const geometry = measurementOverlayEvidence(entry, source), cracks = crackOverlayEvidence(entry, source), width = entry.analysis.body_width || {};
+    const details = document.createElement("details"); details.dataset.fishId = String(entry.id); details.open = entries.length === 1 || open.has(String(entry.id));
+    const summary = document.createElement("summary"); summary.textContent = `Fish #${entry.id} · Geometry: ${geometry.status} · ${cracks.candidates.length ? `${cracks.candidates.length} crack candidate(s)` : "Crack evidence: Unavailable"}`; details.append(summary);
+    const addSection = (title, rows) => { const section = document.createElement("section"), heading = document.createElement("h4"), list = document.createElement("dl"); heading.textContent = title; section.append(heading, list); rows.forEach(([label, value]) => { const row = document.createElement("div"); row.append(Object.assign(document.createElement("dt"), {textContent: label}), Object.assign(document.createElement("dd"), {textContent: value})); list.append(row); }); details.append(section); return section; };
+    const valueStatus = geometry.status === "Validated" ? "Validated" : "Estimated";
+    const hasValue = Object.values(geometry.values).some(value => typeof value === "number" && Number.isFinite(value));
+    const metric = (key, lineKey, unit = "px") => inspectionEvidenceNumber(geometry.values[key], geometry.lines.some(row => row.key === lineKey) ? valueStatus : "Estimated diagnostic; overlay unavailable", unit);
+    addSection("Geometry", [
+      ["Length", metric("fish_length_px", "length")],
+      ["Maximum Body width", metric("max_body_width_px", "maximum")],
+      ["Representative Body width (central median)", metric("representative_body_width_px", "representative")],
+      ["Width / length", metric("relative_width_ratio", "maximum", "")],
+      ["Abnormal width", width.abnormality_status || width.width_abnormality || "Unavailable: normal reference not calibrated"],
+      ["Overlay reliability", `${geometry.status}: ${geometry.reason}`],
+      ["Value reliability", hasValue && geometry.status === "Unavailable" ? "Estimated numeric diagnostics only; placement or ownership is unreliable. No measurement lines are drawn." : geometry.status],
+      ["Representative line", geometry.lines.some(row => row.key === "representative") ? "Closest measured central section; its width may differ from the central median." : "Unavailable: no supported section endpoints"],
+      ["Contributed to grading", geometry.geometry.used_for_grading === true || width.score_contributed === true ? "Yes; recorded geometry/width contribution" : "No recorded geometry/width contribution"],
+    ]);
+    const structural = entry.analysis.feature_fusion?.structural || {};
+    const structuralContribution = structural.used_for_grading === true && structural.status === "confirmed" && structural.severity_validated === true && structural.source_bound === true && Boolean(structural.validation_provenance && Object.keys(structural.validation_provenance).length);
+    const section = addSection("Structural Damage", [
+      ["Crack evidence", cracks.candidates.length ? `${cracks.candidates.length} source-matched candidate(s) · ${cracks.candidates.every(item => item.status === "Validated") ? "Validated" : "Estimated; review required"}` : `Unavailable: ${cracks.reason}`],
+      ["Interpretation", "No reliable crack evidence does not establish absence of cracks. Surface marks require review."],
+      ["Contributed to grading", structuralContribution ? `Yes: ${String(structural.contribution_reason || "reviewed structural rule").replaceAll("_", " ")}` : "No validated structural contribution recorded"],
+    ]);
+    for (const candidate of cracks.candidates) { const button = Object.assign(document.createElement("button"), {type: "button", className: "button quiet crack-candidate-button", textContent: `Inspect candidate ${candidate.index + 1} · ${candidate.status} · ${candidate.severity}`}); button.addEventListener("click", () => showCrackCandidate(entry, candidate, source)); section.append(button); }
+    container.append(details);
+  }
+}
 function maskPreviewPolygons(context, polygons) {
   context.beginPath();
   for (const polygon of polygons) {
@@ -2643,6 +2943,8 @@ function renderMaskPreview() {
   }
   const source = maskPreviewSource(data);
   if (!source || !image || uploadMaskPreview.file !== selectedUpload || !elements.maskPreviewCanvas) {
+    if (typeof renderMaskOverlayFeedback === "function") renderMaskOverlayFeedback([], null);
+    elements.maskPreviewEvidence?.replaceChildren(); elements.maskPreviewCrackDetails?.classList.add("hidden");
     elements.maskPreviewViewport?.classList.add("hidden");
     if (elements.maskPreviewMasks?.checked && elements.maskPreviewStatus) elements.maskPreviewStatus.textContent = "Fish masks are unavailable for this analysis. The original image and bounding-box results remain available.";
     if (elements.maskPreviewAssociation?.checked && elements.maskPreviewAssociationStatus) {
@@ -2667,7 +2969,7 @@ function renderMaskPreview() {
   const showBoxes = elements.maskPreviewBoxes?.checked === true || elements.maskPreviewModel1?.checked === true;
   if (elements.maskPreviewViewport && elements.uploadImage && elements.uploadVideo) {
     elements.uploadMediaStage?.classList.remove("hidden");
-    if (maskMode || elements.maskPreviewAssociation?.checked === true) {
+    if (maskMode || elements.maskPreviewAssociation?.checked === true || elements.maskPreviewMeasurements?.checked === true || elements.maskPreviewCracks?.checked === true) {
       if (!uploadMaskPreview.mainMedia) uploadMaskPreview.mainMedia = elements.uploadImage.classList.contains("hidden") ? "video" : "image";
       elements.uploadImage.classList.add("hidden"); elements.uploadVideo.classList.add("hidden");
       elements.maskPreviewViewport.classList.remove("hidden"); elements.uploadFishTargets?.classList.add("hidden");
@@ -2699,26 +3001,8 @@ function renderMaskPreview() {
       context.font = `${font * .7}px system-ui`; context.fillStyle = "#fff";
       context.fillText(`${part.region || part.part || "Part"} (assigned)`, left + line, Math.min(source.height - font, top + font));
     }
-    if (elements.maskPreviewCracks?.checked) {
-      const damage = entry.analysis.surface_damage || {};
-      const sameFrame = damage.frame_id != null && String(damage.frame_id) === String(source.frameId);
-      const damageSourceParent = damage.source_parent_id ?? damage.parent_track_id;
-      const sameParent = entry.sourceIdentityVerified !== false && (entry.sourceIdNamespace
-        ? damageSourceParent != null && String(damageSourceParent) === String(entry.sourceParentId)
-        : String(damage.parent_track_id ?? entry.id) === String(entry.id));
-      const allowed = sameFrame && sameParent && ["suspected", "validated"].includes(damage.status);
-      const bounds = damage.crop_bounds;
-      const offset = damage.coordinate_space === "crop_local_native_pixels" && Array.isArray(bounds) && bounds.length === 4 ? bounds.slice(0, 2) : damage.coordinate_space === "original_frame" ? [0, 0] : null;
-      if (allowed && offset) for (const location of Array.isArray(damage.locations) ? damage.locations : []) {
-        if (![location.x, location.y, location.width, location.height].every(value => typeof value === "number" && Number.isFinite(value))) continue;
-        const x = location.x + offset[0], y = location.y + offset[1];
-        if (x < 0 || y < 0 || location.width <= 0 || location.height <= 0 || x + location.width > source.width || y + location.height > source.height) continue;
-        context.globalAlpha = 1; context.strokeStyle = "#ff5252"; context.lineWidth = line * 1.5; context.setLineDash([line * 2, line * 2]);
-        context.strokeRect(x, y, location.width, location.height); context.setLineDash([]);
-        context.font = `${font * .7}px system-ui`; context.fillStyle = "#fff";
-        context.fillText(damage.validation_status === "validated" && damage.mask_validated_for_cracks === true ? "Reviewed structural evidence" : "Crack candidate · review", x + line, Math.max(font, y - line));
-      }
-    }
+    if (elements.maskPreviewMeasurements?.checked) drawInspectionMeasurements(context, measurementOverlayEvidence(entry, source), source, line, font);
+    if (elements.maskPreviewCracks?.checked) drawInspectionCracks(context, crackOverlayEvidence(entry, source), line, font, uploadMaskPreview.selectedCrack);
     if (showMasks || showBoxes) {
       const label = `Fish #${entry.id}${entry.contours.length ? entry.review ? " · review" : " · unvalidated" : " · mask unavailable"}`;
       const x = entry.bbox[0], y = Math.max(font + line, entry.bbox[1]);
@@ -2729,6 +3013,11 @@ function renderMaskPreview() {
     context.restore();
   }
   if (typeof renderAnatomicalAssociationDebug === "function") renderAnatomicalAssociationDebug(context, entries, source, selection, line, font);
+  if (typeof renderMaskInspectionEvidence === "function") renderMaskInspectionEvidence(entries, source);
+  if (typeof renderMaskOverlayFeedback === "function") renderMaskOverlayFeedback(entries, source);
+  if (uploadMaskPreview.selectedCrack && !entries.some(entry => crackOverlayEvidence(entry, source).candidates.some(candidate => candidate.id === uploadMaskPreview.selectedCrack))) {
+    uploadMaskPreview.selectedCrack = null; elements.maskPreviewCrackDetails?.classList.add("hidden");
+  }
 }
 function rememberMaskPreviewAnalysis(analysis, file) {
   uploadMaskPreview.analysisToken = typeof analysis?.preview_analysis_token === "string" ? analysis.preview_analysis_token : null;
@@ -2863,6 +3152,7 @@ async function setMainViewerMode(mode) {
 }
 function selectInspectionFish(id, {revealCard = false} = {}) {
   const value = id == null ? "all" : String(id);
+  if (elements.maskPreviewFish?.value !== value) { uploadMaskPreview.selectedCrack = null; elements.maskPreviewCrackDetails?.classList.add("hidden"); }
   if (elements.maskPreviewFish) elements.maskPreviewFish.value = value;
   renderMaskPreview();
   let cards = elements.resultsGroups?.querySelectorAll?.("details[data-inspection-fish-id]") || [];
@@ -2889,6 +3179,25 @@ function selectInspectionFish(id, {revealCard = false} = {}) {
     if (selected && revealCard) card.open = true;
   }
 }
+async function openMaskPreviewFishZoom(entry) {
+  const source = maskPreviewSource(uploadMaskPreview.data), image = uploadMaskPreview.image;
+  if (!source || !image || uploadMaskPreview.file !== selectedUpload) return;
+  const snapshots = maskPreviewEntries(uploadMaskPreview.data).map(item => {
+    const original = (uploadMaskPreview.data.fish || []).find(fish => fish.id === item.id) || {};
+    const recorded = typeof resultDatasets !== "undefined" ? resultDatasets.upload.rows.find(fish => String(fishZoomId(fish)) === String(item.id)) : null;
+    return {...recorded, ...original, id: item.id, track_id: item.id, bbox: item.bbox, parts: item.parts, _maskColor: item.color,
+      ...(item.sourceIdNamespace ? {source_parent_id: item.sourceParentId} : {}),
+      analysis: {...recorded?.analysis, ...item.analysis, segmentation: {...item.segmentation, source_parent_bbox: item.bbox, source_parts: item.parts}}};
+  });
+  const selected = snapshots.find(fish => fish.id === entry.id);
+  if (!selected) return;
+  const layers = {mask: elements.maskPreviewMasks?.checked === true && elements.maskPreviewShow?.checked !== false,
+    boxes: elements.maskPreviewBoxes?.checked === true || elements.maskPreviewModel1?.checked === true,
+    parts: elements.maskPreviewModel2?.checked === true, measurements: elements.maskPreviewMeasurements?.checked === true,
+    cracks: elements.maskPreviewCracks?.checked === true, opacity: Math.max(0, Math.min(.8, Number(elements.maskPreviewOpacity?.value ?? 40) / 100))};
+  selectInspectionFish(entry.id, {revealCard: true});
+  await openFishZoom("upload", snapshots, selected, {source: {image, frameId: source.frameId, width: source.width, height: source.height}, layers});
+}
 function selectMaskPreviewPoint(event) {
   const source = maskPreviewSource(uploadMaskPreview.data), canvas = elements.maskPreviewCanvas;
   if (!source || !canvas) return;
@@ -2896,6 +3205,13 @@ function selectMaskPreviewPoint(event) {
   if (!bounds.width || !bounds.height) return;
   const x = (event.clientX - bounds.left) * source.width / bounds.width;
   const y = (event.clientY - bounds.top) * source.height / bounds.height;
+  if (elements.maskPreviewCracks?.checked) {
+    const selection = elements.maskPreviewFish?.value || "all";
+    for (const entry of maskPreviewEntries(uploadMaskPreview.data).filter(item => selection === "all" || String(item.id) === selection)) {
+      const candidate = crackCandidateAtPoint(crackOverlayEvidence(entry, source).candidates, x, y, 5 * source.width / bounds.width);
+      if (candidate) { selectInspectionFish(entry.id, {revealCard: true}); showCrackCandidate(entry, candidate, source); return; }
+    }
+  }
   const polygonContains = polygon => {
     let inside = false;
     for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
@@ -2906,18 +3222,22 @@ function selectMaskPreviewPoint(event) {
   };
   const selection = elements.maskPreviewFish?.value || "all";
   const masks = elements.maskPreviewMasks?.checked === true;
-  const hits = maskPreviewEntries(uploadMaskPreview.data).filter(entry => (selection === "all" || String(entry.id) === selection)
-    && (masks ? entry.contours.reduce((inside, polygon) => inside !== polygonContains(polygon), false)
-      : x >= entry.bbox[0] && x <= entry.bbox[2] && y >= entry.bbox[1] && y <= entry.bbox[3]));
+  const entries = maskPreviewEntries(uploadMaskPreview.data).filter(entry => selection === "all" || String(entry.id) === selection);
+  let hits = masks ? entries.filter(entry => entry.contours.reduce((inside, polygon) => inside !== polygonContains(polygon), false)) : [];
+  if (!hits.length && (!masks || elements.maskPreviewBoxes?.checked || elements.maskPreviewModel1?.checked)) hits = entries.filter(entry => x >= entry.bbox[0] && x <= entry.bbox[2] && y >= entry.bbox[1] && y <= entry.bbox[3]);
   hits.sort((a, b) => Math.hypot(x - (a.bbox[0] + a.bbox[2]) / 2, y - (a.bbox[1] + a.bbox[3]) / 2)
     - Math.hypot(x - (b.bbox[0] + b.bbox[2]) / 2, y - (b.bbox[1] + b.bbox[3]) / 2));
-  if (hits.length) selectInspectionFish(hits[0].id, {revealCard: true});
+  if (hits.length) void openMaskPreviewFishZoom(hits[0]);
 }
 function stopMaskPreviewTimer() {
   if (uploadMaskPreview.timer) clearInterval(uploadMaskPreview.timer);
   uploadMaskPreview.timer = null;
 }
 function clearMaskPreview() {
+  elements.maskPreviewOverlayStatus?.classList.add("hidden");
+  if (elements.maskPreviewOverlayStatus) elements.maskPreviewOverlayStatus.textContent = "";
+  uploadMaskPreview.selectedCrack = null;
+  elements.maskPreviewEvidence?.replaceChildren(); elements.maskPreviewCrackDetails?.replaceChildren(); elements.maskPreviewCrackDetails?.classList.add("hidden");
   if (elements.maskPreviewAssociation) elements.maskPreviewAssociation.checked = false;
   elements.maskPreviewAssociationStatus?.classList.add("hidden"); elements.maskPreviewAssociationLegend?.classList.add("hidden");
   const previousMainMedia = uploadMaskPreview.mainMedia;
@@ -3193,7 +3513,7 @@ elements.uploadMode.addEventListener("click", () => toggleUpload(elements.upload
 elements.inspectMasks?.addEventListener("click", () => {
   void inspectUploadMasks();
 });
-for (const control of [elements.maskPreviewShow, elements.maskPreviewModel1, elements.maskPreviewModel2, elements.maskPreviewCracks, elements.maskPreviewAssociation, elements.maskPreviewOpacity, elements.maskPreviewZoom]) control?.addEventListener("input", renderMaskPreview);
+for (const control of [elements.maskPreviewShow, elements.maskPreviewModel1, elements.maskPreviewModel2, elements.maskPreviewMeasurements, elements.maskPreviewCracks, elements.maskPreviewAssociation, elements.maskPreviewOpacity, elements.maskPreviewZoom]) control?.addEventListener("input", renderMaskPreview);
 elements.maskPreviewBoxes?.addEventListener("change", () => { if (elements.maskPreviewBoxes.checked) void setMainViewerMode("boxes"); });
 elements.maskPreviewMasks?.addEventListener("change", () => { if (elements.maskPreviewMasks.checked) void setMainViewerMode("masks"); });
 elements.maskPreviewFish?.addEventListener("input", () => selectInspectionFish(elements.maskPreviewFish.value, {revealCard: true}));
@@ -3219,18 +3539,31 @@ elements.selectUpload.addEventListener("click", () => { if (!uploadInFlight) ele
 elements.uploadInput.addEventListener("change", () => setUploadSelection(elements.uploadInput.files?.[0] || null));
 elements.uploadImage.addEventListener("load", () => renderFishClickTargets("upload", resultDatasets.upload.rows));
 elements.video.addEventListener("load", () => renderFishClickTargets("live", Array.isArray(latestStatus?.active_tracks) ? latestStatus.active_tracks : []));
+function refreshFishInspectionLayout() {
+  renderFishClickTargets("upload", resultDatasets.upload.rows);
+  renderFishClickTargets("live", Array.isArray(latestStatus?.active_tracks) ? latestStatus.active_tracks : []);
+  if (!elements.fishZoomModal.classList.contains("hidden")) renderFishZoom();
+}
+window.addEventListener("resize", refreshFishInspectionLayout);
+elements.uploadWorkspace.addEventListener("animationend", refreshFishInspectionLayout);
+elements.uploadImage.addEventListener("animationend", refreshFishInspectionLayout);
+if (typeof ResizeObserver === "function") {
+  const fishInspectionResize = new ResizeObserver(refreshFishInspectionLayout);
+  for (const target of [elements.uploadImage, elements.uploadMediaStage, elements.liveMediaStage, elements.fishZoomViewport]) if (target) fishInspectionResize.observe(target);
+}
 elements.fishZoomClose.addEventListener("click", closeFishZoom);
 elements.fishZoomModal.querySelector("[data-fish-zoom-close]").addEventListener("click", closeFishZoom);
 elements.fishZoomIn.addEventListener("click", () => { fishZoom.scale = Math.min(6, fishZoom.scale * 1.25); renderFishZoom(); });
 elements.fishZoomOut.addEventListener("click", () => { fishZoom.scale = Math.max(.5, fishZoom.scale / 1.25); renderFishZoom(); });
 elements.fishZoomReset.addEventListener("click", () => { if (fishZoom.detection) selectFishZoom(fishZoom.detection); });
-[elements.fishZoomOriginal, elements.fishZoomAnnotations, elements.fishZoomModel1, elements.fishZoomModel2, elements.fishZoomMask, elements.fishZoomCracks].filter(Boolean).forEach((toggle) => toggle.addEventListener("change", renderFishZoom));
+[elements.fishZoomOriginal, elements.fishZoomAnnotations, elements.fishZoomModel1, elements.fishZoomModel2, elements.fishZoomMask, elements.fishZoomMeasurements, elements.fishZoomCracks].filter(Boolean).forEach((toggle) => toggle.addEventListener("change", renderFishZoom));
+elements.fishZoomViewport.addEventListener("click", selectFishZoomCrackPoint);
 elements.fishZoomViewport.addEventListener("wheel", (event) => { event.preventDefault(); fishZoom.scale = Math.max(.5, Math.min(6, fishZoom.scale * (event.deltaY < 0 ? 1.1 : .9))); renderFishZoom(); }, {passive: false});
-elements.fishZoomViewport.addEventListener("pointerdown", (event) => { fishZoom.dragging = true; fishZoom.lastX = event.clientX; fishZoom.lastY = event.clientY; elements.fishZoomViewport.classList.add("is-dragging"); elements.fishZoomViewport.setPointerCapture(event.pointerId); });
-elements.fishZoomViewport.addEventListener("pointermove", (event) => { if (!fishZoom.dragging) return; fishZoom.panX += event.clientX - fishZoom.lastX; fishZoom.panY += event.clientY - fishZoom.lastY; fishZoom.lastX = event.clientX; fishZoom.lastY = event.clientY; renderFishZoom(); });
+elements.fishZoomViewport.addEventListener("pointerdown", (event) => { fishZoom.dragging = true; fishZoom.suppressCrackClick = false; fishZoom.pointerStartX = event.clientX; fishZoom.pointerStartY = event.clientY; fishZoom.lastX = event.clientX; fishZoom.lastY = event.clientY; elements.fishZoomViewport.classList.add("is-dragging"); elements.fishZoomViewport.setPointerCapture(event.pointerId); });
+elements.fishZoomViewport.addEventListener("pointermove", (event) => { if (!fishZoom.dragging) return; if (Math.hypot(event.clientX - fishZoom.pointerStartX, event.clientY - fishZoom.pointerStartY) > 4) fishZoom.suppressCrackClick = true; fishZoom.panX += event.clientX - fishZoom.lastX; fishZoom.panY += event.clientY - fishZoom.lastY; fishZoom.lastX = event.clientX; fishZoom.lastY = event.clientY; renderFishZoom(); });
 elements.fishZoomViewport.addEventListener("pointerup", (event) => { fishZoom.dragging = false; elements.fishZoomViewport.classList.remove("is-dragging"); elements.fishZoomViewport.releasePointerCapture(event.pointerId); });
 elements.fishZoomViewport.addEventListener("pointercancel", () => { fishZoom.dragging = false; elements.fishZoomViewport.classList.remove("is-dragging"); });
-elements.fishZoomModal.addEventListener("keydown", (event) => { if (event.key === "Escape") closeFishZoom(); });
+elements.fishZoomModal.addEventListener("keydown", handleFishZoomKeydown);
 function playAnnotatedVideoFrames(frames, filename) {
   let frameIndex = 0;
   elements.uploadImage.src = frames[0];

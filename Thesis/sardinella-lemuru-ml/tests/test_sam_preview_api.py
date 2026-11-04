@@ -88,7 +88,10 @@ def test_preview_has_distinct_native_masks_one_encoder_no_grading_metadata(frame
     assert result["fish"][0]["segmentation"]["mask_overlay"]["contours"] != result["fish"][1]["segmentation"]["mask_overlay"]["contours"]
     assert result["source"]["frame_width_px"] == 320
     for fish in result["fish"]:
-        assert "quality" not in fish and "analysis" not in fish
+        assert "quality" not in fish
+        assert not {"weighted_scores", "quality", "final_grade"}.intersection(fish["analysis"])
+        assert all(fish["analysis"][key]["used_for_grading"] is False
+                   for key in ("fish_geometry", "body_width", "surface_damage"))
         assert fish["segmentation"]["preview_usable"]
         assert fish["segmentation"]["used_for_grading"] is False
         assert fish["segmentation"]["measurement_validated"] is False

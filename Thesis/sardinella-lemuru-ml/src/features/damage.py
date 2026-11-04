@@ -97,6 +97,26 @@ def _skeleton_geometry(points: np.ndarray) -> dict[str, object]:
             "skeleton_points": sampled.astype(int).tolist(), "units": "native_image_pixels"}
 
 
+def _support_contours(points: np.ndarray) -> list[list[list[int]]]:
+    """Trace retained RGB-supported pixels, without expanding their footprint."""
+    integer = points.astype(np.int32)
+    origin = integer.min(axis=0)
+    size = integer.max(axis=0) - origin + 1
+    local = np.zeros((int(size[1]), int(size[0])), np.uint8)
+    local[integer[:, 1] - origin[1], integer[:, 0] - origin[0]] = 1
+    found, _ = cv2.findContours(local, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # Keep exact native support outlines. Extremely detailed components retain
+    # their existing skeleton/endpoints instead of inventing a simplified area.
+    result = []
+    budget = 4096
+    for contour in sorted(found, key=cv2.contourArea, reverse=True):
+        vertices = contour.reshape(-1, 2)
+        if len(vertices) >= 3 and len(vertices) <= budget:
+            result.append((vertices + origin).astype(int).tolist())
+            budget -= len(vertices)
+    return result
+
+
 def analyze_surface_damage(
     image_rgb: np.ndarray,
     mask: np.ndarray,
@@ -245,6 +265,7 @@ def analyze_surface_damage(
             "confidence": confidence, "confidence_kind": "heuristic_not_probability",
             "original_rgb_contrast_255": round(original_contrast, 2), "original_rgb_support_fraction": round(support_fraction, 3),
             "elongation": round(elongation, 3), "damage_type": "unclassified_surface_discontinuity",
+            "contours": _support_contours(support_points),
         }
         location.update(_skeleton_geometry(support_points))
         body_length = context.get("body_length_px")

@@ -51,6 +51,10 @@ def _parent_damage(frame, bounds: CropBounds, parent_id, *, mask_context=None,
             location["frame_bbox"] = [location["x"] + bounds.x1, location["y"] + bounds.y1,
                                       location["x"] + location["width"] + bounds.x1,
                                       location["y"] + location["height"] + bounds.y1]
+            location["frame_contours"] = [
+                [[x + bounds.x1, y + bounds.y1] for x, y in contour]
+                for contour in location.get("contours", [])
+            ]
         return result
     return context.cached_feature(parent_id, bounds, name, calculate)
 

@@ -249,7 +249,7 @@ summary::marker { color: var(--ocean-500); }
 .upload-image { display: block; width: 100%; max-height: 540px; margin: 16px auto 0; object-fit: contain; background: var(--navy-950); border-radius: var(--radius-sm); }
 .upload-image:not(.hidden) { padding: 8px; border: 1px solid var(--border); animation: upload-content-in 260ms ease both; }
 .upload-media-stage { position: relative; min-height: 0; }
-.upload-media-stage .fish-click-targets { top: 16px; right: 0; bottom: 0; left: 0; }
+.upload-media-stage .fish-click-targets { top: 0; right: 0; bottom: 0; left: 0; }
 .upload-media-stage .fish-click-target { border-color: rgb(101 199 229 / 80%); background: rgb(101 199 229 / 5%); }
 .mask-preview { min-width: 0; margin-top: 12px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
 .mask-preview-status { margin: 0 0 10px; font-weight: 650; overflow-wrap: anywhere; }
@@ -275,12 +275,31 @@ summary::marker { color: var(--ocean-500); }
 .mask-opacity-control input { width: 95px; }
 .mask-opacity-control output { min-width: 30px; font-variant-numeric: tabular-nums; }
 .mask-preview-viewport { width: 100%; max-height: min(65vh, 650px); overflow: auto; border-radius: 6px; background: var(--navy-950); }
-.mask-preview-viewport canvas { display: block; width: 100%; height: auto; max-width: none; }
+.mask-preview-viewport canvas { display: block; width: 100%; height: auto; max-width: none; cursor: zoom-in; }
 #upload-media-stage > .mask-preview-viewport { flex: 1 1 100%; min-width: 0; }
 .mask-preview-legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 6px 12px; list-style: none; padding: 0; margin: 10px 0; }
 .mask-preview-legend li { display: flex; align-items: start; gap: 7px; font-size: 11px; line-height: 1.4; overflow-wrap: anywhere; }
 .mask-preview-swatch { display: inline-block; flex: 0 0 12px; height: 12px; margin-top: 2px; border: 1px solid currentColor; border-radius: 3px; background: currentColor; }
 .mask-preview-legend li[data-review="true"] .mask-preview-swatch { border: 2px dashed #b54d2e; }
+.mask-overlay-status { max-height: 180px; overflow-y: auto; padding: 10px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface); color: var(--text-secondary); font-size: 12px; line-height: 1.65; overflow-wrap: anywhere; }
+.measurement-overlay-key { color: var(--text-secondary); font-size: 11px; line-height: 1.7; }
+.measurement-overlay-key span { display: inline-block; margin-right: 12px; }
+.measurement-overlay-key span::before { content: ""; display: inline-block; width: 16px; margin: 0 5px 3px 0; border-top: 3px solid #7f9f22; }
+.measurement-overlay-key span:nth-child(2)::before { border-color: #1686a0; }
+.measurement-overlay-key span:nth-child(3)::before { border-color: #ac58ac; }
+.mask-inspection-evidence { display: grid; gap: 8px; max-height: 280px; overflow: auto; margin-top: 10px; }
+.mask-inspection-evidence:empty { margin: 0; }
+.mask-inspection-evidence > details, .crack-candidate-details { padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); font-size: 12px; }
+.mask-inspection-evidence > details > summary { cursor: pointer; font-weight: 650; line-height: 1.6; }
+.mask-inspection-evidence section { margin-top: 10px; }
+.mask-inspection-evidence h4, .crack-candidate-details h4 { margin: 0 0 8px; font-size: 12px; }
+.mask-inspection-evidence dl, .crack-candidate-details dl { display: grid; gap: 5px; margin: 0; }
+.mask-inspection-evidence dl > div, .crack-candidate-details dl > div { display: grid; grid-template-columns: minmax(125px, .35fr) minmax(0, 1fr); gap: 8px; }
+.mask-inspection-evidence dt, .crack-candidate-details dt { color: var(--text-muted); }
+.mask-inspection-evidence dd, .crack-candidate-details dd { margin: 0; overflow-wrap: anywhere; line-height: 1.5; }
+.crack-candidate-button { min-height: 34px; margin: 8px 8px 0 0; font-size: 11px; }
+.crack-candidate-details { margin-top: 10px; border-color: var(--border-strong); }
+@media (max-width: 540px) { .mask-inspection-evidence dl > div, .crack-candidate-details dl > div { grid-template-columns: 1fr; gap: 2px; } }
 .association-debug-status { margin: 8px 0; font-size: 12px; overflow-wrap: anywhere; }
 .association-debug-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 0; margin: 8px 0; list-style: none; font-size: 11px; }
 .association-debug-legend li::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 5px; border: 2px solid var(--debug-color); vertical-align: middle; }
