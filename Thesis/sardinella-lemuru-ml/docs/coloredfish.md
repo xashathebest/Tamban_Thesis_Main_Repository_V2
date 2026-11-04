@@ -18,4 +18,4 @@ The latest CSV confirms the system has experimental fish-length and width-ratio 
 
 7. **Preserve existing functionality:** Do not retrain or modify Model 1 V2 or Model 2, remove existing controls, or change grading rules. Reuse completed analysis results without rerunning models when overlays are toggled.
 
-**Final objective:** Make it possible to visually inspect each fish's estimated length, maximum Body width, width ratio, and genuine crack evidence directly on its shaded MobileSAM mask, with clear reliability indicators and no misleading annotations.
+**Final objective:** Make it possible to visually inspect each fish's estimated length, maximum Body width, width ratio, and genuine crack evidence directly on its shaded MobileSAM mask, with clear reliability indicators and no misleading annotationsx
