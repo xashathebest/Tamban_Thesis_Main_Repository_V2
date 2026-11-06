@@ -93,11 +93,16 @@ def test_reused_masks_cannot_cross_parent_detection_or_frame_identity(extra, rea
 
 
 def test_missing_required_head_is_not_physical_absence_or_mask_validation():
+    from src.inference.mask_ownership import head_integrity_mask_eligibility
     result = validate(candidate(), associations=assigned()[:1])
     assert result["status"] == "ambiguous"
     assert "required_head_evidence_unavailable" in result["reasons"]
     assert result["mask_geometry_checks_passed"]
     assert not result["engineering_checks_passed"]
+    eligibility = head_integrity_mask_eligibility(result)
+    assert eligibility["eligible"] is True
+    assert eligibility["engineering_checks_passed"] is False
+    assert eligibility["head_detection_required"] is False
 
 
 def test_ambiguous_required_parts_remain_unresolved():

@@ -92,7 +92,7 @@
     state.mounted = true;
     $("session-history-workspace").innerHTML = `
       <div class="session-workspace">
-        <div class="sw-heading"><div><p class="eyebrow">SAVED INSPECTIONS</p><h2>Every run, in one place</h2><p>Review recorded AI results and evidence, with the camera online or offline.</p></div><button class="button quiet" id="sh-refresh" type="button">Refresh sessions</button></div>
+        <div class="sw-heading"><button class="button quiet" id="sh-refresh" type="button">Refresh sessions</button></div>
         <div class="sw-layout">
           <aside class="sw-session-panel surface" aria-label="Saved sessions">
             <div class="sw-panel-head"><h3>Inspection sessions</h3><span id="sh-session-count"></span></div>

@@ -1,0 +1,33 @@
+# Head-absence geometry. These gates are not grade weights and do not retrain Model 2.
+# Calibrated on the 2026-11-06 inspection silhouettes (three headless fish and one
+# intact fish) plus synthetic blunt, slanted, irregular, snout, and severed-tail ends.
+# A fish is Rejected only when one end is a severed anterior face and the other end
+# is a posterior tail. A severed tail opposite a snout is not a missing Head.
+head_silhouette:
+  minimum_profile_columns: 24
+  representative_width_percentile: 90
+  profile_samples: 21
+  blunt_width_ratio: 0.90
+  blunt_rise_fraction: 0.16
+  slanted_rise_fraction: 0.30
+  slanted_min_persistence: 0.55
+  slanted_min_asymmetry: 0.18
+  irregular_rise_fraction: 0.22
+  irregular_min_discontinuity: 0.40
+  irregular_min_persistence: 0.40
+  posterior_narrow_ratio: 0.62
+  posterior_window_start: 0.12
+  posterior_window_stop: 0.22
+  snout_max_persistence: 0.50
+  snout_max_rise_fraction: 0.40
+  discontinuity_window_fraction: 0.04
+  discontinuity_search_fraction: 0.20
+  near_width_fractions: [0.08, 0.14]
+  flare_tip_start: 0.03
+  flare_tip_stop: 0.08
+  flare_peduncle_start: 0.14
+  flare_peduncle_stop: 0.20
+  flare_gain: 1.25
+  flare_max_peduncle_ratio: 0.75
+  flare_min_gain: 0.08
+  rise_window_fraction: 0.03

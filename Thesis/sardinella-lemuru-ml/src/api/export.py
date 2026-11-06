@@ -310,6 +310,33 @@ EXPORT_FIELDS.update({
     "feature_fusion": "Geometry and Structural Feature Fusion (JSON)",
 })
 EXPORT_FIELDS.update({
+    "anatomical_length_px": "Anatomical Length (px; MobileSAM)",
+    "anatomical_max_body_width_px": "Maximum Body Width (px; MobileSAM)",
+    "anatomical_width_to_length_ratio": "Width-to-Length Ratio (MobileSAM)",
+    "head_to_body_size_ratio": "Head-to-Body Size Ratio (MobileSAM)",
+    "anatomical_orientation_degrees": "Anatomical Orientation (degrees)",
+    "head_integrity_classification": "Head Integrity Classification",
+    "head_integrity_grade_effect": "Head Integrity Grade Effect",
+    "head_integrity_evidence": "Head Integrity Evidence",
+    "head_integrity_mask_eligible": "Head Integrity Mask Eligible",
+    "head_integrity_orientation_degrees": "Head Integrity Orientation (degrees)",
+    "head_integrity_cut_end": "Head Integrity Severed-End Evidence",
+    "head_integrity_cut_character": "Head Integrity Cut Character",
+    "head_integrity_geometry_decision": "Head Integrity Geometry Decision",
+    "head_integrity_representative_body_width_px": "Head Integrity Representative Body Width (px)",
+    "head_integrity_end_width_ratios": "Head Integrity Near-End Width Ratios",
+    "head_integrity_cut_discontinuity": "Head Integrity Cut Discontinuity",
+    "head_integrity_cut_persistence": "Head Integrity Cut Slope Persistence",
+    "head_integrity_cut_asymmetry": "Head Integrity Cut Asymmetry",
+    "head_integrity_orientation_reliable": "Head Integrity Orientation Reliable",
+    "head_integrity_width_profile": "Head Integrity Width Profile (JSON)",
+    "head_integrity_posterior_source": "Head Integrity Posterior-End Source",
+    "head_integrity_ownership_reliable": "Head Integrity Ownership Reliability",
+    "head_integrity_withheld_reasons": "Head Integrity Withheld Rejection Reasons",
+    "head_integrity": "Head Integrity Assessment (JSON)",
+    "anatomical_measurements": "Anatomical Measurements (JSON)",
+})
+EXPORT_FIELDS.update({
     "anatomical_association_diagnostics": "Anatomical Association Diagnostics (JSON)",
     "anatomical_part_decisions": "Anatomical Part Decisions and Candidate Scores (JSON)",
     "anatomical_inference_provenance": "Anatomical Inference and Clipping Provenance (JSON)",
@@ -331,6 +358,40 @@ def _number(value: object, *, scale: float = 1.0) -> float | str:
     except (TypeError, ValueError):
         return ""
     return round(number, 4) if number == number and abs(number) != float("inf") else ""
+
+
+def _cut_end(integrity: Mapping[str, object]) -> dict | None:
+    ends = integrity.get("end_geometry")
+    axis = integrity.get("cut_end_axis")
+    if not isinstance(ends, list):
+        return None
+    for item in ends:
+        if isinstance(item, dict) and item.get("axis") == axis and item.get("role") == "severed":
+            return item
+    return None
+
+
+def _end_metric(integrity: Mapping[str, object], key: str) -> float | str:
+    end = _cut_end(integrity)
+    if end is None or end.get(key) is None:
+        return ""
+    return _number(end.get(key))
+
+
+def _end_width_ratios(integrity: Mapping[str, object]) -> str:
+    ends = integrity.get("end_geometry")
+    if not isinstance(ends, list):
+        return ""
+    parts: list[str] = []
+    for item in ends:
+        if not isinstance(item, dict):
+            continue
+        ratios = item.get("near_end_width_ratios")
+        if not isinstance(ratios, dict):
+            continue
+        rendered = ", ".join(f"{name}={value}" for name, value in ratios.items())
+        parts.append(f"{item.get('axis')}: {rendered}")
+    return "; ".join(parts)
 
 
 def _part_values(event: Mapping[str, object], key: str) -> str:
@@ -834,7 +895,36 @@ def inspection_row(
     inference = analysis.get("quality_inference") if isinstance(analysis.get("quality_inference"), dict) else {}
     association = inference.get("association") or analysis.get("association") or event.get("association")
     association = association if isinstance(association, dict) else {}
+    anatomy = analysis.get("anatomical_measurements") if isinstance(analysis.get("anatomical_measurements"), dict) else {}
+    integrity = analysis.get("head_integrity") if isinstance(analysis.get("head_integrity"), dict) else {}
+    anatomy_measured = anatomy.get("status") == "measured"
+    evidence = integrity.get("evidence")
     row.update({
+        "anatomical_length_px": _number(anatomy.get("anatomical_length_px")) if anatomy_measured else "",
+        "anatomical_max_body_width_px": _number(anatomy.get("max_body_width_px")) if anatomy_measured else "",
+        "anatomical_width_to_length_ratio": _number(anatomy.get("width_to_length_ratio")) if anatomy_measured else "",
+        "head_to_body_size_ratio": _number(anatomy.get("head_to_body_size_ratio")) if anatomy_measured and anatomy.get("head_to_body_size_ratio") is not None else "",
+        "anatomical_orientation_degrees": _number(anatomy.get("orientation_degrees")) if anatomy_measured else "",
+        "head_integrity_classification": integrity.get("classification") or "",
+        "head_integrity_grade_effect": integrity.get("grade_effect") or "",
+        "head_integrity_evidence": "; ".join(str(item) for item in evidence) if isinstance(evidence, (list, tuple)) else "",
+        "head_integrity_mask_eligible": "Yes" if isinstance(integrity.get("mask_eligibility"), dict) and integrity["mask_eligibility"].get("eligible") is True else "No" if integrity else "",
+        "head_integrity_orientation_degrees": _number(integrity.get("orientation_degrees")) if integrity.get("orientation_degrees") is not None else "",
+        "head_integrity_cut_end": "Confirmed" if integrity.get("cut_end_confirmed") is True else "Not confirmed" if integrity else "",
+        "head_integrity_cut_character": integrity.get("cut_character") or "",
+        "head_integrity_geometry_decision": integrity.get("geometry_decision") or "",
+        "head_integrity_representative_body_width_px": _number(integrity.get("representative_body_width_px")) if integrity.get("representative_body_width_px") is not None else "",
+        "head_integrity_end_width_ratios": _end_width_ratios(integrity),
+        "head_integrity_cut_discontinuity": _end_metric(integrity, "discontinuity"),
+        "head_integrity_cut_persistence": _end_metric(integrity, "slope_persistence"),
+        "head_integrity_cut_asymmetry": _end_metric(integrity, "asymmetry"),
+        "head_integrity_orientation_reliable": "Yes" if integrity.get("orientation_reliable") is True else "No" if integrity else "",
+        "head_integrity_width_profile": _json(integrity.get("width_profile_ratio")) if integrity.get("width_profile_ratio") is not None else "",
+        "head_integrity_posterior_source": integrity.get("posterior_source") or "",
+        "head_integrity_ownership_reliable": "Yes" if integrity.get("reliable_ownership") is True else "No" if integrity else "",
+        "head_integrity_withheld_reasons": "; ".join(str(item) for item in integrity.get("withheld_reasons") or []) if integrity else "",
+        "head_integrity": _json(integrity) if integrity else "",
+        "anatomical_measurements": _json(anatomy) if anatomy else "",
         "anatomical_association_diagnostics": _json(association),
         "anatomical_part_decisions": _json(association.get("parts", [])),
         "anatomical_inference_provenance": _json(inference),

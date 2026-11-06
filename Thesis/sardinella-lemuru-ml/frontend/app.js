@@ -981,6 +981,11 @@ function bodyWidthRows(event) {
   ] : [];
   const physicalRows = physicalApplied && typeof fishGeometry.fish_length_cm === "number" && Number.isFinite(fishGeometry.fish_length_cm) && typeof fishGeometry.max_body_width_cm === "number" && Number.isFinite(fishGeometry.max_body_width_cm)
     ? [["Physical length (cm)", numberText(fishGeometry.fish_length_cm)], ["Physical maximum body width (cm)", numberText(fishGeometry.max_body_width_cm)]] : [];
+  const anatomy = event?.analysis?.anatomical_measurements || {};
+  const integrity = event?.analysis?.head_integrity || {};
+  const anatomyMeasured = anatomy.status === "measured";
+  const anatomyNumber = (value) => anatomyMeasured && typeof value === "number" && Number.isFinite(value) ? numberText(value) : "Unavailable";
+  const integrityEvidence = Array.isArray(integrity.evidence) ? integrity.evidence.map((item) => String(item).replaceAll("_", " ")).join("; ") : "";
   return [
     ["Measured fish length (px)", geometryNumber(fishGeometry.fish_length_px)],
     ["Maximum body width (px)", geometryNumber(fishGeometry.max_body_width_px)],
@@ -997,6 +1002,24 @@ function bodyWidthRows(event) {
     ["Physical calibration", samEstimated ? "Not applied: experimental mask ownership and anatomical boundary are not validated" : estimated ? "Not applied: sampled foreground boundary is not validated" : [physical.status || "Not calibrated", physical.reason ? String(physical.reason).replaceAll("_", " ") : ""].filter(Boolean).join(": ")],
     ...physicalRows,
     ["Silhouette measurement used for grading", !estimated && fishGeometry.used_for_grading === true ? "Yes" : "No"],
+    ["Anatomical length (px, MobileSAM)", anatomyNumber(anatomy.anatomical_length_px)],
+    ["Maximum Body width (px, MobileSAM)", anatomyNumber(anatomy.max_body_width_px)],
+    ["Width-to-length ratio", anatomyNumber(anatomy.width_to_length_ratio)],
+    ["Head-to-Body size ratio", anatomy.head_to_body_size_ratio == null ? "Unavailable" : anatomyNumber(anatomy.head_to_body_size_ratio)],
+    ["Measurement orientation (degrees)", anatomyNumber(anatomy.orientation_degrees)],
+    ["Head integrity", integrity.classification ? String(integrity.classification).replaceAll("_", " ") : "Not assessed"],
+    ["Head-integrity grade effect", integrity.grade_effect ? String(integrity.grade_effect).replaceAll("_", " ") : "Not assessed"],
+    ["Head-integrity mask eligible", integrity.mask_eligibility?.eligible === true ? "Yes" : integrity.mask_eligibility ? "No" : "Not assessed"],
+    ["Head-integrity severed end", integrity.cut_end_confirmed === true ? "Confirmed" : integrity.classification ? "Not confirmed" : "Not assessed"],
+    ["Head-integrity cut character", integrity.cut_character ? String(integrity.cut_character).replaceAll("_", " ") : "Not established"],
+    ["Head-integrity geometry decision", integrity.geometry_decision ? String(integrity.geometry_decision).replaceAll("_", " ") : "Not established"],
+    ["Head-integrity near-end width ratios", Array.isArray(integrity.end_geometry) ? integrity.end_geometry.map((end) => `${String(end.axis || "").replaceAll("_", " ")}: ${Object.entries(end.near_end_width_ratios || {}).map(([name, value]) => `${name} ${value}`).join(", ")}`).join("; ") : "Not measured"],
+    ["Head-integrity width profile", Array.isArray(integrity.width_profile_ratio) ? integrity.width_profile_ratio.join(", ") : "Not measured"],
+    ["Head-integrity orientation reliable", integrity.orientation_reliable === true ? "Yes" : integrity.classification ? "No" : "Not assessed"],
+    ["Head-integrity posterior source", integrity.posterior_source ? String(integrity.posterior_source).replaceAll("_", " ") : "Not established"],
+    ["Head-integrity ownership reliable", integrity.reliable_ownership === true ? "Yes" : integrity.classification ? "No" : "Not assessed"],
+    ["Head-integrity withheld reasons", Array.isArray(integrity.withheld_reasons) && integrity.withheld_reasons.length ? integrity.withheld_reasons.map((item) => String(item).replaceAll("_", " ")).join("; ") : "None recorded"],
+    ["Head-integrity evidence", integrityEvidence || integrity.summary || "No head-integrity evidence recorded"],
     ["Whole-fish bounding box", dimensions(width.whole_fish_width_px ?? wholeBox?.width, width.whole_fish_height_px ?? wholeBox?.height)],
     ["Body bounding box", dimensions(width.body_width_px ?? bodyBox?.width, width.body_height_px ?? bodyBox?.height)],
     ["Bounding-box interpretation", "Axis-aligned approximations; separate from silhouette length and perpendicular body width"],
@@ -1311,6 +1334,7 @@ function finalExplanationRows(event) {
     ["Width changed classification", geometry.width_changed_classification === true ? "Yes" : geometry.width_changed_classification === false ? "No" : "Not recorded"],
     ...(manualGrade(event) ? [["Operator-reviewed final grade", manualGrade(event)]] : []),
     ["Decision reason", reason.text || (analysis.explanation || []).join(" ") || "Model 2 evidence and configured acceptance safeguards determine the final grade."],
+    ["Head integrity", analysis.head_integrity?.summary || "No head-integrity assessment recorded"],
     ...(aiFinalGrade(event) === "Ungraded" ? [["Next step", "Review the reason above and acquire a clear view with reliable Model 2 Body evidence; geometric support cannot bypass missing evidence."]] : []),
   ];
 }
@@ -1321,6 +1345,11 @@ function geometryStructuralRows(event) {
   const values = measured ? geometry : geometry.candidate_measurements || {};
   const numeric = value => typeof value === "number" && Number.isFinite(value) ? String(Number(value.toFixed(4))) : "Unavailable";
   const read = key => `${numeric(values[key])}${typeof values[key] === "number" && !measured ? " (estimate; unvalidated)" : ""}`;
+  const anatomy = analysis.anatomical_measurements || {};
+  const integrity = analysis.head_integrity || {};
+  const anatomyMeasured = anatomy.status === "measured";
+  const anatomyNumber = value => anatomyMeasured ? numeric(value) : "Unavailable";
+  const integrityEvidence = Array.isArray(integrity.evidence) ? integrity.evidence.map((item) => String(item).replaceAll("_", " ")).join("; ") : "";
   return [
     ["Anatomical length (px)", read("fish_length_px")], ["Maximum Body width (px)", read("max_body_width_px")],
     ["Representative central Body width (px)", read("representative_body_width_px")],
@@ -1334,6 +1363,24 @@ function geometryStructuralRows(event) {
     ["Measurement reliability", `${geometry.reliability || "Unavailable"}${Array.isArray(geometry.reasons) && geometry.reasons.length ? `: ${geometry.reasons.join("; ").replaceAll("_", " ")}` : ""}`],
     ["Body-region validation", geometry.body_region_validated === true && !estimated ? "Reviewed Body support recorded" : "Body anatomy not independently validated"],
     ["Units", "Pixels and dimensionless image ratios; centimeters require validated physical calibration"],
+    ["Anatomical length (px, MobileSAM)", anatomyNumber(anatomy.anatomical_length_px)],
+    ["Maximum Body width (px, MobileSAM)", anatomyNumber(anatomy.max_body_width_px)],
+    ["Width-to-length ratio", anatomyNumber(anatomy.width_to_length_ratio)],
+    ["Head-to-Body size ratio", anatomy.head_to_body_size_ratio == null ? "Unavailable" : anatomyNumber(anatomy.head_to_body_size_ratio)],
+    ["Measurement orientation (degrees)", anatomyNumber(anatomy.orientation_degrees)],
+    ["Head integrity", integrity.classification ? String(integrity.classification).replaceAll("_", " ") : "Not assessed"],
+    ["Head-integrity grade effect", integrity.grade_effect ? String(integrity.grade_effect).replaceAll("_", " ") : "Not assessed"],
+    ["Head-integrity mask eligible", integrity.mask_eligibility?.eligible === true ? "Yes" : integrity.mask_eligibility ? "No" : "Not assessed"],
+    ["Head-integrity severed end", integrity.cut_end_confirmed === true ? "Confirmed" : integrity.classification ? "Not confirmed" : "Not assessed"],
+    ["Head-integrity cut character", integrity.cut_character ? String(integrity.cut_character).replaceAll("_", " ") : "Not established"],
+    ["Head-integrity geometry decision", integrity.geometry_decision ? String(integrity.geometry_decision).replaceAll("_", " ") : "Not established"],
+    ["Head-integrity near-end width ratios", Array.isArray(integrity.end_geometry) ? integrity.end_geometry.map((end) => `${String(end.axis || "").replaceAll("_", " ")}: ${Object.entries(end.near_end_width_ratios || {}).map(([name, value]) => `${name} ${value}`).join(", ")}`).join("; ") : "Not measured"],
+    ["Head-integrity width profile", Array.isArray(integrity.width_profile_ratio) ? integrity.width_profile_ratio.join(", ") : "Not measured"],
+    ["Head-integrity orientation reliable", integrity.orientation_reliable === true ? "Yes" : integrity.classification ? "No" : "Not assessed"],
+    ["Head-integrity posterior source", integrity.posterior_source ? String(integrity.posterior_source).replaceAll("_", " ") : "Not established"],
+    ["Head-integrity ownership reliable", integrity.reliable_ownership === true ? "Yes" : integrity.classification ? "No" : "Not assessed"],
+    ["Head-integrity withheld reasons", Array.isArray(integrity.withheld_reasons) && integrity.withheld_reasons.length ? integrity.withheld_reasons.map((item) => String(item).replaceAll("_", " ")).join("; ") : "None recorded"],
+    ["Head-integrity evidence", integrityEvidence || integrity.summary || "No head-integrity evidence recorded"],
   ];
 }
 function appendResultTable(parent, headers, rows) {
@@ -1799,6 +1846,21 @@ function resultExportRecord(event) {
     "Fish orientation (degrees)": measuredNumber(fishGeometry.orientation_degrees),
     "Measurement validation": !estimated && fishGeometry.measurement_validated === true ? "Validated" : "Not validated",
     "Silhouette measurement used for grading": !estimated && fishGeometry.used_for_grading === true,
+    "Anatomical length (px, MobileSAM)": analysis.anatomical_measurements?.status === "measured" ? analysis.anatomical_measurements.anatomical_length_px ?? "" : "",
+    "Maximum Body width (px, MobileSAM)": analysis.anatomical_measurements?.status === "measured" ? analysis.anatomical_measurements.max_body_width_px ?? "" : "",
+    "Width-to-length ratio (MobileSAM)": analysis.anatomical_measurements?.status === "measured" ? analysis.anatomical_measurements.width_to_length_ratio ?? "" : "",
+    "Head-to-Body size ratio (MobileSAM)": analysis.anatomical_measurements?.status === "measured" && analysis.anatomical_measurements.head_to_body_size_ratio != null ? analysis.anatomical_measurements.head_to_body_size_ratio : "",
+    "Head integrity classification": analysis.head_integrity?.classification || "",
+    "Head integrity mask eligible": analysis.head_integrity?.mask_eligibility?.eligible === true ? "Yes" : analysis.head_integrity ? "No" : "",
+    "Head integrity severed end": analysis.head_integrity?.cut_end_confirmed === true ? "Confirmed" : analysis.head_integrity ? "Not confirmed" : "",
+    "Head integrity cut character": analysis.head_integrity?.cut_character || "",
+    "Head integrity geometry decision": analysis.head_integrity?.geometry_decision || "",
+    "Head integrity orientation reliable": analysis.head_integrity?.orientation_reliable === true ? "Yes" : analysis.head_integrity ? "No" : "",
+    "Head integrity width profile": Array.isArray(analysis.head_integrity?.width_profile_ratio) ? analysis.head_integrity.width_profile_ratio.join(", ") : "",
+    "Head integrity posterior source": analysis.head_integrity?.posterior_source || "",
+    "Head integrity ownership reliable": analysis.head_integrity?.reliable_ownership === true ? "Yes" : analysis.head_integrity ? "No" : "",
+    "Head integrity withheld reasons": Array.isArray(analysis.head_integrity?.withheld_reasons) ? analysis.head_integrity.withheld_reasons.join("; ") : "",
+    "Head integrity evidence": Array.isArray(analysis.head_integrity?.evidence) ? analysis.head_integrity.evidence.join("; ") : analysis.head_integrity?.summary || "",
     "Physical length (cm)": physicalNumber(fishGeometry.fish_length_cm),
     "Physical maximum body width (cm)": physicalNumber(fishGeometry.max_body_width_cm),
     "Physical calibration status": samEstimated ? "Not applied: experimental mask ownership and anatomical boundary are not validated" : estimated ? "Not applied: sampled foreground boundary is not validated" : physical.status || "Not calibrated",

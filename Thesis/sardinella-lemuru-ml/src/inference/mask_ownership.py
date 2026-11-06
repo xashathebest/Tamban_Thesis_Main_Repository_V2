@@ -323,6 +323,59 @@ def validate_candidate_masks(
     return results
 
 
+_HEAD_INTEGRITY_ALLOWED_REASONS = {"required_head_evidence_unavailable"}
+_HEAD_INTEGRITY_FRAME_REASONS = {"mask_touches_frame_boundary", "parent_touches_frame_boundary"}
+_HEAD_INTEGRITY_OVERLAP_REASONS = {
+    "foreground_in_neighbor_exclusive_region",
+    "candidate_contains_neighbor_anatomical_evidence",
+    "overlapping_mask_ownership_conflict",
+    "required_anatomical_ownership_ambiguous",
+}
+_HEAD_INTEGRITY_OCCLUSION_REASONS = {
+    "fragmented_or_merged_foreground_components",
+    "implausible_silhouette_holes",
+}
+
+
+def head_integrity_mask_eligibility(ownership: Mapping | None) -> dict:
+    """Decide whether a candidate silhouette can be inspected for a missing Head.
+
+    Missing Head evidence is not an ownership conflict. Frame contact, broken
+    silhouettes, and another fish's pixels still make the mask ineligible.
+    This does not change engineering checks or approve the mask for grading.
+    """
+
+    record = dict(ownership or {})
+    reasons = [str(reason) for reason in record.get("reasons") or [] if str(reason)]
+    reason_set = set(reasons)
+    conflicts = list(record.get("conflicting_parent_ids") or [])
+    blocking = sorted(reason_set - _HEAD_INTEGRITY_ALLOWED_REASONS)
+    geometry_passed = record.get("mask_geometry_checks_passed") is True and not conflicts
+    eligible = bool(record) and geometry_passed and not blocking
+    if eligible:
+        category = None
+    elif reason_set & _HEAD_INTEGRITY_FRAME_REASONS:
+        category = "frame_clipped"
+    elif conflicts or reason_set & _HEAD_INTEGRITY_OVERLAP_REASONS:
+        category = "overlap_or_contamination"
+    elif reason_set & _HEAD_INTEGRITY_OCCLUSION_REASONS:
+        category = "occluded_or_fragmented"
+    elif not record:
+        category = "ownership_not_recorded"
+    else:
+        category = "withheld"
+    return {
+        "eligible": eligible,
+        "geometry_checks_passed": record.get("mask_geometry_checks_passed") is True,
+        "engineering_checks_passed": record.get("engineering_checks_passed") is True,
+        "ownership_conflicts": conflicts,
+        "blocking_reasons": blocking,
+        "allowed_missing_head": "required_head_evidence_unavailable" in reason_set,
+        "withheld_category": category,
+        "head_detection_required": False,
+    }
+
+
 def _trusted_part_mask(evidence, parent_id, shape):
     if (not isinstance(evidence, Mapping) or evidence.get("parent_track_id") != parent_id
             or evidence.get("ownership_validated") is not True or evidence.get("mask_validated") is not True

@@ -162,6 +162,14 @@ class RuntimeMaskContext:
     def trusted_body_mask(self, parent_id, bounds):
         return self._experimental.body_mask(parent_id, bounds) if self._experimental is not None else (None, {})
 
+    def head_integrity_mask(self, parent_id, bounds):
+        """Candidate silhouette for physical Head-absence review only."""
+        if self._experimental is None:
+            return None, {"status": "unavailable", "reason": "No MobileSAM candidate was generated.",
+                          "head_integrity_eligibility": {"eligible": False, "withheld_category": "mask_not_mobilesam"}}
+        with self._lock:
+            return self._experimental.head_integrity_mask(parent_id, bounds)
+
     def experimental_fish_mask(self, parent_id, bounds):
         """Native diagnostic support; never replaces the grading foreground."""
         if self._experimental is None:

@@ -10,74 +10,68 @@
   const gradeOptions = grades.map(grade => `<option>${grade}</option>`).join("");
   root.innerHTML = `
     <div class="dc-workspace">
-      <div class="dc-heading"><div><p class="eyebrow">RESEARCH COLLECTION</p><h2>Camera Capture</h2><p>Save original camera photos with a traceable collection session. Operator grade tags are provisional; photos are not expert annotations.</p></div><span class="dc-pill" id="dc-camera-state">Camera closed</span></div>
-      <div class="dc-notice" id="dc-isolation">Capture uses its own camera. If the camera is in use, stop inspection manually or choose a verified separate device. The standalone launcher requires an isolated camera setup before hardware access is enabled.</div>
+      <header class="dc-topbar">${standalone ? "<h2>Camera Capture</h2>" : ""}<div class="dc-chips"><span class="dc-pill" id="dc-camera-state">Camera closed</span><span class="dc-pill" id="dc-drive-state">Not connected</span></div></header>
+      <div class="dc-notice" id="dc-isolation" hidden></div>
       <p class="dc-feedback" id="dc-feedback" role="status" aria-live="polite"></p>
       <div class="dc-layout">
+        <section class="dc-card dc-camera" aria-labelledby="dc-preview-title">
+          <h3 class="dc-sr-only" id="dc-preview-title">Camera</h3>
+          <div class="dc-camera-bar">
+            <label class="dc-camera-select">Camera<select id="dc-device"><option value="0">Camera 0</option></select></label>
+            <div class="dc-actions"><button class="button quiet" id="dc-camera-refresh" type="button">Refresh list</button><button class="button quiet" id="dc-camera-open" type="button">Open camera</button><button class="button quiet" id="dc-camera-close" type="button" disabled>Close camera</button></div>
+          </div>
+          <div class="dc-preview-wrap" id="dc-preview-wrap"><img class="dc-preview" id="dc-preview" alt="Live capture camera preview" hidden><div class="dc-preview-empty" id="dc-preview-empty"><strong>Camera is off</strong>Choose a camera and open it to start capturing.</div><div class="dc-grid" id="dc-grid" hidden aria-hidden="true"></div></div>
+          <div class="dc-capture-bar"><button class="button primary dc-shutter" id="dc-snapshot" type="button" disabled aria-describedby="dc-manual-help"><span class="dc-shutter-mark" aria-hidden="true"></span>Capture Photo</button><p class="dc-hint" id="dc-manual-help">One click saves one original photo with a local timestamp.</p></div>
+          <p class="dc-preview-status" id="dc-preview-state">No camera frames</p>
+          <div class="dc-last-save" id="dc-last-save" hidden><img id="dc-last-thumb" alt="Last saved photo"><div><strong>Saved locally</strong><span id="dc-last-name"></span><span id="dc-last-sync"></span></div></div>
+          <details class="dc-details dc-subdetails"><summary>Camera settings &amp; preview options</summary><div class="dc-card-body">
+            <div class="dc-fields"><label>Camera backend<select id="dc-backend"><option value="default">OpenCV default</option><option value="dshow">DirectShow · Windows</option><option value="msmf">Media Foundation · Windows</option><option value="v4l2">V4L2 · Linux</option></select></label><label>Requested width<input id="dc-width" type="number" min="64" max="4096" step="1" value="1920"></label><label>Requested height<input id="dc-height" type="number" min="64" max="4096" step="1" value="1080"></label></div>
+            <div class="dc-preview-options"><label class="dc-check"><input type="checkbox" id="dc-grid-toggle">Alignment grid</label><label class="dc-check"><input type="checkbox" id="dc-flash-toggle">Shutter flash</label><label class="dc-check"><input type="checkbox" id="dc-sound-toggle">Shutter sound</label></div>
+            <dl class="dc-readbacks"><div><dt>Actual camera</dt><dd id="dc-readback-device">—</dd></div><div><dt>Native frame size</dt><dd id="dc-readback-size">—</dd></div><div><dt>Camera acquisition</dt><dd id="dc-camera-fps">Not measured</dd></div><div><dt>Saved photo rate</dt><dd id="dc-capture-fps">Not measured</dd></div><div><dt>Exposure / focus readbacks</dt><dd id="dc-readback-controls">Unavailable until camera opens</dd></div><div><dt>Free storage</dt><dd id="dc-disk-free">—</dd></div></dl>
+          </div></details>
+        </section>
         <div class="dc-stack">
-          <section class="dc-card" aria-labelledby="dc-preview-title">
-            <div class="dc-card-head"><h3 id="dc-preview-title">Raw camera preview</h3><span class="dc-hint" id="dc-preview-state">No camera frames</span></div>
-            <div class="dc-preview-wrap" id="dc-preview-wrap"><img class="dc-preview" id="dc-preview" alt="Live raw capture camera preview" hidden><div class="dc-preview-empty" id="dc-preview-empty"><strong>Ready for a new collection</strong>Create a session, then open the capture camera. Photos retain the camera's original dimensions.</div><div class="dc-grid" id="dc-grid" hidden aria-hidden="true"></div></div>
-            <div class="dc-preview-options"><label class="dc-check"><input type="checkbox" id="dc-grid-toggle">Alignment grid · preview only</label><label class="dc-check"><input type="checkbox" id="dc-flash-toggle">Shutter flash</label><label class="dc-check"><input type="checkbox" id="dc-sound-toggle">Shutter sound</label></div>
-            <div class="dc-card-body">
-              <div class="dc-fields"><label>Device index<input id="dc-device" type="number" min="0" max="11" step="1" value="0"></label><label>Camera backend<select id="dc-backend"><option value="default">OpenCV default</option><option value="dshow">DirectShow · Windows</option><option value="msmf">Media Foundation · Windows</option><option value="v4l2">V4L2 · Linux</option></select></label><label>Requested width<input id="dc-width" type="number" min="64" max="4096" step="1" value="1920"></label><label>Requested height<input id="dc-height" type="number" min="64" max="4096" step="1" value="1080"></label></div>
-              <p class="dc-hint">An index is not a verified physical camera name. Readbacks below show what the selected device actually delivers.</p>
-              <div class="dc-actions"><button class="button quiet" id="dc-camera-open" type="button">Open capture camera</button><button class="button quiet" id="dc-camera-close" type="button" disabled>Close capture camera</button></div>
-              <dl class="dc-readbacks"><div><dt>Actual camera</dt><dd id="dc-readback-device">—</dd></div><div><dt>Native frame size</dt><dd id="dc-readback-size">—</dd></div><div><dt>Camera acquisition</dt><dd id="dc-camera-fps">Not measured</dd></div><div><dt>Saved photo rate</dt><dd id="dc-capture-fps">Not measured</dd></div><div><dt>Exposure / focus readbacks</dt><dd id="dc-readback-controls">Unavailable until camera opens</dd></div><div><dt>Free storage</dt><dd id="dc-disk-free">—</dd></div></dl>
-              <hr class="dc-divider">
-              <button class="button primary dc-shutter" id="dc-snapshot" type="button" disabled aria-describedby="dc-manual-help"><span class="dc-shutter-mark" aria-hidden="true"></span>Capture Photo</button>
-              <p class="dc-hint" id="dc-manual-help">Manual capture needs no countdown or automatic run. One click saves one fresh original. Space takes a photo when you are not typing.</p>
-              <div class="dc-last-save" id="dc-last-save" hidden><img id="dc-last-thumb" alt="Last saved photo"><div><strong>Saved locally</strong><span id="dc-last-name"></span><span id="dc-last-sync"></span></div></div>
+          <details class="dc-card dc-details"><summary>Collection session <span class="dc-hint">Optional</span></summary><div class="dc-card-body"><label>Current session<select id="dc-session-select"><option value="">Create a collection session below</option></select></label>
+            <form id="dc-metadata-form"><div class="dc-fields">
+              <label class="dc-wide">Session name<input id="dc-session-name" maxlength="120" placeholder="Morning collection · batch 04" autocomplete="off"></label>
+              <label>Batch / source ID<input id="dc-batch" maxlength="120" autocomplete="off"></label><label>Source / vendor code<input id="dc-source" maxlength="120" autocomplete="off" aria-describedby="dc-privacy-help"></label>
+              <label>Specimen ID, if known<input id="dc-specimen" maxlength="120" autocomplete="off"></label><label>Provisional operator tag<select id="dc-grade">${gradeOptions}</select></label>
+              <label class="dc-check dc-wide"><input type="checkbox" id="dc-specimen-confirmed">I confirmed this physical specimen ID</label>
             </div>
-          </section>
-          <section class="dc-card" aria-labelledby="dc-session-title">
-            <div class="dc-card-head"><h3 id="dc-session-title">Collection session</h3><button class="button quiet" id="dc-sessions-refresh" type="button">Refresh</button></div>
-            <div class="dc-card-body"><label>Current session<select id="dc-session-select"><option value="">Create a collection session below</option></select></label>
-              <form id="dc-metadata-form"><div class="dc-fields">
-                <label class="dc-wide">Session name<input id="dc-session-name" maxlength="120" placeholder="Morning collection · batch 04" autocomplete="off"></label>
-                <label>Batch / source ID<input id="dc-batch" maxlength="120" autocomplete="off"></label><label>Source / vendor code<input id="dc-source" maxlength="120" autocomplete="off" aria-describedby="dc-privacy-help"></label>
-                <label>Specimen ID, if known<input id="dc-specimen" maxlength="120" autocomplete="off"></label><label>Provisional operator tag<select id="dc-grade">${gradeOptions}</select></label>
-                <label class="dc-check dc-wide"><input type="checkbox" id="dc-specimen-confirmed">I confirmed this physical specimen ID</label>
-              </div>
-              <details><summary>Camera setup, provenance and notes</summary><div class="dc-fields">
-                <label>Operator code (optional)<input id="dc-operator" maxlength="120" autocomplete="off"></label><label>Camera setup<input id="dc-setup" maxlength="256" placeholder="Fixed height and lens" autocomplete="off"></label>
-                <label>Lighting<input id="dc-lighting" maxlength="256" placeholder="Fixed LED, diffuse" autocomplete="off"></label><label>Background<input id="dc-background" maxlength="256" autocomplete="off"></label>
-                <label>Conveyor<select id="dc-conveyor"><option value="unknown">Unknown</option><option value="off">Stopped</option><option value="on">Running</option></select></label><label>Angle / orientation<input id="dc-angle" maxlength="256" autocomplete="off"></label>
-                <label class="dc-check dc-wide"><input id="dc-consent" type="checkbox">Collection consent has been recorded</label><label class="dc-wide">Notes / privacy instructions<textarea id="dc-notes" maxlength="2000"></textarea></label>
-              </div></details>
-              <p class="dc-hint" id="dc-privacy-help">Use source and operator codes rather than personal names. 1,000 photos are not 1,000 independent fish. Confirm specimen identity separately.</p>
-              <div class="dc-actions"><button class="button primary" id="dc-create-session" type="submit">Create new session</button><button class="button quiet" id="dc-save-metadata" type="button" disabled>Save session metadata</button></div></form>
-            </div>
-          </section>
-        </div>
-        <div class="dc-stack">
-          <section class="dc-card" aria-labelledby="dc-auto-title"><div class="dc-card-head"><h3 id="dc-auto-title">Automatic collection</h3><span class="dc-pill" id="dc-run-state">Idle</span></div><div class="dc-card-body">
-            <div class="dc-fields"><label>Countdown before first shot<select id="dc-countdown"><option value="0">No countdown</option><option value="5">5 seconds</option><option value="10">10 seconds</option></select></label><label>Shot interval<select id="dc-interval"><option value="1">Every 1 second</option><option value="2">Every 2 seconds</option><option value="5">Every 5 seconds</option></select></label><label>Capture duration after countdown<select id="dc-duration"><option value="">Until stopped / count reached</option><option value="5">5 seconds</option><option value="10">10 seconds</option><option value="30">30 seconds</option><option value="60">60 seconds</option></select></label><label>Automatic photo target<select id="dc-target"><option value="">No count target</option><option value="10">10 photos</option><option value="25">25 photos</option><option value="50">50 photos</option><option value="100">100 photos</option><option value="custom">Custom count</option></select></label><label class="dc-wide" id="dc-custom-wrap" hidden>Custom automatic photo count<input id="dc-custom-count" type="number" min="1" max="10000" value="25"></label></div>
-            <p class="dc-hint">The countdown and capture duration are separate. A 5-second duration does not add a 5-second countdown. The server schedules fresh frames; missed shots are reported. Runs stop at the safety limit of one hour or 10,000 automatic photos.</p>
+            <details><summary>Camera setup, provenance and notes</summary><div class="dc-fields">
+              <label>Operator code (optional)<input id="dc-operator" maxlength="120" autocomplete="off"></label><label>Camera setup<input id="dc-setup" maxlength="256" placeholder="Fixed height and lens" autocomplete="off"></label>
+              <label>Lighting<input id="dc-lighting" maxlength="256" placeholder="Fixed LED, diffuse" autocomplete="off"></label><label>Background<input id="dc-background" maxlength="256" autocomplete="off"></label>
+              <label>Conveyor<select id="dc-conveyor"><option value="unknown">Unknown</option><option value="off">Stopped</option><option value="on">Running</option></select></label><label>Angle / orientation<input id="dc-angle" maxlength="256" autocomplete="off"></label>
+              <label class="dc-check dc-wide"><input id="dc-consent" type="checkbox">Collection consent has been recorded</label><label class="dc-wide">Notes / privacy instructions<textarea id="dc-notes" maxlength="2000"></textarea></label>
+            </div></details>
+            <p class="dc-hint" id="dc-privacy-help">Use source and operator codes rather than personal names.</p>
+            <div class="dc-actions"><button class="button primary" id="dc-create-session" type="submit">Create new session</button><button class="button quiet" id="dc-save-metadata" type="button" disabled>Save session metadata</button><button class="button quiet" id="dc-sessions-refresh" type="button">Refresh</button></div></form>
+          </div></details>
+          <details class="dc-card dc-details"><summary>Automatic collection <span class="dc-pill" id="dc-run-state">Idle</span></summary><div class="dc-card-body">
+            <div class="dc-fields"><label>Countdown before first shot<select id="dc-countdown"><option value="0">No countdown</option><option value="5">5 seconds</option><option value="10">10 seconds</option></select></label><label>Shot interval<select id="dc-interval"><option value="1">Every 1 second</option><option value="2">Every 2 seconds</option><option value="5">Every 5 seconds</option></select></label><label>Capture duration<select id="dc-duration"><option value="">Until stopped / count reached</option><option value="5">5 seconds</option><option value="10">10 seconds</option><option value="30">30 seconds</option><option value="60">60 seconds</option></select></label><label>Automatic photo target<select id="dc-target"><option value="">No count target</option><option value="10">10 photos</option><option value="25">25 photos</option><option value="50">50 photos</option><option value="100">100 photos</option><option value="custom">Custom count</option></select></label><label class="dc-wide" id="dc-custom-wrap" hidden>Custom automatic photo count<input id="dc-custom-count" type="number" min="1" max="10000" value="25"></label></div>
             <div class="dc-actions"><button class="button primary" id="dc-run-start" type="button" disabled>Start automatic</button><button class="button quiet" id="dc-run-pause" type="button" disabled>Pause</button><button class="button quiet" id="dc-run-resume" type="button" disabled>Resume</button><button class="button danger" id="dc-run-stop" type="button" disabled>Stop</button></div>
             <div class="dc-run-summary" aria-live="off"><strong id="dc-countdown-state">No automatic run</strong><output id="dc-run-progress">0 scheduled · 0 saved</output><output id="dc-run-timing">Next shot: — · late: 0 · skipped: 0</output><output id="dc-last-capture">Last saved: —</output></div>
-            <p class="dc-hint">Manual shots remain available during an active run when the camera has a fresh frame. Esc stops automatic collection when focus is outside fields and dialogs.</p>
-          </div></section>
-          <section class="dc-card" aria-labelledby="dc-drive-title"><div class="dc-card-head"><h3 id="dc-drive-title">Google Drive backup</h3><span class="dc-pill" id="dc-drive-state">Not connected</span></div><div class="dc-card-body">
-            <p class="dc-feedback" id="dc-drive-message">Photos save locally first. The durable upload queue remains available while Drive is disconnected.</p>
-            <p class="dc-hint">Connect uses Google OAuth consent. Folder access is restricted to the server's configured destination. A folder link alone cannot authorize uploads. Credentials stay on the server.</p>
+          </div></details>
+          <details class="dc-card dc-details"><summary>Google Drive</summary><div class="dc-card-body">
+            <p class="dc-feedback" id="dc-drive-message">Photos save locally first, then upload to the configured Drive folder.</p>
             <div class="dc-actions"><button class="button quiet" id="dc-drive-connect" type="button" disabled>Connect Google Drive</button><button class="button quiet" id="dc-drive-test" type="button" disabled>Test folder access</button><button class="button quiet" id="dc-drive-write-test" type="button" disabled>Upload a test image</button></div>
             <a id="dc-drive-consent" target="_blank" rel="noopener noreferrer" hidden>Continue to Google consent</a>
-            <label class="dc-check"><input id="dc-drive-auto" type="checkbox" disabled>Automatically sync new photos (opt in)</label>
+            <label class="dc-check"><input id="dc-drive-auto" type="checkbox" disabled>Automatically sync new photos</label>
             <div class="dc-actions"><button class="button primary" id="dc-drive-sync" type="button" disabled>Sync now</button><button class="button quiet" id="dc-drive-retry" type="button" disabled>Retry failed</button><button class="button quiet" id="dc-drive-pause" type="button" disabled>Pause sync</button></div>
             <a id="dc-drive-folder" target="_blank" rel="noopener noreferrer" hidden>Open authorized Drive folder</a>
-            <p class="dc-hint">Saved locally / Queued / Uploading / Synced to Drive / Failed are separate states. Only a confirmed remote file ID counts as synced.</p>
+            <p class="dc-hint">A photo is marked Synced to Drive only after Google confirms the upload.</p>
             <p class="dc-feedback" id="dc-drive-feedback" role="status" aria-live="polite"></p>
-          </div></section>
-          <details class="dc-card dc-details"><summary>Collection and annotation checklist</summary><p class="dc-hint">Keep LED lighting, camera height, background, white balance and exposure stable. Record readbacks and setup changes. Collect varied A/B/C/Rejected specimens, background and hard negatives, and touching or overlapping fish.</p><p class="dc-hint">Review expert grades before annotation. Draw parent fish and head/body/tail masks with clear ownership. Distinguish missing anatomy from occlusion. Keep specimen, vendor, session and augmentation lineage together for future splits.</p><p class="dc-hint">Focus, exposure, clipping, background drift and similarity are warnings, not true grade or proof of fish identity. Raw originals are never enhanced, relabeled as expert truth, or automatically added to an existing dataset.</p></details>
+          </div></details>
+          <details class="dc-card dc-details"><summary>Collection checklist</summary><div class="dc-card-body dc-hint"><p>Keep lighting, camera height, background, white balance and exposure stable. Collect varied grades, background and hard negatives, and touching fish.</p><p>Focus, exposure, clipping and background drift are warnings, not proof of grade or identity. Raw originals are never enhanced or relabelled as expert truth.</p></div></details>
         </div>
       </div>
-      <dl class="dc-counters"><div class="dc-counter"><dt>Raw photos</dt><dd id="dc-count-frames">0</dd></div><div class="dc-counter"><dt>Manual photos</dt><dd id="dc-count-manual">0</dd></div><div class="dc-counter"><dt>Reviewed photos</dt><dd id="dc-count-reviewed">0</dd></div><div class="dc-counter"><dt>Confirmed specimens</dt><dd id="dc-count-specimens">0</dd></div><div class="dc-counter"><dt>Skipped scheduled shots</dt><dd id="dc-count-skipped">0</dd></div><div class="dc-counter"><dt>Upload backlog</dt><dd id="dc-count-backlog">0</dd></div></dl>
-      <section class="dc-card" aria-labelledby="dc-gallery-title"><div class="dc-card-head"><div><h3 id="dc-gallery-title">Session photo gallery</h3><p class="dc-hint" id="dc-provisional-counts">Provisional tags are operator notes, not expert ground truth.</p></div><button class="button quiet" id="dc-gallery-refresh" type="button">Refresh gallery</button></div><div class="dc-card-body">
+      <section class="dc-card dc-gallery-section" aria-labelledby="dc-gallery-title"><div class="dc-card-head"><h3 id="dc-gallery-title">Recent photos</h3><button class="button quiet" id="dc-gallery-refresh" type="button">Refresh</button></div><div class="dc-card-body">
+        <p class="dc-hint" id="dc-provisional-counts">Upload status is shown on each photo.</p>
         <div class="dc-pagination"><label class="dc-check"><input id="dc-select-all" type="checkbox">Select this page</label><span id="dc-selection-count">0 selected</span><div class="dc-export"><a class="button quiet" id="dc-export-zip" hidden>ZIP + manifest</a><a class="button quiet" id="dc-export-csv" hidden>CSV</a><a class="button quiet" id="dc-export-json" hidden>JSON</a></div></div>
-        <div class="dc-bulk"><div class="dc-fields"><label>Review selected photos<select id="dc-bulk-review"><option value="">Keep review state</option><option value="keep">Keep for training review</option><option value="review">Needs review</option><option value="exclude">Exclude from training</option></select></label><label>Provisional operator tag<select id="dc-bulk-grade"><option value="">Keep current tag</option>${gradeOptions}</select></label><label>Replace notes (optional)<input id="dc-bulk-notes" maxlength="2000"></label><label>Known specimen ID (optional)<input id="dc-bulk-specimen" maxlength="120"></label><label class="dc-check"><input id="dc-bulk-confirmed" type="checkbox">Confirm supplied specimen ID</label><button class="button quiet" id="dc-bulk-save" type="button" disabled>Apply to selected</button></div><p class="dc-hint">Excluding is non-destructive. Every raw original remains saved; metadata changes do not overwrite it.</p></div>
-        <div class="dc-empty" id="dc-gallery-empty">No captured photos yet. Create a session and use Capture Photo without starting a timer.</div><div class="dc-gallery" id="dc-gallery"></div>
+        <details class="dc-details dc-subdetails"><summary>Bulk review selected photos</summary><div class="dc-bulk"><div class="dc-fields"><label>Review selected photos<select id="dc-bulk-review"><option value="">Keep review state</option><option value="keep">Keep for training review</option><option value="review">Needs review</option><option value="exclude">Exclude from training</option></select></label><label>Provisional operator tag<select id="dc-bulk-grade"><option value="">Keep current tag</option>${gradeOptions}</select></label><label>Replace notes (optional)<input id="dc-bulk-notes" maxlength="2000"></label><label>Known specimen ID (optional)<input id="dc-bulk-specimen" maxlength="120"></label><label class="dc-check"><input id="dc-bulk-confirmed" type="checkbox">Confirm supplied specimen ID</label><button class="button quiet" id="dc-bulk-save" type="button" disabled>Apply to selected</button></div></div></details>
+        <div class="dc-empty" id="dc-gallery-empty">No captured photos yet. Open the camera and use Capture Photo.</div><div class="dc-gallery" id="dc-gallery"></div>
         <div class="dc-pagination"><button class="button quiet" id="dc-page-prev" type="button" disabled>Previous</button><span id="dc-page-info">0 photos</span><button class="button quiet" id="dc-page-next" type="button" disabled>Next</button></div>
+        <details class="dc-details dc-subdetails"><summary>Collection counters</summary><dl class="dc-counters"><div class="dc-counter"><dt>Raw photos</dt><dd id="dc-count-frames">0</dd></div><div class="dc-counter"><dt>Manual photos</dt><dd id="dc-count-manual">0</dd></div><div class="dc-counter"><dt>Reviewed photos</dt><dd id="dc-count-reviewed">0</dd></div><div class="dc-counter"><dt>Confirmed specimens</dt><dd id="dc-count-specimens">0</dd></div><div class="dc-counter"><dt>Skipped scheduled shots</dt><dd id="dc-count-skipped">0</dd></div><div class="dc-counter"><dt>Upload backlog</dt><dd id="dc-count-backlog">0</dd></div></dl></details>
       </div></section>
     </div>
     <dialog class="dc-viewer" id="dc-viewer" aria-labelledby="dc-viewer-title"><div class="dc-viewer-header"><div><h2 id="dc-viewer-title">Original photo</h2><p class="dc-hint">Native file · preview guides are not included</p></div><button class="button quiet" id="dc-viewer-close" type="button">Close</button></div><div class="dc-viewer-body"><div class="dc-viewer-image"><img id="dc-viewer-image" alt="Selected original capture photo"></div><div class="dc-viewer-details"><dl id="dc-viewer-details"></dl><a class="button quiet" id="dc-viewer-download" download>Download original</a><p class="dc-warning" id="dc-viewer-warnings"></p></div></div></dialog>
@@ -172,6 +166,23 @@
         const session = sessions.find(value => String(value.session_id ?? value.id) === sessionId);
         if (session) { fillMetadata(session.metadata ?? session); metadataLoadedFor = sessionId; }
       }
+    } catch (error) { feedback(errorText(error), true); }
+  }
+  function renderDevices(devices, detail) {
+    const select = el("device"), current = select.value;
+    const options = (Array.isArray(devices) ? devices : []).map(device => ({index: String(device.device_index ?? device.index ?? ""), name: String(device.name ?? device.label ?? "").trim()}))
+      .filter(device => device.index !== "");
+    if (!options.length) options.push({index: current || "0", name: ""});
+    select.replaceChildren();
+    for (const device of options) { const option = document.createElement("option"); option.value = device.index; option.textContent = device.name || `Camera ${device.index}`; select.append(option); }
+    if (options.some(device => device.index === current)) select.value = current;
+    select.title = detail || "";
+  }
+  async function loadDevices() {
+    if (!securityReady) return;
+    try {
+      const result = await request("/devices");
+      renderDevices(result.devices ?? result, result.detail);
     } catch (error) { feedback(errorText(error), true); }
   }
   function renderControls() {
@@ -362,6 +373,7 @@
     await mutate("/camera/start", payload, "Capture camera opened. Check actual readbacks before collecting.");
   });
   el("camera-close").addEventListener("click", () => { void mutate("/camera/stop", {}, "Capture camera closed. Saved photos remain available."); });
+  el("camera-refresh").addEventListener("click", () => { void loadDevices(); });
   el("metadata-form").addEventListener("submit", async event => {
     event.preventDefault();
     if (runActive()) return;
@@ -446,7 +458,7 @@
         if (!session.ok) { showLogin(); return; }
         csrf = (await session.json()).csrf_token;
       }
-      securityReady = true; await loadSessions(); await refreshStatus(); schedulePoll();
+      securityReady = true; await loadDevices(); await loadSessions(); await refreshStatus(); schedulePoll();
     } catch (error) { feedback(errorText(error), true); }
   }
   if (standalone) {
@@ -456,14 +468,14 @@
       try {
         const response = await window.fetch("/api/auth/login", {method: "POST", credentials: "same-origin", headers: {"Content-Type": "application/json"}, body: JSON.stringify({token})});
         const data = await response.json(); if (!response.ok) throw new Error(data.detail || "Sign-in failed.");
-        csrf = data.csrf_token; securityReady = true; text("auth-message", ""); el("auth").close(); await loadSessions(); await refreshStatus(); schedulePoll();
+        csrf = data.csrf_token; securityReady = true; text("auth-message", ""); el("auth").close(); await loadDevices(); await loadSessions(); await refreshStatus(); schedulePoll();
       } catch (error) { text("auth-message", errorText(error)); }
     });
   }
   window.TambanCapture = {
     onView(view) {
       active = view === "capture";
-      if (active) { void loadSessions(); void refreshStatus(); schedulePoll(); }
+      if (active) { void loadDevices(); void loadSessions(); void refreshStatus(); schedulePoll(); }
       else { stopPreview(); schedulePoll(); }
     },
     canNavigate(view) {
@@ -472,5 +484,5 @@
     },
   };
   renderDrive(); renderControls();
-  if (standalone) void initializeSecurity();
+  if (standalone) void initializeSecurity(); else void loadDevices();
 })();

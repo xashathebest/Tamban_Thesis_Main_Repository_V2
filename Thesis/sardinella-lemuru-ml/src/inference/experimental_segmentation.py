@@ -166,6 +166,50 @@ class ExperimentalFrameSegmentation:
                             parent_isolation_reliable=False)
         return local, metadata
 
+    def head_integrity_mask(self, parent_id, bounds):
+        """Return a candidate for Head-absence review without requiring a Head detection.
+
+        The normal ``get`` path still withholds masks that fail engineering
+        checks. Those checks require Head evidence, which a headless fish cannot
+        supply. Geometry, isolation, clipping, and neighbor contamination stay
+        in force through a separate eligibility decision.
+        """
+
+        from src.inference.mask_ownership import head_integrity_mask_eligibility
+        ownership = self.ownership.get(parent_id, {})
+        eligibility = head_integrity_mask_eligibility(ownership)
+        candidate = self.candidates.get(parent_id, {})
+        mask = candidate.get("mask")
+        current = self.is_current()
+        metadata = {
+            "source": "mobilesam_experimental_candidate",
+            "backend": "mobilesam_experimental",
+            "experimental": True,
+            "ownership_validated": False,
+            "approved_for_grading": False,
+            "measurement_validated": False,
+            "used_for_grading": False,
+            "parent_track_id": parent_id,
+            "ownership": ownership,
+            "head_integrity_eligibility": eligibility,
+            "parent_isolation_reliable": eligibility["eligible"] and current,
+            "parent_isolation_reasons": list(ownership.get("reasons") or []),
+            "candidate_provenance": candidate.get("provenance", {}),
+        }
+        if not current or not isinstance(mask, np.ndarray) or mask.shape != self.frame.shape[:2]:
+            metadata.update(status="unavailable", reason="MobileSAM candidate is unavailable for Head-integrity review.")
+            return None, metadata
+        local = np.asarray(mask[bounds.y1:bounds.y2, bounds.x1:bounds.x2], dtype=bool)
+        metadata.update(
+            status="eligible" if eligibility["eligible"] else "withheld",
+            reason=eligibility["withheld_category"],
+            full_frame_foreground_bbox=ownership.get("metrics", {}).get("foreground_bbox"),
+            full_frame_foreground_pixels=ownership.get("metrics", {}).get("foreground_pixels"),
+            native_frame_shape=list(self.frame.shape[:2]),
+            crop_bounds=[bounds.x1, bounds.y1, bounds.x2, bounds.y2],
+        )
+        return local, metadata
+
     def body_mask(self, parent_id, bounds):
         from src.inference.mask_ownership import body_support_mask
         if not self.is_current():

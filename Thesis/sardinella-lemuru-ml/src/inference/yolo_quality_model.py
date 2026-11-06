@@ -23,6 +23,7 @@ from src.inference.fish_geometry_pipeline import analyze_fish_geometry
 from src.inference.stage_metrics import TIMING_RELATIONSHIPS, milliseconds
 from src.inference.frame_quality import BestFrameSelection, BestFrameSelector, FrameQualityAssessment, FrameQualityConfig, assess_frame_quality
 from src.inference.grading_engine import FishVerdict, WeightedGradingEngine
+from src.inference.head_integrity import apply_head_integrity, assess_head_integrity
 from src.inference.model_traceability import full_sha256
 from src.inference.part_types import PartDetection
 from src.inference.preprocessing import CropBounds, RuntimeMaskContext, clamp_bbox, crop_assigned_evidence, crop_fish, measurement_crop_bounds, validate_image
@@ -872,7 +873,79 @@ class YoloQualityModel:
                     for item in unassigned
                     if isinstance(item, (PartDetection, Mapping))
                 ]
-        return FishQualityObservation(track_id, verdict.final_grade, verdict.final_score, tuple(parts), votes, analysis)
+        published_grade = self._apply_head_integrity(
+            analysis, verdict.final_grade, geometry_parts, feature_mask, geometry_mask_metadata,
+            inference_metadata=inference_metadata, bounds=bounds, mask_context=mask_context,
+            model2_available=model2_available,
+            model2_failed=quality_payload.get("model2_unavailable") is True,
+            overlapping=bool(width_context.get("overlapping")),
+            clipped=geometry_mask_metadata.get("clipped") is True,
+            association_reliable=coordinate_known and model2_available
+            and not bool(association.get("ambiguous") or quality_payload.get("association_ambiguous")),
+        )
+        return FishQualityObservation(track_id, published_grade, verdict.final_score, tuple(parts), votes, analysis)
+
+    @staticmethod
+    def _mask_space_part(part: PartDetection, origin: tuple[float, float] | None) -> PartDetection:
+        if origin is None:
+            return part
+        ox, oy = origin
+        return replace(
+            part,
+            bbox=(part.bbox[0] - ox, part.bbox[1] - oy, part.bbox[2] - ox, part.bbox[3] - oy),
+            mask=tuple((x - ox, y - oy) for x, y in part.mask) if part.mask else None,
+        )
+
+    def _apply_head_integrity(
+        self, analysis, published_grade, geometry_parts, mask, mask_metadata, *,
+        inference_metadata, bounds, model2_available, model2_failed, overlapping, clipped,
+        association_reliable, mask_context=None,
+    ):
+        """Attach MobileSAM ratios and reject only a confirmed missing Head."""
+
+        if mask is None and mask_context is not None and bounds is not None and hasattr(mask_context, "head_integrity_mask"):
+            try:
+                from src.inference.preprocessing import CropBounds
+                crop_bounds = bounds if isinstance(bounds, CropBounds) else CropBounds(*(int(value) for value in bounds))
+                integrity_mask, integrity_metadata = mask_context.head_integrity_mask(analysis.get("fish_id"), crop_bounds)
+            except (TypeError, ValueError, AttributeError):
+                integrity_mask, integrity_metadata = None, {}
+            if integrity_mask is not None:
+                mask = integrity_mask
+                mask_metadata = {**dict(mask_metadata or {}), **dict(integrity_metadata or {})}
+
+        space = inference_metadata.get("debug_coordinate_space", "crop_local")
+        origin = (float(bounds[0]), float(bounds[1])) if space == "original_frame" and bounds is not None else None
+
+        def heads(items):
+            shifted = []
+            if not isinstance(items, Sequence) or isinstance(items, (str, bytes)):
+                return shifted
+            for item in items:
+                part = item if isinstance(item, PartDetection) else None
+                if part is not None and part.region == "Head":
+                    shifted.append(self._mask_space_part(part, origin))
+            return shifted
+
+        def same_box(first: PartDetection, second: PartDetection) -> bool:
+            return all(abs(left - right) <= 1.0 for left, right in zip(first.bbox, second.bbox))
+
+        owned = [part for part in geometry_parts if getattr(part, "region", None) == "Head"]
+        raw_heads = heads(inference_metadata.get("raw_detections", ()))
+        unassigned = heads(inference_metadata.get("unassigned_detections", ()))
+        other = [
+            part for part in raw_heads
+            if not any(same_box(part, owned_part) for owned_part in owned)
+            and not any(same_box(part, pending) for pending in unassigned)
+        ]
+        report = assess_head_integrity(
+            mask, geometry_parts, other_heads=other, unassigned_heads=unassigned,
+            mask_metadata=mask_metadata, model2_available=model2_available, model2_failed=model2_failed,
+            overlapping=overlapping, clipped=clipped, association_reliable=association_reliable,
+            config=self._fish_geometry_config,
+            minimum_part_confidence=self._grading_engine.config.minimum_part_confidence,
+        )
+        return apply_head_integrity(analysis, published_grade, report)
 
     @_locked_model_operation
     def predict(
