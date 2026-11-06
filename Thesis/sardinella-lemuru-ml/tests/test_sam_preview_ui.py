@@ -32,6 +32,7 @@ def payload():
 INCLUDE = r'''
 const fs=require("fs"), vm=require("vm");
 const source=fs.readFileSync("frontend/app.js","utf8");
+vm.runInThisContext(source.match(/^const gradeColors = .*;$/m)[0]);
 function include(name) {
   const start=source.indexOf(`function ${name}(`);
   if(start<0)throw new Error(`Missing ${name}`);
@@ -39,13 +40,13 @@ function include(name) {
   const beginning=source.slice(start-6,start)==="async "?start-6:start;
   vm.runInThisContext(source.slice(beginning,next<0?source.length:start+1+next));
 }
-for(const name of ["fishZoomId","segmentationOverlayEvidence","maskPreviewColor","maskPreviewSource","maskPreviewEntries"])include(name);
+for(const name of ["fishZoomId","fishZoomGrade","aiFinalGrade","segmentationOverlayEvidence","maskPreviewColor","maskPreviewSource","maskPreviewEntries"])include(name);
 '''
 
 
 HARNESS = r'''
 class Element {
-  constructor(){this.children=[];this.dataset={};this.style={};this.value="";this.checked=true;this.width=0;this.height=0;this.textContent="";this.hidden=true;this.attributes={};this.classList={add:()=>{this.hidden=true;},remove:()=>{this.hidden=false;}};}
+  constructor(){this.children=[];this.dataset={};this.style={};this.value="";this.checked=true;this.width=0;this.height=0;this.textContent="";this.hidden=true;this.attributes={};this.classList={add:()=>{this.hidden=true;},remove:()=>{this.hidden=false;},toggle:()=>{}};}
   replaceChildren(...items){this.children=items;}
   append(...items){this.children.push(...items);}
   setAttribute(key,value){this.attributes[key]=value;}
@@ -138,7 +139,7 @@ console.log(JSON.stringify({selected,hidden:draws,width:elements.maskPreviewCanv
 ''', payload())
     assert actual["width"] == 500 and actual["height"] == 300
     assert sum(item[0] == "fill" for item in actual["selected"]) == 1
-    assert [item[1] for item in actual["selected"] if item[0] == "text"] == ["Fish #2 " + chr(183) + " review"]
+    assert [item[1] for item in actual["selected"] if item[0] == "text"] == ["Fish #2 " + chr(183) + " Ungraded", "⚠"]
     assert all(item[1] >= 265 for item in actual["selected"] if item[0] == "point")
     assert any(item[0] == "image" for item in actual["hidden"])
     assert not any(item[0] in {"fill", "box", "text"} for item in actual["hidden"])

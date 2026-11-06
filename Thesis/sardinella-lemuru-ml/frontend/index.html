@@ -5,7 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#FFFFFF">
     <title>Tamban Quality Inspection System | Live Inspection</title>
-    <link rel="stylesheet" href="/assets/styles.css?v=live-camera-picker-20261104">
+    <link rel="stylesheet" href="/assets/styles.css?v=inspection-workspace-20261104">
+    <link rel="stylesheet" href="/assets/inspection-layout.css?v=20261104">
+    <link rel="stylesheet" href="/assets/inspection-evidence.css?v=20261104">
+    <link rel="stylesheet" href="/assets/session-workspace.css?v=qwe-20261105">
+    <link rel="stylesheet" href="/assets/camera-workspace.css?v=qwe-20261105">
+    <link rel="stylesheet" href="/assets/analytics-workspace.css?v=qwe-20261105">
+    <link rel="stylesheet" href="/assets/capture.css?v=20261105">
   </head>
   <body>
     <svg class="icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -40,6 +46,19 @@
           <path d="M4 6h16M4 12h16M4 18h16"></path>
           <path d="M8 3v6m8 0v6M9 15v6"></path>
         </symbol>
+        <symbol id="icon-fish-zoom" viewBox="0 0 24 24"><circle cx="10" cy="10" r="6"></circle><path d="m15 15 6 6M7 10h6m-3-3v6"></path></symbol>
+        <symbol id="icon-maximize" viewBox="0 0 24 24">
+          <path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"></path>
+        </symbol>
+        <symbol id="icon-minimize" viewBox="0 0 24 24">
+          <path d="M3 8h5V3m8 0v5h5M8 21v-5H3m18 0h-5v5"></path>
+        </symbol>
+        <symbol id="icon-fit" viewBox="0 0 24 24">
+          <rect x="5" y="6" width="14" height="12" rx="1"></rect><path d="M2 9V3h6m8 0h6v6M2 15v6h6m8 0h6v-6"></path>
+        </symbol>
+        <symbol id="icon-upload" viewBox="0 0 24 24">
+          <path d="M12 16V3m-5 5 5-5 5 5M4 15v6h16v-6"></path>
+        </symbol>
       </defs>
     </svg>
     <a class="skip-link" href="#main-content">Skip to inspection workspace</a>
@@ -68,6 +87,10 @@
               </span>
               <b>Live Inspection</b>
             </button>
+            <button class="nav-item" type="button" data-view="capture" data-tooltip="Camera Capture" aria-label="Camera Capture">
+              <span aria-hidden="true"><svg class="icon" aria-hidden="true" viewBox="0 0 24 24"><use href="#icon-camera"></use></svg></span>
+              <b>Camera Capture</b>
+            </button>
             <button class="nav-item" type="button" data-view="history" data-tooltip="Inspection History" aria-label="Inspection History">
               <span aria-hidden="true">
                 <svg class="icon" aria-hidden="true" viewBox="0 0 24 24">
@@ -85,6 +108,14 @@
               <b>Review Queue</b>
               <span class="nav-count hidden" id="review-count" aria-label="Fish awaiting review"></span>
             </button>
+            <button class="nav-item" type="button" data-view="analytics" data-tooltip="Analytics" aria-label="Analytics">
+              <span aria-hidden="true">
+                <svg class="icon" aria-hidden="true" viewBox="0 0 24 24">
+                  <use href="#icon-chart"></use>
+                </svg>
+              </span>
+              <b>Analytics</b>
+            </button>
             <button class="nav-item" type="button" data-view="model" data-tooltip="Model" aria-label="Model">
               <span aria-hidden="true">
                 <svg class="icon" aria-hidden="true" viewBox="0 0 24 24">
@@ -92,14 +123,6 @@
                 </svg>
               </span>
               <b>Model</b>
-            </button>
-            <button class="nav-item nav-secondary hidden" type="button" data-anchor="analytics-section" data-tooltip="Analytics in Live Inspection" aria-label="Analytics in Live Inspection">
-              <span aria-hidden="true">
-                <svg class="icon" aria-hidden="true" viewBox="0 0 24 24">
-                  <use href="#icon-chart"></use>
-                </svg>
-              </span>
-              <b>Analytics in Live</b>
             </button>
             <button class="nav-item nav-secondary hidden" type="button" id="sidebar-export" data-tooltip="Export" aria-label="Export" aria-hidden="true">
               <span aria-hidden="true">
@@ -188,7 +211,7 @@
           </section>
           <section class="view live-view" id="view-live" aria-label="Live inspection workspace">
             <section class="inspection-grid">
-              <article class="camera-card surface">
+              <article class="camera-card surface" id="live-viewer-panel">
                 <div class="camera-head">
                   <div>
                     <p class="eyebrow">ACTIVE MODEL</p>
@@ -209,9 +232,29 @@
                     <span id="feed-resolution">—</span>
                   </div>
                 </div>
+                <div class="camera-actions">
+                  <div class="machine-controls">
+                    <button class="button primary" id="start-button" type="button" disabled>Start inspection</button>
+                    <button class="button quiet" id="reset-button" type="button" disabled>Reset session</button>
+                    <button class="button quiet" id="upload-mode-button" type="button" aria-controls="upload-workspace" aria-expanded="false">Analyze Media</button>
+                  </div>
+                  <div class="inspection-state neutral hidden" id="inspection-state"><i></i>Stopped</div>
+                  <button class="button quiet hidden" id="preview-mode-button" type="button" aria-pressed="false">View raw preview</button>
+                  <p class="hidden" id="preview-mode-description" role="status" aria-hidden="true"></p>
+                  <p class="control-feedback hidden" id="control-feedback" role="status" aria-live="polite"></p>
+                </div>
+                <div class="live-session-stats" aria-label="Current inspection counts"><span>Inspected <b id="live-stat-total">—</b></span><span data-grade="Class A">A <b id="live-stat-a">—</b></span><span data-grade="Class B">B <b id="live-stat-b">—</b></span><span data-grade="Class C">C <b id="live-stat-c">—</b></span><span data-grade="Rejected">Rejected <b id="live-stat-rejected">—</b></span><span data-grade="Ungraded">Ungraded <b id="live-stat-ungraded">—</b></span></div>
                 <div class="video-stage fish-media-stage" id="live-media-stage">
                   <img id="video-feed" alt="Annotated local webcam feed">
                   <div class="fish-click-targets" id="live-fish-targets" aria-label="Detected fish"></div>
+                  <div class="viewer-floating-toolbar viewer-floating-tools live-viewer-tools" role="toolbar" aria-label="Live viewer controls">
+                    <label><span class="visually-hidden">Live viewing mode</span><select id="live-viewer-fit-mode" aria-label="Live viewing mode"><option value="contain">Fit</option><option value="cover">Fill</option></select></label>
+                    <label class="viewer-zoom-control"><span class="visually-hidden">Live viewer zoom</span><select id="live-viewer-zoom" aria-label="Live viewer zoom"><option value="1">100%</option><option value="1.5">150%</option><option value="2">200%</option><option value="3">300%</option></select></label>
+                    <button class="icon-button viewer-reset" id="live-fit-button" type="button" aria-label="Reset live viewer to fit image" title="Reset zoom and fit complete frame"><svg class="icon" aria-hidden="true"><use href="#icon-fit"></use></svg></button>
+                    <button class="icon-button viewer-fish-zoom" id="live-zoom-fish-button" type="button" disabled aria-label="Zoom selected live fish" aria-pressed="false" title="Select a fish to zoom"><svg class="icon" aria-hidden="true"><use href="#icon-fish-zoom"></use></svg></button>
+                    <button class="icon-button camera-settings-trigger" id="open-camera-controls" type="button" aria-label="Camera settings" title="Camera settings" aria-controls="camera-calibration-drawer"><svg class="icon" aria-hidden="true"><use href="#icon-settings"></use></svg></button>
+                    <button class="icon-button viewer-fullscreen-button" id="live-fullscreen-button" type="button" aria-pressed="false" aria-label="Enter live viewer fullscreen" title="Fullscreen"><svg class="icon" aria-hidden="true"><use href="#icon-maximize"></use></svg></button>
+                  </div>
                   <div class="video-placeholder" id="video-placeholder">
                     <span class="camera-glyph" aria-hidden="true">
                       <svg class="icon" aria-hidden="true" viewBox="0 0 24 24">
@@ -220,22 +263,11 @@
                     </span>
                     <strong id="placeholder-title"></strong>
                     <p id="placeholder-copy"></p>
-                    <button class="button primary" id="empty-start-button" type="button" disabled>Start inspection</button>
+                    <button class="button primary hidden" id="empty-start-button" type="button" disabled tabindex="-1" aria-hidden="true">Start inspection</button>
                   </div>
                 </div>
-                <div class="camera-actions">
-                  <button class="button quiet hidden" id="preview-mode-button" type="button" aria-pressed="false">View raw preview</button>
-                  <p class="hidden" id="preview-mode-description" role="status" aria-hidden="true"></p>
-                  <div class="inspection-state neutral hidden" id="inspection-state">
-                    <i></i>
-                    Stopped
-                  </div>
-                  <div class="machine-controls">
-                    <button class="button primary" id="start-button" type="button" disabled>Start inspection</button>
-                    <button class="button quiet" id="reset-button" type="button" disabled>Reset session</button>
-                    <button class="button quiet" id="upload-mode-button" type="button" aria-controls="upload-workspace" aria-expanded="false">Analyze Media</button>
-                  </div>
-                  <p class="control-feedback hidden" id="control-feedback" role="status" aria-live="polite"></p>
+                <div class="camera-legend">
+                  <ul class="grade-color-legend" aria-label="Final grade colors"><li data-grade="Class A">Class A</li><li data-grade="Class B">Class B</li><li data-grade="Class C">Class C</li><li data-grade="Rejected">Rejected</li><li data-grade="Ungraded">Ungraded</li></ul>
                 </div>
                 <details class="overlay-settings">
                   <summary>Feed display options</summary>
@@ -362,42 +394,52 @@
             <section class="upload-workspace upload-modal surface hidden" id="upload-workspace" aria-labelledby="upload-title" aria-busy="false" aria-hidden="true" aria-modal="true" role="dialog" inert tabindex="-1">
               <div class="section-head modal-head upload-modal-head">
                 <div>
-                  <p class="eyebrow">MANUAL ANALYSIS</p>
                   <h2 id="upload-title">Analyze Media</h2>
-                  <p class="upload-subtitle">Inspect a fish image or video without changing the live inspection session.</p>
+                  <p class="upload-subtitle">Upload · Preview · Analyze · Inspect evidence</p>
                 </div>
                 <button class="icon-button" id="close-upload-button" type="button" aria-label="Close media analysis">×</button>
               </div>
-              <div class="upload-picker">
+              <div class="upload-picker" id="upload-drop-zone" tabindex="0" role="group" aria-label="Drop image or video, or browse files">
                 <div class="upload-picker-icon" aria-hidden="true">
                   <svg class="icon" viewBox="0 0 24 24">
-                    <use href="#icon-camera"></use>
+                    <use href="#icon-upload"></use>
                   </svg>
                 </div>
                 <div class="upload-picker-copy">
-                  <strong>Choose an image or video to inspect</strong>
-                  <span>Use JPG, PNG, MP4, MOV, or WebM media with one or more visible fish.</span>
+                  <strong>Drop an image or video</strong>
+                  <span id="upload-format-hint">JPG, PNG, WebP, MP4, MOV or WebM</span>
                 </div>
                 <div class="upload-controls">
-                  <input class="visually-hidden" id="upload-input" type="file" accept=".jpg,.jpeg,.png,.webp,.mp4,.mov,.webm,image/jpeg,image/png,video/mp4,video/quicktime,video/webm" aria-label="Select fish image or video for local analysis">
-                  <button class="button quiet upload-file-button" id="select-upload-button" type="button">Choose media</button>
+                  <input class="visually-hidden" id="upload-input" type="file" accept=".jpg,.jpeg,.png,.webp,.mp4,.mov,.webm,image/jpeg,image/png,video/mp4,video/quicktime,video/webm" aria-label="Select fish image or video for local analysis" aria-describedby="upload-format-hint">
+                  <img id="upload-thumbnail" class="upload-thumbnail hidden" alt="Selected media thumbnail">
+                  <button class="button quiet upload-file-button" id="select-upload-button" type="button">Browse Files</button>
+                  <button class="button quiet hidden" id="remove-upload-button" type="button">Remove</button>
                   <p class="upload-file-name" id="upload-file-name"></p>
+                  <p class="upload-file-details" id="upload-file-details"></p>
                   <button class="button primary" id="analyze-button" type="button" disabled>Run analysis</button>
                   <span class="upload-status" id="upload-status" role="status" aria-live="polite" aria-atomic="true"></span>
                 </div>
               </div>
-              <p class="muted" id="upload-segmentation-note">Analysis automatically generates fish-mask candidates. Only independently validated measurements and configured grading rules may change a grade.</p>
+              <div class="upload-inspection-layout">
+                <section class="upload-viewer-panel" id="upload-viewer-panel" aria-label="Fish visualization">
+                  <div class="workspace-viewer-toolbar">
+                    <div><strong>Inspection viewer</strong><span>Fit image by default · select a fish to see its evidence</span></div>
+                  <ul class="grade-color-legend" aria-label="Final grade colors"><li data-grade="Class A">Class A</li><li data-grade="Class B">Class B</li><li data-grade="Class C">Class C</li><li data-grade="Rejected">Rejected</li><li data-grade="Ungraded">Ungraded</li></ul>
+                  </div>
                 <section id="upload-mask-preview" class="mask-preview hidden" aria-label="Fish inspection visualization" aria-busy="false">
-                  <div class="mask-view-status-line"><span id="upload-mask-loading" class="mask-view-spinner hidden" aria-hidden="true"></span><p id="upload-mask-status" class="mask-preview-status" role="status" aria-live="polite" aria-atomic="true"></p><button id="upload-mask-cancel" class="button quiet hidden" type="button">Cancel</button></div>
-                  <div class="mask-preview-controls">
+                  <div class="mask-preview-controls mask-primary-controls">
                     <fieldset class="inspection-display-mode" aria-label="Inspection visualization mode">
                       <legend class="visually-hidden">Display</legend>
-                      <label><input id="upload-display-boxes" type="radio" name="upload-display-mode" value="boxes" checked><span>Bounding Boxes</span></label>
+                      <label><input id="upload-display-boxes" type="radio" name="upload-display-mode" value="boxes" checked><span><span class="viewer-wide-label">Bounding </span>Boxes</span></label>
                       <label title="Show the colored fish silhouettes from this analysis"><input id="upload-display-masks" type="radio" name="upload-display-mode" value="masks"><span class="mask-mode-colors" aria-hidden="true"></span><span>Fish Masks</span></label>
                     </fieldset>
                     <label class="mask-opacity-control">Opacity <input id="upload-mask-opacity" type="range" min="0" max="80" value="40" step="5"><output id="upload-mask-opacity-value" for="upload-mask-opacity">40%</output></label>
                     <label>Highlight <select id="upload-mask-fish" aria-label="Highlight fish mask"><option value="all">All fish</option></select></label>
-                    <label>Zoom <select id="upload-mask-zoom" aria-label="Mask preview zoom"><option value="1">Fit image</option><option value="1.5">150%</option><option value="2">200%</option><option value="3">300%</option></select></label>
+                  </div>
+                  <details class="viewer-secondary-controls"><summary>Overlays<span class="viewer-wide-label"> &amp; evidence</span> <span id="upload-overlay-summary-status" role="status" aria-live="polite"></span></summary>
+                  <div class="viewer-secondary-body">
+                  <div class="mask-view-status-line"><span id="upload-mask-loading" class="mask-view-spinner hidden" aria-hidden="true"></span><p id="upload-mask-status" class="mask-preview-status" role="status" aria-live="polite" aria-atomic="true"></p><button id="upload-mask-cancel" class="button quiet hidden" type="button">Cancel</button></div>
+                  <div class="mask-preview-controls">
                     <label><input id="upload-mask-measurements" type="checkbox"> Show Measurements</label>
                     <label><input id="upload-mask-cracks" type="checkbox"> Show Cracks</label>
                     <details class="inspection-overlay-options"><summary>Evidence overlays</summary><label><input id="upload-mask-show" type="checkbox" checked> Fish masks visibility</label><label><input id="upload-mask-model1" type="checkbox" checked> Model 1 boxes</label><label><input id="upload-mask-model2" type="checkbox"> Assigned Model 2 parts</label><label><input id="upload-association-debug" type="checkbox" aria-describedby="upload-association-debug-status"> Anatomical Association Debug View</label></details>
@@ -406,21 +448,37 @@
                   <p id="upload-association-debug-status" class="association-debug-status hidden" role="status" aria-live="polite"></p>
                   <ul id="upload-association-debug-legend" class="association-debug-legend hidden" aria-label="Anatomical debug colors"><li data-kind="raw">Raw detector candidate</li><li data-kind="accepted">Accepted for highlighted fish</li><li data-kind="rejected">Rejected / unassigned candidate</li><li data-kind="ambiguous">Ambiguous / owned by another fish</li></ul>
                   <details class="inspection-reliability"><summary>Mask reliability and ownership</summary><ul id="upload-mask-legend" class="mask-preview-legend" aria-label="Fish mask reliability"></ul></details>
-                  <p class="muted">Click a shaded fish or its bounding box to open its zoom view. Switching the view or opacity reuses this completed analysis. Dashed boundaries identify masks requiring review. Click a crack candidate to inspect its evidence.</p>
-                  <p class="measurement-overlay-key"><span>Length</span><span>Maximum Body width</span><span>Representative Body section</span> · Dashed measurements are Estimated; solid measurements are Validated. Crack outlines locate review candidates.</p>
+                  <p class="muted" id="upload-segmentation-note">Analysis automatically generates fish-mask candidates. Only independently validated measurements and configured grading rules may change a grade.</p>
+                  <details class="viewer-help"><summary>Viewer and measurement guide</summary><p class="muted">Select a fish to see its results. Drag to pan when zoomed. Mask fills, outlines and labels show the final grade. Subtle shade differences and Fish IDs distinguish neighbors. Single-click selects; double-click zooms that fish. A separate warning indicates mask review.</p><p class="measurement-overlay-key"><span>Length</span><span>Maximum Body width</span><span>Representative Body section</span> · Dashed measurements are Estimated; solid measurements are Validated. Crack outlines locate review candidates.</p></details>
+                  </div>
+                  </details>
                 </section>
               <div class="upload-analysis-progress hidden" id="upload-analysis-progress" role="status" aria-live="polite" aria-label="Media analysis in progress">
                 <div class="upload-progress-track" aria-hidden="true"><i></i></div>
               </div>
               <div class="fish-media-stage upload-media-stage" id="upload-media-stage">
+                <div class="viewer-floating-toolbar viewer-floating-tools" role="toolbar" aria-label="Media viewer controls">
+                  <label><span class="visually-hidden">Media viewing mode</span><select id="upload-viewer-fit-mode" aria-label="Media viewing mode"><option value="contain">Fit</option><option value="cover">Fill</option></select></label>
+                  <label class="viewer-zoom-control"><span class="visually-hidden">Media viewer zoom</span><select id="upload-mask-zoom" aria-label="Mask preview zoom"><option value="1">100%</option><option value="1.5">150%</option><option value="2">200%</option><option value="3">300%</option></select></label>
+                  <button class="icon-button viewer-reset" id="upload-fit-button" type="button" aria-label="Reset media viewer to fit image" title="Reset zoom and fit complete frame"><svg class="icon" aria-hidden="true"><use href="#icon-fit"></use></svg></button>
+                  <button class="icon-button viewer-fish-zoom" id="upload-zoom-fish-button" type="button" disabled aria-label="Zoom selected fish" aria-pressed="false" title="Select a fish to zoom"><svg class="icon" aria-hidden="true"><use href="#icon-fish-zoom"></use></svg></button>
+                  <button class="icon-button viewer-fullscreen-button" id="upload-fullscreen-button" type="button" aria-pressed="false" aria-label="Enter media viewer fullscreen" title="Fullscreen"><svg class="icon" aria-hidden="true"><use href="#icon-maximize"></use></svg></button>
+                </div>
+                <div class="upload-viewer-empty" id="upload-viewer-empty"><svg class="icon" aria-hidden="true"><use href="#icon-fish"></use></svg><strong>Your inspection starts here</strong><span>Drop media or browse files to preview the complete frame.</span></div>
                 <img id="upload-result-image" class="upload-image hidden" alt="Selected or annotated fish photo">
                 <video id="upload-result-video" class="upload-image upload-video hidden" controls muted playsinline></video>
                 <div id="upload-mask-viewport" class="mask-preview-viewport hidden"><canvas id="upload-mask-canvas" aria-label="Original photo with experimental fish silhouettes"></canvas></div>
                 <div class="fish-click-targets" id="upload-fish-targets" aria-label="Detected fish"></div>
               </div>
-              <div id="upload-mask-evidence" class="mask-inspection-evidence" aria-label="Geometry and structural damage per fish"></div>
-              <section id="upload-crack-details" class="crack-candidate-details hidden" aria-label="Selected crack candidate" aria-live="polite"></section>
-              <div class="upload-results hidden" id="upload-results"></div>
+                </section>
+                <div id="upload-workspace-splitter" class="workspace-splitter" role="separator" tabindex="0" aria-label="Resize image viewer and fish results" aria-orientation="vertical" aria-valuemin="40" aria-valuemax="80" aria-valuenow="70" aria-controls="upload-viewer-panel upload-workspace-results" title="Drag or use arrow keys to resize panels"></div>
+                <aside class="upload-result-panel" id="upload-workspace-results" aria-label="Fish results by final grade">
+                  <div id="upload-results-placeholder" class="workspace-results-empty"><p class="eyebrow">RESULTS BY FINAL GRADE</p><h3>Every fish, in one place</h3><p>Run analysis to see Class A, B, C, Rejected and Ungraded results. Select any fish for its anatomy, measurements, cracks and mask reliability.</p></div>
+                  <div class="upload-results hidden" id="upload-results"></div>
+                  <div id="upload-mask-evidence" class="mask-inspection-evidence hidden" aria-label="Selected fish evidence"></div>
+                  <section id="upload-crack-details" class="crack-candidate-details hidden" aria-label="Selected crack candidate" aria-live="polite"></section>
+                </aside>
+              </div>
             </section>
             <section class="results-dashboard surface" id="recent-inspections">
               <div class="section-head compact">
@@ -453,67 +511,6 @@
               </div>
               <div class="feature-counter-grid" id="feature-counter-grid"></div>
             </section>
-            <details class="advanced-panel analytics-disclosure" id="analytics-disclosure">
-              <summary>
-                <span>
-                  <strong>Session analytics</strong>
-                  <small>Grade distribution, throughput, and evidence measurements</small>
-                </span>
-                <span class="soft-badge">Details</span>
-              </summary>
-              <section class="analytics-section" id="analytics-section" aria-labelledby="analytics-heading">
-                <div class="section-head compact">
-                  <div>
-                    <p class="eyebrow">ANALYTICS</p>
-                    <h2 id="analytics-heading">Session analytics</h2>
-                  </div>
-                  <span class="soft-badge" id="analytics-period">Latest run</span>
-                </div>
-                <div class="analytics-grid">
-                  <article class="chart-card surface">
-                    <h3>Original AI grade distribution</h3>
-                    <div class="chart-empty" id="grade-chart-empty">Waiting for inspection data</div>
-                    <div class="donut-wrap hidden" id="grade-chart">
-                      <div class="donut" id="grade-donut">
-                        <div>
-                          <strong id="grade-total">0</strong>
-                          <span>fish</span>
-                        </div>
-                      </div>
-                      <div class="chart-legend" id="grade-legend"></div>
-                    </div>
-                  </article>
-                  <article class="chart-card surface">
-                    <h3>Detected features</h3>
-                    <div class="chart-empty" id="feature-chart-empty">Waiting for inspection data</div>
-                    <div class="bar-chart hidden" id="feature-chart"></div>
-                  </article>
-                  <article class="chart-card surface">
-                    <h3>Original AI Ungraded reasons</h3>
-                    <p class="muted">One fish may have multiple reasons, so counts can overlap.</p>
-                    <div class="chart-legend" id="ungraded-reasons">Waiting for inspection data</div>
-                  </article>
-                  <article class="chart-card surface wide-chart">
-                    <div class="chart-title-row">
-                      <h3>Inspection throughput</h3>
-                      <span id="throughput-caption">—</span>
-                    </div>
-                    <div class="chart-empty" id="throughput-chart-empty">Waiting for inspection data</div>
-                    <svg class="line-chart hidden" id="throughput-chart" viewBox="0 0 560 180" preserveaspectratio="none" aria-label="Cumulative fish processed over time">
-                      <polyline id="throughput-line" points=""></polyline>
-                    </svg>
-                  </article>
-                  <article class="chart-card surface">
-                    <h3>Average final support</h3>
-                    <div class="chart-empty" id="confidence-chart-empty">Waiting for inspection data</div>
-                    <div class="confidence-chart hidden" id="confidence-chart">
-                      <strong id="average-grade-confidence">—</strong>
-                      <span id="confidence-chart-copy">Weighted whole-fish support</span>
-                    </div>
-                  </article>
-                </div>
-              </section>
-            </details>
             <details class="advanced-panel" id="advanced-diagnostics">
               <summary>
                 <span>
@@ -571,13 +568,15 @@
               <span>Model evidence supports operator review.</span>
             </footer>
           </section>
+          <section class="view hidden" id="view-capture" aria-label="Camera Capture"><div data-capture-root></div></section>
           <section class="view hidden" id="view-history" aria-label="Inspection history">
             <div class="view-intro">
               <p class="eyebrow">INSPECTION HISTORY</p>
               <h2>Durable inspection records</h2>
               <p>Completed fish records are stored locally and can be filtered by session or date.</p>
             </div>
-            <section class="surface history-workspace">
+            <div id="session-history-workspace"></div>
+            <details class="surface history-workspace legacy-history-details"><summary>Advanced record table</summary>
               <div class="history-filters">
                 <label>
                   Session
@@ -636,8 +635,9 @@
                 <span id="history-page">Page 1</span>
                 <button class="icon-button" id="history-next" type="button" aria-label="Next page">›</button>
               </div>
-            </section>
+            </details>
           </section>
+          <section class="view hidden" id="view-analytics" aria-label="Inspection analytics"></section>
           <section class="view hidden" id="view-model" aria-label="Model information">
             <div class="view-intro">
               <p class="eyebrow">MODELS</p>
@@ -827,13 +827,13 @@
         </label>
       </section>
     </aside>
-    <aside class="settings-drawer camera-calibration-drawer surface" id="camera-calibration-drawer" aria-label="Camera calibration" aria-hidden="true" role="dialog" aria-modal="true" inert tabindex="-1">
+    <aside class="settings-drawer camera-calibration-drawer surface" id="camera-calibration-drawer" aria-label="Camera settings" aria-hidden="true" role="dialog" aria-modal="true" inert tabindex="-1">
       <div class="drawer-head">
         <div>
-          <p class="eyebrow">CAMERA CALIBRATION</p>
+          <p class="eyebrow">CAMERA SETTINGS</p>
           <h2>Inspection camera</h2>
         </div>
-        <button class="icon-button" id="close-camera-calibration-button" type="button" aria-label="Close camera calibration">×</button>
+        <button class="icon-button" id="close-camera-calibration-button" type="button" aria-label="Close camera settings">×</button>
       </div>
       <section class="camera-summary" aria-live="polite">
         <div>
@@ -868,6 +868,26 @@
           <dd id="camera-lock-state">Unlocked</dd>
         </div>
       </dl>
+      <section class="calibration-section exposure-controls" aria-labelledby="camera-exposure-title">
+        <div class="calibration-section-head">
+          <h3 id="camera-exposure-title">Exposure</h3>
+          <span id="camera-exposure-source">Start inspection to adjust</span>
+        </div>
+        <label class="exposure-mode-label" for="camera-exposure-mode">Exposure mode</label>
+        <select id="camera-exposure-mode" aria-describedby="camera-exposure-help" disabled>
+          <option value="auto">Auto Exposure</option>
+          <option value="manual">Manual EV</option>
+        </select>
+        <label class="range-label" for="camera-exposure-ev">
+          Exposure value
+          <output id="camera-exposure-value" for="camera-exposure-ev">+0.0 EV</output>
+        </label>
+        <input id="camera-exposure-ev" type="range" min="-2.0" max="2.0" step="0.1" value="0" aria-describedby="camera-exposure-help" disabled>
+        <div class="exposure-range-labels" aria-hidden="true"><span>-2.0 · Darker</span><span>+2.0 · Brighter</span></div>
+        <button class="button quiet" id="camera-exposure-reset" type="button" disabled>Reset to Default</button>
+        <p class="muted" id="camera-exposure-help">Adjust the normal live view without restarting the camera. Software adjustments affect the preview only; grading and raw preview use original frames. Native controls are available in unlocked Calibration Mode.</p>
+        <p class="camera-exposure-status" id="camera-exposure-status" role="status" aria-live="polite">Start inspection to adjust exposure.</p>
+      </section>
       <section class="calibration-section">
         <div class="calibration-section-head">
           <h3>Camera device</h3>
@@ -1154,6 +1174,9 @@
         </div>
       </div>
     </section>
-    <script src="/assets/app.js?v=live-camera-picker-20261104" defer></script>
+    <script src="/assets/analytics-workspace.js?v=qwe-20261105" defer></script>
+    <script src="/assets/session-workspace.js?v=qwe-20261105" defer></script>
+    <script src="/assets/capture.js?v=20261105" defer></script>
+    <script src="/assets/app.js?v=qwe-20261105" defer></script>
   </body>
 </html>

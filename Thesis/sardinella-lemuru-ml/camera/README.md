@@ -2,9 +2,15 @@
 
 The canonical camera implementation is `src/api/camera.py`; it is the sole owner
 of the OpenCV capture handle. It runs Model 1 whole-fish detection/tracking, then
-the Model 2 Head/Body/Tail evidence pipeline, and publishes the raw camera image
-as MJPEG. Inference continues on the same captured frames. The browser never
+the Model 2 Head/Body/Tail evidence pipeline, and publishes the camera image
+as MJPEG with optional display-only EV compensation. Inference continues on
+the original captured frames. The browser never
 opens the camera directly.
+
+The normal stream includes the selected inspection overlays; the optional raw
+diagnostic stream remains untouched. Viewer fullscreen/zoom changes do not reopen
+the camera. See [the inspection workspace report](../docs/checks_implementation.md)
+for saved sessions, active-time checkpoints, analytics and validation limits.
 
 `GET /api/camera/settings` reports the active backend, resolution, FPS, pixel
 format, color conversion, and camera control readbacks. Discovery performs no
@@ -48,9 +54,13 @@ $env:LEMURU_CAMERA_INDEX = '0' # Use '1' for the Logitech C270.
 
 Compare the selected physical camera with Windows Camera under the same
 lighting and framing, closing one application before opening the other. Allow
-automatic exposure and white balance to settle. The application does not add
-brightness, gamma, saturation, or white-balance filters to the image. YOLO and
-JPEG encoding continue to receive OpenCV BGR frames without extra conversions.
+automatic exposure and white balance to settle. Open **Camera controls** beside
+the live view to select Auto Exposure, Manual EV (-2.0 to +2.0), or Reset to
+Default. Software exposure affects only the normal preview; YOLO, grading and
+the diagnostic raw preview receive original OpenCV BGR frames. Native EV is
+available in unlocked Calibration Mode when the backend supports a verified
+mapping. See [live exposure controls](../docs/camera_exposure.md) for reset and
+calibration behavior.
 See [the camera quality investigation](../docs/camera_quality_investigation.md)
 for the confirmed software defects, hardware observations, and remaining
 validation limits. Windows Camera parity and AI accuracy/FPS parity have not yet

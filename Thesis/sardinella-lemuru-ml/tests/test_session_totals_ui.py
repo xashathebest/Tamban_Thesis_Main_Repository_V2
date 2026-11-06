@@ -31,7 +31,7 @@ def test_session_totals_show_one_exclusive_bucket_per_counted_fish() -> None:
             {"id": 6, "quality": "Unexpected grade"},
             {"id": 7, "quality": "Class B", "manual_grade": "Class A"},
             {"id": 8},
-        ], "expected": [8, 2, 1, 1, 1, 3]},
+        ], "expected": [8, 1, 2, 1, 1, 3]},
     ]
     script = r'''
 const fs = require("fs"); const vm = require("vm");
@@ -44,7 +44,7 @@ function include(name) {
   const next = source.slice(start + 1).search(/\n(?:async )?function /);
   vm.runInThisContext(source.slice(start, next < 0 ? source.length : start + 1 + next));
 }
-for (const name of ["analysisFor", "eventValue", "aiFinalGrade", "manualGrade", "resultGrade", "renderResultsDashboard", "renderKpis"]) include(name);
+for (const name of ["analysisFor", "eventValue", "aiFinalGrade", "manualGrade", "resultGrade", "renderResultsDashboard", "cameraPresentation", "renderKpis"]) include(name);
 class Element {
   constructor(tag = "div") { this.tag = tag; this.children = []; this.dataset = {}; this.attributes = {}; this.classList = {toggle() {}}; }
   append(...children) { this.children.push(...children); }

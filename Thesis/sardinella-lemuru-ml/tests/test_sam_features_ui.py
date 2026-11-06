@@ -59,7 +59,7 @@ renderMaskPreview();console.log(JSON.stringify({boxes,masks,back:draws,networkCa
 def test_selected_mask_and_result_card_remain_synchronized():
     actual = node(AUTOMATIC + r'''
 uploadMaskPreview.data=JSON.parse(fs.readFileSync(0,"utf8"));uploadMaskPreview.image={};uploadMaskPreview.file=selectedUpload;
-const cards=[1,2].map(id=>({dataset:{inspectionFishId:String(id)},open:false,classList:{toggle(_name,value){this.selected=value;}}}));
+const cards=[1,2].map(id=>({dataset:{inspectionFishId:String(id)},open:false,setAttribute(name,value){(this.attributes??={})[name]=value;},classList:{toggle(_name,value){this.selected=value;}}}));
 elements.resultsGroups={querySelectorAll:()=>cards};elements.maskPreviewMasks.checked=true;elements.maskPreviewBoxes.checked=false;
 selectInspectionFish(2,{revealCard:true});console.log(JSON.stringify({value:elements.maskPreviewFish.value,cards,draws,networkCalls}));
 ''', payload())

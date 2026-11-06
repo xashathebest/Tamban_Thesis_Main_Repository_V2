@@ -29,7 +29,7 @@ from test_anatomical_debug_ui import specimen
 
 
 OUTPUT = ROOT / "results/qa/additional/ui"
-BOOTSTRAP = "initializeLanSecurity(); void loadModelSelector(); void loadResultsDashboard(); setInterval(getStatus, 900); setInterval(loadResultsDashboard, 2500);"
+BOOTSTRAP = "initializeLanSecurity(); void loadModelSelector(); void loadResultsDashboard(); void loadCameraDevices(); setInterval(getStatus, 900); setInterval(loadResultsDashboard, 2500);"
 
 
 class StaticFrontend(BaseHTTPRequestHandler):
@@ -37,6 +37,8 @@ class StaticFrontend(BaseHTTPRequestHandler):
         path = self.path.split("?", 1)[0]
         files = {"/": ("index.html", "text/html"), "/assets/app.js": ("app.js", "text/javascript"),
                  "/assets/styles.css": ("styles.css", "text/css")}
+        for name in ("inspection-layout.css", "inspection-evidence.css", "session-workspace.css", "session-workspace.js", "camera-workspace.css", "analytics-workspace.js", "analytics-workspace.css"):
+            files[f"/assets/{name}"] = (name, "text/javascript" if name.endswith(".js") else "text/css")
         if path not in files:
             self.send_error(404); return
         name, mime = files[path]
@@ -84,7 +86,10 @@ checks.originalRestored=elements.uploadImage.src===original&&!elements.uploadIma
 elements.maskPreviewMasks.click();await delay(30);const masks=canvas.toDataURL();
 checks.maskToggleStillWorks=!elements.maskPreviewViewport.classList.contains('hidden')&&elements.maskPreviewMasks.checked&&!elements.maskPreviewBoxes.checked&&masks!==diagnostic;
 elements.maskPreviewOpacity.value='20';elements.maskPreviewOpacity.dispatchEvent(new Event('input'));checks.opacityStillWorks=canvas.toDataURL()!==masks;
-elements.maskPreviewZoom.value='2';elements.maskPreviewZoom.dispatchEvent(new Event('input'));checks.zoomStillWorks=canvas.style.width==='200%';
+elements.maskPreviewZoom.value='2';elements.maskPreviewZoom.dispatchEvent(new Event('input'));
+const zoomed=canvas.getBoundingClientRect(),zoomViewport=elements.maskPreviewViewport;
+const fitScale=Math.min(zoomViewport.clientWidth/500,zoomViewport.clientHeight/300);
+checks.zoomStillWorks=Math.abs(zoomed.width-500*fitScale*2)<2&&Math.abs(zoomed.height-300*fitScale*2)<2;
 elements.maskPreviewOpacity.value='40';elements.maskPreviewOpacity.dispatchEvent(new Event('input'));
 elements.maskPreviewModel1.checked=false;elements.maskPreviewModel1.dispatchEvent(new Event('input'));const noBoxes=canvas.toDataURL();
 elements.maskPreviewModel1.checked=true;elements.maskPreviewModel1.dispatchEvent(new Event('input'));checks.model1StillWorks=canvas.toDataURL()!==noBoxes;

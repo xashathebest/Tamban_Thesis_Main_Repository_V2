@@ -16,7 +16,7 @@
   --coral: #b64a25; --coral-soft: #fff0e9;
   --danger: #b52e40; --danger-soft: #fff0f2;
   --neutral: #546c7a; --neutral-soft: #edf2f5;
-  --grade-a: var(--success); --grade-b: var(--warning); --grade-c: var(--coral);
+  --grade-a: #087664; --grade-b: #175cba; --grade-c: #b54d0a;
   --grade-rejected: var(--danger); --grade-ungraded: var(--neutral);
   --radius-sm: 8px; --radius-md: 10px;
   --shadow-sm: 0 1px 3px rgb(24 37 31 / 3%);
@@ -138,7 +138,7 @@ summary::marker { color: var(--ocean-500); }
 .video-stage img:not([src]) { display: none; }
 .fish-media-stage { position: relative; }
 .fish-click-targets { position: absolute; inset: 0; pointer-events: none; }
-.fish-click-target { position: absolute; min-width: 18px; min-height: 18px; padding: 0; border: 2px solid rgb(192 238 150 / 78%); border-radius: 5px; background: rgb(192 238 150 / 5%); pointer-events: auto; cursor: zoom-in; }
+.fish-click-target { position: absolute; min-width: 18px; min-height: 18px; padding: 0; border: 1px solid rgb(192 238 150 / 78%); border-radius: 5px; background: rgb(192 238 150 / 5%); pointer-events: auto; cursor: zoom-in; }
 .fish-click-target:hover, .fish-click-target:focus-visible { border-color: var(--accent); background: rgb(192 238 150 / 20%); }
 .video-placeholder { position: relative; display: grid; justify-items: center; gap: 9px; width: min(340px, 90%); padding: 20px 0; transform: translateY(-7%); text-align: center; color: var(--sky-200); }
 .video-placeholder strong { color: var(--surface); font-size: 15px; }
@@ -148,6 +148,7 @@ summary::marker { color: var(--ocean-500); }
 .camera-glyph .icon { width: 26px; height: 26px; }
 .camera-actions { display: grid; gap: 8px; padding: 10px 12px 6px; }
 .camera-actions > #preview-mode-button { justify-self: start; min-height: 30px; padding: 5px 9px; border-radius: 7px; font-size: 11px; }
+.camera-actions > .camera-settings-trigger { justify-self: start; min-height: 34px; padding: 6px 10px; font-size: 12px; }
 .inspection-state { justify-self: start; min-height: 24px; padding: 3px 8px; font-size: 10px; }
 .machine-controls { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
 .machine-controls .button { width: 100%; min-height: 34px; padding: 6px 9px; border-radius: 7px; font-size: 12px; }
@@ -467,10 +468,10 @@ summary::marker { color: var(--ocean-500); }
 .results-count-card.all { background: #eaf4ff; }
 .results-count-card.graded { background: var(--surface-muted); }
 .results-count-card.class-a { background: #e5f7e9; }
-.results-count-card.class-b { background: #fff6d8; }
+.results-count-card.class-b { background: #e8f0ff; }
 .results-count-card.class-c { background: #ffe9d6; }
 .results-count-card.rejected { background: #fde8e8; }
-.results-count-card.ungraded { background: #f0eaff; }
+.results-count-card.ungraded { background: #edf2f5; }
 .results-count-card small { color: var(--text-secondary); font-size: 11px; font-weight: 650; }
 .results-count-card strong { color: var(--text-primary); font-size: 22px; line-height: 1.15; font-variant-numeric: tabular-nums; }
 .upload-results > .results-dashboard { grid-column: 1 / -1; min-width: 0; }
@@ -574,6 +575,16 @@ td:first-child { padding-bottom: 9px; margin-bottom: 3px; border-bottom: 1px sol
 .camera-facts dd, .image-statistics dd { margin-top: 3px; font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
 .calibration-section-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px; }
 .calibration-section-head span { color: var(--text-muted); font-size: 11px; }
+.exposure-controls { display: grid; gap: 10px; }
+.exposure-mode-label { margin-top: 4px; color: var(--text-secondary); font-size: 12px; font-weight: 600; }
+.exposure-controls select { width: 100%; min-height: 40px; }
+.exposure-controls input[type="range"] { width: 100%; min-height: 32px; margin: 0; accent-color: var(--ocean-700); }
+.exposure-controls .range-label { margin-top: 4px; }
+.exposure-range-labels { display: flex; justify-content: space-between; gap: 12px; color: var(--text-muted); font-size: 11px; }
+.exposure-controls .button { justify-self: start; }
+.exposure-controls .muted, .camera-exposure-status { font-size: 12px; line-height: 1.5; }
+.camera-exposure-status { color: var(--text-secondary); }
+.camera-exposure-status.error { color: var(--danger); }
 .camera-control-list { display: grid; gap: 12px; margin-top: 12px; }
 .camera-device-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; align-items: center; margin-top: 12px; }
 .camera-device-controls label { grid-column: 1 / -1; font-size: 12px; font-weight: 600; }

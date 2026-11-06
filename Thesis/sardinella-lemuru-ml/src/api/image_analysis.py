@@ -16,6 +16,7 @@ import warnings
 import cv2
 import numpy as np
 from PIL import Image, JpegImagePlugin, PngImagePlugin
+from src.api.presentation import GRADE_COLORS_BGR, draw_compact_label
 
 from src.inference.yolo_fish_detector import FishDetection, YoloFishDetector
 from src.inference.yolo_quality_model import FishQualityObservation, YoloQualityModel
@@ -210,11 +211,12 @@ class StillImageAnalyzer:
         self.roi_padding = roi_padding
 
     @staticmethod
-    def _draw_quality(frame: np.ndarray, fish: _UploadFish) -> None:
+    def _draw_quality(frame: np.ndarray, fish: _UploadFish,
+                      occupied: list[tuple[int, int, int, int]] | None = None) -> None:
         if fish.quality_result is None:
             return
         height, width = frame.shape[:2]
-        colors = {"Class A": (76, 175, 80), "Class B": (255, 152, 0), "Class C": (170, 90, 205), "Rejected": (45, 45, 225)}
+        colors = GRADE_COLORS_BGR
         bounds = fish.crop_bounds
         if bounds is None:
             return
@@ -226,7 +228,7 @@ class StillImageAnalyzer:
                 region = getattr(part, "region", getattr(part, "part", ""))
                 color = colors.get(grade, (180, 180, 180))
                 cv2.rectangle(frame, (int(left), int(top)), (int(right), int(bottom)), color, 1)
-                cv2.putText(frame, region, (max(0, int(left)), max(15, int(top) - 3)), cv2.FONT_HERSHEY_SIMPLEX, 0.42, color, 1, cv2.LINE_AA)
+                draw_compact_label(frame, str(region), int(left), int(top), color, cv2, occupied)
 
     def _fish_payload(self, fish: _UploadFish, frame_width: int, frame_height: int) -> dict[str, object]:
         parts: list[dict[str, object]] = []
@@ -444,17 +446,17 @@ class StillImageAnalyzer:
         annotation_started = perf_counter()
         annotated = frame.copy()
         counts = {name: 0 for name in DEFAULT_QUALITY_COUNTS}
+        label_rects: list[tuple[int, int, int, int]] = []
         for fish in results:
-            self._draw_quality(annotated, fish)
+            self._draw_quality(annotated, fish, label_rects)
             self._draw_damage(annotated, fish)
             if fish.quality_result is not None:
                 draw_geometry(annotated, getattr(fish.quality_result, "analysis", {}).get("fish_geometry", {}))
             counts[fish.quality] = counts.get(fish.quality, 0) + 1
             left, top, right, bottom = (int(round(value)) for value in fish.bbox)
-            color = {"Class A": (76, 175, 80), "Class B": (255, 152, 0), "Class C": (170, 90, 205), "Rejected": (45, 45, 225)}.get(fish.quality, (120, 120, 120))
-            cv2.rectangle(annotated, (left, top), (right, bottom), color, 2)
-            label = f"#{fish.index} {fish.quality} | M1 {fish.confidence * 100:.1f}%"
-            cv2.putText(annotated, label, (left, max(18, top - 6)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2, cv2.LINE_AA)
+            color = GRADE_COLORS_BGR.get(fish.quality, GRADE_COLORS_BGR["Ungraded"])
+            cv2.rectangle(annotated, (left, top), (right, bottom), color, 1)
+            draw_compact_label(annotated, f"Fish #{fish.index} · {fish.quality}", left, top, color, cv2, label_rects)
         annotation_ms = round((perf_counter() - annotation_started) * 1000, 3)
         encoding_started = perf_counter()
         ok, encoded = cv2.imencode(".jpg", annotated, [cv2.IMWRITE_JPEG_QUALITY, 88])
@@ -698,18 +700,14 @@ class PartPreviewImageAnalyzer:
     counters, or be presented as a production whole-fish grade.
     """
 
-    _COLORS = {
-        "Class A": (76, 175, 80),
-        "Class B": (255, 152, 0),
-        "Class C": (170, 90, 205),
-        "Rejected": (45, 45, 225),
-    }
+    _COLORS = GRADE_COLORS_BGR
 
     def __init__(self, model: YoloPartModel) -> None:
         self.model = model
 
     @staticmethod
-    def _draw_detection(frame: np.ndarray, detection: PartDetection) -> None:
+    def _draw_detection(frame: np.ndarray, detection: PartDetection,
+                        occupied: list[tuple[int, int, int, int]] | None = None) -> None:
         color = PartPreviewImageAnalyzer._COLORS.get(detection.grade, (160, 160, 160))
         height, width = frame.shape[:2]
         if detection.mask and len(detection.mask) >= 3:
@@ -723,12 +721,8 @@ class PartPreviewImageAnalyzer:
                 cv2.addWeighted(overlay, 0.22, frame, 0.78, 0, frame)
                 cv2.polylines(frame, [polygon], True, color, 2, cv2.LINE_AA)
         left, top, right, bottom = (int(round(value)) for value in detection.bbox)
-        cv2.rectangle(frame, (left, top), (right, bottom), color, 2)
-        label = f"{detection.source_class_name} {detection.confidence * 100:.1f}%"
-        text_y = max(20, top - 7)
-        (text_width, text_height), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.48, 1)
-        cv2.rectangle(frame, (max(0, left), text_y - text_height - 7), (min(width - 1, left + text_width + 7), text_y + 3), color, -1)
-        cv2.putText(frame, label, (max(0, left) + 3, text_y - 2), cv2.FONT_HERSHEY_SIMPLEX, 0.48, (255, 255, 255), 1, cv2.LINE_AA)
+        cv2.rectangle(frame, (left, top), (right, bottom), color, 1)
+        draw_compact_label(frame, str(detection.source_class_name), left, top, color, cv2, occupied)
 
     def analyze(self, frame: np.ndarray) -> dict[str, object]:
         if self.model.model is None:
@@ -740,8 +734,9 @@ class PartPreviewImageAnalyzer:
         detections = self.model.predict(frame)
         annotated = frame.copy()
         quality_counters = {name: 0 for name in ("Class A", "Class B", "Class C", "Rejected")}
+        label_rects: list[tuple[int, int, int, int]] = []
         for detection in detections:
-            self._draw_detection(annotated, detection)
+            self._draw_detection(annotated, detection, label_rects)
             quality_counters[detection.grade] = quality_counters.get(detection.grade, 0) + 1
         ok, encoded = cv2.imencode(".jpg", annotated, [cv2.IMWRITE_JPEG_QUALITY, 88])
         if not ok:

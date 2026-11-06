@@ -18,6 +18,7 @@ import math
 from pathlib import Path
 import sqlite3
 from threading import RLock
+from time import monotonic
 from typing import Iterator, Mapping
 from uuid import uuid4
 
@@ -76,6 +77,9 @@ class InspectionDatabase:
         connection.row_factory = sqlite3.Row
         connection.create_function("event_local_date", 2, _event_local_date, deterministic=True)
         connection.create_function("history_matches", 8, _history_matches, deterministic=True)
+        connection.create_function("history_verdict", 2, _history_verdict, deterministic=True)
+        connection.create_function("history_has_reason", 3, _history_has_reason, deterministic=True)
+        connection.create_function("history_region_present", 3, _history_region_present, deterministic=True)
         try:
             connection.execute("PRAGMA foreign_keys = ON")
             connection.execute("PRAGMA busy_timeout = 10000")
@@ -228,6 +232,15 @@ class InspectionDatabase:
                     END;
                     """
                 )
+                # Additive migration: historical sessions/evidence are retained
+                # even when their active capture duration was never measured.
+                columns = {row[1] for row in connection.execute("PRAGMA table_info(inspection_sessions)")}
+                for name, declaration in {
+                    "active_seconds": "REAL", "activity_status": "TEXT NOT NULL DEFAULT 'legacy'",
+                    "heartbeat_at": "TEXT", "autosaved_at": "TEXT",
+                }.items():
+                    if name not in columns:
+                        connection.execute(f"ALTER TABLE inspection_sessions ADD COLUMN {name} {declaration}")
                 connection.commit()
             finally:
                 connection.close()
@@ -285,7 +298,40 @@ class InspectionDatabase:
                 """,
                 {"session_id": identifier, **values, "created_at": now, "updated_at": now},
             )
+            connection.execute(
+                "UPDATE inspection_sessions SET active_seconds=0, activity_status=?, heartbeat_at=? WHERE session_id=?",
+                ("completed" if values.get("ended_at") else "starting", now, identifier),
+            )
         return identifier
+
+    def checkpoint_session_activity(self, session_id: str, active_seconds: float, *, status: str = "active") -> None:
+        """Monotonically persist measured active time, including zero-fish runs."""
+        seconds = _finite(active_seconds)
+        if seconds is None or seconds < 0 or status not in {"active", "paused", "starting"}:
+            raise ValueError("Invalid inspection activity checkpoint.")
+        now = _now()
+        with self._lock, self._connection() as connection:
+            connection.execute(
+                "UPDATE inspection_sessions SET active_seconds=MAX(COALESCE(active_seconds,0), :seconds), "
+                "activity_status=:status, heartbeat_at=:now, updated_at=:now, "
+                "autosaved_at=CASE WHEN MAX(COALESCE(active_seconds,0), :seconds)>=60 THEN COALESCE(autosaved_at,:now) ELSE autosaved_at END "
+                "WHERE session_id=:session AND ended_at IS NULL",
+                {"seconds": seconds, "status": status, "now": now, "session": session_id},
+            )
+
+    def recover_interrupted_sessions(self) -> int:
+        """Close abandoned runs at their last checkpoint; never count downtime."""
+        with self._lock, self._connection() as connection:
+            result = connection.execute(
+                "UPDATE inspection_sessions SET ended_at=COALESCE(heartbeat_at, updated_at, started_at), "
+                "activity_status='interrupted', updated_at=? WHERE ended_at IS NULL", (_now(),),
+            )
+            return result.rowcount
+
+    def accumulated_active_seconds(self) -> float:
+        with self._lock, self._connection() as connection:
+            row = connection.execute("SELECT COALESCE(SUM(active_seconds),0) FROM inspection_sessions").fetchone()
+        return round(float(row[0]), 3)
 
     def update_session(self, session_id: str, metadata: Mapping[str, object]) -> None:
         """Refresh known session readbacks without replacing unavailable fields."""
@@ -320,13 +366,17 @@ class InspectionDatabase:
                 parameters,
             )
 
-    def end_session(self, session_id: str, *, ended_at: str | None = None) -> None:
+    def end_session(self, session_id: str, *, ended_at: str | None = None, status: str = "completed") -> None:
         if not session_id:
             return
+        if status not in {"completed", "interrupted"}:
+            raise ValueError("Invalid closed-session status.")
         with self._lock, self._connection() as connection:
             connection.execute(
-                "UPDATE inspection_sessions SET ended_at = COALESCE(ended_at, :ended_at), updated_at = :updated_at WHERE session_id = :session_id",
-                {"session_id": session_id, "ended_at": ended_at or _now(), "updated_at": _now()},
+                "UPDATE inspection_sessions SET ended_at = COALESCE(ended_at, :ended_at), "
+                "activity_status = CASE WHEN activity_status='interrupted' THEN activity_status ELSE :status END, "
+                "updated_at = :updated_at WHERE session_id = :session_id",
+                {"session_id": session_id, "ended_at": ended_at or _now(), "status": status, "updated_at": _now()},
             )
 
     @staticmethod
@@ -474,9 +524,23 @@ class InspectionDatabase:
 
     def events_page(self, *, session_id: str | None, range_name: str, start_date: str | None, end_date: str | None,
                     page: int, page_size: int, search: str | None, grade: str | None,
-                    feature: str | None, min_confidence: float | None) -> tuple[list[dict[str, object]], int]:
+                    feature: str | None, min_confidence: float | None, verdict: str | None = None,
+                    track_id: int | None = None, reason_code: str | None = None,
+                    evidence_region: str | None = None) -> tuple[list[dict[str, object]], int]:
         """Filter and paginate in SQLite, retaining only the requested page in memory."""
         where, params = self._event_query(session_id, range_name, start_date, end_date)
+        if track_id is not None:
+            where += (" AND " if where else " WHERE ") + "track_id=:track_id"
+            params["track_id"] = track_id
+        if verdict and verdict.casefold() != "all":
+            where += (" AND " if where else " WHERE ") + "history_verdict(event_json, analysis_json)=:verdict"
+            params["verdict"] = verdict.upper()
+        if reason_code:
+            where += (" AND " if where else " WHERE ") + "history_has_reason(event_json, analysis_json, :reason)"
+            params["reason"] = reason_code
+        if evidence_region:
+            where += (" AND " if where else " WHERE ") + "history_region_present(event_json, analysis_json, :evidence_region)"
+            params["evidence_region"] = evidence_region
         if search or (grade and grade.casefold() != "all") or (feature and feature.casefold() != "all") or min_confidence is not None:
             where += (" AND " if where else " WHERE ") + "history_matches(event_json, analysis_json, final_grade, track_id, :search, :grade, :feature, :confidence)"
             params.update(search=search, grade=grade, feature=feature, confidence=min_confidence)
@@ -574,27 +638,119 @@ class InspectionDatabase:
 
     def sessions(self, *, limit: int = 100) -> list[dict[str, object]]:
         """Return recent session metadata for session-aware history selectors."""
+        return self.sessions_page(page_size=max(1, min(int(limit), 1000)))[0]
 
-        bounded = max(1, min(int(limit), 1000))
+    def dashboard_analytics(self, *, range_name: str = "all", session_id: str | None = None,
+                            start_date: str | None = None, end_date: str | None = None,
+                            granularity: str = "day") -> dict[str, object]:
+        """Summarize one read-only transaction of persisted sessions and fish."""
+        from src.api.saved_analytics import build_dashboard, GRANULARITIES
+
+        if granularity not in GRANULARITIES:
+            raise ValueError("Analytics granularity must be hour, day, week, or month.")
+        effective_range = "all" if range_name == "latest" else range_name
+        # Validate ranges and dates before opening the snapshot.
+        self._event_query(session_id, effective_range, start_date, end_date)
+        with self._connection() as connection:
+            connection.execute("PRAGMA query_only = ON")
+            connection.execute("BEGIN")
+            if range_name == "latest":
+                latest = connection.execute("SELECT session_id FROM inspection_sessions ORDER BY started_at DESC, session_id DESC LIMIT 1").fetchone()
+                session_id = latest[0] if latest else None
+                if latest is None:
+                    effective_range = "current_session"
+            where, params = self._event_query(session_id, effective_range, start_date, end_date)
+            session_source = "SELECT * FROM inspection_sessions" + (" WHERE session_id = ?" if session_id else "")
+            sessions = [self._session_from_row(row) for row in connection.execute(
+                self._session_summary_sql(session_source), (session_id,) if session_id else (),
+            )]
+            if range_name == "latest" and session_id is None:
+                sessions = []
+            cursor = connection.execute(
+                "SELECT session_id, track_id, timestamp, final_grade, event_json, analysis_json FROM fish_inspections"
+                + where + " ORDER BY timestamp ASC, session_id ASC, track_id ASC", params,
+            )
+            def events():
+                while rows := cursor.fetchmany(256):
+                    for row in rows:
+                        yield self._event_from_row(row)
+            today = date.today().isoformat() if range_name == "today" else None
+            scope = {"range": range_name, "session_id": session_id,
+                     "start_date": start_date if range_name == "custom" else today,
+                     "end_date": end_date if range_name == "custom" else today,
+                     "date_basis": "fish_timestamp_local_date; zero-fish sessions use started_at"}
+            return build_dashboard(events(), sessions, scope=scope, granularity=granularity)
+
+    @staticmethod
+    def _session_summary_sql(source: str) -> str:
+        # Aggregate indexed fish rows only for the selected session page.
+        counts = ", ".join(
+            f"SUM(CASE WHEN f.final_grade='{grade}' THEN 1 ELSE 0 END) AS grade_{key}"
+            for key, grade in (("a", "Class A"), ("b", "Class B"), ("c", "Class C"), ("rejected", "Rejected"))
+        )
+        return (f"SELECT s.*, COUNT(f.track_id) AS event_count, {counts} FROM ({source}) s "
+                "LEFT JOIN fish_inspections f ON f.session_id=s.session_id GROUP BY s.session_id ORDER BY s.started_at DESC, s.session_id DESC")
+
+    def sessions_page(self, *, page: int = 1, page_size: int = 100, search: str | None = None,
+                      start_date: str | None = None, end_date: str | None = None,
+                      session_id: str | None = None) -> tuple[list[dict[str, object]], int]:
+        clauses, params = [], {"limit": page_size, "offset": (page - 1) * page_size}
+        lower = date.fromisoformat(start_date) if start_date else None
+        upper = date.fromisoformat(end_date) if end_date else None
+        if lower and upper and lower > upper:
+            raise ValueError("The start date must not be after the end date.")
+        if lower:
+            clauses.append("substr(started_at,1,10)>=:start")
+            params["start"] = lower.isoformat()
+        if upper:
+            clauses.append("substr(started_at,1,10)<=:end")
+            params["end"] = upper.isoformat()
+        if search:
+            clauses.append("instr(lower(session_id),:search)>0")
+            params["search"] = search.casefold().strip()
+        if session_id:
+            clauses.append("session_id=:session_id")
+            params["session_id"] = session_id
+        where = " WHERE " + " AND ".join(clauses) if clauses else ""
+        source = "SELECT * FROM inspection_sessions" + where + " ORDER BY started_at DESC, session_id DESC LIMIT :limit OFFSET :offset"
         with self._lock, self._connection() as connection:
-            rows = connection.execute(
-                "SELECT * FROM inspection_sessions ORDER BY started_at DESC LIMIT ?", (bounded,)
-            ).fetchall()
-        return [self._session_from_row(row) for row in rows]
+            connection.execute("BEGIN")
+            total = connection.execute("SELECT COUNT(*) FROM inspection_sessions" + where, params).fetchone()[0]
+            rows = connection.execute(self._session_summary_sql(source), params).fetchall()
+        return [self._session_from_row(row) for row in rows], total
 
     @staticmethod
     def _session_from_row(row: sqlite3.Row) -> dict[str, object]:
-        return {
+        result = {
             "session_id": row["session_id"], "started_at": row["started_at"], "ended_at": row["ended_at"],
             "git_commit": row["git_commit"], "model1_path": row["model1_path"], "model1_sha256": row["model1_sha256"],
             "model2_path": row["model2_path"], "model2_sha256": row["model2_sha256"], "tracker_backend": row["tracker_backend"],
             "grading_config": _decoded(row["grading_config_json"], {}), "grading_config_hash": row["grading_config_hash"],
             "camera_settings": _decoded(row["camera_settings_json"], {}), "runtime_settings": _decoded(row["runtime_settings_json"], {}),
         }
+        start = _parse_timestamp(row["started_at"])
+        end = _parse_timestamp(row["ended_at"] or _now())
+        try:
+            duration = max(0.0, (end - start).total_seconds()) if start and end else None
+        except TypeError:
+            duration = None
+        grades = {"Class A": int(row["grade_a"]), "Class B": int(row["grade_b"]), "Class C": int(row["grade_c"]), "Rejected": int(row["grade_rejected"])}
+        count = int(row["event_count"])
+        grades["Ungraded"] = count - sum(grades.values())
+        result.update(
+            event_count=count, fish_count=count, grade_distribution=grades,
+            duration_seconds=duration, active_seconds=row["active_seconds"],
+            active_time_measured=row["active_seconds"] is not None,
+            status=(row["activity_status"] if row["activity_status"] != "legacy" else ("completed" if row["ended_at"] else "interrupted")),
+            heartbeat_at=row["heartbeat_at"], autosaved_at=row["autosaved_at"],
+            auto_save_eligible=bool(row["active_seconds"] is not None and row["active_seconds"] >= 60),
+            auto_save_threshold_seconds=60, records_durable=True,
+        )
+        return result
 
     def session(self, session_id: str) -> dict[str, object] | None:
         with self._lock, self._connection() as connection:
-            row = connection.execute("SELECT * FROM inspection_sessions WHERE session_id = ?", (session_id,)).fetchone()
+            row = connection.execute(self._session_summary_sql("SELECT * FROM inspection_sessions WHERE session_id = ?"), (session_id,)).fetchone()
         return self._session_from_row(row) if row is not None else None
 
     def apply_manual_review(self, session_id: str, track_id: int, manual_grade: str | None,
@@ -644,6 +800,11 @@ class InspectionSessionContext:
         self._lock = RLock()
         self._session_id: str | None = None
         self._active = False
+        self._activity_seconds = 0.0
+        self._activity_clock: float | None = None
+        self._activity_running = False
+        self._activity_flushed_at: float | None = None
+        self._activity_flushed_seconds = 0.0
 
     @property
     def session_id(self) -> str | None:
@@ -661,12 +822,62 @@ class InspectionSessionContext:
                 return self._session_id
             self._session_id = self.database.create_session(metadata)
             self._active = True
+            self._reset_activity_clock()
             return self._session_id
 
-    def close(self) -> None:
+    def _reset_activity_clock(self) -> None:
+        self._activity_seconds = 0.0
+        self._activity_clock = None
+        self._activity_running = False
+        self._activity_flushed_at = None
+        self._activity_flushed_seconds = 0.0
+
+    def observe_activity(self, running: bool, *, now: float | None = None, force: bool = False) -> None:
+        """Accumulate observed capture time, excluding pauses and host downtime.
+
+        The application samples once a second and writes at most every five
+        seconds. A gap over two seconds is not attributed to active capture.
+        Endpoints never infer active time from a wall-clock session duration.
+        """
+        tick = monotonic() if now is None else now
+        checkpoint = None
+        with self._lock:
+            if not self._active or not self._session_id:
+                return
+            if self._activity_clock is not None and self._activity_running and running:
+                delta = tick - self._activity_clock
+                if 0 <= delta <= 2:
+                    self._activity_seconds += delta
+            self._activity_clock = tick
+            self._activity_running = running
+            milestone = self._activity_seconds >= 60 and self._activity_flushed_seconds < 60
+            if force or milestone or self._activity_flushed_at is None or tick - self._activity_flushed_at >= 5:
+                checkpoint = (self._session_id, self._activity_seconds, "active" if running else "paused")
+        # The monitor must not hold the identity lock during SQLite I/O: live
+        # tracking captures event targets through that same short-lived lock.
+        # Closing/rotation already own their frame barrier and deliberately
+        # serialize the final flush. An old monitor checkpoint cannot update an
+        # ended row or leak its elapsed time into a newly-created session.
+        if checkpoint is not None:
+            identifier, seconds, status = checkpoint
+            self.database.checkpoint_session_activity(identifier, seconds, status=status)
+            with self._lock:
+                if self._active and self._session_id == identifier:
+                    self._activity_flushed_at = max(self._activity_flushed_at or tick, tick)
+                    self._activity_flushed_seconds = max(self._activity_flushed_seconds, seconds)
+
+    def activity_snapshot(self) -> dict[str, object]:
+        with self._lock:
+            return {"active_seconds": round(self._activity_seconds, 3),
+                    "auto_save_eligible": self._activity_seconds >= 60,
+                    "auto_save_threshold_seconds": 60, "checkpoint_interval_seconds": 5,
+                    "active_capture_observed": self._activity_running}
+
+    def close(self, *, status: str = "completed") -> None:
         with self._lock:
             if self._active and self._session_id:
-                self.database.end_session(self._session_id)
+                self.observe_activity(False, force=True)
+                self.database.end_session(self._session_id, status=status)
             self._active = False
 
     def rotate(self, metadata: Mapping[str, object]) -> str:
@@ -674,12 +885,14 @@ class InspectionSessionContext:
             new_session_id = self.database.create_session(metadata)
             try:
                 if self._active and self._session_id:
+                    self.observe_activity(False, force=True)
                     self.database.end_session(self._session_id)
             except Exception:
                 self.database.end_session(new_session_id)
                 raise
             self._session_id = new_session_id
             self._active = True
+            self._reset_activity_clock()
             return self._session_id
 
     @staticmethod
@@ -793,8 +1006,16 @@ def _history_matches(event_json: str, analysis_json: str, final_grade: str, trac
         needle = search.casefold().replace("fish", "").replace("#", "").strip()
         if needle not in str(event.get("track_id", track_id)).casefold():
             return 0
-    if grade and grade.casefold() != "all" and str(event.get("quality") or final_grade or "Ungraded").casefold() != grade.casefold():
-        return 0
+    if grade and grade.casefold() != "all":
+        quality = str(event.get("quality") or final_grade or "Ungraded").casefold()
+        if grade.casefold() == "graded":
+            if quality not in {"class a", "class b", "class c", "rejected"}:
+                return 0
+        elif grade.casefold() == "accepted":
+            if quality not in {"class a", "class b", "class c"}:
+                return 0
+        elif quality != grade.casefold():
+            return 0
     if feature and feature.casefold() != "all":
         parts = event.get("parts") or []
         if not any(isinstance(part, dict) and str(part.get("region", "")).casefold() == feature.casefold() for part in parts):
@@ -817,3 +1038,38 @@ def _history_matches(event_json: str, analysis_json: str, final_grade: str, trac
         if not support * 100 >= min_confidence:
             return 0
     return 1
+
+
+def _history_verdict(event_json: str, analysis_json: str) -> str:
+    event = _decoded(event_json, {})
+    analysis = event.get("analysis") if isinstance(event, dict) else None
+    if not isinstance(analysis, dict):
+        analysis = _decoded(analysis_json, {})
+    return str(analysis.get("verdict_status") or "UNAVAILABLE").upper() if isinstance(analysis, dict) else "UNAVAILABLE"
+
+
+def _history_has_reason(event_json: str, analysis_json: str, reason: str) -> int:
+    event = _decoded(event_json, {})
+    analysis = event.get("analysis") if isinstance(event, dict) else None
+    if not isinstance(analysis, dict):
+        analysis = _decoded(analysis_json, {})
+    if not isinstance(analysis, dict):
+        return 0
+    codes = analysis.get("reason_codes")
+    if not isinstance(codes, (list, tuple)):
+        codes = []
+    if reason == "Not recorded":
+        return int(not codes and not analysis.get("verdict_reason_code"))
+    return int(reason in codes or reason == analysis.get("verdict_reason_code"))
+
+
+def _history_region_present(event_json: str, analysis_json: str, region: str) -> int:
+    event = _decoded(event_json, {})
+    analysis = event.get("analysis") if isinstance(event, dict) else None
+    if not isinstance(analysis, dict):
+        analysis = _decoded(analysis_json, {})
+    parts = analysis.get("part_results") if isinstance(analysis, dict) else None
+    if not isinstance(parts, dict):
+        return 0
+    return int(any(name.casefold() == region.casefold() and isinstance(value, dict) and value.get("present") is True
+                   for name, value in parts.items()))

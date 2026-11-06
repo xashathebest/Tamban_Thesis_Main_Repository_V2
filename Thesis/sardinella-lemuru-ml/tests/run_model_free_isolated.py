@@ -25,6 +25,11 @@ def main() -> int:
             path = source / directory
             if path.is_dir():
                 shutil.copytree(path, target / directory, ignore=ignore)
+        # Launcher/dependency contract tests also inspect these root files.
+        for filename in ("run_dashboard.ps1", "requirements.txt", "requirements-test.txt", "requirements-bytetrack.txt"):
+            path = source / filename
+            if path.is_file():
+                shutil.copy2(path, target / filename)
         forbidden = [path for path in target.rglob("*") if path.is_file() and path.suffix.lower() in {".pt", ".pth", ".onnx", ".joblib"}]
         if forbidden:
             raise RuntimeError(f"Checkpoint unexpectedly copied: {forbidden[0]}")

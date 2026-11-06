@@ -17,7 +17,7 @@ import subprocess
 from contextlib import asynccontextmanager, nullcontext
 from datetime import datetime
 from time import monotonic
-from threading import RLock, Thread
+from threading import Event, RLock, Thread
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, Response, StreamingResponse
@@ -294,6 +294,7 @@ def _camera_settings_snapshot() -> dict[str, object]:
         "startup": status.get("startup", {}),
         "camera": status.get("camera", {}),
         "locked": status.get("locked"),
+        "exposure": status.get("exposure", {}),
         "profile": status.get("profile", {}),
     }
 
@@ -550,7 +551,8 @@ def _close_durable_session_locked(context: str, *, timeout: float | None) -> boo
         # Session metadata is captured at start and whenever a camera policy
         # rotates the session. Do not query a possibly blocked camera-control
         # lock during finalization; durable events are already flushed above.
-        inspection_sessions.close()
+        interrupted = getattr(state, "inspection_status", None) == "errored"
+        inspection_sessions.close(status="interrupted" if interrupted else "completed")
         return True
     except Exception as exc:
         LOGGER.exception("Could not close durable inspection session after %s: %s", context, exc)
@@ -644,9 +646,33 @@ def _durable_events(
 state.tracking.add_event_listener(_enqueue_tracking_event)
 
 
+def _session_activity_monitor(stop: Event) -> None:
+    """Checkpoint real capture activity even with no fish or connected browser."""
+    last_capture_count = None
+    last_capture_at = float("-inf")
+    while not stop.wait(1.0):
+        try:
+            now = monotonic()
+            queue = getattr(service, "_latest_frames", None)
+            count = queue.snapshot().get("captured_frames") if queue is not None else None
+            if isinstance(count, int) and count > 0 and count != last_capture_count:
+                last_capture_count, last_capture_at = count, now
+            running = (RUNTIME_MODE != PART_PREVIEW_MODE
+                       and getattr(state, "inspection_status", None) == "running"
+                       and getattr(state, "camera_status", None) == "connected"
+                       and not service.calibration_mode()
+                       and not getattr(service, "debug_paused", False)
+                       and service.has_live_worker() and now - last_capture_at <= 2.0)
+            inspection_sessions.observe_activity(running, now=now)
+        except Exception:
+            LOGGER.exception("Could not checkpoint inspection session activity")
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     inspection_database.initialize()
+    if not inspection_sessions.active:
+        inspection_database.recover_interrupted_sessions()
     if model.load():
         mode_message = "Raw part preview ready; fish counting is disabled. " if RUNTIME_MODE == PART_PREVIEW_MODE else ""
         state.set_model("ready", model.name, str(model.weights_path), f"{mode_message}Model ready on {model.device}.")
@@ -663,9 +689,15 @@ async def lifespan(_: FastAPI):
         # This preview-only model never participates in the production pipeline.
         upload_test_model.load()
     LOGGER.info("[RUNTIME] device_report=%s", _device_report())
+    activity_stop = Event()
+    activity_worker = Thread(target=_session_activity_monitor, args=(activity_stop,),
+                             name="inspection-session-checkpoint", daemon=True)
+    activity_worker.start()
     try:
         yield
     finally:
+        activity_stop.set()
+        activity_worker.join(timeout=2)
         # API stop requests remain bounded; process shutdown waits for the
         # worker/finalizer so accepted durable writes cannot be abandoned.
         service.stop(timeout=None)
@@ -689,6 +721,12 @@ app = FastAPI(title="Sardinella Lemuru Fish Detection API", version="3.0.0", lif
 app.mount("/assets", StaticFiles(directory=FRONTEND_DIR), name="assets")
 app.include_router(expert_library_router)
 app.include_router(lan_security.router)
+
+# Additive, independently owned collection API; the inspection camera is never
+# opened or borrowed by this service. Hardware remains gated in the main app.
+from src.api.dataset_capture.router import CaptureContext, create_router as create_capture_router
+capture_context = CaptureContext(hardware_enabled=False)
+app.include_router(create_capture_router(capture_context))
 
 
 @app.middleware("http")
@@ -946,6 +984,19 @@ def _analytics(events, snapshot: dict[str, object], *, chronological_input: bool
             for key, values in performance_values.items()
         },
     }
+    result.update(
+        total_inspected=event_count,
+        graded_count=event_count - quality_counters["Ungraded"],
+        ungraded_count=quality_counters["Ungraded"],
+        graded_rate_percent=round((event_count - quality_counters["Ungraded"]) / event_count * 100, 1) if event_count else None,
+        ungraded_rate_percent=round(quality_counters["Ungraded"] / event_count * 100, 1) if event_count else None,
+        anatomical_evidence={region: {**counter, "total": event_count,
+                                      "rate_percent": round(counter["count"] / event_count * 100, 1) if event_count else None}
+                             for region, counter in feature_counts.items()},
+        model_support={"model1_detection_percent": result["average_detection_confidence"],
+                       "final_weighted_percent": result["average_final_support"],
+                       "best_evidence_percent": result["average_best_evidence_support"]},
+    )
     if not return_state:
         return result
     saved = {name: value for name, value in locals().items() if name in {
@@ -1021,6 +1072,7 @@ def _status_payload(*, include_analytics: bool = True) -> dict[str, object]:
     snapshot = state.snapshot()
     snapshot["surface_damage_evidence"] = service.surface_damage_evidence()
     snapshot["raw_preview_available"] = bool(getattr(getattr(service, "raw_preview", None), "enabled", False))
+    snapshot["live_frame_status"] = service.live_frame_status()
     snapshot["tracker_backend"] = getattr(model, "tracker_backend", None)
     snapshot["tracker_warning"] = getattr(model, "tracker_warning", None)
     detector_threshold = getattr(model, "confidence_threshold", getattr(model, "confidence", state.confidence_threshold))
@@ -1104,6 +1156,7 @@ def _status_payload(*, include_analytics: bool = True) -> dict[str, object]:
             persistence_queue.get("pending") or persistence_queue.get("in_flight") or persistence_queue.get("failed")
         ),
         "event_persistence_failed": bool(persistence_queue.get("failed")),
+        **(inspection_sessions.activity_snapshot() if callable(getattr(inspection_sessions, "activity_snapshot", None)) else {}),
     }
     if not include_analytics:
         snapshot["event_revision"] = inspection_database.event_revision(snapshot["durable_session"]["session_id"])
@@ -1415,6 +1468,33 @@ async def update_camera_settings(request: Request) -> dict[str, object]:
         raise HTTPException(status_code=409, detail=str(exc)) from None
 
 
+@app.post("/api/camera/exposure")
+async def update_camera_exposure(request: Request) -> dict[str, object]:
+    """Set live EV without restarting capture or enhancing grading inputs."""
+
+    payload = await _camera_payload(request)
+    unknown = sorted(str(key) for key in set(payload) - {"mode", "ev", "reset"})
+    if unknown:
+        raise HTTPException(status_code=422, detail=f"Unsupported exposure setting(s): {', '.join(unknown)}.")
+    if not payload:
+        raise HTTPException(status_code=422, detail="Provide an exposure mode, EV, or reset request.")
+    if "reset" in payload and (payload["reset"] is not True or len(payload) != 1):
+        raise HTTPException(status_code=422, detail="Send reset: true separately from mode and EV.")
+    if "mode" in payload and payload["mode"] not in ("auto", "manual"):
+        raise HTTPException(status_code=422, detail="Exposure mode must be 'auto' or 'manual'.")
+    if "ev" in payload:
+        ev = payload["ev"]
+        if isinstance(ev, bool) or not isinstance(ev, (int, float)) or not -2.0 <= ev <= 2.0:
+            raise HTTPException(status_code=422, detail="EV must be a finite number between -2.0 and +2.0.")
+    try:
+        with _model_change_lock, _processing_guard():
+            result = service.update_camera_exposure(payload)
+            session_id = _record_camera_policy_change(result) if result.get("changed") else None
+        return {**result, "policy_session_id": session_id, "camera": service.camera_status()}
+    except CameraControlError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from None
+
+
 @app.post("/api/camera/reset")
 def reset_camera_settings() -> dict[str, object]:
     try:
@@ -1515,6 +1595,10 @@ def get_history(
     grade: str | None = None,
     feature: str | None = None,
     min_confidence: float | None = None,
+    verdict: str | None = None,
+    track_id: int | None = None,
+    reason_code: str | None = None,
+    evidence_region: str | None = None,
 ) -> dict[str, object]:
     """Paginate durable inspection records, optionally scoped to one session."""
 
@@ -1529,6 +1613,7 @@ def get_history(
                 session_id=requested_session, range_name=range_name, start_date=start_date, end_date=end_date,
                 page=page, page_size=page_size, search=search, grade=grade, feature=feature,
                 min_confidence=min_confidence,
+                verdict=verdict, track_id=track_id, reason_code=reason_code, evidence_region=evidence_region,
             )
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -1551,8 +1636,24 @@ def get_history(
     if search:
         needle = search.casefold().replace("fish", "").replace("#", "").strip()
         events = [event for event in events if needle in str(event.get("track_id", "")).casefold()]
+    if track_id is not None:
+        events = [event for event in events if event.get("track_id") == track_id]
+    if verdict and verdict.casefold() != "all":
+        events = [event for event in events if str((event.get("analysis") or {}).get("verdict_status") or "UNAVAILABLE").upper() == verdict.upper()]
+    if reason_code:
+        def matches_reason(event):
+            analysis = event.get("analysis") or {}
+            codes = analysis.get("reason_codes") or []
+            return (not codes and not analysis.get("verdict_reason_code")) if reason_code == "Not recorded" else (reason_code in codes or reason_code == analysis.get("verdict_reason_code"))
+        events = [event for event in events if matches_reason(event)]
     if grade and grade.casefold() not in {"all", ""}:
-        events = [event for event in events if (event.get("quality") or "Ungraded").casefold() == grade.casefold()]
+        events = [event for event in events if ((event.get("quality") in {"Class A", "Class B", "Class C", "Rejected"})
+                  if grade.casefold() == "graded" else (event.get("quality") in {"Class A", "Class B", "Class C"})
+                  if grade.casefold() == "accepted" else (event.get("quality") or "Ungraded").casefold() == grade.casefold())]
+    if evidence_region:
+        events = [event for event in events if any(region.casefold() == evidence_region.casefold()
+                  and isinstance(part, dict) and part.get("present") is True
+                  for region, part in ((event.get("analysis") or {}).get("part_results") or {}).items())]
     if feature and feature.casefold() not in {"all", ""}:
         events = [
             event for event in events
@@ -1598,13 +1699,25 @@ def get_history(
 
 
 @app.get("/api/sessions")
-def get_sessions(limit: int = 100) -> dict[str, object]:
+def get_sessions(limit: int = 100, page: int = 1, page_size: int | None = None,
+                 search: str | None = None, start_date: str | None = None,
+                 end_date: str | None = None, session_id: str | None = None) -> dict[str, object]:
     """Expose durable session snapshots for history and export selectors."""
 
     if not 1 <= limit <= 1000:
         raise HTTPException(status_code=422, detail="limit must be between 1 and 1000.")
+    size = page_size if page_size is not None else limit
+    if page < 1 or not 1 <= size <= 1000:
+        raise HTTPException(status_code=422, detail="page must be positive and page_size must be between 1 and 1000.")
+    try:
+        items, total = inspection_database.sessions_page(page=page, page_size=size, search=search,
+                                                         start_date=start_date, end_date=end_date, session_id=session_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
     return {
-        "items": inspection_database.sessions(limit=limit),
+        "items": items, "total": total, "page": page, "page_size": size,
+        "total_pages": max(1, (total + size - 1) // size),
+        "accumulated_active_seconds": inspection_database.accumulated_active_seconds(),
         "current_session_id": inspection_sessions.session_id,
         "active": inspection_sessions.active,
     }
@@ -1759,20 +1872,36 @@ def get_analytics(
     session_id: str | None = None,
     start_date: str | None = None,
     end_date: str | None = None,
+    granularity: str = "day",
 ) -> dict[str, object]:
     snapshot = state.snapshot()
     requested_session = session_id or (inspection_sessions.session_id if range_name == "current_session" else None)
     try:
-        analytics, revision = _durable_analytics(range_name, requested_session, start_date, end_date, snapshot)
+        dashboard = inspection_database.dashboard_analytics(
+            range_name=range_name, session_id=requested_session, start_date=start_date,
+            end_date=end_date, granularity=granularity,
+        )
+        requested_session = dashboard["scope"]["session_id"]
+        analytics, revision = _durable_analytics("all" if range_name == "latest" else range_name, requested_session, start_date, end_date, snapshot)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     if range_name == "current_session" and session_id is None and inspection_sessions.session_id != requested_session:
         raise HTTPException(status_code=409, detail="Session changed while analytics was being collected; retry.")
+    activity_start = start_date if range_name == "custom" else datetime.now().astimezone().date().isoformat() if range_name == "today" else None
+    activity_end = end_date if range_name == "custom" else activity_start
+    session_activity, session_total = inspection_database.sessions_page(
+        page_size=1000, start_date=activity_start, end_date=activity_end, session_id=requested_session,
+    ) if range_name != "current_session" or requested_session else ([], 0)
     return {
         **analytics,
+        "analytics_v2": dashboard,
         "range": range_name,
         "session_id": requested_session,
         "event_revision": revision,
+        "session_activity": session_activity,
+        "session_activity_total": session_total,
+        "session_activity_limit": 1000,
+        "session_activity_date_basis": "session_started_at",
     }
 
 
@@ -2001,6 +2130,13 @@ async def export_history(request: Request) -> Response:
     requested_session = payload.get("session_id")
     if requested_session is not None and (not isinstance(requested_session, str) or not requested_session):
         raise HTTPException(status_code=422, detail="session_id must be a non-empty string when supplied.")
+    track_ids = payload.get("track_ids")
+    if track_ids is not None:
+        if (not isinstance(track_ids, list) or not track_ids or len(track_ids) > 10000
+                or any(isinstance(item, bool) or not isinstance(item, int) for item in track_ids)):
+            raise HTTPException(status_code=422, detail="track_ids must be a non-empty list of at most 10000 integer Fish IDs.")
+        if requested_session is None:
+            raise HTTPException(status_code=422, detail="A session_id is required when exporting selected Fish IDs.")
     try:
         # An export is a durable snapshot, unlike live polling. Freeze new
         # frame callbacks while accepted FIFO writes drain and rows are read.
@@ -2015,6 +2151,11 @@ async def export_history(request: Request) -> Response:
                 start_date=payload.get("start_date"),
                 end_date=payload.get("end_date"),
             )
+            if track_ids is not None:
+                wanted = set(track_ids)
+                events = [event for event in events if event.get("track_id") in wanted]
+                if {event.get("track_id") for event in events} != wanted:
+                    raise HTTPException(status_code=404, detail="One or more selected fish are unavailable in the selected session and date range.")
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     session_ids = list(dict.fromkeys(event.get("session_id") for event in events))

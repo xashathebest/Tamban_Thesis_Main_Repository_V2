@@ -1,4 +1,4 @@
-"""Clicks on displayed fish open inspection using the recorded source frame."""
+"""Fish selection uses native coordinates; explicit zoom retains the source frame."""
 import pytest
 
 from test_coloredfish_ui import specimen
@@ -19,14 +19,15 @@ global.showCrackCandidate=(entry,candidate)=>candidatePanels.push({fish:entry.id
 
 
 @pytest.mark.parametrize("mode,x,y", [("masks", 125, 85), ("boxes", 20, 40)])
-def test_click_fish_in_mask_or_box_canvas_opens_zoom_after_native_css_mapping(mode, x, y):
+def test_click_fish_in_mask_or_box_canvas_selects_result_after_native_css_mapping(mode, x, y):
     actual = node(CLICK + r'''
 const input=JSON.parse(fs.readFileSync(0,"utf8"));uploadMaskPreview.data=input.payload;uploadMaskPreview.image={};uploadMaskPreview.file=selectedUpload;
 elements.maskPreviewMasks.checked=input.mode==="masks";elements.maskPreviewBoxes.checked=input.mode==="boxes";
 selectMaskPreviewPoint({clientX:10+input.x*2,clientY:20+input.y*2});
 console.log(JSON.stringify({opens,selections,candidatePanels}));
 ''', {"payload": specimen(), "mode": mode, "x": x, "y": y})
-    assert actual["opens"] == [1]
+    assert actual["opens"] == []
+    assert actual["selections"] == [{"id": 1, "revealCard": True}]
     assert actual["candidatePanels"] == []
 
 
@@ -54,9 +55,10 @@ def test_visible_model1_box_remains_clickable_outside_its_shaded_mask():
     actual = node(CLICK + r'''
 uploadMaskPreview.data=JSON.parse(fs.readFileSync(0,"utf8"));elements.maskPreviewModel1.checked=true;
 selectMaskPreviewPoint({clientX:10+20*2,clientY:20+40*2});
-console.log(JSON.stringify({opens}));
+console.log(JSON.stringify({opens,selections}));
 ''', specimen())
-    assert actual["opens"] == [1]
+    assert actual["opens"] == []
+    assert actual["selections"] == [{"id": 1, "revealCard": True}]
 
 
 def test_crack_candidate_click_keeps_priority_over_fish_zoom():
@@ -69,13 +71,13 @@ console.log(JSON.stringify({opens,selections,candidatePanels}));
     assert actual["candidatePanels"] == [{"fish": 1, "candidate": "1:0"}]
 
 
-def test_highlighted_fish_filter_is_respected_by_canvas_zoom_clicks():
+def test_highlighted_fish_does_not_block_selecting_another_fish_in_the_image():
     actual = node(CLICK + r'''
 uploadMaskPreview.data=JSON.parse(fs.readFileSync(0,"utf8"));elements.maskPreviewFish.value="2";
 selectMaskPreviewPoint({clientX:10+125*2,clientY:20+85*2});
 console.log(JSON.stringify({opens,selections}));
 ''', specimen())
-    assert actual == {"opens": [], "selections": []}
+    assert actual == {"opens": [], "selections": [{"id": 1, "revealCard": True}]}
 
 
 @pytest.mark.parametrize("video", [False, True], ids=["photo", "recorded-video-snapshot"])
@@ -122,8 +124,11 @@ let stopped=false;
 renderFishClickTargets("upload",uploadMaskPreview.data.fish);
 const target=elements.uploadFishTargets.children[0];target.listeners.click({stopPropagation:()=>stopped=true});
 const hits=fishZoomHits({clientX:369,clientY:395},"upload",uploadMaskPreview.data.fish).map(fish=>fish.id);
-console.log(JSON.stringify({style:target.style,opens,stopped,hits}));
+console.log(JSON.stringify({style:target.style,opens,selections,stopped,hits,label:target.dataset.label}));
 ''', specimen())
-    assert actual["style"] == {"left": "49px", "top": "85px", "width": "440px", "height": "180px"}
-    assert actual["opens"] == [1] and actual["stopped"]
+    assert {key: actual["style"][key] for key in ("left", "top", "width", "height")} == {"left": "49px", "top": "85px", "width": "440px", "height": "180px"}
+    assert actual["opens"] == [] and actual["stopped"]
+    assert actual["selections"] == [{"id": 1, "revealCard": True}]
+    assert actual["label"] == "Fish #1 · Ungraded"
+    assert actual["style"]["borderColor"] == "#546c7a"
     assert actual["hits"] == [1]

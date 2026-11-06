@@ -16,7 +16,9 @@ def test_upload_launcher_and_picker_have_distinct_clear_actions():
     assert 'role="dialog"' in html
     assert 'class="upload-workspace upload-modal surface hidden"' in html
     assert 'id="select-upload-button"' in html
-    assert '>Choose media</button>' in html
+    assert '>Browse Files</button>' in html
+    assert 'id="upload-drop-zone"' in html
+    assert 'id="remove-upload-button"' in html
     assert 'id="upload-file-name"' in html
     assert '>Run analysis</button>' in html
     assert 'id="upload-status" role="status" aria-live="polite"' in html

@@ -1,0 +1,9 @@
+# Prompt 04 — Dataset-ready metadata and non-destructive quality checks
+
+Operate only on newly captured raw images in ignored `data/capture_sessions`, never the archived COCO dataset. Do not assign expert grades from model predictions. Keep provisional operator tags visibly different from adjudicated expert labels. Do not infer physical fish identity from a timestamp alone.
+
+Store: capture mode (`manual` or `automatic`, with manual button click represented by exactly one new saved frame), unique image ID and sequence, UTC wall timestamp + monotonic capture timing, image dimensions/encoding/quality and SHA-256, device index/backend/readbacks, camera profile, light/background, exposure/focus where supported, conveyor on/off, batch ID, source/vendor code, capture-session ID, individual fish/specimen ID when known, angle/orientation, notes, tentative grade, review/keep/exclude state, failure/warning codes, local filename, Drive sync status/ID. Write manifest transactionally or via durable append-only log; export CSV and JSON.
+
+Display independent counters: raw frames, reviewed photos, unique specimens (if confirmed), specimens per grade with provisional warning, skipped frames, upload backlog. A 1,000-frame target must not be represented as 1,000 distinct fish.
+
+Image quality: focus score (with caveats), over-/under-exposure/clipped ratio, resolution, background drift and near-duplicate/perceptual similarity warnings. Warnings alone do not delete frames; easy non-destructive review. Permit collecting negative/background images for Model 1, varied A/B/C/Rejected examples for Model 2, and images of touching/overlapping fish. Add guidance for annotation masks (head/body/tail), parent ownership, missing vs occluded anatomy, expert ground truth and lineage-based future splits. Never alter raw originals or automatically add photos to existing training splits.

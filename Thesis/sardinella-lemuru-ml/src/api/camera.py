@@ -16,10 +16,13 @@ from typing import Any, Mapping
 import numpy as np
 
 from src.api.camera_controls import CameraControlError, CameraHardwareController
+from src.api.camera_exposure import CameraExposureController
+from src.api.presentation import GRADE_COLORS_BGR, draw_compact_label, grade_mask_color
 from src.api.domain import InspectionState, QualitySummary
 from src.api.runtime import PART_PREVIEW_MODE, WHOLE_FISH_MODE
 from src.api.runtime_diagnostics import LatestFrameQueue, RuntimeDiagnostics
 from src.api.raw_preview import RawPreview
+from src.api.live_frame_status import LiveFrameStatus
 from src.inference.association import ParentAnchor
 from src.inference.body_width import boxes_overlap
 from src.inference.frame_diagnostics import parent_damage, draw_damage, draw_geometry
@@ -34,32 +37,14 @@ from src.features.damage import analyze_surface_damage
 
 LOGGER = logging.getLogger(__name__)
 
-PART_GRADE_COLORS = {
-    "Class A": (76, 175, 80),
-    "Class B": (255, 152, 0),
-    "Class C": (170, 90, 205),
-    "Rejected": (45, 45, 225),
-}
+PART_GRADE_COLORS = GRADE_COLORS_BGR
 
 
-def _draw_readable_label(image: Any, text: str, x: int, y: int, color: tuple[int, int, int], cv2: Any) -> None:
-    """Draw a high-contrast label above a box, moving it inside the box when needed."""
+def _draw_readable_label(image: Any, text: str, x: int, y: int, color: tuple[int, int, int], cv2: Any,
+                         occupied: list[tuple[int, int, int, int]] | None = None) -> None:
+    """Draw one compact grade-colored label next to a box."""
 
-    height, width = image.shape[:2]
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    scale = 1.5
-    thickness = 4
-    padding = 12
-    (text_width, text_height), baseline = cv2.getTextSize(text, font, scale, thickness)
-    left = max(0, min(int(x), max(0, width - text_width - padding * 2)))
-    top = int(y) - text_height - baseline - padding * 2
-    if top < 0:
-        top = min(max(0, int(y)), max(0, height - text_height - baseline - padding * 2))
-    right = min(width - 1, left + text_width + padding * 2)
-    bottom = min(height - 1, top + text_height + baseline + padding * 2)
-    cv2.rectangle(image, (left, top), (right, bottom), (28, 35, 42), -1)
-    cv2.rectangle(image, (left, top), (right, bottom), color, 2)
-    cv2.putText(image, text, (left + padding, bottom - padding - baseline), font, scale, (255, 255, 255), thickness, cv2.LINE_AA)
+    draw_compact_label(image, text, x, y, color, cv2, occupied)
 
 
 class CameraInspectionService:
@@ -120,6 +105,7 @@ class CameraInspectionService:
         # Startup-only experiment switch; does not change debug capture or inference.
         telemetry_recording = os.getenv("FISH_RUNTIME_TELEMETRY", "1").strip().lower() not in {"0", "false", "no", "off"}
         self._runtime_metrics = RuntimeDiagnostics(enabled=telemetry_recording)
+        self._live_frames = LiveFrameStatus()
         self._latest_frames = LatestFrameQueue()
         self.raw_preview = RawPreview(os.getenv("FISH_RAW_PREVIEW_ENABLED", "0").strip().lower() in {"1", "true", "yes", "on"})
         self._capture_thread: Thread | None = None
@@ -154,6 +140,7 @@ class CameraInspectionService:
         self.on_worker_exit = None
         profile_path = camera_profile_path or Path(__file__).resolve().parents[2] / "configs" / "camera_settings.yaml"
         self.camera_controls = CameraHardwareController(camera_index, profile_path)
+        self.camera_exposure = CameraExposureController(self.camera_controls)
         self._calibration_mode = False
         initial_profile = self.camera_controls.profile()
         self._camera_locked = bool(initial_profile.get("locked", False))
@@ -240,6 +227,10 @@ class CameraInspectionService:
             changed = self._calibration_mode != enabled
             self._calibration_mode = enabled
         if changed:
+            if not enabled and self.camera_exposure.status().get("native_active"):
+                # Native EV selected during calibration is now the acquisition
+                # setting. Later display-only changes must never restore it.
+                self.camera_exposure.clear()
             # Clear state on both enter and exit, preventing a partial crossing
             # before/after calibration from ever appearing in history.
             self._clear_calibration_tracking()
@@ -264,6 +255,8 @@ class CameraInspectionService:
             if locked:
                 self._calibration_mode = False
         if locked:
+            if self.camera_exposure.status().get("native_active"):
+                self.camera_exposure.clear()
             self._clear_calibration_tracking()
         return self.camera_status()
 
@@ -276,11 +269,35 @@ class CameraInspectionService:
 
     def update_camera_settings(self, values: dict[str, object]) -> dict[str, object]:
         self._require_camera_adjustment()
-        return self.camera_controls.apply_settings(values)
+        result = self.camera_controls.apply_settings(values)
+        if result.get("changed") and set(values) & {"exposure", "gain", "auto_exposure", "fps", "frame_width", "frame_height"}:
+            self.camera_exposure.clear()
+        return result
 
     def reset_camera_settings(self) -> dict[str, object]:
         self._require_camera_adjustment()
-        return self.camera_controls.reset_camera_settings()
+        result = self.camera_controls.reset_camera_settings()
+        self.camera_exposure.clear()
+        return result
+
+    def update_camera_exposure(self, values: dict[str, object]) -> dict[str, object]:
+        """Adjust the preview live; native writes retain calibration safeguards."""
+
+        if not self.camera_controls.connected:
+            raise CameraControlError("Start the inspection camera before adjusting exposure.")
+        with self._camera_state_lock:
+            allow_native = self._calibration_mode and not self._camera_locked
+        if values.get("reset") is True:
+            exposure = self.camera_exposure.reset(allow_native=allow_native)
+        else:
+            exposure = self.camera_exposure.configure(
+                mode=values.get("mode"), ev=values.get("ev"), allow_native=allow_native,
+            )
+        return {
+            "success": exposure.get("success", True),
+            "changed": bool(exposure.get("hardware_changed")),
+            "exposure": {**exposure, "available": True, "hardware_allowed": allow_native},
+        }
 
     def _processing_resolution(self) -> list[int] | None:
         snapshot = self.state.snapshot()
@@ -347,14 +364,25 @@ class CameraInspectionService:
     def load_camera_profile(self) -> dict[str, object]:
         self._require_camera_adjustment()
         result = self.camera_controls.load_camera_profile()
+        self.camera_exposure.clear()
         with self._camera_state_lock:
             self._camera_locked = bool(result.get("profile", {}).get("locked", False)) if isinstance(result.get("profile"), dict) else False
             if self._camera_locked:
                 self._calibration_mode = False
         return result
 
+    def live_frame_status(self) -> dict[str, object]:
+        """Read frame freshness without acquiring a camera or rerunning inference."""
+        state = self.state.snapshot()
+        return self._live_frames.snapshot(
+            active=state["inspection_status"] in {"starting", "running", "stopping"},
+            connected=state["camera_status"] == "connected",
+            loading=state["inspection_status"] == "starting",
+            paused=self.debug_paused,
+        )
+
     def camera_status(self) -> dict[str, object]:
-        """Return hardware readbacks and acquisition-monitoring warnings only."""
+        """Return camera readbacks, preview exposure, and acquisition warnings."""
 
         data = self.camera_controls.settings()
         capabilities = self.camera_controls.capabilities()
@@ -392,6 +420,11 @@ class CameraInspectionService:
             "capabilities": capabilities,
             "calibration_mode": calibration_mode,
             "locked": locked,
+            "exposure": {
+                **self.camera_exposure.status(),
+                "available": bool(data.get("available")),
+                "hardware_allowed": calibration_mode and not locked,
+            },
             "image_statistics": statistics,
             "pending_reference_scenes": pending_reference_scenes,
             "configured_camera_index": self.camera_index,
@@ -895,10 +928,12 @@ class CameraInspectionService:
                 "clipped": box[0] <= 0 or box[1] <= 0 or box[2] >= frame.shape[1] or box[3] >= frame.shape[0],
                 "ambiguous": False}
 
-    def _annotate(self, frame, detections, cv2):
+    def _annotate(self, frame, detections, cv2, occupied: list[tuple[int, int, int, int]] | None = None):
         """Draw persistent IDs, live classifications, and the inspection line."""
 
         annotated = frame.copy()
+        if occupied is None:
+            occupied = []
         display = self.state.current_display_settings()
         height, width = annotated.shape[:2]
         config = self.state.tracking.config
@@ -953,7 +988,8 @@ class CameraInspectionService:
                 draw_damage(annotated, damage, damage_bounds)
             track = active.get(detection.track_id)
             counted = bool(track and track["counted"])
-            color = (43, 145, 87)
+            quality = track.get("quality") if track else None
+            color = GRADE_COLORS_BGR.get(quality, GRADE_COLORS_BGR["Ungraded"])
             mask_note = ""
             if display.get("fish_masks"):
                 context = getattr(self, "_frame_mask_context", None)
@@ -963,35 +999,31 @@ class CameraInspectionService:
                 if isinstance(pixels, np.ndarray) and pixels.shape == frame.shape[:2] and pixels.dtype == np.bool_:
                     report = provider.report(parent_id)
                     reviewed = report.get("engineering_checks_passed") is True
-                    color = (43, 180, 100) if reviewed else (40, 95, 225)
-                    annotated[pixels] = (.62 * annotated[pixels] + .38 * np.asarray(color)).astype(np.uint8)
+                    fill_color = grade_mask_color(parent_id, quality)
+                    annotated[pixels] = (.62 * annotated[pixels] + .38 * np.asarray(fill_color)).astype(np.uint8)
                     contours, _ = cv2.findContours(pixels.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                     cv2.drawContours(annotated, contours, -1, color, 1)
-                    mask_note = " | MASK UNVALIDATED" if reviewed else " | MASK REVIEW"
+                    mask_note = "Mask: Estimated" if reviewed else "Mask: Requires Review"
                 else:
-                    mask_note = " | mask not sampled in this frame"
+                    mask_note = "Mask: Unavailable"
             if display["outlines"]:
-                cv2.rectangle(annotated, (left, top), (right, bottom), color, 2)
+                cv2.rectangle(annotated, (left, top), (right, bottom), color, 1)
             identity = f"Fish #{detection.track_id}" if detection.track_id is not None else "Acquiring ID"
-            suffix = " | COUNTED" if counted else ""
-            quality = track.get("quality") if track else None
             label_parts: list[str] = []
             if display["fish_ids"]:
-                label_parts.append(f"{identity}{suffix}")
-            if display["grades"] and quality:
-                label_parts.append(str(quality))
-            if display["confidence"]:
-                quality_confidence = track.get("quality_confidence") if track else None
-                quality_text = f" | Q {float(quality_confidence) * 100:.1f}%" if quality_confidence is not None else ""
-                label_parts.append(f"D {detection.confidence * 100:.1f}%{quality_text}")
+                label_parts.append(f"{identity} · COUNTED" if counted else identity)
+            if display["grades"]:
+                label_parts.append(str(quality or "Ungraded"))
             if display["features"] and track and track.get("parts"):
                 regions = sorted({str(part.get("region", "")) for part in track["parts"] if isinstance(part, dict) and part.get("region")})
                 if regions:
                     label_parts.append("/".join(regions))
-            label = " | ".join(label_parts) + mask_note
+            label = " · ".join(label_parts)
+            if mask_note:
+                cv2.putText(annotated, mask_note, (max(0, left), max(14, min(height - 4, bottom + 14))), cv2.FONT_HERSHEY_SIMPLEX, .36, (220, 220, 220), 1, cv2.LINE_AA)
             if not label:
                 continue
-            _draw_readable_label(annotated, label, left, top, color, cv2)
+            _draw_readable_label(annotated, label, left, top, color, cv2, occupied)
         return annotated
 
     def _annotate_debug_parts(self, annotated: Any, items: object, crop_bounds: CropBounds, color: tuple[int, int, int], prefix: str, cv2: Any, *, coordinate_space: str = "crop_local") -> None:
@@ -1027,7 +1059,8 @@ class CameraInspectionService:
                 label = f"{prefix}: {item.get('region', '?')} {item.get('grade', '')} {float(item.get('confidence', 0.0)) * 100:.1f}%"
                 cv2.putText(annotated, label, (max(0, left), max(14, top - 4)), cv2.FONT_HERSHEY_SIMPLEX, .38, color, 1, cv2.LINE_AA)
 
-    def _annotate_quality(self, annotated: Any, results: list[tuple[FishQualityObservation, CropBounds]], cv2: Any) -> Any:
+    def _annotate_quality(self, annotated: Any, results: list[tuple[FishQualityObservation, CropBounds]], cv2: Any,
+                          occupied: list[tuple[int, int, int, int]] | None = None) -> Any:
         """Overlay Model 2 boxes and optional raw detector trace layers.
 
         The production ``part_overlays`` switch now includes a visible box
@@ -1036,9 +1069,11 @@ class CameraInspectionService:
         though they had disappeared in the live feed.
         """
 
-        colors = {"Class A": (76, 175, 80), "Class B": (255, 152, 0), "Class C": (170, 90, 205), "Rejected": (45, 45, 225)}
+        colors = GRADE_COLORS_BGR
         height, width = annotated.shape[:2]
         display = self.state.current_display_settings()
+        if occupied is None:
+            occupied = []
         for result, crop_bounds in results:
             if display.get("roi_boundary", False):
                 cv2.rectangle(annotated, (crop_bounds.x1, crop_bounds.y1), (crop_bounds.x2, crop_bounds.y2), (255, 255, 0), 1)
@@ -1059,13 +1094,13 @@ class CameraInspectionService:
                             tint = np.empty_like(target)
                             tint[:] = color
                             cv2.addWeighted(tint, 0.20, target, 0.80, 0, target)
-                        cv2.rectangle(annotated, (int(left), int(top)), (int(right), int(bottom)), color, 2)
+                        cv2.rectangle(annotated, (int(left), int(top)), (int(right), int(bottom)), color, 1)
                     elif display["outlines"]:
                         cv2.rectangle(annotated, (int(left), int(top)), (int(right), int(bottom)), color, 1)
                     if display["features"]:
                         grade_label = str(part_grade).replace("Class ", "")
-                        label = f"{part_region} {grade_label}" if not display["confidence"] else f"{part_region} {grade_label} {part.confidence * 100:.0f}%"
-                        _draw_readable_label(annotated, label, int(left), int(top), color, cv2)
+                        label = f"{part_region} {grade_label}"
+                        _draw_readable_label(annotated, label, int(left), int(top), color, cv2, occupied)
             debug = result.analysis.get("model2_debug") if isinstance(result.analysis, Mapping) else None
             geometry = result.analysis.get("fish_geometry", {})
             if display.get("features") and geometry.get("frame_id") == self._frame_index:
@@ -1095,6 +1130,7 @@ class CameraInspectionService:
 
         annotated = frame.copy()
         height, width = annotated.shape[:2]
+        occupied: list[tuple[int, int, int, int]] = []
         for detection in detections:
             color = PART_GRADE_COLORS.get(detection.grade, (180, 180, 180))
             left, top, right, bottom = (int(round(value)) for value in detection.bbox)
@@ -1112,9 +1148,8 @@ class CameraInspectionService:
                         cv2.polylines(annotated, [polygon], True, color, 2, cv2.LINE_AA)
             except Exception:  # One malformed mask must fall back to its box without stopping the feed.
                 polygon = None
-            cv2.rectangle(annotated, (left, top), (right, bottom), color, 1 if polygon is not None else 2)
-            label = f"{detection.source_class_name} {detection.confidence * 100:.1f}%"
-            _draw_readable_label(annotated, label, left, top, color, cv2)
+            cv2.rectangle(annotated, (left, top), (right, bottom), color, 1)
+            _draw_readable_label(annotated, str(detection.source_class_name), left, top, color, cv2, occupied)
         cv2.rectangle(annotated, (0, 0), (min(width - 1, 430), 48), (25, 32, 42), -1)
         cv2.putText(annotated, "PART MODEL PREVIEW", (10, 19), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2, cv2.LINE_AA)
         cv2.putText(annotated, "Raw parts - fish counting disabled", (10, 39), cv2.FONT_HERSHEY_SIMPLEX, 0.43, (210, 220, 230), 1, cv2.LINE_AA)
@@ -1674,7 +1709,8 @@ class CameraInspectionService:
         # vanish for the interval gap even when the UI control was enabled.
         visible_ids = {int(item.track_id) for item in detections if item.track_id is not None}
         overlays = [(observation, bounds) for track_id, (observation, bounds, _frame_id) in self._latest_part_overlays.items() if track_id in visible_ids]
-        annotated = self._annotate_quality(self._annotate(frame, detections, cv2), overlays, cv2)
+        label_rects: list[tuple[int, int, int, int]] = []
+        annotated = self._annotate_quality(self._annotate(frame, detections, cv2, label_rects), overlays, cv2, label_rects)
         annotation_seconds = monotonic() - overlay_started
         final_seconds = monotonic() - processing_started
         self._last_frame_performance = self._frame_timing_snapshot(final_seconds * 1000)
@@ -1864,6 +1900,7 @@ class CameraInspectionService:
                 self._stop_event.set()
                 return
             captured_at = monotonic()
+            self._live_frames.capture(frame.shape[1], frame.shape[0], when=captured_at)
             # An opened device alone does not prove that usable frames arrive.
             self.state.mark_running()
             try:
@@ -1878,6 +1915,7 @@ class CameraInspectionService:
 
         capture = None
         try:
+            self._live_frames.reset()
             import cv2
 
             capture, backend = self._open_capture(cv2)
@@ -1920,6 +1958,8 @@ class CameraInspectionService:
                         if frame_generation != self.state.frame_generation():
                             continue
                         annotated = self.process_frame(packet.frame, cv2)
+                    self._live_frames.processed()
+                    self._runtime_metrics.record_call("processed_frame")
                     consecutive_processing_errors = 0
                 except Exception as exc:
                     consecutive_processing_errors += 1
@@ -1931,10 +1971,14 @@ class CameraInspectionService:
                         self._stop_event.set()
                         return
                     annotated = packet.frame
+                exposure_started = monotonic()
+                # Exposure compensation is a display operation. All model,
+                # segmentation, color measurements and grading above receive
+                # the untouched camera frame; the diagnostic raw stream does too.
+                preview_frame = self.camera_exposure.apply(annotated)
+                self._runtime_metrics.record_latency("exposure_preview", monotonic() - exposure_started)
                 encode_started = monotonic()
-                # Keep the operator-facing camera feed raw. Inference still
-                # runs above for tracking, grading, and session totals.
-                encoded, buffer = cv2.imencode(".jpg", packet.frame, [cv2.IMWRITE_JPEG_QUALITY, 82])
+                encoded, buffer = cv2.imencode(".jpg", preview_frame, [cv2.IMWRITE_JPEG_QUALITY, 82])
                 self._runtime_metrics.record_latency("jpeg_encoding", monotonic() - encode_started)
                 if not encoded:
                     self._runtime_metrics.increment("jpeg_encode_failures")
@@ -1943,7 +1987,6 @@ class CameraInspectionService:
                 instant_fps = 1.0 / max(now - previous_time, 1e-6)
                 smoothed_fps = instant_fps if smoothed_fps == 0 else (0.85 * smoothed_fps + 0.15 * instant_fps)
                 previous_time = now
-                self._runtime_metrics.record_call("processed_frame", when=now)
                 jpeg = buffer.tobytes()
                 self.state.publish_frame(jpeg, smoothed_fps, generation=frame_generation)
                 self._runtime_metrics.record_latency("capture_to_publish", monotonic() - packet.captured_at)
@@ -1956,6 +1999,7 @@ class CameraInspectionService:
             if capture_thread is not None:
                 capture_thread.join(timeout=.5)
             self._capture_thread = None
+            self.camera_exposure.clear()
             if capture is not None:
                 self.camera_controls.detach(capture)
                 with self.camera_controls.lock:

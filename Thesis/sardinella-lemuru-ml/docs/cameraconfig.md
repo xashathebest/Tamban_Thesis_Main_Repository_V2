@@ -1,0 +1,5 @@
+Add an Exposure Value (EV) adjustment filter to the Tamban live camera inspection system, similar to the exposure controls available in EMEET camera software.
+Implement an adjustable EV slider (-2.0 to +2.0) to brighten or darken the camera feed in real time. Use native camera exposure controls when supported; otherwise, implement software-based exposure compensation with proper brightness, gamma, and contrast adjustments.
+Ensure the camera maintains natural colors, avoids excessive overexposure, and does not become dark or grayscale. Include Auto Exposure, Manual EV, and Reset to Default options.
+Apply adjustments smoothly without restarting the camera or significantly reducing FPS. Preserve all existing detection, segmentation, and grading functionality. Ensure software-based visual enhancements do not distort color-sensitive AI grading results; use the original frames for grading unless the enhanced input has been validated.
+Goal: Achieve camera brightness and exposure control similar to EMEET's software directly within the Tamban inspection interface, without requiring the external EMEET application.
