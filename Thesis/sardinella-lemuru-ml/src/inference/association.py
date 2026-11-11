@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from math import hypot, isfinite
-from typing import Iterable, Sequence
+from typing import Callable, Iterable, Sequence
 
 from src.inference.part_types import PartDetection
 
@@ -346,6 +346,8 @@ def associate_parts_to_parents(
     parts: Iterable[PartDetection],
     parents: Sequence[ParentAnchor],
     config: AssociationConfig | None = None,
+    *,
+    candidate_scorer: Callable[[PartDetection, ParentAnchor, AssociationConfig], AssociationScore] | None = None,
 ) -> tuple[PartAssociation, ...]:
     """Return conservative ownership decisions for full-frame Model 2 boxes.
 
@@ -358,7 +360,8 @@ def associate_parts_to_parents(
     results: list[PartAssociation] = []
     for part in parts:
         candidates = tuple(sorted(
-            (score_part_parent(part.bbox, parent, rules, part.confidence) for parent in parents),
+            ((candidate_scorer(part, parent, rules) if candidate_scorer is not None
+              else score_part_parent(part.bbox, parent, rules, part.confidence)) for parent in parents),
             key=lambda value: (-value.score, value.track_id),
         ))
         results.append(PartAssociation(

@@ -15,7 +15,7 @@ import cv2
 import numpy as np
 
 from src.inference.fish_geometry import FishGeometryConfig, _aligned_profile
-from src.inference.head_silhouette import HeadSilhouetteConfig, analyze_silhouette_ends
+from src.inference.head_silhouette import HeadSilhouetteConfig, analyze_silhouette_ends, load_head_silhouette_config
 
 
 def _binary(mask: np.ndarray | None) -> np.ndarray | None:
@@ -111,11 +111,22 @@ def measure_mask_anatomy(
         "body_pixels": None,
         "tail_pixels": None,
         "anterior_extension_px": None,
+        "anterior_extension_length_ratio": None,
+        "anterior_extension_basis": None,
         "cut_end_confirmed": False,
         "cut_end_axis": None,
         "cut_character": None,
+        "terminal_width_ratio": None,
+        "terminal_width_ratios": {},
+        "truncation_evidence": None,
+        "body_taper": {},
         "geometry_decision": None,
         "orientation_reliable": False,
+        "anatomical_orientation_reliable": False,
+        "orientation_confidence": None,
+        "centerline_px": [],
+        "cross_section_profile": [],
+        "profile_coordinate_space": "crop_local_native_pixels",
         "posterior_source": None,
         "tail_anterior_end": None,
         "reasons": [],
@@ -144,7 +155,7 @@ def measure_mask_anatomy(
     if silhouette[0].any() or silhouette[-1].any() or silhouette[:, 0].any() or silhouette[:, -1].any():
         result["reasons"].append("silhouette_touches_frame_boundary")
     try:
-        diagnostics, columns, widths, _centers, transform, lower, upper = _aligned_profile(silhouette)
+        diagnostics, columns, widths, centers, transform, lower, upper = _aligned_profile(silhouette)
     except (cv2.error, ValueError, FloatingPointError, ZeroDivisionError):
         result["reasons"].append("orientation_profile_failed")
         return result
@@ -165,7 +176,43 @@ def measure_mask_anatomy(
         component_count=int(count - 1),
         secondary_component_fraction=round(secondary, 6),
     )
-    axis = np.array((math.cos(math.radians(orientation)), math.sin(math.radians(orientation))))
+    # The display angle is modulo 180 and loses the sign of a negative-slope
+    # PCA axis. Use the exact signed axis that generated the width profile so
+    # Tail polarity and minimum/maximum projection always share coordinates.
+    axis = transform[0, :2]
+    result["orientation_axis_vector"] = np.round(axis, 6).tolist()
+    result["orientation_confidence"] = {
+        "axis_ratio": round(axis_ratio, 6),
+        "minimum_axis_ratio": settings.minimum_axis_ratio,
+        "axis_reliable": result["orientation_reliable"],
+        "polarity_reliable": False,
+        "basis": "PCA elongation and agreement of visible anatomical landmarks; not a calibrated probability.",
+    }
+    # Keep a bounded, native-coordinate profile for per-fish review. These are
+    # observed mask sections, independent of any Model 2 Body rectangle.
+    profile_settings = head_config or load_head_silhouette_config()
+    indices = np.unique(np.linspace(0, len(columns) - 1, profile_settings.profile_samples).astype(int))
+    inverse = cv2.invertAffineTransform(transform)
+    representative_width = float(np.percentile(widths, profile_settings.representative_width_percentile))
+    result["centerline_px"] = np.round(centers[indices], 4).tolist()
+    for index in indices:
+        section_ends = np.array(((columns[index], lower[index]), (columns[index], upper[index])), dtype=float)
+        original_ends = section_ends @ inverse[:, :2].T + inverse[:, 2]
+        result["cross_section_profile"].append({
+            "length_fraction": round(float(columns[index] - columns[0]) / max(1, int(columns[-1] - columns[0])), 6),
+            "width_px": round(float(widths[index]), 4),
+            "width_ratio": round(float(widths[index]) / max(representative_width, 1.0), 6),
+            "center_px": np.round(centers[index], 4).tolist(),
+            "endpoints_px": np.round(original_ends, 4).tolist(),
+        })
+    result["centerline_quality"] = {
+        name: diagnostics[name] for name in (
+            "centerline_tortuosity", "centerline_deviation_width_ratio",
+            "profile_residual_width_ratio", "longitudinal_gap_pixels",
+        )
+    }
+    result["centerline_quality"]["longitudinal_gap_fraction"] = round(
+        diagnostics["longitudinal_gap_pixels"] / max(1, int(columns[-1] - columns[0] + 1)), 6)
 
     def project(point: tuple[float, float]) -> float:
         return float(point[0] * axis[0] + point[1] * axis[1])
@@ -178,6 +225,8 @@ def measure_mask_anatomy(
         result["reasons"].append("multiple_body_associations")
     if len(head_parts) > 1:
         result["reasons"].append("multiple_head_associations")
+    if len(tail_parts) > 1:
+        result["reasons"].append("multiple_tail_associations")
     body = _region_pixels(body_parts[0], shape, silhouette) if len(body_parts) == 1 else None
     head = _region_pixels(head_parts[0], shape, silhouette) if len(head_parts) == 1 else None
     tail = _region_pixels(tail_parts[0], shape, silhouette) if len(tail_parts) == 1 else None
@@ -188,9 +237,9 @@ def measure_mask_anatomy(
         )
         available = aligned[:, columns].any(axis=0)
         if int(available.sum()) >= settings.minimum_body_profile_pixels:
-            lower = np.argmax(aligned[:, columns] != 0, axis=0)
-            upper = aligned.shape[0] - 1 - np.argmax(aligned[::-1, columns] != 0, axis=0)
-            section = np.where(available, upper - lower + 1.0, 0.0)
+            body_lower = np.argmax(aligned[:, columns] != 0, axis=0)
+            body_upper = aligned.shape[0] - 1 - np.argmax(aligned[::-1, columns] != 0, axis=0)
+            section = np.where(available, body_upper - body_lower + 1.0, 0.0)
             width = float(section[available].max())
             if math.isfinite(width) and width >= settings.minimum_transverse_pixels:
                 result["max_body_width_px"] = round(width, 4)
@@ -211,7 +260,7 @@ def measure_mask_anatomy(
             result["head_to_body_size_ratio"] = round(head_only / body_only, 6)
         else:
             result["reasons"].append("head_body_regions_not_separable")
-    ends = analyze_silhouette_ends(widths, lower, upper, config=head_config)
+    ends = analyze_silhouette_ends(widths, lower, upper, config=profile_settings)
     if ends is not None:
         result.update(
             cut_end_confirmed=ends["cut_end_confirmed"],
@@ -220,33 +269,64 @@ def measure_mask_anatomy(
             geometry_decision=ends["geometry_decision"],
             representative_body_width_px=ends["representative_body_width_px"],
             cut_end_metrics=ends,
+            terminal_width_ratios=ends["terminal_width_ratios"],
+            body_taper=ends["body_taper"],
         )
         if ends["cut_end_confirmed"]:
             result["posterior_source"] = "silhouette_morphology"
+            anterior_end = next(item for item in ends["ends"] if item["axis"] == ends["cut_end_axis"])
+            result["terminal_width_ratio"] = anterior_end["terminal_width_ratio"]
+            result["truncation_evidence"] = anterior_end["truncation_evidence"]
     elif tail is None:
         result["reasons"].append("posterior_end_ambiguous")
     body_center = _centroid(body) if body is not None else None
     tail_center = _centroid(tail) if tail is not None else None
+    anterior_axis = result.get("cut_end_axis") if result.get("cut_end_confirmed") else None
+    polarity_reliable = anterior_axis is not None
+    polarity_conflict = False
     if body_center is not None and tail_center is not None and body_count > 0:
         separation = project(tail_center) - project(body_center)
+        result["tail_body_separation_px"] = round(abs(separation), 4)
         if abs(separation) < 0.18 * length:
             result["reasons"].append("tail_body_polarity_uncertain")
+            polarity_conflict = True
         else:
             posterior = 1.0 if separation > 0 else -1.0
-            ys, xs = np.nonzero(silhouette)
-            anterior = -(xs * axis[0] + ys * axis[1]) * posterior
-            body_ys, body_xs = np.nonzero(body)
-            body_anterior = -(body_xs * axis[0] + body_ys * axis[1]) * posterior
-            extension = float(anterior.max() - body_anterior.max())
-            result["anterior_extension_px"] = round(extension, 4)
-            result["tail_body_separation_px"] = round(abs(separation), 4)
             result["tail_anterior_end"] = "minimum_projection" if posterior > 0 else "maximum_projection"
             result["posterior_source"] = "tail_landmark" if result.get("posterior_source") != "silhouette_morphology" else "tail_landmark_and_silhouette"
+            if anterior_axis is not None and anterior_axis != result["tail_anterior_end"]:
+                result["reasons"].append("tail_cut_polarity_conflict")
+                polarity_conflict = True
+            anterior_axis = result["tail_anterior_end"]
+            polarity_reliable = True
+            ys, xs = np.nonzero(silhouette)
+            anterior = -(xs * axis[0] + ys * axis[1]) * posterior
             tip_limit = float(anterior.max()) - 3.0
             if tail is not None and np.any((-(xs * axis[0] + ys * axis[1]) * posterior >= tip_limit) & tail[ys, xs]):
                 result["reasons"].append("tail_reaches_anterior_tip")
+                polarity_conflict = True
     elif tail_parts and body_center is not None:
         result["reasons"].append("tail_not_on_silhouette")
+        polarity_conflict = True
+    if len(tail_parts) > 1:
+        polarity_conflict = True
+    polarity_reliable = polarity_reliable and not polarity_conflict
+    result["orientation_confidence"]["polarity_reliable"] = polarity_reliable
+    result["orientation_confidence"]["polarity_source"] = result.get("posterior_source")
+    result["anatomical_orientation_reliable"] = bool(result["orientation_reliable"] and polarity_reliable)
+    # Extension is visible tissue beyond the accepted Body region. It is an
+    # observed distance, not proof that such tissue is a Head. Morphology may
+    # establish the anterior direction even when Model 2 missed the Tail.
+    if polarity_reliable and anterior_axis is not None and body is not None and body_count > 0:
+        anterior_sign = -1.0 if anterior_axis == "minimum_projection" else 1.0
+        ys, xs = np.nonzero(silhouette)
+        body_ys, body_xs = np.nonzero(body)
+        anterior = (xs * axis[0] + ys * axis[1]) * anterior_sign
+        body_anterior = (body_xs * axis[0] + body_ys * axis[1]) * anterior_sign
+        extension = max(0.0, float(anterior.max() - body_anterior.max()))
+        result["anterior_extension_px"] = round(extension, 4)
+        result["anterior_extension_length_ratio"] = round(extension / length, 6)
+        result["anterior_extension_basis"] = "Visible silhouette beyond the Model 2 Body region along the agreed anterior direction."
     measurable = result["anatomical_length_px"] is not None and not any(
         reason in result["reasons"] for reason in ("orientation_profile_failed", "insufficient_foreground_pixels")
     )

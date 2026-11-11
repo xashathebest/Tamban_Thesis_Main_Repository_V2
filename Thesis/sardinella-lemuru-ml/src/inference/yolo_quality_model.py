@@ -690,12 +690,18 @@ class YoloQualityModel:
             geometry_context_reasons.append("parent_detection_unreliable")
         if context_crop_bounds is not None and not context_crop_matches:
             geometry_context_reasons.append("source_crop_pixels_mismatch")
+        if mask_context is not None and measurement_frame is not None and not mask_context.is_for_frame(measurement_frame):
+            geometry_context_reasons.append("source_mask_context_frame_mismatch")
+        if mask_context is not None and measurement_frame is None:
+            geometry_context_reasons.append("source_mask_context_frame_unverified")
         geometry_confidence_threshold = self._grading_engine.config.minimum_detection_confidence
         if detection_confidence is not None and geometry_confidence_threshold is not None and detection_confidence < geometry_confidence_threshold:
             geometry_context_reasons.append("parent_detection_below_threshold")
         geometry_mask_metadata = {
             **feature_mask_metadata, "expected_parent_id": track_id,
             "context_reliability_reasons": geometry_context_reasons,
+            "explicit_native_clipping": quality_payload.get("out_of_frame") is True
+            or quality_payload.get("parent_frame_clipped") is True,
         }
         if any(quality_payload.get(key) for key in (
             "frame_clipped", "out_of_frame", "parent_frame_clipped", "parent_crop_clipped",
@@ -831,7 +837,7 @@ class YoloQualityModel:
         # payloads; do not leak Python objects into durable history metadata.
         analysis["quality_inference"] = {
             key: value for key, value in inference_metadata.items()
-            if key not in {"raw_detections", "selected_detections", "unassigned_detections", "detector_selected_detections"}
+            if key not in {"raw_detections", "selected_detections", "unassigned_detections", "detector_selected_detections", "foreign_head_detections"}
         }
         raw_detections = inference_metadata.get("raw_detections", ())
         selected_detections = inference_metadata.get("selected_detections", ())
@@ -873,6 +879,16 @@ class YoloQualityModel:
                     for item in unassigned
                     if isinstance(item, (PartDetection, Mapping))
                 ]
+        scoped_association = self._head_integrity_association_reliable(association, allow_body_ambiguity=True)
+        required_pair = quality_payload.get("required_pair_geometry")
+        required_pair = required_pair if isinstance(required_pair, Mapping) else {}
+        review_status = quality_payload.get("reviewed_feature_artifacts")
+        review_status = review_status if isinstance(review_status, Mapping) else {}
+        body_ambiguity_explains_quality_hold = (
+            association.get("ambiguous") is True and association.get("required_regions_ambiguous") is True
+            and scoped_association and required_pair.get("required_pair_inconsistent") is not True
+            and review_status.get("parent_review_status") != "withheld"
+        )
         published_grade = self._apply_head_integrity(
             analysis, verdict.final_grade, geometry_parts, feature_mask, geometry_mask_metadata,
             inference_metadata=inference_metadata, bounds=bounds, mask_context=mask_context,
@@ -881,9 +897,12 @@ class YoloQualityModel:
             overlapping=bool(width_context.get("overlapping")),
             clipped=geometry_mask_metadata.get("clipped") is True,
             association_reliable=coordinate_known and model2_available
-            and not bool(association.get("ambiguous") or quality_payload.get("association_ambiguous")),
+            and (not bool(quality_payload.get("association_ambiguous")) or body_ambiguity_explains_quality_hold)
+            and scoped_association,
         )
-        return FishQualityObservation(track_id, published_grade, verdict.final_score, tuple(parts), votes, analysis)
+        published_score = (None if analysis.get("head_integrity", {}).get("grade_effect") in {"reject", "withhold"}
+                           else verdict.final_score)
+        return FishQualityObservation(track_id, published_grade, published_score, tuple(parts), votes, analysis)
 
     @staticmethod
     def _mask_space_part(part: PartDetection, origin: tuple[float, float] | None) -> PartDetection:
@@ -894,6 +913,27 @@ class YoloQualityModel:
             part,
             bbox=(part.bbox[0] - ox, part.bbox[1] - oy, part.bbox[2] - ox, part.bbox[3] - oy),
             mask=tuple((x - ox, y - oy) for x, y in part.mask) if part.mask else None,
+        )
+
+    @staticmethod
+    def _head_integrity_association_reliable(association: Mapping, *, allow_body_ambiguity=False) -> bool:
+        """Optional Tail ambiguity does not invalidate owned Body evidence.
+
+        The unassigned Tail is never used to orient this fish. Body ambiguity
+        may be scoped out only for independent Head review, where a measured
+        torso and clear native anterior endpoint are still mandatory gates.
+        Head ambiguity and incomplete legacy summaries retain their veto.
+        """
+        if not association.get("ambiguous"):
+            return True
+        rows = association.get("parts")
+        if not isinstance(rows, Sequence) or isinstance(rows, (str, bytes)):
+            return False
+        ambiguous = [row for row in rows if isinstance(row, Mapping) and row.get("status") == "AMBIGUOUS"]
+        allowed = {"Tail", "Body"} if allow_body_ambiguity else {"Tail"}
+        return bool(ambiguous) and all(
+            isinstance(row.get("part"), Mapping) and row["part"].get("region") in allowed
+            for row in ambiguous
         )
 
     def _apply_head_integrity(
@@ -908,11 +948,27 @@ class YoloQualityModel:
                 from src.inference.preprocessing import CropBounds
                 crop_bounds = bounds if isinstance(bounds, CropBounds) else CropBounds(*(int(value) for value in bounds))
                 integrity_mask, integrity_metadata = mask_context.head_integrity_mask(analysis.get("fish_id"), crop_bounds)
-            except (TypeError, ValueError, AttributeError):
+            except Exception as error:
+                LOGGER.warning("Fish %s Head-integrity mask failed: %s", analysis.get("fish_id"), error)
                 integrity_mask, integrity_metadata = None, {}
+                mask_metadata = {**dict(mask_metadata or {}), "head_integrity_mask_error": type(error).__name__}
             if integrity_mask is not None:
                 mask = integrity_mask
                 mask_metadata = {**dict(mask_metadata or {}), **dict(integrity_metadata or {})}
+
+        mask_metadata = dict(mask_metadata or {})
+        # Normal feature extraction may have withheld a missing-Head mask.
+        # Recheck bbox-only clipping after the independent native candidate is
+        # available. Explicit original-frame clipping remains authoritative.
+        ownership = mask_metadata.get("ownership", {})
+        native_metrics = ownership.get("metrics", {}) if isinstance(ownership, Mapping) else {}
+        if (mask_metadata.get("parent_bbox_frame_contact") is True
+                and mask_metadata.get("explicit_native_clipping") is not True
+                and native_metrics.get("mask_touches_frame_boundary") is False
+                and native_metrics.get("foreground_bbox") is not None):
+            clipped = False
+            mask_metadata["clipped"] = False
+            mask_metadata["bbox_only_clipping_disproved_by_native_mask"] = True
 
         space = inference_metadata.get("debug_coordinate_space", "crop_local")
         origin = (float(bounds[0]), float(bounds[1])) if space == "original_frame" and bounds is not None else None
@@ -933,17 +989,31 @@ class YoloQualityModel:
         owned = [part for part in geometry_parts if getattr(part, "region", None) == "Head"]
         raw_heads = heads(inference_metadata.get("raw_detections", ()))
         unassigned = heads(inference_metadata.get("unassigned_detections", ()))
-        other = [
+        other = heads(inference_metadata.get("foreign_head_detections", ()))
+        # A raw candidate below the selection threshold has no established
+        # parent. It can veto absence, but must not be described as another
+        # fish's owned Head without an actual association decision.
+        possible_heads = [
             part for part in raw_heads
             if not any(same_box(part, owned_part) for owned_part in owned)
             and not any(same_box(part, pending) for pending in unassigned)
+            and not any(same_box(part, foreign) for foreign in other)
         ]
+        native_context = None
+        experimental = getattr(mask_context, "_experimental", None)
+        if experimental is not None and experimental.is_current():
+            native_context = {"candidates": experimental.candidates, "ownership": experimental.ownership,
+                "parents": experimental.parents, "parent_id": analysis.get("fish_id"),
+                "frame_key": experimental.frame_key, "frame_shape": experimental.frame.shape}
         report = assess_head_integrity(
-            mask, geometry_parts, other_heads=other, unassigned_heads=unassigned,
+            mask, geometry_parts, other_heads=other, unassigned_heads=[*unassigned, *possible_heads],
             mask_metadata=mask_metadata, model2_available=model2_available, model2_failed=model2_failed,
             overlapping=overlapping, clipped=clipped, association_reliable=association_reliable,
             config=self._fish_geometry_config,
             minimum_part_confidence=self._grading_engine.config.minimum_part_confidence,
+            minimum_candidate_head_confidence=max(getattr(self, "confidence_threshold", 0.25),
+                self._grading_engine.config.minimum_part_confidence),
+            native_instance_context=native_context,
         )
         return apply_head_integrity(analysis, published_grade, report)
 
@@ -1155,6 +1225,28 @@ class YoloQualityModel:
                               "coordinate_space": "original_frame", "validation_provenance": row["validation_provenance"]}
                              for identity, row in reviewed.items()]
             mask_context.prepare_instances(parents, frame_parts, associations, trusted_parts=trusted_parts, reviewed_instances=reviewed)
+            instance_reports = {}
+            experimental = getattr(mask_context, "_experimental", None)
+            if experimental is not None and experimental.is_current():
+                from src.inference.instance_association import refine_instance_associations
+                refinement_started = perf_counter()
+                try:
+                    refined, instance_report = refine_instance_associations(
+                        experimental.candidates, experimental.ownership, parents, frame_parts, associations,
+                        frame.shape, experimental.frame_key, protected_parent_ids=reviewed.keys())
+                except Exception as error:
+                    LOGGER.warning("Native instance association withheld: %s", error)
+                    refined, instance_report = associations, {"applied": False, "status": "unavailable",
+                        "reason": "Native instance association failed; original assignments retained.",
+                        "error_type": type(error).__name__}
+                self.last_association_seconds += perf_counter() - refinement_started
+                if instance_report.get("applied"):
+                    associations = refined
+                    # Revalidate final ownership against the exact native
+                    # pixels used to calculate the association scores.
+                    mask_context.prepare_instances(parents, frame_parts, associations,
+                        trusted_parts=trusted_parts, reviewed_instances=reviewed, ownership_only=True)
+                instance_reports = instance_report
             results: dict[int, tuple[FishQualityObservation, CropBounds]] = {}
             roi_seconds = 0.0
             assignment_seconds = 0.0
@@ -1163,7 +1255,18 @@ class YoloQualityModel:
                     continue
                 owned_parts = [item.part for item in associations if item.status == "ASSIGNED" and item.track_id == parent.track_id]
                 roi_started = perf_counter()
-                crop, bounds = crop_assigned_evidence(frame, parent.bbox, [part.bbox for part in owned_parts], padding=self.roi_padding)
+                evidence_boxes = [part.bbox for part in owned_parts]
+                native_extent = None
+                if experimental is not None:
+                    ownership = experimental.ownership.get(parent.track_id, {})
+                    if ownership.get("mask_geometry_checks_passed") is True:
+                        native_extent = ownership.get("metrics", {}).get("foreground_bbox")
+                        if native_extent is not None:
+                            evidence_boxes.append(native_extent)
+                # Detector rectangles are prompts, not silhouette boundaries.
+                # Retain all independently checked foreground before measuring
+                # endpoints, instead of manufacturing a cut at the ROI edge.
+                crop, bounds = crop_assigned_evidence(frame, parent.bbox, evidence_boxes, padding=self.roi_padding)
                 roi_seconds += perf_counter() - roi_started
                 assignment_started = perf_counter()
                 assigned_parts = [
@@ -1174,11 +1277,16 @@ class YoloQualityModel:
                 summary = association_summary(associations, parent.track_id)
                 summary.update(coordinate_space="original_frame", frame_id=frame_id,
                                frame_width_px=frame.shape[1], frame_height_px=frame.shape[0])
+                summary["native_instance_refinement"] = instance_reports
                 summary["clipping"] = {
                     "parent_box_frame_contact": parent.bbox[0] <= 0 or parent.bbox[1] <= 0 or parent.bbox[2] >= frame.shape[1] or parent.bbox[3] >= frame.shape[0],
                     "analysis_crop_frame_contact": bounds.x1 == 0 or bounds.y1 == 0 or bounds.x2 == frame.shape[1] or bounds.y2 == frame.shape[0],
                     "crop_bounds": [bounds.x1, bounds.y1, bounds.x2, bounds.y2],
                     "context_expanded_for_owned_parts": any(part.bbox[0] < parent.bbox[0] or part.bbox[1] < parent.bbox[1] or part.bbox[2] > parent.bbox[2] or part.bbox[3] > parent.bbox[3] for part in owned_parts),
+                    "native_silhouette_extent": native_extent,
+                    "context_expanded_for_native_silhouette": bool(native_extent is not None and (
+                        native_extent[0] < parent.bbox[0] or native_extent[1] < parent.bbox[1]
+                        or native_extent[2] > parent.bbox[2] or native_extent[3] > parent.bbox[3])),
                     "native_silhouette_clipped": None,
                     "note": "Box or crop contact alone does not establish silhouette clipping or anatomical absence.",
                 }
@@ -1252,6 +1360,8 @@ class YoloQualityModel:
                         "selected_detections": owned_parts,
                         "detector_selected_detections": frame_parts,
                         "unassigned_detections": [item.part for item in associations if item.status != "ASSIGNED"],
+                        "foreign_head_detections": [item.part for item in associations
+                            if item.status == "ASSIGNED" and item.track_id != parent.track_id and item.part.region == "Head"],
                         "debug_coordinate_space": "original_frame",
                         "model2_input_size": [self.image_size, self.image_size],
                         "resize_method": "Ultralytics letterbox inside model.predict",

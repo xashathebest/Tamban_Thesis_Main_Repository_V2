@@ -144,6 +144,8 @@ def analyze_silhouette_ends(
         "representative_body_width_px": round(body, 4),
         "central_width_px": round(body, 4),
         "width_profile_ratio": [round(float(profile[index]) / body, 4) for index in samples],
+        "terminal_width_ratios": {item["axis"]: item["terminal_width_ratio"] for item in ends},
+        "body_taper": {item["axis"]: item["body_taper"] for item in ends},
         "ends": ends,
         "minimum_projection_blunt": ends[0]["character"] == "blunt",
         "maximum_projection_blunt": ends[1]["character"] == "blunt",
@@ -177,6 +179,12 @@ def _describe_end(widths: np.ndarray, bounds, body: float, reverse: bool, settin
         f"width_ratio_at_{int(round(fraction * 100))}pct": _round(_ratio_at(widths, body, fraction, reverse))
         for fraction in settings.near_width_fractions
     }
+    series = widths[::-1] if reverse else widths
+    terminal_span = min(len(series), max(3, int(round(len(series) * settings.rise_window_fraction))))
+    terminal_ratio = float(np.median(series[:terminal_span])) / body
+    taper_span = min(len(series), max(3, int(round(len(series) * settings.slanted_rise_fraction))))
+    normalized_positions = np.arange(taper_span, dtype=float) / max(1, len(series) - 1)
+    taper_slope = float(np.polyfit(normalized_positions, series[:taper_span] / body, 1)[0])
     blunt = rise is not None and rise <= settings.blunt_rise_fraction
     slanted = (
         rise is not None and rise <= settings.slanted_rise_fraction
@@ -213,6 +221,22 @@ def _describe_end(widths: np.ndarray, bounds, body: float, reverse: bool, settin
         "peduncle_ratio": _round(peduncle),
         "caudal_flare": flare,
         "near_end_width_ratios": near,
+        "terminal_width_ratio": _round(terminal_ratio),
+        "terminal_window_length_fraction": _round(terminal_span / len(series)),
+        "abrupt_terminal_truncation": character is not None,
+        "truncation_evidence": {
+            "character": character,
+            "rise_fraction": _round(rise),
+            "discontinuity": _round(discontinuity),
+            "slope_persistence": _round(persistence),
+            "asymmetry": _round(asymmetry),
+        },
+        "body_taper": {
+            "peduncle_width_ratio": _round(peduncle),
+            "terminal_to_body_width_ratio": _round(terminal_ratio),
+            "inward_width_slope": _round(taper_slope),
+            "basis": "Width normalized by representative silhouette width and distance normalized by profile length; positive slope widens inward.",
+        },
         "indicators": [name for name, active in (("blunt", blunt), ("slanted", slanted), ("irregular", irregular), ("posterior", posterior), ("caudal_flare", flare)) if active],
     }
 

@@ -1,7 +1,9 @@
 """Frame-owned MobileSAM candidates; production grading remains independent."""
 from __future__ import annotations
 
+from collections.abc import Mapping
 import hashlib
+import json
 import os
 from time import perf_counter
 
@@ -42,23 +44,42 @@ class ExperimentalFrameSegmentation:
                              "embedding_calls": 0, "prompt_calls": 0, "segmentation_ms": 0.0,
                              "used_for_grading": False, "validation_status": "Not validated"}
 
-    def prepare(self, parents, parts=(), associations=None, *, trusted_parts=(), reviewed_instances=None):
+    def prepare(self, parents, parts=(), associations=None, *, trusted_parts=(), reviewed_instances=None,
+                ownership_only=False):
         from src.inference.mask_ownership import validate_candidate_masks, shadow_mask_associations, trusted_prompt_points
         parents = list(parents)
         parts = list(parts)
+        associations = tuple(associations) if associations is not None else None
         self.trusted_parts = list(trusted_parts)
         self.reviewed_instances = dict(reviewed_instances or {})
         self.reviewed_ownership = {}
         point_prompts = {p.track_id: trusted_prompt_points(p.track_id, self.trusted_parts, self.frame.shape) for p in parents}
+        # Estimated retry seeds depend on accepted part ownership as well as
+        # pixels and parent boxes. Diagnostic-only raw candidates are excluded.
+        part_signature = json.dumps([part.to_dict() if hasattr(part, "to_dict") else part for part in parts],
+                                    sort_keys=True, separators=(",", ":"))
+        def field(value, name, default=None):
+            return value.get(name, default) if isinstance(value, Mapping) else getattr(value, name, default)
+        association_signature = tuple((field(row, "status"), field(row, "track_id"),
+            tuple(field(field(row, "part"), "bbox", ()))) for row in (associations or ()))
         generation_key = (hashlib.blake2b(memoryview(np.ascontiguousarray(self.frame)), digest_size=16).hexdigest(),
                           tuple((p.track_id, tuple(p.bbox),
                                  tuple(map(tuple, point_prompts[p.track_id]["point_coords"])),
-                                 tuple(point_prompts[p.track_id]["point_labels"])) for p in parents))
-        if self._generation_key != generation_key:
+                                 tuple(point_prompts[p.track_id]["point_labels"])) for p in parents),
+                          part_signature, association_signature)
+        if ownership_only:
+            # Association scores refer to these exact foreground pixels.
+            # Rechecking their ownership must not replace the supporting mask
+            # with a new prompt result midway through the same decision.
+            if self._generation_key is None or self._generation_key[:3] != generation_key[:3]:
+                raise ValueError("Ownership-only revalidation requires identical source, parents, prompts and parts.")
+            self._diagnostics["ownership_revalidation_runs"] = self._diagnostics.get("ownership_revalidation_runs", 0) + 1
+        if self._generation_key != generation_key and not ownership_only:
             self.parents = parents
             self.frame_key = f"{self.frame_id}:{generation_key[0]}"
             self.candidates, self._reports = {}, {}
             started = perf_counter()
+            self._diagnostics["candidate_generation_runs"] = self._diagnostics.get("candidate_generation_runs", 0) + 1
             if parents:
                 try:
                     if self.service is None:
@@ -77,12 +98,55 @@ class ExperimentalFrameSegmentation:
                                 self.candidates[parent.track_id]["reviewed_point_prompts"] = points
                             except Exception as error:
                                 self.candidates[parent.track_id] = self._unavailable(error)
-                        self._diagnostics.update(session.diagnostics())
+                        # A second prompt is useful only for a segmentation
+                        # failure. Missing Model 2 parts or a clipped tail are
+                        # not repaired by choosing a different silhouette.
+                        from src.inference.crowded_segmentation import estimated_refinement_prompts, select_refined_candidates
+                        initial_checks = validate_candidate_masks(self.candidates, parents, parts,
+                            associations=associations, frame_shape=self.frame.shape, expected_frame_key=self.frame_key)
+                        plans = estimated_refinement_prompts(self.candidates, parents, parts,
+                            associations=associations, frame_shape=self.frame.shape, ownership=initial_checks)
+                        proposals = {}
+                        association_only = {"required_body_evidence_unavailable", "required_head_evidence_unavailable",
+                                            "required_anatomical_ownership_ambiguous", "mask_touches_frame_boundary",
+                                            "parent_touches_frame_boundary"}
+                        for parent in parents:
+                            plan = plans.get(parent.track_id, {})
+                            failures = set(initial_checks.get(parent.track_id, {}).get("reasons") or [])
+                            if plan.get("status") != "planned" or not failures - association_only or len(proposals) >= 8:
+                                continue
+                            try:
+                                proposed = session.predict(parent.track_id, parent.bbox,
+                                    detection_version=f"{generation_key[0]}:crowded-refinement",
+                                    point_coords=plan["point_coords"], point_labels=plan["point_labels"],
+                                    point_prompt_source=plan["source"])
+                                proposed["estimated_point_prompts"] = plan
+                                proposals[parent.track_id] = proposed
+                            except Exception as error:
+                                plan["retry_error"] = type(error).__name__
+                        if proposals:
+                            self.candidates, _, selection = select_refined_candidates(self.candidates, proposals,
+                                parents, parts, associations=associations, frame_shape=self.frame.shape,
+                                expected_frame_key=self.frame_key)
+                        else:
+                            selection = {"selected_variant": "initial", "replaced_parent_ids": [],
+                                         "reason": "No unresolved native segmentation defect with safe refinement prompts."}
+                        self._diagnostics["crowded_refinement"] = {"plans": plans, "selection": selection,
+                            "retry_count": len(proposals), "maximum_refined_parents": 8,
+                            "same_model_and_device": True, "native_pixels_modified": False}
+                        measured = session.diagnostics()
+                        for key in ("embedding_calls", "embedding_ms", "actual_encoder_forward_calls", "prompt_calls",
+                                    "prompt_ms", "prompt_cache_hits", "cpu_fallbacks", "prompt_requests", "decoder_attempts"):
+                            value = measured.get(key)
+                            if isinstance(value, (int, float)):
+                                measured[key] = value + (self._diagnostics.get(key) or 0)
+                        self._diagnostics.update(measured)
                 except Exception as error:
                     for parent in parents:
                         self.candidates.setdefault(parent.track_id, self._unavailable(error))
                     self._diagnostics.update(status="unavailable", reason=str(error), error_type=type(error).__name__)
-            self._diagnostics["segmentation_ms"] = round((perf_counter() - started) * 1000, 3)
+            self._diagnostics["segmentation_ms"] = round(self._diagnostics.get("segmentation_ms", 0)
+                                                         + (perf_counter() - started) * 1000, 3)
             self._generation_key = generation_key
         self.parts = list(parts)
         try:
@@ -121,6 +185,44 @@ class ExperimentalFrameSegmentation:
         # outside a particular fish ROI. Never reuse it after an in-place edit.
         return (self._generation_key is not None and self._generation_key[0] ==
                 hashlib.blake2b(memoryview(np.ascontiguousarray(self.frame)), digest_size=16).hexdigest())
+
+    @staticmethod
+    def _crop_integrity(mask, bounds, ownership):
+        """Keep an analysis crop from manufacturing a severed terminal face.
+
+        Native-mask ownership and crop completeness are separate checks. This
+        copied record adds the crop check without editing or reassigning any
+        native pixels, changing native ownership, or relaxing its safeguards.
+        """
+        from src.inference.mask_ownership import head_integrity_mask_eligibility
+        checked = dict(ownership)
+        metrics = dict(checked.get("metrics") or {})
+        reasons = list(checked.get("reasons") or [])
+        native_pixels = int(np.count_nonzero(mask))
+        valid_bounds = (0 <= bounds.x1 < bounds.x2 <= mask.shape[1]
+                        and 0 <= bounds.y1 < bounds.y2 <= mask.shape[0])
+        retained = int(np.count_nonzero(mask[bounds.y1:bounds.y2, bounds.x1:bounds.x2])) if valid_bounds else 0
+        complete = valid_bounds and native_pixels > 0 and retained == native_pixels
+        crop_check = {
+            "native_foreground_pixels": native_pixels,
+            "crop_foreground_pixels": retained,
+            "omitted_native_foreground_pixels": native_pixels - retained,
+            "retained_foreground_fraction": retained / max(1, native_pixels),
+            "contains_complete_native_silhouette": complete,
+            "analysis_crop_truncated": valid_bounds and retained < native_pixels,
+            "valid_analysis_crop_bounds": valid_bounds,
+            "native_silhouette_frame_clipped": bool(
+                mask[0].any() or mask[-1].any() or mask[:, 0].any() or mask[:, -1].any()),
+        }
+        metrics["analysis_crop_retention"] = crop_check
+        if not valid_bounds:
+            reasons.append("invalid_analysis_crop_bounds")
+        elif not complete:
+            reasons.append("analysis_crop_truncates_silhouette")
+        checked.update(metrics=metrics, reasons=sorted(set(reasons)))
+        if not complete:
+            checked.update(mask_geometry_checks_passed=False, engineering_checks_passed=False)
+        return checked, head_integrity_mask_eligibility(checked), crop_check
 
     def get(self, parent_id, bounds):
         reviewed = self.reviewed_instances.get(parent_id)
@@ -164,6 +266,10 @@ class ExperimentalFrameSegmentation:
         if not current:
             metadata.update(reason="Source frame changed; recompute candidates before reuse.", stale_source_frame=True,
                             parent_isolation_reliable=False)
+        if current and isinstance(mask, np.ndarray) and mask.shape == self.frame.shape[:2]:
+            checked, eligibility, retention = self._crop_integrity(mask, bounds, ownership)
+            metadata.update(ownership=checked, native_ownership=ownership,
+                            head_integrity_eligibility=eligibility, analysis_crop_retention=retention)
         return local, metadata
 
     def head_integrity_mask(self, parent_id, bounds):
@@ -198,6 +304,13 @@ class ExperimentalFrameSegmentation:
         }
         if not current or not isinstance(mask, np.ndarray) or mask.shape != self.frame.shape[:2]:
             metadata.update(status="unavailable", reason="MobileSAM candidate is unavailable for Head-integrity review.")
+            return None, metadata
+        checked, eligibility, retention = self._crop_integrity(mask, bounds, ownership)
+        metadata.update(ownership=checked, native_ownership=ownership,
+                        head_integrity_eligibility=eligibility, analysis_crop_retention=retention,
+                        parent_isolation_reliable=eligibility["eligible"])
+        if not retention["valid_analysis_crop_bounds"]:
+            metadata.update(status="unavailable", reason="Analysis crop bounds do not match the native frame.")
             return None, metadata
         local = np.asarray(mask[bounds.y1:bounds.y2, bounds.x1:bounds.x2], dtype=bool)
         metadata.update(

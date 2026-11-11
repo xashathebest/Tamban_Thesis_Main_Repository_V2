@@ -167,6 +167,38 @@ def test_identical_candidate_masks_conflict_even_with_perfect_model_scores():
         assert not result[owner]["mask_geometry_checks_passed"]
 
 
+def test_neighbor_intersection_diagnostics_preserve_pixels_and_overlap_gates():
+    from src.inference.mask_ownership import head_integrity_mask_eligibility
+    parents = (PARENT, ParentAnchor(2, PARENT.bbox))
+    shared = fish()
+    before = shared.copy()
+    candidates = {1: candidate(shared), 2: candidate(shared, parent_id=2)}
+    result = validate_candidate_masks(candidates, parents, parts(), associations=assigned(), frame_shape=SHAPE)
+    for owner, neighbor in ((1, 2), (2, 1)):
+        metrics = result[owner]["metrics"]
+        overlap = metrics["neighbor_mask_intersections"][str(neighbor)]
+        assert overlap["intersection_pixels"] == int(shared.sum())
+        assert overlap["owner_intersection_fraction"] == 1.0
+        assert overlap["neighbor_intersection_fraction"] == 1.0
+        assert overlap["pair_overlap_check_passed"] is False
+        assert overlap["shared_pixels_reassigned"] is False
+        eligibility = head_integrity_mask_eligibility(result[owner])
+        assert eligibility["eligible"] is False
+        assert eligibility["withheld_category"] == "overlap_or_contamination"
+        assert eligibility["ownership_metrics"]["neighbor_mask_intersections"] == metrics["neighbor_mask_intersections"]
+    assert np.array_equal(shared, before)
+
+
+def test_neighbor_exclusive_region_diagnostics_explain_existing_guard():
+    mask = fish() | fish(center=(470, 60))
+    neighbor = ParentAnchor(2, (340, 30, 600, 90))
+    result = validate(candidate(mask), parents=(PARENT, neighbor))
+    check = result["metrics"]["neighbor_box_support"]["2"]
+    assert check["foreground_inside_neighbor_exclusive_pixels"] > 0
+    assert check["neighbor_exclusive_foreground_fraction"] > MaskOwnershipConfig().maximum_neighbor_exclusive_fraction
+    assert check["exclusive_region_check_passed"] is False
+
+
 def test_neighbor_head_inside_own_box_still_contaminates_candidate():
     neighbor_head = SimpleNamespace(part=parts()[1], status="ASSIGNED", track_id=2)
     result = validate(candidate(), associations=assigned() + [neighbor_head])

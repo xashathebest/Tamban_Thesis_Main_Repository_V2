@@ -143,6 +143,7 @@ def validate_candidate_masks(
                   "coordinate_space": "original_frame", "frame_shape": list(shape),
                   "model_mask_score": score, "score_interpretation": "Model-predicted mask quality; not fish ownership probability",
                   "conflicting_parent_ids": [], "required_parts": ["Body", "Head"],
+                  "ambiguous_anatomical_regions": [], "anatomical_ownership_ambiguities": [],
                   "body_support": {"source": "unavailable", "validated": False,
                                    "reason": "No explicitly validated Body pixel support was supplied."},
                   "checks_configuration": asdict(rules),
@@ -269,6 +270,14 @@ def validate_candidate_masks(
                             min(box[2], other_box[2]), min(box[3], other_box[3]))
             shared_box_count = _count(mask, intersection) if intersection[2] > intersection[0] and intersection[3] > intersection[1] else 0
             exclusive = max(0, other_inside - shared_box_count) / area
+            result["metrics"].setdefault("neighbor_box_support", {})[str(neighbor.track_id)] = {
+                "foreground_inside_neighbor_box_pixels": other_inside,
+                "foreground_inside_shared_box_pixels": shared_box_count,
+                "foreground_inside_neighbor_exclusive_pixels": max(0, other_inside - shared_box_count),
+                "neighbor_exclusive_foreground_fraction": exclusive,
+                "maximum_allowed_exclusive_fraction": rules.maximum_neighbor_exclusive_fraction,
+                "exclusive_region_check_passed": exclusive <= rules.maximum_neighbor_exclusive_fraction,
+            }
             if exclusive > rules.maximum_neighbor_exclusive_fraction:
                 fail.append("foreground_in_neighbor_exclusive_region")
                 result["conflicting_parent_ids"].append(neighbor.track_id)
@@ -291,6 +300,15 @@ def validate_candidate_masks(
                 contenders = _field(row, "ambiguous_track_ids", ()) or tuple(_field(c, "track_id") for c in _field(row, "candidates", ()))
                 if parent.track_id in contenders and _field(_field(row, "part"), "region") in ("Head", "Body"):
                     result["reasons"].append("required_anatomical_ownership_ambiguous")
+                    part = _field(row, "part")
+                    region = _field(part, "region")
+                    result["ambiguous_anatomical_regions"].append(region)
+                    result["anatomical_ownership_ambiguities"].append({
+                        "region": region, "bbox": list(_field(part, "bbox", ())),
+                        "confidence": _confidence(part),
+                        "contending_parent_ids": [int(identity) for identity in contenders],
+                        "quality_grading_status": "AMBIGUOUS",
+                    })
             if _field(row, "status") == "ASSIGNED" and _field(row, "track_id") not in (None, parent.track_id):
                 part = _field(row, "part")
                 if _field(part, "region") in ("Head", "Body") and _part_coverage(mask, part) >= rules.maximum_neighbor_part_coverage:
@@ -307,6 +325,19 @@ def validate_candidate_masks(
             fraction = area / max(1, min(results[first.track_id]["metrics"]["foreground_pixels"], results[second.track_id]["metrics"]["foreground_pixels"]))
             for owner, other in ((first, second), (second, first)):
                 results[owner.track_id]["metrics"].setdefault("pair_overlap_fraction", {})[str(other.track_id)] = fraction
+                owner_area = results[owner.track_id]["metrics"]["foreground_pixels"]
+                other_area = results[other.track_id]["metrics"]["foreground_pixels"]
+                results[owner.track_id]["metrics"].setdefault("neighbor_mask_intersections", {})[str(other.track_id)] = {
+                    "intersection_pixels": area,
+                    "owner_foreground_pixels": owner_area,
+                    "neighbor_foreground_pixels": other_area,
+                    "owner_intersection_fraction": area / max(1, owner_area),
+                    "neighbor_intersection_fraction": area / max(1, other_area),
+                    "smaller_mask_intersection_fraction": fraction,
+                    "maximum_allowed_pair_overlap_fraction": rules.maximum_pair_overlap_fraction,
+                    "pair_overlap_check_passed": fraction <= rules.maximum_pair_overlap_fraction,
+                    "shared_pixels_reassigned": False,
+                }
                 if fraction > rules.maximum_pair_overlap_fraction:
                     results[owner.track_id]["reasons"].append("overlapping_mask_ownership_conflict")
                     geometry_reasons[owner.track_id].append("overlapping_mask_ownership_conflict")
@@ -314,6 +345,7 @@ def validate_candidate_masks(
     for owner, result in results.items():
         result["reasons"] = sorted(set(result["reasons"]))
         result["conflicting_parent_ids"] = sorted(set(result["conflicting_parent_ids"]))
+        result["ambiguous_anatomical_regions"] = sorted(set(result["ambiguous_anatomical_regions"]))
         if owner not in masks:
             continue
         result["mask_geometry_checks_passed"] = not geometry_reasons[owner]
@@ -325,11 +357,11 @@ def validate_candidate_masks(
 
 _HEAD_INTEGRITY_ALLOWED_REASONS = {"required_head_evidence_unavailable"}
 _HEAD_INTEGRITY_FRAME_REASONS = {"mask_touches_frame_boundary", "parent_touches_frame_boundary"}
+_HEAD_INTEGRITY_CROP_REASONS = {"analysis_crop_truncates_silhouette", "invalid_analysis_crop_bounds"}
 _HEAD_INTEGRITY_OVERLAP_REASONS = {
     "foreground_in_neighbor_exclusive_region",
     "candidate_contains_neighbor_anatomical_evidence",
     "overlapping_mask_ownership_conflict",
-    "required_anatomical_ownership_ambiguous",
 }
 _HEAD_INTEGRITY_OCCLUSION_REASONS = {
     "fragmented_or_merged_foreground_components",
@@ -337,7 +369,8 @@ _HEAD_INTEGRITY_OCCLUSION_REASONS = {
 }
 
 
-def head_integrity_mask_eligibility(ownership: Mapping | None) -> dict:
+def head_integrity_mask_eligibility(ownership: Mapping | None, *, geometric_body_supported: bool = False,
+                                  independent_head_endpoint: bool = False) -> dict:
     """Decide whether a candidate silhouette can be inspected for a missing Head.
 
     Missing Head evidence is not an ownership conflict. Frame contact, broken
@@ -349,17 +382,34 @@ def head_integrity_mask_eligibility(ownership: Mapping | None) -> dict:
     reasons = [str(reason) for reason in record.get("reasons") or [] if str(reason)]
     reason_set = set(reasons)
     conflicts = list(record.get("conflicting_parent_ids") or [])
-    blocking = sorted(reason_set - _HEAD_INTEGRITY_ALLOWED_REASONS)
+    allowed = _HEAD_INTEGRITY_ALLOWED_REASONS | ({"required_body_evidence_unavailable"} if geometric_body_supported else set())
+    ambiguous_regions = record.get("ambiguous_anatomical_regions") or []
+    ambiguity_rows = record.get("anatomical_ownership_ambiguities") or []
+    body_only_recorded = (ambiguous_regions == ["Body"] and bool(ambiguity_rows)
+                          and all(isinstance(row, Mapping) and row.get("region") == "Body"
+                                  and record.get("parent_id") in (row.get("contending_parent_ids") or [])
+                                  for row in ambiguity_rows))
+    separate_body_ambiguity = geometric_body_supported and independent_head_endpoint and body_only_recorded
+    if separate_body_ambiguity:
+        # The unresolved detector box stays ambiguous for normal grading.
+        # A separately measured torso and independently clear anterior mask
+        # provide the evidence used only by the Head-integrity pathway.
+        allowed = allowed | {"required_anatomical_ownership_ambiguous"}
+    blocking = sorted(reason_set - allowed)
     geometry_passed = record.get("mask_geometry_checks_passed") is True and not conflicts
     eligible = bool(record) and geometry_passed and not blocking
     if eligible:
         category = None
     elif reason_set & _HEAD_INTEGRITY_FRAME_REASONS:
         category = "frame_clipped"
+    elif reason_set & _HEAD_INTEGRITY_CROP_REASONS:
+        category = "analysis_crop_truncated"
     elif conflicts or reason_set & _HEAD_INTEGRITY_OVERLAP_REASONS:
         category = "overlap_or_contamination"
     elif reason_set & _HEAD_INTEGRITY_OCCLUSION_REASONS:
         category = "occluded_or_fragmented"
+    elif "required_anatomical_ownership_ambiguous" in reason_set:
+        category = "anatomical_association_ambiguous"
     elif not record:
         category = "ownership_not_recorded"
     else:
@@ -373,6 +423,14 @@ def head_integrity_mask_eligibility(ownership: Mapping | None) -> dict:
         "allowed_missing_head": "required_head_evidence_unavailable" in reason_set,
         "withheld_category": category,
         "head_detection_required": False,
+        "geometric_body_supported": geometric_body_supported,
+        "ambiguous_anatomical_regions": list(ambiguous_regions),
+        "body_ambiguity_scope_verified": body_only_recorded,
+        "body_ambiguity_separate_from_head_integrity": separate_body_ambiguity,
+        "missing_model2_body": "required_body_evidence_unavailable" in reason_set,
+        "ownership_metrics": dict(record.get("metrics") or {}),
+        "native_frame_clipped": bool(reason_set & _HEAD_INTEGRITY_FRAME_REASONS),
+        "analysis_crop_truncated": bool(reason_set & _HEAD_INTEGRITY_CROP_REASONS),
     }
 
 

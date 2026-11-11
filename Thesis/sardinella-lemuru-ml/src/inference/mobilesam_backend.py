@@ -335,7 +335,8 @@ class MobileSamFrame:
             result["mask"].flags.writeable = False
         return result
 
-    def predict(self, parent_id, bbox_global, *, point_coords=None, point_labels=None, detection_version=0):
+    def predict(self, parent_id, bbox_global, *, point_coords=None, point_labels=None, detection_version=0,
+                point_prompt_source=None):
         if self._closed:
             raise RuntimeError("MobileSAM frame session is closed; stale frame reuse is prohibited.")
         if isinstance(parent_id, bool) or not isinstance(parent_id, (str, int)):
@@ -358,7 +359,10 @@ class MobileSamFrame:
                     return self._unavailable(parent_id, "Invalid vetted anatomical point prompts.")
                 if ((points < 0).any() or (points[:, 0] >= width).any() or (points[:, 1] >= height).any()):
                     return self._unavailable(parent_id, "Anatomical point prompt is outside the original image.")
-            key = (parent_id, str(detection_version), tuple(original_box), None if points is None else points.tobytes(), None if labels is None else labels.tobytes())
+            if point_prompt_source is not None and (not isinstance(point_prompt_source, str) or not point_prompt_source.strip()):
+                return self._unavailable(parent_id, "Point-prompt provenance must be a nonempty string.")
+            key = (parent_id, str(detection_version), tuple(original_box), None if points is None else points.tobytes(),
+                   None if labels is None else labels.tobytes(), point_prompt_source)
             if key in self._cache:
                 self._cache_hits += 1
                 return {**self._read_candidate(self._cache[key]), "cache_hit": True, "prompt_ms": 0.0}
@@ -403,7 +407,9 @@ class MobileSamFrame:
             provenance.update(prompt_bbox_global=box.tolist(), original_bbox_global=original_box.tolist(),
                 prompt_clipped=not np.array_equal(box, original_box), detection_version=str(detection_version),
                 parent_touches_frame_boundary=bool(box[0] <= 0 or box[1] <= 0 or box[2] >= width or box[3] >= height),
-                point_prompt_count=0 if points is None else len(points), point_prompt_source="none; no validated anatomical points supplied" if points is None else "caller-supplied vetted anatomical evidence")
+                point_prompt_count=0 if points is None else len(points),
+                point_prompt_source=("none; no anatomical points supplied" if points is None else
+                                     point_prompt_source or "caller-supplied vetted anatomical evidence"))
             candidate = {"status": "candidate", "parent_id": parent_id, "mask": mask, "score": score,
                          "provenance": provenance, "reason": "Candidate mask; ownership validation is required.",
                          "embedding_ms": round(self._embedding_ms, 3), "prompt_ms": round(elapsed, 3), "cache_hit": False}
