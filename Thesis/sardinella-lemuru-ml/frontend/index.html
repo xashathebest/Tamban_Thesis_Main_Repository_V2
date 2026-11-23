@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#FFFFFF">
     <title>Tamban Quality Inspection System | Live Inspection</title>
-    <link rel="stylesheet" href="/assets/styles.css?v=live-camera-picker-20261104">
+    <link rel="stylesheet" href="/assets/styles.css?v=surface-features-20261123">
   </head>
   <body>
     <svg class="icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -399,15 +399,18 @@
                     <label>Highlight <select id="upload-mask-fish" aria-label="Highlight fish mask"><option value="all">All fish</option></select></label>
                     <label>Zoom <select id="upload-mask-zoom" aria-label="Mask preview zoom"><option value="1">Fit image</option><option value="1.5">150%</option><option value="2">200%</option><option value="3">300%</option></select></label>
                     <label><input id="upload-mask-measurements" type="checkbox"> Show Measurements</label>
-                    <label><input id="upload-mask-cracks" type="checkbox"> Show Cracks</label>
+                    <label>Brightness view <select id="upload-brightness-view"><option value="original">Original + measured labels</option><option value="grayscale">Brightness grayscale</option></select></label>
+                    <label><input id="upload-mask-cracks" type="checkbox"> Crack Detection</label>
+                    <label><input id="upload-crack-overlay" type="checkbox"> Red crack overlay</label>
+                    <label><input id="upload-crack-rejections" type="checkbox"> Show other defect hypotheses</label>
                     <details class="inspection-overlay-options"><summary>Evidence overlays</summary><label><input id="upload-mask-show" type="checkbox" checked> Fish masks visibility</label><label><input id="upload-mask-model1" type="checkbox" checked> Model 1 boxes</label><label><input id="upload-mask-model2" type="checkbox"> Assigned Model 2 parts</label><label><input id="upload-association-debug" type="checkbox" aria-describedby="upload-association-debug-status"> Anatomical Association Debug View</label></details>
                   </div>
                   <p id="upload-mask-overlay-status" class="mask-overlay-status hidden" role="status" aria-live="polite" aria-atomic="true"></p>
+                  <p id="upload-surface-legend" class="surface-legend">Brightness: HSV V, 0% black → 100% white. Crack mask: white = split-like candidates; black = other pixels and outside the selected fish. Dashed outlines are unvalidated. Strength is not probability.</p>
                   <p id="upload-association-debug-status" class="association-debug-status hidden" role="status" aria-live="polite"></p>
                   <ul id="upload-association-debug-legend" class="association-debug-legend hidden" aria-label="Anatomical debug colors"><li data-kind="raw">Raw detector candidate</li><li data-kind="accepted">Accepted for highlighted fish</li><li data-kind="rejected">Rejected / unassigned candidate</li><li data-kind="ambiguous">Ambiguous / owned by another fish</li></ul>
                   <details class="inspection-reliability"><summary>Mask reliability and ownership</summary><ul id="upload-mask-legend" class="mask-preview-legend" aria-label="Fish mask reliability"></ul></details>
-                  <p class="muted">Click a shaded fish or its bounding box to open its zoom view. Switching the view or opacity reuses this completed analysis. Dashed boundaries identify masks requiring review. Click a crack candidate to inspect its evidence.</p>
-                  <p class="measurement-overlay-key"><span>Length</span><span>Maximum Body width</span><span>Representative Body section</span> · Dashed measurements are Estimated; solid measurements are Validated. Crack outlines locate review candidates.</p>
+                  <details class="inspection-reliability"><summary>Measurement and visualization guide</summary><p class="muted">Select a fish to inspect its measurements. Click a crack candidate to inspect its geometry and reliability. Brightness uses the complete owned fish mask; yellowing and browning are separate color measurements. Red overlay shows the same candidate pixels on the original. View controls reuse the completed analysis.</p><p class="measurement-overlay-key"><span>Length</span><span>Maximum Body width</span><span>Representative Body section</span> · Dashed measurements are Estimated; solid measurements are Validated.</p></details>
                 </section>
               <div class="upload-analysis-progress hidden" id="upload-analysis-progress" role="status" aria-live="polite" aria-label="Media analysis in progress">
                 <div class="upload-progress-track" aria-hidden="true"><i></i></div>
@@ -415,9 +418,11 @@
               <div class="fish-media-stage upload-media-stage" id="upload-media-stage">
                 <img id="upload-result-image" class="upload-image hidden" alt="Selected or annotated fish photo">
                 <video id="upload-result-video" class="upload-image upload-video hidden" controls muted playsinline></video>
-                <div id="upload-mask-viewport" class="mask-preview-viewport hidden"><canvas id="upload-mask-canvas" aria-label="Original photo with experimental fish silhouettes"></canvas></div>
+                <div id="upload-mask-viewport" class="mask-preview-viewport hidden"><div id="upload-surface-comparison" class="surface-comparison"><figure id="upload-crack-original-figure" class="hidden"><figcaption>Original image · numbered candidate boundaries</figcaption><canvas id="upload-crack-original" aria-label="Original fish image with candidate numbering"></canvas></figure><figure><figcaption id="upload-surface-caption">Inspection image · measured brightness per fish</figcaption><canvas id="upload-mask-canvas" aria-label="Inspection image with measured brightness"></canvas></figure></div></div>
                 <div class="fish-click-targets" id="upload-fish-targets" aria-label="Detected fish"></div>
               </div>
+              <section id="upload-surface-monitor" class="surface-feature-monitor" aria-label="Brightness and crack feature monitor" aria-live="polite"></section>
+              <button id="upload-surface-export" type="button" class="button quiet hidden">Export brightness and crack candidates CSV</button>
               <div id="upload-mask-evidence" class="mask-inspection-evidence" aria-label="Geometry and structural damage per fish"></div>
               <section id="upload-crack-details" class="crack-candidate-details hidden" aria-label="Selected crack candidate" aria-live="polite"></section>
               <div class="upload-results hidden" id="upload-results"></div>
@@ -1154,6 +1159,6 @@
         </div>
       </div>
     </section>
-    <script src="/assets/app.js?v=live-camera-picker-20261104" defer></script>
+    <script src="/assets/app.js?v=surface-features-20261123" defer></script>
   </body>
 </html>

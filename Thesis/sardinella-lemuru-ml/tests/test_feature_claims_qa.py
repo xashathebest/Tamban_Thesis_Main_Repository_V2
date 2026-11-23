@@ -83,10 +83,11 @@ for (const name of ["titleCase", "formatPercent", "analysisFor", "finiteNumber",
   "scoreText", "partFor", "partStatus", "surfaceDamageEvidence", "latestFeatureRows", "surfaceDamageRows"]) include(name);
 const inputs = [
   {},
-  {analysis: {color: {"Whole Fish": {mean_value: .5}}, surface_damage: {status: "not_detected"}}},
+  {analysis: {brightness: {mean_brightness: 50, measurement_reliability: "reviewed_mask"}, surface_damage: {status: "not_detected"}}},
   {analysis: {surface_damage: {status: "suspected", locations: []}}},
   {analysis: {surface_damage: {status: "suspected", locations: [{}], evidence_state: "Validated Damage"}}},
   {analysis: {surface_damage: {status: "suspected", locations: [{x: 1, y: 2, width: 3, height: 4}], evidence_state: "Validated Damage"}}},
+  {analysis: {color: {"Whole Fish": {mean_value: .5}}}},
 ];
 console.log(JSON.stringify(inputs.map(event => ({features: latestFeatureRows(event), damage: surfaceDamageRows(event)}))));
 '''
@@ -100,6 +101,7 @@ console.log(JSON.stringify(inputs.map(event => ({features: latestFeatureRows(eve
             self.assertEqual(damage["Automatic grade effect"], "None; supporting diagnostic evidence")
             self.assertNotEqual(damage["Evidence state"], "Validated Damage")
         self.assertIn("HSV value", rendered[1]["features"][-2][1])
+        self.assertIn("Not measured", rendered[5]["features"][-2][1])
 
 
 if __name__ == "__main__":

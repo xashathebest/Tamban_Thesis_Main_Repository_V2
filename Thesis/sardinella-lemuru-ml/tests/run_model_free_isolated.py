@@ -25,6 +25,10 @@ def main() -> int:
             path = source / directory
             if path.is_dir():
                 shutil.copytree(path, target / directory, ignore=ignore)
+        # The launcher/dependency contract tests also read these small root files.
+        for path in (*source.glob("requirements*.txt"), source / "run_dashboard.ps1"):
+            if path.is_file():
+                shutil.copy2(path, target / path.name)
         forbidden = [path for path in target.rglob("*") if path.is_file() and path.suffix.lower() in {".pt", ".pth", ".onnx", ".joblib"}]
         if forbidden:
             raise RuntimeError(f"Checkpoint unexpectedly copied: {forbidden[0]}")
@@ -32,7 +36,10 @@ def main() -> int:
         env.update(PYTHONDONTWRITEBYTECODE="1", YOLO_CONFIG_DIR=str(Path(temporary) / "ultralytics"))
         for key in ("RUN_REAL_MODEL_TESTS", "RUN_CHECKPOINT_SMOKE"):
             env.pop(key, None)
-        command = [sys.executable, "-B", "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests", "--tb=short"]
+        # Use this run's own directory outside the copied project. The expert
+        # reference tests intentionally reject private files inside a repository.
+        command = [sys.executable, "-B", "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests",
+                   "--basetemp", str(Path(temporary) / "pytest"), "--tb=short"]
         if args.focus:
             command[command.index("tests")] = f"tests/{args.focus}.py"
         print("Running in a temporary source copy with no checkpoints:", " ".join(command), flush=True)

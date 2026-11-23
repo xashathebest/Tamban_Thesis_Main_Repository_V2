@@ -1,0 +1,80 @@
+{
+  "calibration_ready": false,
+  "inspection_count": 77,
+  "human_review_count": 0,
+  "source_bound_feature_records": 0,
+  "datasets": [
+    {
+      "path": "Dried Fish Quality Grading.v7i.coco-segmentation/test/_annotations.coco.json",
+      "images": 17,
+      "annotations": 225,
+      "categories": [
+        "dried-fish-quality-grades",
+        "Grade_A_Body",
+        "Grade_A_Head",
+        "Grade_A_Tail",
+        "Grade_B_Body",
+        "Grade_B_Head",
+        "Grade_B_Tail",
+        "Grade_C_Body",
+        "Grade_C_Head",
+        "Grade_C_Tail",
+        "Rejected_Body",
+        "Rejected_Head",
+        "Rejected_Tail"
+      ],
+      "specimen_ids_present": false,
+      "whole_fish_feature_reference_records": 0
+    },
+    {
+      "path": "Dried Fish Quality Grading.v7i.coco-segmentation/train/_annotations.coco.json",
+      "images": 861,
+      "annotations": 9099,
+      "categories": [
+        "dried-fish-quality-grades",
+        "Grade_A_Body",
+        "Grade_A_Head",
+        "Grade_A_Tail",
+        "Grade_B_Body",
+        "Grade_B_Head",
+        "Grade_B_Tail",
+        "Grade_C_Body",
+        "Grade_C_Head",
+        "Grade_C_Tail",
+        "Rejected_Body",
+        "Rejected_Head",
+        "Rejected_Tail"
+      ],
+      "specimen_ids_present": false,
+      "whole_fish_feature_reference_records": 0
+    },
+    {
+      "path": "Dried Fish Quality Grading.v7i.coco-segmentation/valid/_annotations.coco.json",
+      "images": 32,
+      "annotations": 399,
+      "categories": [
+        "dried-fish-quality-grades",
+        "Grade_A_Body",
+        "Grade_A_Head",
+        "Grade_A_Tail",
+        "Grade_B_Body",
+        "Grade_B_Head",
+        "Grade_B_Tail",
+        "Grade_C_Body",
+        "Grade_C_Head",
+        "Grade_C_Tail",
+        "Rejected_Body",
+        "Rejected_Head",
+        "Rejected_Tail"
+      ],
+      "specimen_ids_present": false,
+      "whole_fish_feature_reference_records": 0
+    }
+  ],
+  "limitations": [
+    "Part annotations are not verified whole-fish feature-to-grade reference distributions.",
+    "Known physical specimen, capture and duplicate-family IDs are required before partitioning.",
+    "Calibrated size endpoints/widths, crack nuisance negatives, lighting-aware color and texture validation are required.",
+    "No calibration or accuracy improvement is inferred from saved AI predictions."
+  ]
+}

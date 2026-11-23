@@ -22,6 +22,11 @@ import numpy as np
 from src.features.color import ColorSettings, extract_color_features
 from src.features.texture import TextureSettings, extract_texture_features
 from src.features.runtime import RuntimeFeatureContext
+from src.features.fusion import extract_fusion_measurements
+from src.inference.decision_fusion import (
+    DecisionFusionConfig, fingerprint, fuse_decision, load_calibration, load_decision_fusion_config,
+    serializable_evidence,
+)
 from src.inference.body_width import BodyWidthConfig, analyze_body_width, load_body_width_config, supplement_body_scores
 from src.inference.geometric_support import integrate_geometric_support
 from src.inference.feature_fusion import (
@@ -684,10 +689,16 @@ class WeightedGradingEngine:
     """Track-aware part fusion with explicit evidence-acceptance gates."""
 
     def __init__(self, config: GradingConfig | None = None, *, body_width_config: BodyWidthConfig | None = None,
-                 structural_config: StructuralFusionConfig | None = None) -> None:
+                 structural_config: StructuralFusionConfig | None = None,
+                 fusion_config: DecisionFusionConfig | None = None, fusion_calibration: Mapping | None = None) -> None:
         self.config = config or load_grading_config()
         self.body_width_config = body_width_config or load_body_width_config()
         self.structural_config = structural_config or load_structural_fusion_config()
+        self.fusion_config = fusion_config or load_decision_fusion_config()
+        self.fusion_calibration, self.fusion_calibration_error = (
+            (deepcopy(fusion_calibration), None) if fusion_calibration is not None else load_calibration(self.fusion_config)
+        )
+        self._fusion_calibration_sha256 = fingerprint(self.fusion_calibration) if self.fusion_calibration else None
         self._tracks: dict[int, _TrackEvidence] = {}
         self.last_hsv_processing_seconds: float | None = None
         self.last_feature_timings: dict[str, object] = {}
@@ -695,7 +706,11 @@ class WeightedGradingEngine:
 
     def configuration_snapshot(self) -> dict[str, object]:
         return {**self.config.to_dict(), "body_width": self.body_width_config.to_dict(),
-                "structural_features": self.structural_config.to_dict()}
+                "structural_features": self.structural_config.to_dict(),
+                "decision_fusion": {**self.fusion_config.to_dict(),
+                    "calibration_id": self.fusion_calibration.get("calibration_id") if self.fusion_calibration else None,
+                    "calibration_sha256": self._fusion_calibration_sha256,
+                    "calibration_status": self.fusion_calibration_error or "Loaded; each fish still requires validation"}}
 
     def reset(self) -> None:
         self._tracks.clear()
@@ -771,7 +786,20 @@ class WeightedGradingEngine:
             "feature_processing_seconds": color_seconds + texture_seconds,
             "context": feature_context.diagnostics() if feature_context is not None else {},
         }
-        return FrameEvidence(scores, presence, colors, frame_id=frame_id, frame_quality=dict(frame_quality or {}))
+        quality = dict(frame_quality or {})
+        fusion_started = perf_counter()
+        if "fusion_measurements" not in quality:
+            quality["fusion_measurements"] = extract_fusion_measurements(
+                crop_bgr[..., ::-1], fish_mask if fish_mask is not None else texture_mask,
+                fish_id=quality.get("fusion_fish_id"), frame_id=frame_id,
+                source=quality.get("source_context"), geometry=quality.get("fusion_geometry"),
+                validation=quality.get("fusion_validation"), mask_metadata=texture_mask_metadata,
+                texture_values=colors["Whole Fish"].get("texture", {}).get("values"),
+            )
+        fusion_seconds = perf_counter() - fusion_started
+        self.last_feature_timings["fusion_measurement_seconds"] = fusion_seconds
+        self.last_feature_timings["feature_processing_seconds"] += fusion_seconds
+        return FrameEvidence(scores, presence, colors, frame_id=frame_id, frame_quality=quality)
 
     def _is_evidence_bearing(self, frame: FrameEvidence) -> bool:
         """Require the active policy's regional gates in each accepted frame."""
@@ -1080,6 +1108,10 @@ class WeightedGradingEngine:
             ),
             policy,
         )
+        # Keep the exact Model 2-only result, including temporal dispersion,
+        # independently of legacy reviewed geometry/structural replay stages.
+        model2_decision = grade_fish(replace(policy_input, part_scores=raw_scores,
+                                           temporal_grade_stddev=max_winner_stddev), policy)
         baseline_decision = decision
         geometric_support: dict[str, object] = {}
         if not legacy_width:
@@ -1093,7 +1125,34 @@ class WeightedGradingEngine:
             decision, structural_payload, self.structural_config, policy,
             fish_id=fish_id, frame_id=current_frame_id, source_context=structural_source,
         )
-        fusion = feature_fusion_report(anatomical_decision, geometric_support, structural_support, eligibility, decision)
+        latest_feature_usable = (latest_quality.get("usable", True) and diagnostic_frame is not None
+                                 and self._is_evidence_bearing(diagnostic_frame))
+        measurements_for_fusion = latest_quality.get("fusion_measurements") if latest_feature_usable else {}
+        model_context = {"checkpoint_sha256": latest_quality.get("fusion_checkpoint_sha256"),
+                         "anatomical_policy_sha256": fingerprint(policy.to_dict())}
+        decision, intelligent_fusion = fuse_decision(
+            model2_decision, measurements_for_fusion, self.fusion_config, self.fusion_calibration,
+            fish_id=fish_id, frame_id=current_frame_id, source=structural_source,
+            model_context=model_context, head_evidence=latest_quality.get("head_integrity_evidence"),
+            restricted_grades=eligibility["restricted_grades"], fallback=decision,
+            calibration_error=self.fusion_calibration_error,
+        )
+        intelligent_fusion["anatomical_policy"] = policy.to_dict()
+        if intelligent_fusion["mode"] == "calibrated_fusion":
+            # A new 70/30 decision replaces score transfers; applying both would
+            # count the same size or crack evidence twice. Eligibility survives.
+            geometric_support.update(contribution_applied=False, width_changed_classification=False,
+                                     contribution_reason="replaced_by_calibrated_70_30_fusion")
+            width.update(score_applied=False, score_contributed=False)
+            if structural_support.get("score_shift"):
+                structural_support.update(legacy_score_shift_not_applied=structural_support["score_shift"], score_shift=0.)
+            structural_support["used_for_grading"] = bool(eligibility["rule_applied"])
+            structural_support["changed_classification"] = bool(eligibility["rule_applied"] and decision.final_grade != model2_decision.final_grade)
+            structural_support["contribution_reason"] = ("reviewed_eligibility_constraint" if eligibility["rule_applied"]
+                                                         else "replaced_by_calibrated_70_30_fusion")
+        fusion = feature_fusion_report(model2_decision, geometric_support, structural_support, eligibility, decision)
+        fusion["decision_fusion"] = intelligent_fusion
+        fusion["contributions_applied"] += [name for name, value in intelligent_fusion["features"].items() if value["used_for_grading"]]
         available = list(decision.observed_regions)
         available_set = set(available)
         original_weight_coverage = decision.evidence_coverage
@@ -1121,6 +1180,12 @@ class WeightedGradingEngine:
                 f"The final eligible grade is {final_grade}; its existing support and margin gates remain satisfied."
                 if final_grade is not None else
                 "No remaining eligible grade satisfies the configured support and margin gates; expert review is required.")
+        if intelligent_fusion["mode"] == "calibrated_fusion" or intelligent_fusion["head_integrity"]["confirmed_missing_head"]:
+            reason_text = (f"{intelligent_fusion['decision_state'].replace('_', ' ').title()}: "
+                           f"Model 2-only {intelligent_fusion['model_only_prediction']}; "
+                           f"combined {intelligent_fusion['final_fused_prediction']}; "
+                           f"decision confidence {intelligent_fusion['decision_confidence']:.4f}. "
+                           + " ".join(intelligent_fusion["disagreement_reasons"] + intelligent_fusion["review_reasons"]))
         override = decision.override
         for region in PART_NAMES:
             part_results[region]["normalized_weight"] = decision.effective_weights[region]
@@ -1151,7 +1216,8 @@ class WeightedGradingEngine:
         explanations.append(reason_text)
         if self.config.grading_mode == "two_part_v1" and "Body" in available_set and "Tail" in available_set and "Head" not in available_set:
             explanations.append("Head was not detected; physical head integrity is unverified, and the experimental Body+Tail result is provisional for expert review.")
-        explanations.append("HSV metrics are descriptive only; no validated HSV grading adjustment was applied.")
+        explanations.append("Rectangular ROI HSV metrics remain descriptive. Calibrated whole-fish color support is recorded separately in decision fusion.")
+        explanations.append("Decision fusion: " + intelligent_fusion["mode"].replace("_", " ") + ". " + intelligent_fusion["score_interpretation"])
         if width.get("score_applied"):
             if legacy_width:
                 explanations.append("Legacy calibrated width redistributed bounded Body A/B support to Class C.")
@@ -1163,7 +1229,7 @@ class WeightedGradingEngine:
         if eligibility["rule_applied"]:
             explanations.append(eligibility["reason"])
         if self.config.color_adjustments_enabled or self.config.defect_adjustments_enabled:
-            explanations.append("A feature-adjustment switch is enabled but no validated adjustment rule is configured; scores remain unchanged.")
+            explanations.append("Legacy switches alone create no grading rule; scores remain unchanged by those switches. The recorded fusion policy controls calibrated feature contributions.")
 
         return FishVerdict(
             fish_id=fish_id,
@@ -1192,7 +1258,9 @@ class WeightedGradingEngine:
             adjustments=(({"source": "validated_body_width", "stage": "post_weighted_v2", "applied_score_shift": width.get("applied_geometric_score_shift")},) if geometric_support.get("contribution_applied") else ())
                         + (({"source": "reviewed_structural_evidence", "stage": "post_geometry_structural_v1",
                              "applied_score_shift": structural_support.get("score_shift", 0.),
-                             "eligibility": dict(eligibility)},) if structural_support.get("used_for_grading") else ()),
+                             "eligibility": dict(eligibility)},) if structural_support.get("used_for_grading") else ())
+                        + (({"source": "calibrated_decision_fusion", "effective_weights": intelligent_fusion["effective_weights"]},)
+                           if intelligent_fusion["mode"] == "calibrated_fusion" else ()),
             override=override,
             color=colors,
             supporting_image_measurements=supporting,
@@ -1222,6 +1290,8 @@ class WeightedGradingEngine:
         texture_mask_metadata: Mapping[str, object] | None = None,
         structural_evidence: Mapping[str, object] | None = None,
         source_context: Mapping[str, object] | None = None,
+        fusion_measurements: Mapping[str, object] | None = None,
+        head_integrity_evidence: Mapping[str, object] | None = None,
     ) -> FishVerdict:
         """Add one usable candidate crop (or explain why it was excluded).
 
@@ -1231,13 +1301,18 @@ class WeightedGradingEngine:
         """
 
         quality_payload = dict(frame_quality or {})
+        quality_payload["fusion_fish_id"] = fish_id
+        if fusion_measurements is not None:
+            quality_payload["fusion_measurements"] = serializable_evidence(deepcopy(dict(fusion_measurements)))
+        if head_integrity_evidence is not None:
+            quality_payload["head_integrity_evidence"] = serializable_evidence(deepcopy(dict(head_integrity_evidence)))
         if structural_evidence is not None:
             quality_payload["structural_evidence"] = deepcopy(dict(structural_evidence))
         if source_context is not None:
             quality_payload["source_context"] = deepcopy(dict(source_context))
-        for key in ("structural_evidence", "source_context"):
+        for key in ("structural_evidence", "source_context", "fusion_measurements", "fusion_validation", "head_integrity_evidence"):
             if key in quality_payload:
-                quality_payload[key] = deepcopy(quality_payload[key])
+                quality_payload[key] = serializable_evidence(deepcopy(quality_payload[key]))
         if not isinstance(model2_available, bool):
             raise ValueError("model2_available must be a boolean.")
         quality_payload["model2_available"] = model2_available
@@ -1260,6 +1335,7 @@ class WeightedGradingEngine:
             crop_bgr, parts, frame_id=frame_id, frame_quality=quality_payload, fish_mask=fish_mask,
             texture_mask=texture_mask, texture_mask_metadata=texture_mask_metadata,
         )
+        quality_payload = frame.frame_quality
         reasons = quality_payload.get("reasons", ())
         rejection_reasons = [str(reason) for reason in reasons] if isinstance(reasons, (list, tuple, set)) else []
 

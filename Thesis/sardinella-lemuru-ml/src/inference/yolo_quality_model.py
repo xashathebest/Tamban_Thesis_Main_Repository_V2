@@ -739,6 +739,8 @@ class YoloQualityModel:
             anatomical = analyze_anatomical_body_width(geometry, config=self._grading_engine.body_width_config)
             width = {**width, **anatomical, "bbox_proxy": dict(width), "anatomical_evidence": dict(anatomical)}
         grading_started = perf_counter()
+        quality_payload["fusion_geometry"] = geometry
+        quality_payload["fusion_checkpoint_sha256"] = getattr(self, "checkpoint_sha256_full", None)
         verdict: FishVerdict = self._grading_engine.evaluate(
             track_id, crop, list(parts), stabilize=stabilize, frame_id=frame_id,
             frame_quality=quality_payload, best_frame=best_frame, model2_available=model2_available,
@@ -1139,6 +1141,14 @@ class YoloQualityModel:
                 if reviewed_usable:
                     quality_payload["parent_frame_clipped"] = False
                     summary["clipping"]["native_silhouette_clipped"] = False
+                    # Only source-bound reviewed artifacts can attest feature
+                    # validation. A successful mask call never grants approval.
+                    for key in ("fusion_validation", "head_integrity_evidence"):
+                        record = reviewed[parent.track_id].get(key)
+                        if isinstance(record, Mapping):
+                            payload = deepcopy(dict(record))
+                            payload.update(review_frame_id=payload.get("frame_id"), frame_id=frame_id)
+                            quality_payload[key] = payload
                 if parent.track_id in reviewed and not reviewed_usable:
                     quality_payload["association_ambiguous"] = True
                     quality_payload["reviewed_feature_artifacts"] = {**review_status,

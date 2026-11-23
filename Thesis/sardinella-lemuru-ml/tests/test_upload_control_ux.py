@@ -56,6 +56,9 @@ def test_upload_flow_focuses_the_picker_and_guards_selection_during_analysis():
 def test_latest_feature_panel_reports_supported_brightness_and_evidence_state_for_cracks():
     javascript = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
 
-    assert '["Brightness", brightness == null ? "Not measured" : `${scoreText(brightness)} (HSV value)`' in javascript
+    assert 'const measuredBrightness = analysisFor(event).brightness || {};' in javascript
+    assert 'const brightness = measuredBrightness.mean_brightness;' in javascript
+    assert 'HSV value; whole owned mask' in javascript
+    assert 'Not measured: owned whole-fish mask unavailable' in javascript
     assert "const damageEvidence = surfaceDamageEvidence(event);" in javascript
     assert '["Cracks", damageEvidence.state' in javascript

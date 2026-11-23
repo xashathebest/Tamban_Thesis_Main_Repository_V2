@@ -26,6 +26,7 @@ const elements = {
   segmentationOptions: $("upload-segmentation-options"), segmentationExperiment: $("upload-mobilesam"), segmentationNote: $("upload-segmentation-note"), inspectMasks: $("inspect-upload-masks"),
   maskPreview: $("upload-mask-preview"), maskPreviewCanvas: $("upload-mask-canvas"), maskPreviewStatus: $("upload-mask-status"), maskPreviewShow: $("upload-mask-show"), maskPreviewModel1: $("upload-mask-model1"), maskPreviewModel2: $("upload-mask-model2"), maskPreviewOpacity: $("upload-mask-opacity"), maskPreviewOpacityValue: $("upload-mask-opacity-value"), maskPreviewFish: $("upload-mask-fish"), maskPreviewZoom: $("upload-mask-zoom"), maskPreviewCancel: $("upload-mask-cancel"), maskPreviewLegend: $("upload-mask-legend"),
   maskPreviewBoxes: $("upload-display-boxes"), maskPreviewMasks: $("upload-display-masks"), maskPreviewCracks: $("upload-mask-cracks"), maskPreviewMeasurements: $("upload-mask-measurements"), maskPreviewEvidence: $("upload-mask-evidence"), maskPreviewCrackDetails: $("upload-crack-details"),
+  brightnessView: $("upload-brightness-view"), crackRedOverlay: $("upload-crack-overlay"), crackRejections: $("upload-crack-rejections"), surfaceFeatureMonitor: $("upload-surface-monitor"), surfaceExport: $("upload-surface-export"), surfaceComparison: $("upload-surface-comparison"), crackOriginalFigure: $("upload-crack-original-figure"), crackOriginalCanvas: $("upload-crack-original"), surfaceCaption: $("upload-surface-caption"),
   maskPreviewAssociation: $("upload-association-debug"), maskPreviewAssociationStatus: $("upload-association-debug-status"), maskPreviewAssociationLegend: $("upload-association-debug-legend"), maskPreviewOverlayStatus: $("upload-mask-overlay-status"),
   maskPreviewViewport: $("upload-mask-viewport"),
   maskPreviewLoading: $("upload-mask-loading"),
@@ -396,6 +397,7 @@ function renderFishZoomDetails(fish) {
     const row = document.createElement("div"); row.className = "fish-zoom-detail-row";
     row.append(Object.assign(document.createElement("span"), {textContent: label}), Object.assign(document.createElement("strong"), {textContent: value})); elements.fishZoomDetails.append(row);
   });
+  if (typeof appendDecisionFusionPanel === "function") appendDecisionFusionPanel(elements.fishZoomDetails, {analysis: fishZoomAnalysis(fish)});
 }
 function fishZoomRelativeBox(box, crop) { const value = fishZoomBox(box); return value && [value[0] - crop[0], value[1] - crop[1], value[2] - crop[0], value[3] - crop[1]]; }
 function drawFishZoomOverlay(context, fish, crop, width, height) {
@@ -697,7 +699,14 @@ function aiFinalGrade(event) {
   return String(eventValue(event, "ai_final_grade", "final_grade", "quality") || "Ungraded");
 }
 function manualGrade(event) { return eventValue(event, "manual_grade"); }
-function verdictStatus(event) { return String(eventValue(event, "verdict_status") || "NOT_AVAILABLE").toUpperCase(); }
+function verdictStatus(event) {
+  if (typeof anatomicalReviewHeld === "function" && anatomicalReviewHeld(event)) return "NEEDS_REVIEW";
+  return String(eventValue(event, "verdict_status") || "NOT_AVAILABLE").toUpperCase();
+}
+function anatomicalReviewHeld(event) {
+  const head = analysisFor(event).structural_evidence?.regions?.Head;
+  return head?.state === "confirmed_absent" || head?.conflict === true;
+}
 function readableVerdictStatus(value) {
   const labels = { AUTO_GRADED: "Automatically graded", NEEDS_REVIEW: "Needs review", NOT_AVAILABLE: "Verdict status unavailable" };
   return labels[String(value || "").toUpperCase()] || titleCase(value);
@@ -755,11 +764,22 @@ function latestFeatureRows(event) {
     if (!part.present) return [region, partStatus(part), "unmeasured"];
     return [region, `${part.grade || "Unknown"} · ${scoreText(part.grade_confidence)}`, "detected"];
   });
-  const wholeFishColor = analysisFor(event).color?.["Whole Fish"];
-  const brightness = wholeFishColor?.mean_value;
-  rows.push(["Brightness", brightness == null ? "Not measured" : `${scoreText(brightness)} (HSV value)`, brightness == null ? "unmeasured" : "detected"]);
+  const measuredBrightness = analysisFor(event).brightness || {};
+  const brightness = measuredBrightness.mean_brightness;
+  rows.push(["Brightness", typeof brightness === "number" && Number.isFinite(brightness) ? `${brightness.toFixed(1)}% (HSV value; whole owned mask; ${measuredBrightness.measurement_reliability})` : "Not measured: owned whole-fish mask unavailable", brightness == null ? "unmeasured" : "detected"]);
+  if (measuredBrightness.status === "measured") {
+    rows.push(["Median brightness", Number.isFinite(measuredBrightness.median_brightness) ? `${measuredBrightness.median_brightness.toFixed(1)}%` : "Not measured", "detected"]);
+    rows.push(["Brightness variation", Number.isFinite(measuredBrightness.brightness_std) ? `${measuredBrightness.brightness_std.toFixed(1)} percentage points` : "Not measured", "detected"]);
+  }
   const damageEvidence = surfaceDamageEvidence(event);
   rows.push(["Cracks", damageEvidence.state, damageEvidence.suspected || damageEvidence.validated ? "detected" : "unmeasured"]);
+  const damage = damageEvidence.damage;
+  if (damage.confirmed_count != null) {
+    rows.push(["Crack candidates", `${damage.confirmed_count} confirmed · ${damage.suspected_count} suspected · ${damage.rejected_count} rejected hypotheses`, "detected"]);
+    rows.push(["Candidate crack length", damage.total_crack_length_px == null ? "Unavailable" : `${damage.total_crack_length_px.toFixed(2)} px skeleton`, "detected"]);
+    rows.push(["Candidate area / density", damage.crack_area_px == null ? "Unavailable" : `${damage.crack_area_px} px² / ${(damage.crack_density*100).toFixed(2)}%`, "detected"]);
+    rows.push(["Detection reliability", damage.detection_reliability || "Unavailable", "unmeasured"]);
+  }
   return rows;
 }
 function surfaceDamageEvidence(event) {
@@ -1179,6 +1199,7 @@ function labelHistoryRows(body) {
   });
 }
 function resultGrade(event) {
+  if (typeof anatomicalReviewHeld === "function" && anatomicalReviewHeld(event) && !manualGrade(event)) return "Ungraded";
   const grade = manualGrade(event) || aiFinalGrade(event);
   return sessionGradeBuckets.includes(grade) ? grade : "Ungraded";
 }
@@ -1233,6 +1254,7 @@ function finalExplanationRows(event) {
   const structuralValidated = structural.status === "confirmed" && structural.severity_validated === true && structural.source_bound === true && Boolean(structural.validation_provenance && Object.keys(structural.validation_provenance).length);
   const reason = verdictReason(event);
   return [
+    ...(fusion.decision_fusion ? decisionFusionSummaryRows(event) : []),
     ["Original weighted grade", fusion.primary_anatomical?.grade || fusion.original_grade || geometry.original_grade || "Not recorded"],
     ["Geometric support", typeof geometry.class_c_points === "number" ? `${resultValue(geometry.class_c_points)} / 10 points` : width.score_status || "Unavailable"],
     ["Geometric contribution", String(geometry.contribution_reason || width.contribution_reason || "Not recorded").replaceAll("_", " ")],
@@ -1244,6 +1266,66 @@ function finalExplanationRows(event) {
     ["Decision reason", reason.text || (analysis.explanation || []).join(" ") || "Model 2 evidence and configured acceptance safeguards determine the final grade."],
     ...(aiFinalGrade(event) === "Ungraded" ? [["Next step", "Review the reason above and acquire a clear view with reliable Model 2 Body evidence; geometric support cannot bypass missing evidence."]] : []),
   ];
+}
+function decisionFusionEvidence(event) {
+  return event?.analysis?.feature_fusion?.decision_fusion || null;
+}
+function decisionFusionState(fusion) {
+  if (!fusion) return {label: "Fusion evidence not recorded", style: "unavailable"};
+  if (fusion.decision_state === "CRITICAL_ANATOMICAL_DISAGREEMENT") return {label: "Critical anatomical disagreement", style: "critical"};
+  if (!fusion.agreement_validated) return {label: fusion.mode === "legacy_reviewed_rules" ? "Existing reviewed rules" : "Model 2-only fallback", style: "unavailable"};
+  return ({AGREEMENT: {label: "Agreement", style: "agreement"}, MINOR_DISAGREEMENT: {label: "Minor disagreement", style: "minor"}, MAJOR_DISAGREEMENT: {label: "Major disagreement", style: "major"}})[fusion.decision_state] || {label: "Evidence unavailable", style: "unavailable"};
+}
+function decisionFusionSummaryRows(event) {
+  const fusion = decisionFusionEvidence(event); if (!fusion) return [];
+  const state = decisionFusionState(fusion);
+  return [
+    ["Original Model 2-only grade", fusion.model_only_prediction || "Not recorded"],
+    ["Model 2 configured / effective weight", `${scoreText(fusion.configured_weights?.model2)} / ${scoreText(fusion.effective_weights?.model2)}`],
+    ["Feature-only supporting prediction", fusion.feature_only_prediction || "Unavailable; no eligible calibrated supporting evidence"],
+    ["Final fused prediction", fusion.final_fused_prediction || "Not recorded"],
+    ["Evidence Agreement", fusion.agreement_validated ? scoreText(fusion.evidence_agreement_score) : "Unavailable; supporting evidence is not calibrated or eligible"],
+    ["Model-to-feature disagreement", fusion.agreement_validated ? scoreText(fusion.model_to_feature_disagreement) : "Unavailable"],
+    ["Decision state", state.label],
+    ["Decision confidence", `${scoreText(fusion.decision_confidence)}; ${String(fusion.confidence_kind || "support score").replaceAll("_", " ")}`],
+    ["Automatic or human review", fusion.review_required || anatomicalReviewHeld(event) ? "Human review required" : "Automatic; recorded acceptance gates passed"],
+    ["Independent Head-integrity review", anatomicalReviewHeld(event) ? "Automatic grading held; original AI prediction retained separately" : fusion.head_integrity?.reason || "No confirmed anatomical absence recorded"],
+    ["Unallocated supporting weight", `${scoreText(fusion.unallocated_supporting_weight)}; Model 2 retains its configured 70%`],
+    ["Conflict warnings", (fusion.disagreement_reasons || []).join(" ") || "No contradiction established by eligible evidence"],
+    ["Excluded evidence / validation", (fusion.validation_reasons || []).join(" ") || "See individual feature validation below"],
+    ["Human-review reasons", (fusion.review_reasons || []).join(", ") || "None"],
+  ];
+}
+function decisionFusionFeatureRows(event) {
+  const fusion = decisionFusionEvidence(event); if (!fusion) return [];
+  const labels = {size: "Size / proportions", cracks: "Cracks", color: "Color / brightness", texture: "Texture"};
+  return Object.entries(labels).map(([key, label]) => {
+    const feature = fusion.features?.[key] || {};
+    return [label, feature.eligible ? feature.assessment || "Available" : "Ineligible; diagnostic only", scoreText(feature.reliability),
+      scoreText(fusion.configured_weights?.[key]), scoreText(fusion.effective_weights?.[key]),
+      feature.used_for_grading ? "Contributed" : "No contribution", (feature.reasons || []).join("; ") || "Validated reference and measurement checks passed"];
+  });
+}
+function decisionFusionBadge(event) {
+  const state = anatomicalReviewHeld(event) ? {label: "Critical anatomical disagreement", style: "critical"} : decisionFusionState(decisionFusionEvidence(event));
+  return Object.assign(document.createElement("span"), {className: `fusion-state fusion-state-${state.style}`, textContent: state.label});
+}
+function appendDecisionFusionPanel(container, event) {
+  const fusion = decisionFusionEvidence(event);
+  const panel = document.createElement("section"); panel.className = "decision-fusion-panel";
+  panel.append(Object.assign(document.createElement("h3"), {textContent: "Intelligent grading explanation"}), decisionFusionBadge(event));
+  if (!fusion) {
+    panel.append(Object.assign(document.createElement("p"), {className: "muted", textContent: "This historical record has no calibrated fusion evidence. Its original AI prediction is retained."}));
+    container.append(panel); return;
+  }
+  appendResultTable(panel, ["Comparison / decision", "Recorded evidence"], decisionFusionSummaryRows(event));
+  appendResultTable(panel, ["Feature", "Assessment", "Reliability", "Configured weight", "Effective weight", "Grade contribution", "Exact eligibility reasons"], decisionFusionFeatureRows(event));
+  appendResultTable(panel, ["Class", "Model 2 calibrated probability", "Feature-only support", "Final combined support"], ["Class A", "Class B", "Class C", "Rejected"].map(grade => [grade,
+    fusion.model2_class_probabilities ? scoreText(fusion.model2_class_probabilities[grade]) : "Not calibrated",
+    fusion.feature_only_class_support ? scoreText(fusion.feature_only_class_support[grade]) : "Unavailable",
+    scoreText(fusion.per_class_combined_support?.[grade])]));
+  panel.append(Object.assign(document.createElement("p"), {className: "muted", textContent: `${fusion.score_interpretation || ""} ${fusion.evidence_note || "Agreement measures consistency; it does not prove correctness."}`}));
+  container.append(panel);
 }
 function geometryStructuralRows(event) {
   const analysis = event.analysis || {}, geometry = analysis.fish_geometry || {}, width = analysis.body_width || {};
@@ -1383,6 +1465,7 @@ function appendResultCard(parent, event) {
   const summary = document.createElement("summary"); const title = document.createElement("strong"); title.textContent = event.fish_label || `Fish #${event.track_id ?? event.id ?? event.fish_id ?? "?"}`;
   const support = document.createElement("b"); support.textContent = `Final support: ${scoreText(weightedFinalSupport(event))}`;
   const status = document.createElement("span"); status.textContent = grade; summary.append(title, status, support); details.append(summary);
+  if (decisionFusionEvidence(event)) summary.append(decisionFusionBadge(event));
   let built = false;
   const populate = () => {
     if (!details.open || built) return; built = true;
@@ -1409,6 +1492,7 @@ function appendResultCard(parent, event) {
       section.append(Object.assign(document.createElement("p"), {className: "muted", textContent: "Color measurements are diagnostic only; rectangular ROIs can include background. Brightness uses HSV value (brightness proxy). Mask availability is recorded above. Physical dimensions require applied, validated calibration. Yellow and highlight values are not validated defect or shininess detection."}));
     }, expanded);
     lazyResultSection(body, "D. Final Grading Explanation", `${key}:D`, (section) => {
+      appendDecisionFusionPanel(section, event);
       appendResultTable(section, ["Decision stage", "Recorded result"], finalExplanationRows(event));
       const metadata = document.createElement("details"); const heading = document.createElement("summary"); heading.textContent = "Model, source and threshold configuration"; metadata.append(heading);
       metadata.addEventListener("toggle", () => {
@@ -1695,7 +1779,7 @@ function resultExportRecord(event) {
   const fusion = analysis.feature_fusion || {}, structural = fusion.structural || {}, eligibility = fusion.eligibility || {};
   const structuralValidated = structural.status === "confirmed" && structural.severity_validated === true && structural.source_bound === true && Boolean(structural.validation_provenance && Object.keys(structural.validation_provenance).length);
   const structuralApplied = structuralValidated && structural.used_for_grading === true;
-  return {...record, ...flattenResultData(event, "record"),
+  return {...record, ...(typeof surfaceFeatureExport === "function" ? surfaceFeatureExport(event) : {}), ...flattenResultData(event, "record"),
     "Estimated fish length (px; sampled mask)": estimatedNumber(candidates.fish_length_px),
     "Estimated maximum body width (px; sampled mask)": estimatedNumber(candidates.max_body_width_px),
     "Estimated relative body width ratio": estimatedNumber(candidates.relative_width_ratio),
@@ -1740,6 +1824,19 @@ function resultExportRecord(event) {
     "Feature fusion original anatomical grade": fusion.original_grade || geometry.original_grade || "",
     "Feature fusion final eligible grade": fusion.final_grade || aiFinalGrade(event),
     "Geometry and structural feature fusion": JSON.stringify(fusion),
+    "Decision fusion mode": fusion.decision_fusion?.mode || "Not recorded",
+    "Model 2-only prediction": fusion.decision_fusion?.model_only_prediction || fusion.original_grade || "Not recorded",
+    "Feature-only supporting prediction": fusion.decision_fusion?.feature_only_prediction || "Unavailable",
+    "Final fused prediction": fusion.decision_fusion?.final_fused_prediction || aiFinalGrade(event),
+    "Evidence agreement score": fusion.decision_fusion?.evidence_agreement_score ?? "Unavailable",
+    "Model-to-feature disagreement": fusion.decision_fusion?.model_to_feature_disagreement ?? "Unavailable",
+    "Decision fusion state": fusion.decision_fusion?.decision_state || "Not recorded",
+    "Fusion decision confidence": fusion.decision_fusion?.decision_confidence ?? "Not recorded",
+    "Fusion review required": fusion.decision_fusion?.review_required ?? "Not recorded",
+    "Fusion conflict reasons": (fusion.decision_fusion?.disagreement_reasons || []).join("; "),
+    "Fusion configured weights": JSON.stringify(fusion.decision_fusion?.configured_weights || {}),
+    "Fusion effective weights": JSON.stringify(fusion.decision_fusion?.effective_weights || {}),
+    "Fusion feature reliability": JSON.stringify(fusion.decision_fusion?.per_feature_reliability || {}),
     "Anatomical association diagnostics": JSON.stringify(analysis.quality_inference?.association || analysis.association || event.association || {}),
     "Anatomical part decisions and candidate scores": JSON.stringify((analysis.quality_inference?.association || analysis.association || event.association || {}).parts || []),
     "Anatomical inference and clipping provenance": JSON.stringify(analysis.quality_inference || {}),
@@ -1783,7 +1880,8 @@ function resultReportHtml(rows = selectedResultEvents()) {
     const segmentation = analysis.segmentation || {};
     const segmentationHtml = segmentation.backend === "mobilesam_experimental" || segmentation.experimental === true
       ? `<h4>G. Experimental Fish Mask</h4><p>Candidate masks and shadow ownership do not change the active verdict. A high model score is not proof of fish identity.</p>${jsonTable({backend: segmentation.backend || null, state: segmentation.status || null, ownership_checks: segmentation.ownership_status || null, validation: "Not independently validated (experimental)", reliability_reasons: segmentation.reasons || [], checkpoint_sha256: segmentation.checkpoint_sha256 || null, frame_id: segmentation.mask_overlay?.frame_id ?? segmentation.frame_id ?? null, timings: segmentation.timings || {}, shadow_association_not_applied: segmentation.shadow_association || {}})}` : "";
-    return article.replace("</article>", `${segmentationHtml}</article>`);
+    const fusionHtml = typeof decisionFusionEvidence === "function" && decisionFusionEvidence(event) ? `<h4>H. Intelligent grading comparison</h4>${table(["Feature", "Assessment", "Reliability", "Configured weight", "Effective weight", "Contribution", "Eligibility reasons"], decisionFusionFeatureRows(event))}<p>Model 2 retains 70%. Missing supporting weights are redistributed only within the supporting 30% among eligible calibrated features. With no eligible features, the record identifies its fallback and unallocated supporting weight. Evidence Agreement measures consistency, not correctness.</p>` : "";
+    return article.replace("</article>", `${segmentationHtml}${fusionHtml}</article>`);
   }).join("")}</section>`).join("");
   const metadata = resultDatasets[resultsSource].metadata;
   const dates = rows.map((event) => recordedResultTimestamp(event, metadata)).filter(Boolean).sort();
@@ -2767,12 +2865,177 @@ function measurementOverlayEvidence(entry, source) {
   if (!lines.length) return unavailable("No supported measurement endpoints were returned. Values alone cannot locate an overlay.");
   return {status, reason: explanation || (status === "Validated" ? "Reviewed measurement and ownership evidence recorded." : "Computed silhouette geometry; anatomical accuracy has not been independently validated."), lines, values, geometry};
 }
+function surfaceBrightnessEvidence(entry, source) {
+  const record = entry.analysis?.brightness || {};
+  const reason = inspectionEvidenceScope(record, entry, source);
+  return {record, available: !reason && record.status === "measured" && typeof record.mean_brightness === "number" && Number.isFinite(record.mean_brightness), reason: reason || record.reason || "Whole-fish brightness was not recorded."};
+}
+function surfaceBrightnessLabel(entry, source) {
+  const evidence = surfaceBrightnessEvidence(entry, source);
+  return evidence.available ? `Brightness: ${evidence.record.mean_brightness.toFixed(1)}%` : "Brightness: unavailable";
+}
+function drawSurfaceBrightnessLabels(context, entries, source, line, font) {
+  const placed = [], height = font + line * 6;
+  context.save(); context.globalAlpha = 1; context.font = `600 ${font}px system-ui`;
+  const overlaps = box => placed.some(other => box.x < other.x+other.width+line && box.x+box.width+line > other.x && box.y < other.y+height+line && box.y+height+line > other.y);
+  for (const entry of [...entries].sort((a,b) => Number(a.id)-Number(b.id))) {
+    const text = `Fish #${entry.id} | ${surfaceBrightnessLabel(entry, source)}`;
+    const width = Math.min(source.width, context.measureText(text).width+line*6);
+    const [left,top,right,bottom] = entry.bbox;
+    const options = [[left,top-height], [left,bottom], [right-width,top-height], [right-width,bottom]];
+    for (let y=0; y+height<=source.height; y+=height+line*2) for (let x=0; x+width<=source.width; x+=width+line*2) options.push([x,y]);
+    let box = null;
+    for (const [rawX,rawY] of options) {
+      const option = {id:entry.id, text, x:Math.max(0,Math.min(source.width-width,rawX)), y:Math.max(0,Math.min(source.height-height,rawY)), width};
+      if (!overlaps(option)) { box=option; break; }
+    }
+    if (!box) continue; // Numeric measurements remain visible in the monitor.
+    placed.push(box);
+    context.strokeStyle = entry.color; context.lineWidth = line;
+    context.beginPath(); context.moveTo((left+right)/2,(top+bottom)/2); context.lineTo(box.x+width/2,box.y+height/2); context.stroke();
+  }
+  // Draw labels after every leader so no line can cross a label's text.
+  for (const box of placed) {
+    const entry = entries.find(item => item.id===box.id);
+    context.fillStyle = "#071d2b"; context.fillRect(box.x,box.y,box.width,height);
+    context.fillStyle = entry.color; context.fillRect(box.x,box.y,line*2,height);
+    context.fillStyle = "#fff"; context.fillText(box.text,box.x+line*4,box.y+font+line*2);
+  }
+  context.restore(); return placed.map(box=>({...box,height}));
+}
+function surfaceFeatureExport(event) {
+  const analysis = event.analysis || {}, brightness = analysis.brightness || {}, damage = analysis.surface_damage || {};
+  const candidates = Array.isArray(damage.candidates) ? damage.candidates : [];
+  const record = {fish_id: event.track_id ?? event.id ?? event.fish_id ?? ""};
+  for (const key of ["mean_brightness", "median_brightness", "brightness_std", "brightness_pixel_count", "brightness_mask_coverage"]) record[key] = brightness[key] ?? "";
+  record.brightness_percentiles = JSON.stringify(brightness.brightness_percentiles || {});
+  record.brightness_distribution = JSON.stringify(brightness.distribution || {});
+  record.brightness_reliability = brightness.measurement_reliability || "unavailable";
+  record.crack_detection_reliability = damage.detection_reliability || "unavailable";
+  record.crack_candidates_omitted = damage.candidates_omitted ?? "";
+  const fields = {crack_candidate_id: "candidate_id", crack_candidate_type: "candidate_type", crack_confidence: "confidence", crack_length: "estimated_length_px", crack_width: "median_width_px", crack_area: "area_px", crack_density: "crack_density", crack_aspect_ratio: "aspect_ratio", crack_skeleton_length: "skeleton_length_px", crack_owner_fish_id: "owner_fish_id", crack_validation_status: "validation_status", crack_exclusion_reason: "exclusion_reason"};
+  for (const [column, key] of Object.entries(fields)) record[column] = JSON.stringify(candidates.map(candidate => candidate[key] ?? null));
+  record.surface_raw_measurements = JSON.stringify({brightness: brightness.raw_measurements || {}, cracks: damage.raw_measurements || {}, candidates});
+  record.surface_calibrated_measurements = JSON.stringify({brightness: brightness.calibrated_measurements ?? null, cracks: damage.calibrated_measurements ?? null});
+  return record;
+}
+function surfaceEvidenceExportRows(events) {
+  const fields = {crack_candidate_id: "candidate_id", crack_candidate_type: "candidate_type", crack_confidence: "confidence", crack_length: "estimated_length_px", crack_width: "median_width_px", crack_area: "area_px", crack_density: "crack_density", crack_aspect_ratio: "aspect_ratio", crack_skeleton_length: "skeleton_length_px", crack_owner_fish_id: "owner_fish_id", crack_validation_status: "validation_status", crack_exclusion_reason: "exclusion_reason"};
+  return events.flatMap(event => {
+    const base = surfaceFeatureExport(event), candidates = event.analysis?.surface_damage?.candidates || [];
+    return (candidates.length ? candidates : [null]).map(candidate => {
+      const record = {...base};
+      for (const [column, key] of Object.entries(fields)) record[column] = candidate?.[key] ?? "";
+      record.surface_raw_measurements = JSON.stringify({brightness: event.analysis?.brightness?.raw_measurements || {}, cracks: event.analysis?.surface_damage?.raw_measurements || {}});
+      record.crack_candidate_evidence = JSON.stringify(candidate || {});
+      record.crack_raw_measurements = JSON.stringify(candidate?.raw_measurements || {});
+      record.crack_calibrated_measurements = JSON.stringify(candidate?.calibrated_measurements ?? null);
+      record.frame_id = event.analysis?.brightness?.frame_id ?? event.analysis?.surface_damage?.frame_id ?? "";
+      record.coordinate_space = event.analysis?.surface_damage?.coordinate_space || "";
+      record.crop_bounds = JSON.stringify(event.analysis?.surface_damage?.crop_bounds || []);
+      record.measurement_units = "brightness percent; length/width native pixels; area native pixels squared; density fraction";
+      record.crack_confidence_kind = candidate?.confidence_kind || "heuristic_not_probability";
+      return record;
+    });
+  });
+}
+function exportSurfaceEvidenceCsv() {
+  const source = maskPreviewSource(uploadMaskPreview.data);
+  if (!source || uploadMaskPreview.file !== selectedUpload) return;
+  const entries = maskPreviewEntries(uploadMaskPreview.data);
+  const records = surfaceEvidenceExportRows(entries.map(entry => ({id: entry.id, analysis: entry.analysis})));
+  if (!records.length) return;
+  const headers = Object.keys(records[0]);
+  const escape = value => { let text = String(value ?? ""); if (/^[\t\r\n]/.test(text) || /^[=+\-@]/.test(text.trimStart())) text = "'" + text; return `"${text.replaceAll('"', '""')}"`; };
+  const csv = [headers.map(escape).join(","), ...records.map(row => headers.map(key => escape(row[key])).join(","))].join("\r\n");
+  const url = URL.createObjectURL(new Blob(["\ufeff" + csv], {type: "text/csv;charset=utf-8"}));
+  const link = document.createElement("a"); link.href = url; link.download = "fish-brightness-crack-candidates.csv"; link.click(); URL.revokeObjectURL(url);
+}
+function drawBrightnessGrayscale(context, entries, source) {
+  if (elements.brightnessView?.value !== "grayscale" || elements.maskPreviewCracks?.checked) return;
+  context.fillStyle = "#000"; context.fillRect(0, 0, source.width, source.height);
+  const cache = drawBrightnessGrayscale.cache ||= new WeakMap();
+  for (const entry of entries) {
+    const evidence = surfaceBrightnessEvidence(entry, source), record = evidence.record, bounds = record.crop_bounds;
+    if (!evidence.available || !record.grayscale_image || !Array.isArray(bounds) || bounds.length !== 4 || !bounds.every(Number.isFinite) || bounds[0] < 0 || bounds[1] < 0 || bounds[2] > source.width || bounds[3] > source.height || bounds[2] <= bounds[0] || bounds[3] <= bounds[1]) continue;
+    let stored = cache.get(record);
+    if (!stored) {
+      stored = {image: new Image(), ready: false}; cache.set(record, stored);
+      const currentData = uploadMaskPreview.data;
+      stored.image.onload = () => { stored.ready = true; if (uploadMaskPreview.data === currentData && uploadMaskPreview.file === selectedUpload) renderMaskPreview(); };
+      stored.image.src = record.grayscale_image;
+    }
+    if (stored.ready) { context.imageSmoothingEnabled = false; context.drawImage(stored.image, bounds[0], bounds[1], bounds[2]-bounds[0], bounds[3]-bounds[1]); }
+  }
+}
+function drawSurfaceBinaryPixels(context, entry, source, color = "#fff") {
+  const damage = entry.analysis?.surface_damage || {}, mask = damage.binary_mask, bounds = damage.crop_bounds;
+  if (inspectionEvidenceScope(damage, entry, source) || damage.coordinate_space !== "crop_local_native_pixels" || mask?.encoding !== "row_runs" || !Array.isArray(mask.runs) || !Array.isArray(mask.shape) || !Array.isArray(bounds) || bounds.length !== 4 || !bounds.every(Number.isInteger)) return;
+  const [left, top, right, bottom] = bounds, [height, width] = mask.shape;
+  if (left < 0 || top < 0 || right > source.width || bottom > source.height || right-left !== width || bottom-top !== height || width <= 0 || height <= 0) return;
+  const valid = run => Array.isArray(run) && run.length === 3 && run.every(Number.isInteger) && run[0] >= 0 && run[0] < height && run[1] >= 0 && run[2] > 0 && run[1]+run[2] <= width;
+  if (!mask.runs.every(valid)) return;
+  const sx = context.canvas.width/source.width, sy = context.canvas.height/source.height;
+  context.save(); context.setTransform(1, 0, 0, 1, 0, 0); context.fillStyle = color;
+  for (const [row, start, length] of mask.runs) {
+    const x = Math.floor((left+start)*sx), y = Math.floor((top+row)*sy);
+    context.fillRect(x, y, Math.max(1, Math.ceil((left+start+length)*sx)-x), Math.max(1, Math.ceil((top+row+1)*sy)-y));
+  }
+  context.restore();
+}
+function renderSurfaceVisualization(context, entries, source, line, font) {
+  const cracks = elements.maskPreviewCracks?.checked === true;
+  const overlay = elements.crackRedOverlay?.checked === true;
+  elements.crackOriginalFigure?.classList[cracks ? "remove" : "add"]("hidden");
+  elements.surfaceComparison?.classList.toggle("is-comparing", cracks);
+  if (elements.surfaceCaption) elements.surfaceCaption.textContent = cracks ? overlay ? "Red localized crack candidates · original image" : "Binary crack candidates · white pixels on black" : elements.brightnessView?.value === "grayscale" ? "Owned fish brightness · 0% black to 100% white" : "Inspection image · measured brightness per fish";
+  if (!cracks) return;
+  if (!overlay) { context.fillStyle = "#000"; context.fillRect(0, 0, source.width, source.height); }
+  else context.drawImage(uploadMaskPreview.image, 0, 0, source.width, source.height);
+  context.save(); context.globalAlpha = overlay ? .7 : 1;
+  for (const entry of entries) drawSurfaceBinaryPixels(context, entry, source, overlay ? "#ff2020" : "#fff");
+  context.restore();
+  const original = elements.crackOriginalCanvas;
+  if (!original) return;
+  original.width = context.canvas.width; original.height = context.canvas.height;
+  const comparison = original.getContext("2d"); comparison.setTransform(original.width/source.width, 0, 0, original.height/source.height, 0, 0);
+  comparison.drawImage(uploadMaskPreview.image, 0, 0, source.width, source.height);
+  for (const entry of entries) drawInspectionCracks(comparison, crackOverlayEvidence(entry, source), line, font, uploadMaskPreview.selectedCrack);
+}
+function renderSurfaceFeatureMonitor(entries, source) {
+  const container = elements.surfaceFeatureMonitor;
+  if (!container) return;
+  container.replaceChildren();
+  elements.surfaceExport?.classList[entries.length ? "remove" : "add"]("hidden");
+  const metric = (value, suffix = "") => typeof value === "number" && Number.isFinite(value) ? `${value.toFixed(2)}${suffix}` : "Unavailable";
+  for (const entry of entries) {
+    const evidence = surfaceBrightnessEvidence(entry, source), brightness = evidence.available ? evidence.record : {};
+    const rawDamage = entry.analysis?.surface_damage || {}, damage = inspectionEvidenceScope(rawDamage, entry, source) ? {} : rawDamage;
+    const article = Object.assign(document.createElement("article"), {className: "surface-feature-card"});
+    const select = Object.assign(document.createElement("button"), {type: "button", className: "button quiet", textContent: `Fish #${entry.id} | ${surfaceBrightnessLabel(entry, source)}`});
+    select.addEventListener("click", () => selectInspectionFish(entry.id, {revealCard: true})); article.append(select);
+    const rows = [["Mean brightness", metric(brightness.mean_brightness, "%")], ["Median brightness", metric(brightness.median_brightness, "%")], ["Brightness variation (SD)", metric(brightness.brightness_std, " percentage points")], ["Owned / complete mask", brightness.brightness_mask_coverage == null ? "Unavailable" : `${(100*brightness.brightness_mask_coverage).toFixed(1)}% · ${brightness.brightness_pixel_count} pixels`], ["Measurement reliability", brightness.measurement_reliability || evidence.reason]];
+    const addRows = values => { const dl = document.createElement("dl"); for (const [label, value] of values) { const row = document.createElement("div"); row.append(Object.assign(document.createElement("dt"), {textContent: label}), Object.assign(document.createElement("dd"), {textContent: String(value)})); dl.append(row); } article.append(dl); };
+    addRows(rows);
+    if (brightness.distribution?.counts?.length) {
+      const histogram = Object.assign(document.createElement("div"), {className: "surface-histogram"}); histogram.setAttribute("role", "img");
+      histogram.setAttribute("aria-label", `Brightness distribution from 0 to 100 percent: ${brightness.distribution.counts.map((count, i) => `${brightness.distribution.bin_edges[i]} to ${brightness.distribution.bin_edges[i+1]} percent: ${count} pixels`).join("; ")}`);
+      const peak = Math.max(1, ...brightness.distribution.counts);
+      brightness.distribution.counts.forEach((count, i) => { const bar = document.createElement("i"); bar.style.height = `${count/peak*100}%`; bar.title = `${brightness.distribution.bin_edges[i]}–${brightness.distribution.bin_edges[i+1]}%: ${count} pixels`; histogram.append(bar); }); article.append(histogram);
+      article.append(Object.assign(document.createElement("p"), {className: "surface-feature-note", textContent: `Distribution: 0% → 100%. P5 ${metric(brightness.brightness_percentiles?.p5, "%")} · P50 ${metric(brightness.brightness_percentiles?.p50, "%")} · P95 ${metric(brightness.brightness_percentiles?.p95, "%")}. Low/moderate/high thresholds are not calibrated.`}));
+    }
+    article.append(Object.assign(document.createElement("h4"), {textContent: "Crack Detection"}));
+    addRows([["Confirmed candidates", damage.confirmed_count ?? "Unavailable"], ["Suspected candidates (all types)", damage.suspected_count ?? "Unavailable"], ["Split-like / uncertain", damage.suspected_crack_count == null ? "Unavailable" : `${damage.suspected_crack_count} / ${damage.uncertain_count}`], ["Rejected false-positive hypotheses", damage.rejected_count ?? "Unavailable"], ["Candidate skeleton length", metric(damage.total_crack_length_px, " px")], ["Crack-candidate area", metric(damage.crack_area_px, " px²")], ["Crack density (owned surface)", damage.crack_density == null ? "Unavailable" : metric(damage.crack_density*100, "%")], ["Detection reliability", damage.detection_reliability || "unavailable"]]);
+    article.append(Object.assign(document.createElement("p"), {className: "surface-feature-note", textContent: `${damage.reason || "No matching crack evidence."} Length, area and density describe unvalidated split-like pixels. Rejected hypotheses are not measured ground-truth false positives. No automatic grading contribution.`}));
+    container.append(article);
+  }
+}
 function crackOverlayEvidence(entry, source) {
   const damage = entry.analysis?.surface_damage || {};
   const unavailable = reason => ({candidates: [], reason, damage});
   const scope = inspectionEvidenceScope(damage, entry, source);
   if (scope) return unavailable(scope);
-  if (!["suspected", "validated"].includes(damage.status)) return unavailable(damage.reason || (Array.isArray(damage.reasons) ? damage.reasons.join("; ") : "") || "No reliable crack evidence was recorded.");
+  if (!["suspected", "validated"].includes(damage.status) && !Array.isArray(damage.candidates)) return unavailable(damage.reason || (Array.isArray(damage.reasons) ? damage.reasons.join("; ") : "") || "No reliable crack evidence was recorded.");
   const finite = value => typeof value === "number" && Number.isFinite(value);
   const bounds = damage.crop_bounds;
   const cropValid = Array.isArray(bounds) && bounds.length === 4 && bounds.every(finite) && bounds[0] >= 0 && bounds[1] >= 0 && bounds[2] > bounds[0] && bounds[3] > bounds[1] && bounds[2] <= source.width && bounds[3] <= source.height;
@@ -2783,7 +3046,8 @@ function crackOverlayEvidence(entry, source) {
   const provenance = damage.validation_provenance;
   const reviewed = Boolean(typeof provenance === "string" ? provenance.trim() : provenance && typeof provenance === "object" && Object.keys(provenance).length);
   const validated = damage.validation_status === "validated" && damage.mask_validated_for_cracks === true && reviewed;
-  const candidates = (Array.isArray(damage.locations) ? damage.locations : []).slice(0, 64).flatMap((location, index) => {
+  const candidates = (Array.isArray(damage.candidates) ? damage.candidates : Array.isArray(damage.locations) ? damage.locations : []).slice(0, 256).flatMap((location, index) => {
+    if (location.owner_fish_id != null && String(location.owner_fish_id) !== String(entry.sourceIdNamespace ? entry.sourceParentId : entry.id)) return [];
     if (!location || ![location.x, location.y, location.width, location.height].every(finite) || location.x < 0 || location.y < 0 || location.width <= 0 || location.height <= 0) return [];
     const bbox = [location.x + offset[0], location.y + offset[1], location.x + offset[0] + location.width, location.y + offset[1] + location.height];
     if (bbox[2] > source.width || bbox[3] > source.height || (cropValid && (bbox[0] < bounds[0] || bbox[1] < bounds[1] || bbox[2] > bounds[2] || bbox[3] > bounds[3]))) return [];
@@ -2791,6 +3055,7 @@ function crackOverlayEvidence(entry, source) {
     const contours = (Array.isArray(location.contours) ? location.contours : []).slice(0, 64).filter(polygon => Array.isArray(polygon) && polygon.length >= 3 && polygon.length <= 4096 && polygon.every(point)).map(polygon => polygon.map(p => [p[0] + offset[0], p[1] + offset[1]]));
     const severity = validated && location.severity_validated === true && ["minor", "moderate", "major"].includes(location.severity) ? location.severity : "Unassessed";
     return [{id: `${entry.id}:${index}`, index, bbox, contours, location, status: validated ? "Validated" : "Estimated", severity,
+      classification: location.candidate_type || "uncertain_defect", validation: location.validation_status || "unvalidated",
       outline: contours.length ? "Detected support outline" : "Recorded candidate bounds", reason: damage.reason || damage.severity_reason || "Surface discontinuity candidate; cause requires review."}];
   });
   return {candidates, reason: candidates.length ? "Recorded surface-discontinuity candidates; review does not establish a biological fracture." : "No source-matched native crack locations were recorded.", damage};
@@ -2835,13 +3100,15 @@ function crackCandidateAtPoint(candidates, x, y, tolerance = 0) {
 }
 function drawInspectionCracks(context, evidence, line, font, selectedId = null) {
   for (const candidate of evidence.candidates) {
-    const color = {minor: "#fde047", moderate: "#fb923c", major: "#ff536b"}[candidate.severity] || "#ffffff";
+    if (candidate.validation === "rejected" && !elements.crackRejections?.checked && candidate.id !== selectedId) continue;
+    const color = candidate.validation === "rejected" ? "#9baebd" : candidate.classification === "uncertain_defect" ? "#ffda65" : "#ff536b";
     context.save(); context.globalAlpha = 1; context.strokeStyle = "#071d2b"; context.lineWidth = line * 3;
     const outline = () => { if (candidate.contours.length) { maskPreviewPolygons(context, candidate.contours); context.stroke(); } else { const [left, top, right, bottom] = candidate.bbox; context.strokeRect(left, top, right - left, bottom - top); } };
     if (candidate.contours.length) outline(); context.strokeStyle = color; context.lineWidth = candidate.id === selectedId ? line * 1.8 : line;
     context.setLineDash(candidate.status === "Validated" ? [] : [line * 2, line * 2]); outline(); context.setLineDash([]);
     context.font = `600 ${font * .7}px system-ui`; context.fillStyle = color;
-    context.fillText(`Candidate ${candidate.index + 1} · ${candidate.severity === "Unassessed" ? "severity unassessed" : candidate.severity} · ${candidate.status}`, candidate.bbox[0] + line, Math.max(font, candidate.bbox[1] - line * 2)); context.restore();
+    const confidence = typeof candidate.location.confidence === "number" ? ` · strength ${candidate.location.confidence.toFixed(2)}` : "";
+    context.fillText(`#${candidate.index + 1} · ${String(candidate.classification || "uncertain defect").replaceAll("_", " ")} · ${candidate.validation || candidate.status}${confidence}`, candidate.bbox[0] + line, Math.max(font, candidate.bbox[1] - line * 2)); context.restore();
   }
 }
 function inspectionEvidenceNumber(value, status, unit = "px") {
@@ -2857,10 +3124,19 @@ function showCrackCandidate(entry, candidate, source) {
   const heading = document.createElement("h4"); heading.textContent = `Fish #${entry.id} · Crack candidate ${candidate.index + 1}`;
   const location = candidate.location, [left, top, right, bottom] = candidate.bbox;
   const rows = [
+    ["Classification", String(candidate.classification || "uncertain_defect").replaceAll("_", " ")],
+    ["Candidate validation", candidate.validation || "unvalidated"],
+    ["Fish owner", location.owner_fish_id == null ? "Unassigned / uncertain" : `Source Fish #${location.owner_fish_id}`],
+    ["Confidence / reliability", typeof location.confidence === "number" ? `${location.confidence.toFixed(3)} heuristic strength; not a calibrated probability` : "Unavailable"],
     ["Location", `Original image (${Number(left.toFixed(2))}, ${Number(top.toFixed(2))}) to (${Number(right.toFixed(2))}, ${Number(bottom.toFixed(2))}) px; frame ${source.frameId}`],
     ["Estimated size", `${Number((right - left).toFixed(2))} × ${Number((bottom - top).toFixed(2))} px candidate bounds`],
-    ["Straight-line support extent", inspectionEvidenceNumber(location.estimated_length_px, "Estimated")],
+    ["Length method", location.length_method || "Unvalidated image support extent"],
     ["Skeleton support extent", inspectionEvidenceNumber(location.skeleton_length_px, "Estimated")],
+    ["Median width", inspectionEvidenceNumber(location.median_width_px, "Estimated")],
+    ["Candidate area", inspectionEvidenceNumber(location.area_px, "Estimated", "px²")],
+    ["Aspect / continuity", `${location.aspect_ratio ?? "Unavailable"} / ${location.continuity ?? "Unavailable"}`],
+    ["Contrast / two-sided support", `${location.original_rgb_contrast_255 ?? "Unavailable"} (0–255) / ${location.original_rgb_support_fraction ?? "Unavailable"}`],
+    ["Exclusion or review reason", location.exclusion_reason || "Split-like geometry; independent confirmation required"],
     ["Severity", candidate.severity], ["Validation", candidate.status === "Validated" ? "Validated with recorded provenance" : "Estimated candidate; not validated as a crack"],
     ["Outline", candidate.outline], ["Interpretation", candidate.reason],
   ];
@@ -2933,7 +3209,7 @@ function renderMaskInspectionEvidence(entries, source) {
       ["Interpretation", "No reliable crack evidence does not establish absence of cracks. Surface marks require review."],
       ["Contributed to grading", structuralContribution ? `Yes: ${String(structural.contribution_reason || "reviewed structural rule").replaceAll("_", " ")}` : "No validated structural contribution recorded"],
     ]);
-    for (const candidate of cracks.candidates) { const button = Object.assign(document.createElement("button"), {type: "button", className: "button quiet crack-candidate-button", textContent: `Inspect candidate ${candidate.index + 1} · ${candidate.status} · ${candidate.severity}`}); button.addEventListener("click", () => showCrackCandidate(entry, candidate, source)); section.append(button); }
+    for (const candidate of cracks.candidates) { const button = Object.assign(document.createElement("button"), {type: "button", className: "button quiet crack-candidate-button", textContent: `#${candidate.index + 1} · ${String(candidate.classification).replaceAll("_", " ")} · ${candidate.validation}`}); button.addEventListener("click", () => showCrackCandidate(entry, candidate, source)); section.append(button); }
     container.append(details);
   }
 }
@@ -3004,6 +3280,7 @@ function renderMaskPreview() {
   }
   const source = maskPreviewSource(data);
   if (!source || !image || uploadMaskPreview.file !== selectedUpload || !elements.maskPreviewCanvas) {
+    elements.surfaceFeatureMonitor?.replaceChildren(); elements.surfaceExport?.classList.add("hidden");
     if (typeof renderMaskOverlayFeedback === "function") renderMaskOverlayFeedback([], null);
     elements.maskPreviewEvidence?.replaceChildren(); elements.maskPreviewCrackDetails?.classList.add("hidden");
     elements.maskPreviewViewport?.classList.add("hidden");
@@ -3025,12 +3302,13 @@ function renderMaskPreview() {
   if (elements.maskPreviewOpacityValue) elements.maskPreviewOpacityValue.textContent = `${Math.round(opacity * 100)}%`;
   const selection = elements.maskPreviewFish?.value || "all";
   const entries = maskPreviewEntries(data).filter(item => selection === "all" || String(item.id) === selection);
+  if (typeof drawBrightnessGrayscale === "function") drawBrightnessGrayscale(context, entries, source);
   const maskMode = elements.maskPreviewMasks ? elements.maskPreviewMasks.checked : true;
-  const showMasks = maskMode && elements.maskPreviewShow?.checked !== false;
+  const showMasks = maskMode && elements.maskPreviewShow?.checked !== false && elements.brightnessView?.value !== "grayscale";
   const showBoxes = elements.maskPreviewBoxes?.checked === true || elements.maskPreviewModel1?.checked === true;
   if (elements.maskPreviewViewport && elements.uploadImage && elements.uploadVideo) {
     elements.uploadMediaStage?.classList.remove("hidden");
-    if (maskMode || elements.maskPreviewAssociation?.checked === true || elements.maskPreviewMeasurements?.checked === true || elements.maskPreviewCracks?.checked === true) {
+    if (elements.surfaceFeatureMonitor || maskMode || elements.maskPreviewAssociation?.checked === true || elements.maskPreviewMeasurements?.checked === true || elements.maskPreviewCracks?.checked === true) {
       if (!uploadMaskPreview.mainMedia) uploadMaskPreview.mainMedia = elements.uploadImage.classList.contains("hidden") ? "video" : "image";
       elements.uploadImage.classList.add("hidden"); elements.uploadVideo.classList.add("hidden");
       elements.maskPreviewViewport.classList.remove("hidden"); elements.uploadFishTargets?.classList.add("hidden");
@@ -3064,8 +3342,9 @@ function renderMaskPreview() {
     }
     if (elements.maskPreviewMeasurements?.checked) drawInspectionMeasurements(context, measurementOverlayEvidence(entry, source), source, line, font);
     if (elements.maskPreviewCracks?.checked) drawInspectionCracks(context, crackOverlayEvidence(entry, source), line, font, uploadMaskPreview.selectedCrack);
-    if (showMasks || showBoxes) {
-      const label = `Fish #${entry.id}${entry.contours.length ? entry.review ? " · review" : " · unvalidated" : " · mask unavailable"}`;
+    if (!elements.surfaceFeatureMonitor && (showMasks || showBoxes)) {
+      const brightnessLabel = typeof surfaceBrightnessLabel === "function" ? ` | ${surfaceBrightnessLabel(entry, source)}` : "";
+      const label = `Fish #${entry.id}${brightnessLabel}${entry.contours.length ? entry.review ? " · review" : " · unvalidated" : " · mask unavailable"}`;
       const x = entry.bbox[0], y = Math.max(font + line, entry.bbox[1]);
       context.globalAlpha = 1; context.font = `600 ${font}px system-ui`;
       context.fillStyle = "rgb(7 29 43 / 85%)"; context.fillRect(x, y - font, context.measureText(label).width + line * 4, font + line * 3);
@@ -3074,6 +3353,9 @@ function renderMaskPreview() {
     context.restore();
   }
   if (typeof renderAnatomicalAssociationDebug === "function") renderAnatomicalAssociationDebug(context, entries, source, selection, line, font);
+  if (elements.surfaceFeatureMonitor && typeof drawSurfaceBrightnessLabels === "function") uploadMaskPreview.brightnessLabels = drawSurfaceBrightnessLabels(context, entries, source, line, font);
+  if (typeof renderSurfaceVisualization === "function") renderSurfaceVisualization(context, entries, source, line, font);
+  if (typeof renderSurfaceFeatureMonitor === "function") renderSurfaceFeatureMonitor(entries, source);
   if (typeof renderMaskInspectionEvidence === "function") renderMaskInspectionEvidence(entries, source);
   if (typeof renderMaskOverlayFeedback === "function") renderMaskOverlayFeedback(entries, source);
   if (uploadMaskPreview.selectedCrack && !entries.some(entry => crackOverlayEvidence(entry, source).candidates.some(candidate => candidate.id === uploadMaskPreview.selectedCrack))) {
@@ -3295,6 +3577,7 @@ function stopMaskPreviewTimer() {
   uploadMaskPreview.timer = null;
 }
 function clearMaskPreview() {
+  elements.surfaceFeatureMonitor?.replaceChildren(); elements.surfaceExport?.classList.add("hidden");
   elements.maskPreviewOverlayStatus?.classList.add("hidden");
   if (elements.maskPreviewOverlayStatus) elements.maskPreviewOverlayStatus.textContent = "";
   uploadMaskPreview.selectedCrack = null;
@@ -3574,7 +3857,12 @@ elements.uploadMode.addEventListener("click", () => toggleUpload(elements.upload
 elements.inspectMasks?.addEventListener("click", () => {
   void inspectUploadMasks();
 });
-for (const control of [elements.maskPreviewShow, elements.maskPreviewModel1, elements.maskPreviewModel2, elements.maskPreviewMeasurements, elements.maskPreviewCracks, elements.maskPreviewAssociation, elements.maskPreviewOpacity, elements.maskPreviewZoom]) control?.addEventListener("input", renderMaskPreview);
+for (const control of [elements.maskPreviewShow, elements.maskPreviewModel1, elements.maskPreviewModel2, elements.maskPreviewMeasurements, elements.maskPreviewCracks, elements.maskPreviewAssociation, elements.maskPreviewOpacity, elements.maskPreviewZoom, elements.brightnessView, elements.crackRedOverlay, elements.crackRejections]) control?.addEventListener("input", () => {
+  if (control === elements.brightnessView && control.value === "grayscale" && elements.maskPreviewCracks) elements.maskPreviewCracks.checked = false;
+  if (control === elements.crackRedOverlay && control.checked && elements.maskPreviewCracks) elements.maskPreviewCracks.checked = true;
+  renderMaskPreview();
+});
+elements.surfaceExport?.addEventListener("click", exportSurfaceEvidenceCsv);
 elements.maskPreviewBoxes?.addEventListener("change", () => { if (elements.maskPreviewBoxes.checked) void setMainViewerMode("boxes"); });
 elements.maskPreviewMasks?.addEventListener("change", () => { if (elements.maskPreviewMasks.checked) void setMainViewerMode("masks"); });
 elements.maskPreviewFish?.addEventListener("input", () => selectInspectionFish(elements.maskPreviewFish.value, {revealCard: true}));

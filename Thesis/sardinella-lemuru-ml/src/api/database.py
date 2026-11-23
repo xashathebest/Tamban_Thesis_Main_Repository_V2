@@ -20,6 +20,7 @@ import sqlite3
 from threading import RLock
 from typing import Iterator, Mapping
 from uuid import uuid4
+from src.inference.structural_evidence import requires_human_review
 
 
 def _now() -> str:
@@ -563,7 +564,7 @@ class InspectionDatabase:
                 return None
             old_reviewed, new_reviewed = bool(old.get("manual_override")), bool(new.get("manual_override"))
             analysis = old.get("analysis")
-            needs_review = isinstance(analysis, dict) and analysis.get("verdict_status") == "NEEDS_REVIEW"
+            needs_review = requires_human_review(analysis)
             for key in ("manual_override", "manual_grade", "review_timestamp", "reviewer", "review_source", "session_id"):
                 old.pop(key, None)
                 new.pop(key, None)

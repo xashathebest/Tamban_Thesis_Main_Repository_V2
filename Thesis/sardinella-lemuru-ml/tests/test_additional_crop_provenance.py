@@ -117,6 +117,9 @@ def test_mask_preview_reuses_context_and_keeps_native_anatomical_diagnostics():
     report = {"mask_overlay": {"contours": [[[20, 20], [100, 20], [100, 50], [20, 50]]]},
               "ownership_status": "checks_passed_unvalidated"}
     provider = SimpleNamespace(frame_id="preview-native", candidates={1: {"mask": mask}},
+                               frame=frame, frame_key="preview-fixture", is_current=lambda: True,
+                               ownership={1: report}, reviewed_instances={}, reviewed_ownership={},
+                               parents=[ParentAnchor(1, (10, 10, 120, 60), .95)],
                                service=SimpleNamespace(status=lambda: {}), report=lambda identity: report,
                                diagnostics=lambda: {})
     context = SimpleNamespace(_experimental=provider, is_for_frame=lambda candidate: candidate is frame)

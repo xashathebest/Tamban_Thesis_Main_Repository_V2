@@ -34,7 +34,7 @@ from src.inference.body_width import BodyWidthConfig
 from src.inference.experimental_segmentation import inspection_segmentation_backend
 from src.inference.inspection_results import normalize_inspection_results
 from src.api.domain import FEATURE_CAPABILITIES, QUALITY_COUNTER_NAMES, InspectionState, TrackingConfig
-from src.api.export import DEFAULT_EXPORT_FIELDS, EXPORT_FIELDS, make_csv, make_xlsx
+from src.api.export import DEFAULT_EXPORT_FIELDS, EXPORT_FIELDS, make_csv, make_xlsx, make_surface_csv
 from src.api.expert_library import router as expert_library_router
 from src.api.runtime import (
     PART_PREVIEW_MODE,
@@ -45,7 +45,7 @@ from src.api.runtime import (
 from src.inference.yolo_fish_detector import YoloFishDetector, resolve_yolo_fish_detector_model_path
 from src.inference.yolo_quality_model import YoloQualityModel, resolve_yolo_quality_model_path
 from src.inference.model_registry import get_model_registry
-from src.inference.structural_evidence import StructuralEvidence, summarize_structural_evidence
+from src.inference.structural_evidence import StructuralEvidence, summarize_structural_evidence, requires_human_review
 from src.inference.part_model import YoloPartModel
 from src.inference.compute import resolve_compute
 from src.preprocessing.dataset_utils import load_yaml_file, project_root
@@ -845,7 +845,7 @@ def _analytics(events, snapshot: dict[str, object], *, chronological_input: bool
                 counter["count"] += 1
         colors = analysis.get("color") if isinstance(analysis, dict) and isinstance(analysis.get("color"), dict) else {}
         if isinstance(analysis, dict):
-            status = analysis.get("verdict_status")
+            status = "NEEDS_REVIEW" if requires_human_review(analysis) else analysis.get("verdict_status")
             automatic_count += int(status == "AUTO_GRADED")
             needs_review_count += int(status == "NEEDS_REVIEW")
             review_queue_count += int(status == "NEEDS_REVIEW" and not event.get("manual_override"))
@@ -1636,7 +1636,7 @@ def get_review_queue(include_reviewed: bool = False, session_id: str | None = No
     items = []
     for event in _durable_events(session_id=session_id):
         analysis = event.get("analysis")
-        needs_review = isinstance(analysis, dict) and analysis.get("verdict_status") == "NEEDS_REVIEW"
+        needs_review = requires_human_review(analysis)
         if needs_review and (include_reviewed or not event.get("manual_override")):
             items.append(event)
     return {"items": items, "total": len(items), "include_reviewed": include_reviewed,
@@ -1979,15 +1979,15 @@ async def export_history(request: Request) -> Response:
     if not isinstance(payload, dict):
         raise HTTPException(status_code=422, detail="Export settings must be a JSON object.")
     export_format = str(payload.get("format", "csv")).lower()
-    if export_format not in {"csv", "xlsx"}:
-        raise HTTPException(status_code=422, detail="format must be csv or xlsx.")
+    if export_format not in {"csv", "xlsx", "surface_csv"}:
+        raise HTTPException(status_code=422, detail="format must be csv, xlsx or surface_csv.")
     full_evidence = payload.get("complete_analysis", False)
     if not isinstance(full_evidence, bool):
         raise HTTPException(status_code=422, detail="complete_analysis must be true or false.")
     selected_fields = payload.get("fields", [])
     if not isinstance(selected_fields, list) or not all(isinstance(field, str) for field in selected_fields):
         raise HTTPException(status_code=422, detail="fields must be a list of field names.")
-    if full_evidence:
+    if full_evidence or export_format == "surface_csv":
         fields = DEFAULT_EXPORT_FIELDS
     else:
         if not selected_fields:
@@ -2019,7 +2019,7 @@ async def export_history(request: Request) -> Response:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     session_ids = list(dict.fromkeys(event.get("session_id") for event in events))
     multiple_sessions = len(session_ids) > 1
-    if export_format == "csv" and multiple_sessions:
+    if export_format in {"csv", "surface_csv"} and multiple_sessions:
         raise HTTPException(status_code=422, detail="Use Excel for a multi-session export so each session's grading rules can be included.")
     snapshot = state.snapshot()
     analytics = _analytics(events, snapshot)
@@ -2058,9 +2058,9 @@ async def export_history(request: Request) -> Response:
     summary.update({f"AI {name} Count": value for name, value in quality.items()})
     summary.update({f"{name} Observed": detail["count"] for name, detail in _feature_counters(events).items()})
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    if export_format == "csv":
-        body = make_csv(events, fields)
-        media_type, extension = "text/csv; charset=utf-8", "csv"
+    if export_format in {"csv", "surface_csv"}:
+        body = make_surface_csv(events) if export_format == "surface_csv" else make_csv(events, fields)
+        media_type, extension = "text/csv; charset=utf-8", "surface.csv" if export_format == "surface_csv" else "csv"
     else:
         try:
             session_metadata = requested_metadata

@@ -110,6 +110,7 @@ class ExperimentalFrameSegmentation:
                 "error_type": type(error).__name__} for p in parents}
             self.shadow = {"applied_to_grading": False, "reason": "Ownership validation unavailable."}
         self._reports.clear()
+        self._surface_results = {}
 
     @staticmethod
     def _unavailable(error):

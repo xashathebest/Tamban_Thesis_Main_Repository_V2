@@ -1,0 +1,28 @@
+{
+  "schema_version": "decision_fusion_records_v1",
+  "records": [],
+  "required_record_fields": [
+    "specimen_id",
+    "capture_group_id",
+    "duplicate_group_id",
+    "image_sha256",
+    "split",
+    "annotator_verified",
+    "annotator_id",
+    "review_id",
+    "human_grade",
+    "original_ai_prediction",
+    "ai_baseline",
+    "measurements",
+    "model_context",
+    "anatomical_policy",
+    "source",
+    "fish_id",
+    "frame_id"
+  ],
+  "notes": [
+    "No example labels or measurements are approved.",
+    "Use original runtime fusion measurements and separate verified human labels; never use AI grades as truth.",
+    "Assign one representative per physical specimen; reserve independent capture/duplicate families for calibration, validation and test."
+  ]
+}

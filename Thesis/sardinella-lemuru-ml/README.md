@@ -3,6 +3,12 @@
 A local inspection dashboard for automated Sardinella lemuru (Tamban dried fish)
 quality grading using a two-model YOLO pipeline.
 
+The [intelligent decision-fusion guide](docs/intelligent_decision_fusion.md)
+describes the 70/15/5/5/5 evidence weights, disagreement/review safeguards,
+per-fish explanations and verified-reference calibration commands. Supporting
+features affect actual verdicts only after their calibration and measurement
+checks pass. No eligible feature calibration is installed in the current data.
+
 ---
 
 ## Architecture
@@ -296,7 +302,7 @@ models/
 src/
   api/                   FastAPI application + domain state
   evaluation/            Evaluation scripts (model-free)
-  features/              HSV color measurement (descriptive only)
+  features/              Masked measurements and calibrated fusion inputs
   inference/             Model adapters + grading engine
   preprocessing/         Dataset utilities + audit
   training/              Training scripts

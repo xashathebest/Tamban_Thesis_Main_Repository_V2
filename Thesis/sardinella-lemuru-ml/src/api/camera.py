@@ -1288,6 +1288,8 @@ class CameraInspectionService:
             damage_seconds = monotonic() - damage_started
             self._frame_damage_results[int(detection.track_id)] = (dict(damage), damage_bounds)
             damage.pop("overlay_mask", None)
+            if "brightness" in damage:
+                analysis["brightness"] = damage.pop("brightness")
             analysis["surface_damage"] = damage
             self._latest_damage_evidence[int(detection.track_id)] = dict(damage)
         performance = analysis.get("performance") if isinstance(analysis.get("performance"), dict) else {}

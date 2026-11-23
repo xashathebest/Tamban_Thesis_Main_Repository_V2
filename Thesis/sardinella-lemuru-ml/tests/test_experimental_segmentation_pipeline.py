@@ -214,13 +214,14 @@ def reviewed_body():
             "validation_provenance": "Reviewed synthetic software fixture; no biological validation"}
 
 
-def test_only_reviewed_anatomical_pixels_become_prompts_and_crack_support(frame, monkeypatch):
+def test_only_reviewed_anatomical_pixels_become_prompts_while_surface_uses_whole_fish(frame, monkeypatch):
     service = Service()
     masks = context(frame, service, monkeypatch)
     masks.prepare_instances(PARENTS, parts())
     damage = parent_damage(frame, BOUNDS, 1, mask_context=masks)
-    assert damage["status"] == "unavailable"
-    assert damage["locations"] == []
+    assert damage["used_for_grading"] is False
+    assert damage["boundary_exclusion_px"] == 0
+    assert damage["brightness"]["brightness_pixel_count"] == int(masks._experimental.candidates[1]["mask"].sum())
     reviewed = reviewed_body()
     masks.prepare_instances(PARENTS, parts(), trusted_parts=[reviewed])
     assert len(service.frames) == 2  # Reviewed point prompts invalidate the box-only generation.
@@ -232,9 +233,11 @@ def test_only_reviewed_anatomical_pixels_become_prompts_and_crack_support(frame,
     def crack_analysis(rgb, support, **kwargs):
         captured.append(support.copy())
         return {"status": "no_candidate", "locations": [], "used_for_grading": False}
-    monkeypatch.setattr("src.inference.frame_diagnostics.analyze_surface_damage", crack_analysis)
+    monkeypatch.setattr("src.inference.surface_evidence.analyze_owned_surface", crack_analysis)
     result = parent_damage(frame, BOUNDS, 1, mask_context=masks)
-    np.testing.assert_array_equal(captured[0], reviewed["mask"][30:90, 20:280])
+    native = masks._experimental.candidates[1]["mask"]
+    x, y, width, height = cv2.boundingRect(native.astype(np.uint8))
+    np.testing.assert_array_equal(captured[0], native[y:y+height, x:x+width])
     assert result["used_for_grading"] is False
 
 

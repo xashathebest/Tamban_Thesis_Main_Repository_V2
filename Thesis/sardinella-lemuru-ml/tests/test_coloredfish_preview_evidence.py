@@ -66,7 +66,8 @@ def test_actual_on_demand_preview_geometry_roundtrips_into_three_browser_lines()
     actual = node(ROUNDTRIP, result)
     assert actual["unchanged"] and actual["geometry"]["status"] == "Estimated"
     assert {line["key"] for line in actual["geometry"]["lines"]} == {"length", "maximum", "representative"}
-    assert actual["cracks"]["candidates"] == [] and "Body" in actual["cracks"]["reason"]
+    assert actual["cracks"]["candidates"] == []
+    assert result["fish"][0]["analysis"]["surface_damage"]["boundary_exclusion_px"] == 0
 
 
 def test_preview_diagnostics_do_not_grade_or_mutate_the_recorded_analysis():
@@ -77,12 +78,13 @@ def test_preview_diagnostics_do_not_grade_or_mutate_the_recorded_analysis():
     for record in result["fish"]:
         analysis = record["analysis"]
         assert "quality" not in record and "weighted_scores" not in analysis
-        for key in ("fish_geometry", "body_width", "surface_damage"):
+        for key in ("fish_geometry", "body_width", "surface_damage", "brightness"):
             assert analysis[key]["used_for_grading"] is False
         assert analysis["body_width"]["score_contributed"] is False
         damage = analysis["surface_damage"]
-        assert damage["status"] == "unavailable" and damage["locations"] == []
-        assert "reviewed" in damage["reason"] and "absence of cracks" in damage["reason"]
+        assert damage["status"] == "not_detected" and damage["locations"] == []
+        assert damage["analysis_interior_pixel_count"] == analysis["brightness"]["brightness_pixel_count"] > 0
+        assert damage["detection_reliability"] == "unvalidated_detector"
 
 
 def test_same_still_frame_label_cannot_borrow_geometry_or_cracks_from_different_pixels():
@@ -102,11 +104,11 @@ def test_same_still_frame_label_cannot_borrow_geometry_or_cracks_from_different_
     result = generate_mask_preview(frame, fish, image_sha256="source", reused=True, mask_context=context)
     analysis = result["fish"][0]["analysis"]
     assert analysis["fish_geometry"]["candidate_measurements"]["fish_length_px"] == pytest.approx(241, abs=1)
-    assert analysis["surface_damage"]["status"] == "unavailable" and analysis["surface_damage"]["locations"] == []
+    assert analysis["surface_damage"]["status"] == "not_detected" and analysis["surface_damage"]["locations"] == []
     assert fish == before and len(service.frames) == 1 and len(service.prompts) == 2
 
 
-def test_exact_native_source_preserves_existing_geometry_width_fusion_and_crack_records(monkeypatch):
+def test_exact_native_source_preserves_geometry_and_recomputes_surface_from_owned_pixels(monkeypatch):
     frame, service, fish = scene()
     provider, context = existing_provider(frame, service)
     first = generate_mask_preview(frame, fish, image_sha256="source", reused=True, mask_context=context)
@@ -123,8 +125,10 @@ def test_exact_native_source_preserves_existing_geometry_width_fusion_and_crack_
     monkeypatch.setattr(provider, "get", guarded)
     result = generate_mask_preview(frame, fish, image_sha256="source", reused=True, mask_context=context)
     actual = result["fish"][0]["analysis"]
-    for key in ("fish_geometry", "body_width", "feature_fusion", "surface_damage"):
+    for key in ("fish_geometry", "body_width", "feature_fusion"):
         assert actual[key] == saved[key]
+    assert actual["surface_damage"] == first["fish"][0]["analysis"]["surface_damage"]
+    assert actual["brightness"] == first["fish"][0]["analysis"]["brightness"]
     assert len(service.frames) == 1 and len(service.prompts) == 2
 
 

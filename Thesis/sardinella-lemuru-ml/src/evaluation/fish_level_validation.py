@@ -338,6 +338,7 @@ class EvaluationRules:
     temporal_evidence_limit: int = 120
     body_width: Mapping[str, Any] | None = None
     structural_features: Mapping[str, Any] | None = None
+    decision_fusion: Mapping[str, Any] | None = None
 
     def __post_init__(self) -> None:
         try:
@@ -373,6 +374,15 @@ class EvaluationRules:
             except (TypeError, ValueError) as exc:
                 raise FishLevelValidationError(f"Invalid structural replay configuration: {exc}") from exc
             object.__setattr__(self, "structural_features", structural.to_dict())
+        if self.decision_fusion is not None:
+            if not isinstance(self.decision_fusion, Mapping):
+                raise FishLevelValidationError("decision_fusion replay metadata must be a mapping.")
+            snapshot = dict(self.decision_fusion)
+            if snapshot.get("enabled") and snapshot.get("calibration_id"):
+                raise FishLevelValidationError("Calibrated decision fusion replay requires its frozen artifact and source-bound feature measurements.")
+            # Uncalibrated snapshots describe the existing fallback. Retain the
+            # 70/30 configuration without manufacturing supporting evidence.
+            object.__setattr__(self, "decision_fusion", snapshot)
 
     def to_policy(self) -> GradingPolicy:
         """Return the exact pure policy used by live inference.
@@ -436,7 +446,7 @@ class EvaluationRules:
             "deprecated_minimum_final_score_used", "active_final_verdict_threshold",
             "frame_quality", "best_frame", "hsv_adjustment", "storage",
             "weights", "part_weights", "rejected_override", "temporal",
-            "body_width", "structural_features",
+            "body_width", "structural_features", "decision_fusion",
         }
         metadata_keys = {"name", "id", "description", "notes", "metadata", "config_version", "dataset_split"}
         source_allowed = direct_keys | (metadata_keys if source is values else set())
@@ -444,7 +454,7 @@ class EvaluationRules:
         if unknown:
             raise FishLevelValidationError(f"Unknown evaluation rule configuration key(s): {', '.join(unknown)}.")
         if source is not values:
-            root_unknown = sorted(str(key) for key in values if key not in metadata_keys | {"grading", "storage", "body_width", "structural_features"})
+            root_unknown = sorted(str(key) for key in values if key not in metadata_keys | {"grading", "storage", "body_width", "structural_features", "decision_fusion"})
             if root_unknown:
                 raise FishLevelValidationError(f"Unknown evaluation rule wrapper key(s): {', '.join(root_unknown)}.")
         weight_unknown = sorted(str(key) for key in weights if key not in {"body", "head", "tail", "Body", "Head", "Tail"})
@@ -596,6 +606,7 @@ class EvaluationRules:
                 temporal_evidence_limit=int(raw["temporal_evidence_limit"]),
                 body_width=source.get("body_width", values.get("body_width")),
                 structural_features=source.get("structural_features", values.get("structural_features")),
+                decision_fusion=source.get("decision_fusion", values.get("decision_fusion")),
             )
         except (TypeError, ValueError) as exc:
             raise FishLevelValidationError(f"Invalid evaluation rule configuration: {exc}") from exc
@@ -615,6 +626,8 @@ class EvaluationRules:
             values["body_width"] = dict(self.body_width)
         if self.structural_features is not None:
             values["structural_features"] = dict(self.structural_features)
+        if self.decision_fusion is not None:
+            values["decision_fusion"] = dict(self.decision_fusion)
         return values
 
 

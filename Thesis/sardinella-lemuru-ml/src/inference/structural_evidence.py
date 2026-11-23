@@ -78,4 +78,22 @@ def summarize_structural_evidence(records: list[StructuralEvidence]) -> dict[str
             state = "unknown_or_occluded"
             reasons.append(f"STRUCTURE_{region.upper()}_UNKNOWN")
         regions[region] = {"state": state, "conflict": len(stated) > 1}
-    return {"regions": regions, "reason_codes": reasons, "records": [item.to_dict() for item in records], "automatic_grade_effect": False, "source_verification": "Source and reviewer are reported claims, not authenticated by the system."}
+    head = regions["Head"]
+    return {"regions": regions, "reason_codes": reasons, "records": [item.to_dict() for item in records],
+            "automatic_grade_effect": False,
+            "independent_head_review_required": head["state"] == "confirmed_absent" or head["conflict"],
+            "source_verification": "Source and reviewer are reported claims, not authenticated by the system."}
+
+
+def requires_human_review(analysis):
+    """Head-integrity review holds remain independent of the saved AI grade."""
+    if not isinstance(analysis, Mapping):
+        return False
+    structural = analysis.get("structural_evidence", {})
+    structural = structural if isinstance(structural, Mapping) else {}
+    regions = structural.get("regions", {})
+    regions = regions if isinstance(regions, Mapping) else {}
+    head = regions.get("Head", {})
+    head = head if isinstance(head, Mapping) else {}
+    return (analysis.get("verdict_status") == "NEEDS_REVIEW"
+            or head.get("state") == "confirmed_absent" or head.get("conflict") is True)

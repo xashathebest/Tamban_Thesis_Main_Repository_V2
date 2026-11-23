@@ -310,8 +310,10 @@ class StillImageAnalyzer:
         analysis["traceability"] = traceability
         if fish.damage_result is not None:
             analysis["surface_damage"] = {
-                key: value for key, value in fish.damage_result.items() if key != "overlay_mask"
+                key: value for key, value in fish.damage_result.items() if key not in {"overlay_mask", "brightness"}
             }
+            if "brightness" in fish.damage_result:
+                analysis["brightness"] = fish.damage_result["brightness"]
         analysis["inspection_source"] = {
             "type": "uploaded_photo", "frame_width_px": frame_width, "frame_height_px": frame_height,
         }

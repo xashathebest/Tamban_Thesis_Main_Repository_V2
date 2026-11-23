@@ -110,7 +110,7 @@ def test_frame_engine_exposes_separate_color_texture_timings_and_conversion_coun
     timing = engine.last_feature_timings
     assert timing["color_processing_seconds"] == engine.last_hsv_processing_seconds > 0
     assert timing["texture_processing_seconds"] > 0
-    assert timing["feature_processing_seconds"] == timing["color_processing_seconds"] + timing["texture_processing_seconds"]
+    assert timing["feature_processing_seconds"] == timing["color_processing_seconds"] + timing["texture_processing_seconds"] + timing["fusion_measurement_seconds"]
     assert timing["context"]["hsv_conversions"] == timing["context"]["lab_lightness_conversions"] == 1
     assert timing["context"]["color_computations"] == 4
     assert result.weighted_scores == {"Class A": .9, "Class B": 0., "Class C": 0., "Rejected": 0.}

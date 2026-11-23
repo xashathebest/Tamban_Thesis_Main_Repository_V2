@@ -13,6 +13,7 @@ from time import monotonic
 from typing import Callable, Iterable
 
 from src.api.runtime import PART_PREVIEW_MODE, WHOLE_FISH_MODE
+from src.inference.structural_evidence import requires_human_review
 
 
 # Model 1 is a detector, not a quality grader.  Model 2 owns all quality and
@@ -693,7 +694,7 @@ class TrackingManager:
             return len(self._archive), sum(
                 1 for event in self._archive
                 if isinstance(event.analysis, dict)
-                and event.analysis.get("verdict_status") == "NEEDS_REVIEW"
+                and requires_human_review(event.analysis)
                 and not event.manual_override
             )
 
@@ -704,7 +705,7 @@ class TrackingManager:
             values = []
             for event in self._archive:
                 analysis = event.analysis
-                needs_review = isinstance(analysis, dict) and analysis.get("verdict_status") == "NEEDS_REVIEW"
+                needs_review = requires_human_review(analysis)
                 if needs_review and (include_reviewed or not event.manual_override):
                     values.append(event.to_dict())
             return values

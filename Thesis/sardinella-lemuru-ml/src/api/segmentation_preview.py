@@ -201,17 +201,10 @@ def _preview_analysis(frame, item, provider, report):
             "score_contributed": False, "used_for_grading": False,
         }
     analysis["fish_geometry"] = geometry
-    damage = original.get("surface_damage", {})
-    if source_matches and _source_bound(damage, frame, frame_id, parent_id):
-        analysis["surface_damage"] = deepcopy(damage)
-    else:
-        analysis["surface_damage"] = {
-            "status": "unavailable", "validation_status": "unvalidated", "locations": [],
-            "severity": "unassessed", "mask_validated_for_cracks": False, "used_for_grading": False,
-            "frame_id": frame_id, "parent_track_id": parent_id, "coordinate_space": "original_frame",
-            "frame_width_px": frame.shape[1], "frame_height_px": frame.shape[0],
-            "reason": "No source-matched crack candidates were recorded for this preview. A reviewed, correctly owned Body pixel mask is required; MobileSAM candidate masks do not establish Body anatomy or absence of cracks.",
-        }
+    from src.inference.surface_evidence import measure_owned_surface
+    surface = measure_owned_surface(provider, parent_id)
+    analysis["brightness"] = surface["brightness"]
+    analysis["surface_damage"] = {key: value for key, value in surface["surface_damage"].items() if key != "overlay_mask"}
     analysis["inspection_source"] = {"type": "mask_preview", "frame_id": frame_id,
                                      "frame_width_px": frame.shape[1], "frame_height_px": frame.shape[0]}
     return analysis

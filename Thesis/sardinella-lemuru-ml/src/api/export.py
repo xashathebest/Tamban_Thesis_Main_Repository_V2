@@ -10,6 +10,9 @@ import json
 import math
 from typing import Iterable, Mapping
 
+from src.features.surface_export import SURFACE_FIELDS, surface_export_record, surface_candidate_rows
+from src.inference.structural_evidence import requires_human_review
+
 
 def _localized_damage_locations(damage: Mapping) -> list[Mapping]:
     """Check recorded pixel rectangles without changing the raw evidence."""
@@ -308,7 +311,22 @@ EXPORT_FIELDS.update({
     "feature_fusion_original_grade": "Feature Fusion Original Anatomical Grade",
     "feature_fusion_final_grade": "Feature Fusion Final Eligible Grade",
     "feature_fusion": "Geometry and Structural Feature Fusion (JSON)",
+    "decision_fusion_mode": "Decision Fusion Mode",
+    "model2_only_prediction": "Model 2-only Prediction",
+    "feature_only_prediction": "Feature-only Supporting Prediction",
+    "final_fused_prediction": "Final Fused Prediction",
+    "evidence_agreement_score": "Evidence Agreement Score (fraction)",
+    "model_feature_disagreement": "Model-to-feature Disagreement (fraction)",
+    "fusion_decision_state": "Decision Fusion State",
+    "fusion_decision_confidence": "Fusion Decision Confidence (support, not accuracy)",
+    "fusion_review_required": "Fusion Human Review Required",
+    "fusion_disagreement_reasons": "Exact Fusion Disagreement Reasons (JSON)",
+    "fusion_configured_weights": "Fusion Configured Weights (JSON)",
+    "fusion_effective_weights": "Fusion Effective Weights (JSON)",
+    "fusion_feature_reliability": "Fusion Per-feature Reliability (JSON)",
+    "fusion_class_support": "Fusion Per-class Combined Support (JSON)",
 })
+EXPORT_FIELDS.update({field: field for field in SURFACE_FIELDS})
 EXPORT_FIELDS.update({
     "anatomical_association_diagnostics": "Anatomical Association Diagnostics (JSON)",
     "anatomical_part_decisions": "Anatomical Part Decisions and Candidate Scores (JSON)",
@@ -487,7 +505,7 @@ def inspection_row(
         "final_weighted_score": _number(final_score, scale=100),
         "best_evidence_class": best_grade or "",
         "best_evidence_score": _number(best_score, scale=100),
-        "verdict_status": analysis.get("verdict_status", ""),
+        "verdict_status": "NEEDS_REVIEW" if requires_human_review(analysis) else analysis.get("verdict_status", ""),
         "verdict_reason_code": analysis.get("verdict_reason_code", ""),
         "reason_codes": reason_codes_text,
         "verdict_reason": analysis.get("verdict_reason_text", ""),
@@ -731,6 +749,23 @@ def inspection_row(
         "feature_fusion_final_grade": fusion.get("final_grade") or analysis.get("final_grade") or event.get("quality") or "",
         "feature_fusion": _json(fusion) if fusion else "",
     })
+    decision_fusion = fusion.get("decision_fusion")
+    decision_fusion = decision_fusion if isinstance(decision_fusion, dict) else {}
+    row.update({
+        "decision_fusion_mode": decision_fusion.get("mode", ""),
+        "model2_only_prediction": decision_fusion.get("model_only_prediction", ""),
+        "feature_only_prediction": decision_fusion.get("feature_only_prediction") or "Unavailable",
+        "final_fused_prediction": decision_fusion.get("final_fused_prediction", ""),
+        "evidence_agreement_score": _number(decision_fusion.get("evidence_agreement_score")),
+        "model_feature_disagreement": _number(decision_fusion.get("model_to_feature_disagreement")),
+        "fusion_decision_state": decision_fusion.get("decision_state", ""),
+        "fusion_decision_confidence": _number(decision_fusion.get("decision_confidence")),
+        "fusion_review_required": "Yes" if decision_fusion.get("review_required") is True else "No" if decision_fusion.get("review_required") is False else "",
+        **{column: _json(decision_fusion[key]) if key in decision_fusion else "" for column, key in (
+            ("fusion_disagreement_reasons", "disagreement_reasons"), ("fusion_configured_weights", "configured_weights"),
+            ("fusion_effective_weights", "effective_weights"), ("fusion_feature_reliability", "per_feature_reliability"),
+            ("fusion_class_support", "per_class_combined_support"))},
+    })
     segmentation = analysis.get("segmentation") if isinstance(analysis.get("segmentation"), dict) else {}
     experimental = segmentation.get("backend") == "mobilesam_experimental" or segmentation.get("experimental") is True
     segmentation_timings = segmentation.get("timings") if isinstance(segmentation.get("timings"), dict) else {}
@@ -840,6 +875,7 @@ def inspection_row(
         "anatomical_inference_provenance": _json(inference),
         "model2_raw_detection_diagnostics": _json(analysis.get("model2_debug", {})),
     })
+    row.update(surface_export_record(event))
     return row
 
 
@@ -895,6 +931,18 @@ def _style_header(sheet) -> None:
     for cell in sheet[1]:
         cell.font = Font(bold=True, color="FFFFFF")
         cell.fill = PatternFill("solid", fgColor="2563EB")
+
+
+def make_surface_csv(events):
+    """One candidate per row, repeating the fish's exact brightness summary."""
+    rows = list(surface_candidate_rows(events))
+    fields = list(rows[0]) if rows else ["fish_id", *SURFACE_FIELDS]
+    buffer = StringIO(newline="")
+    writer = csv.DictWriter(buffer, fieldnames=fields)
+    writer.writeheader()
+    for row in rows:
+        writer.writerow({key: _csv_spreadsheet_text(value) for key, value in row.items()})
+    return buffer.getvalue().encode("utf-8-sig")
 
 
 def make_xlsx(
@@ -963,6 +1011,16 @@ def make_xlsx(
     for column in inspections.columns:
         inspections.column_dimensions[column[0].column_letter].width = min(48, max(14, max(len(str(cell.value or "")) for cell in column) + 2))
 
+    surface_rows = list(surface_candidate_rows(event for event in event_rows
+        if _analysis(event).get("brightness") or "candidates" in (_analysis(event).get("surface_damage") or {})))
+    if surface_rows:
+        surface_sheet = workbook.create_sheet("Surface Candidates")
+        surface_fields = list(surface_rows[0])
+        surface_sheet.append(surface_fields)
+        _style_header(surface_sheet)
+        for record in surface_rows:
+            append(surface_sheet, [record[field] for field in surface_fields], field_keys=surface_fields,
+                   fish_id=record["fish_id"])
     summary_sheet = workbook.create_sheet("Session Summary")
     summary_sheet.append(["Metric", "Value"])
     _style_header(summary_sheet)
@@ -1028,7 +1086,7 @@ def make_xlsx(
     _style_header(review_sheet)
     for event in event_rows:
         analysis = _analysis(event)
-        if analysis.get("verdict_status") != "NEEDS_REVIEW" or event.get("manual_override"):
+        if not requires_human_review(analysis) or event.get("manual_override"):
             continue
         row = inspection_row(event, _normalized=True)
         append(review_sheet, [
