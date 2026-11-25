@@ -1,0 +1,4067 @@
+{
+  "scope": "Actual current StillImageAnalyzer + Model1 + Model2 + MobileSAM on four original development photos",
+  "generated_utc": "2026-11-25T07:45:59.116989+00:00",
+  "model_sha256": {
+    "model1": "c79f597c2ed51b45ac2911cdbc744f8d2a4bea2411efc6a6ec0d4bcab35901e2",
+    "model2": "f74cd336b6ba9274f3bbbad845f64d03d0d4cc78e79cf1c0392d0b07d1d53222",
+    "mobilesam": "6dbb90523a35330fedd7f1d3dfc66f995213d81b29a5ca8108dbcdd4e37d6c2f"
+  },
+  "protected_model_bytes_unchanged": true,
+  "device": "cpu",
+  "precision": "FP32",
+  "torch_cpu_threads": 1,
+  "torch": "2.11.0+cu128",
+  "ultralytics": "8.4.197",
+  "cuda_initialized": false,
+  "review_catalog_configured": false,
+  "audit_process_cleared_existing_catalog": false,
+  "configuration_sha256": "5fb32fa2f04bd4131570bfa9c9b2e9dfc040e7254f81ec1c45554ac797c06f9e",
+  "mobilesam_service": {
+    "backend": "mobilesam_experimental",
+    "default_enabled": false,
+    "checkpoint_available": true,
+    "dependencies_available": true,
+    "loaded": true,
+    "requested_device": "cpu",
+    "device": "cpu",
+    "minimum_free_gpu_mb": 1024,
+    "gpu_budget_mb": 1024,
+    "gpu_budget_scope": "Preflight free-device-memory requirement; not a global allocator limit for other models.",
+    "precision": "FP32",
+    "checkpoint": "C:\\Users\\User\\Tamban_Thesis_Main_Repository_V2\\Thesis\\sardinella-lemuru-ml\\models\\experimental\\mobilesam\\mobile_sam.pt",
+    "checkpoint_sha256": "6dbb90523a35330fedd7f1d3dfc66f995213d81b29a5ca8108dbcdd4e37d6c2f",
+    "fallback_reason": null,
+    "checkpoint_integrity": "verified",
+    "embedding_count": 4,
+    "frame_count": 4,
+    "cleanup_error": null,
+    "ownership_validated": false,
+    "approved_for_grading": false
+  },
+  "counts": {
+    "fish": 27,
+    "both_primary_detected_skipped": 4,
+    "secondary_activated": 23,
+    "automatic_anatomical_rejections": 0,
+    "anatomy_UNCERTAIN": 23,
+    "native_mask_geometry_pass": 18,
+    "silhouette_geometry_candidate": 3,
+    "overlap_or_ownership_uncertainty": 20,
+    "anatomy_PRESENT": 4
+  },
+  "records": [
+    {
+      "scenario": "WIN_20260823_22_09_34_Pro_jpg.rf.5b4ee02a0f77df29287b889dd0d840e1.jpg",
+      "source_sha256": "abe6adf32ff25a818693a7c3b59bb6826aee597b1c9bebe9ba4d5afad8330369",
+      "shape": [
+        640,
+        640,
+        3
+      ],
+      "elapsed_ms": 9378.167,
+      "fish_detected": 6,
+      "quality_counters": {
+        "Class A": 0,
+        "Class B": 0,
+        "Class C": 1,
+        "Rejected": 0,
+        "Ungraded": 5
+      },
+      "frame_mask_context": {
+        "scope": "one_original_frame",
+        "frame_id": "anatomy-secondary-audit:1",
+        "segmentation_calls": 0,
+        "cache_misses": 0,
+        "grabcut_executions": 0,
+        "cache_hits": 0,
+        "cache_entries": 7,
+        "segmentation_ms": 1825.43,
+        "lookup_ms": 41.355,
+        "feature_calls": 6,
+        "feature_cache_hits": 0,
+        "feature_ms": 2515.678,
+        "projection_calls": 0,
+        "projection_fallbacks": 1,
+        "projection_ms": 0.245,
+        "segmentation_backend": "mobilesam_experimental",
+        "experimental_segmentation": {
+          "backend": "mobilesam_experimental",
+          "experimental": true,
+          "embedding_calls": 1,
+          "prompt_calls": 6,
+          "segmentation_ms": 1825.43,
+          "used_for_grading": false,
+          "validation_status": "Not validated",
+          "frame_key": "anatomy-secondary-audit:1:f0365f65164631bb340ac635f7f373d8",
+          "embedding_ms": 958.765,
+          "actual_encoder_forward_calls": 1,
+          "prompt_ms": 422.654,
+          "prompt_cache_hits": 0,
+          "cpu_fallbacks": 0,
+          "prompt_requests": 6,
+          "decoder_attempts": 6,
+          "cached_mask_bytes": 2457600,
+          "lock_wait_ms": 0.001,
+          "model_load_ms": 382.068,
+          "device": "cpu",
+          "gpu_memory": {
+            "status": "not_measured",
+            "reason": "MobileSAM is running on CPU."
+          },
+          "scope": "shared image embedding plus sequential candidate prompts; child timings are not per-fish totals",
+          "candidate_count": 6,
+          "engineering_checks_passed": 1,
+          "applied_to_grading": false
+        },
+        "segmentation_stage_ms": {},
+        "native_pixels_processed": 0,
+        "working_pixels_processed": 0,
+        "downsized_calls": 0,
+        "generation_failures": 0,
+        "segmentation_rejections": 0,
+        "settings_fallbacks": 0,
+        "segmentation_settings": {
+          "maximum_dimension": 640,
+          "maximum_pixels": 200000,
+          "configuration_warnings": []
+        }
+      },
+      "segmentation_ms": null,
+      "model2_inference_ms": 717.339,
+      "fish": [
+        {
+          "id": 1,
+          "bbox": [
+            2.74,
+            282.1,
+            230.88,
+            484.47
+          ],
+          "quality": "Ungraded",
+          "primary_both_detected_secondary_skipped": false,
+          "anatomical_verification": {
+            "version": "1",
+            "fish_id": 1,
+            "frame_id": "anatomy-secondary-audit:1",
+            "activated": true,
+            "primary": {
+              "Head": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 1,
+                "frame_id": "anatomy-secondary-audit:1",
+                "association_valid": false
+              },
+              "Body": {
+                "detected": true,
+                "confidence": 0.7997760772705078,
+                "status": "detected",
+                "fish_id": 1,
+                "frame_id": "anatomy-secondary-audit:1",
+                "association_valid": false
+              },
+              "Tail": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 1,
+                "frame_id": "anatomy-secondary-audit:1",
+                "association_valid": false
+              }
+            },
+            "parts": {
+              "Head": {
+                "state": "UNCERTAIN",
+                "source": "silhouette_geometry",
+                "confidence": null,
+                "reason": "Verification blocked: association_ambiguous, overlapping"
+              },
+              "Body": {
+                "state": "PRESENT",
+                "source": "model2",
+                "confidence": 0.7997760772705078,
+                "reason": "Model 2 detected this region."
+              }
+            },
+            "undetected_regions": [
+              "Head"
+            ],
+            "missing_regions": [],
+            "geometry": {
+              "status": "unavailable",
+              "validated_for_absence": false,
+              "orientation": "UNCERTAIN",
+              "reason": "mask_touches_frame_boundary; required_anatomical_ownership_ambiguous; required_head_evidence_unavailable",
+              "mask_source": "mobilesam_anatomy_candidate",
+              "fish_id": 1,
+              "frame_id": "anatomy-secondary-audit:1"
+            },
+            "automatic_rejection": false,
+            "rejection_reason": null,
+            "review_reason": "Cannot confidently verify Head; review is required. Verification blocked: association_ambiguous, overlapping",
+            "uncertainty_causes": [
+              "association_ambiguous",
+              "overlapping",
+              "head_unverified_detection_failure"
+            ],
+            "status": "UNCERTAIN",
+            "reason": "Cannot confidently verify Head; review is required."
+          },
+          "segmentation": {
+            "backend": "mobilesam_experimental",
+            "status": "candidate",
+            "engineering_checks_passed": false,
+            "validation_status": "Not validated",
+            "used_for_grading": false,
+            "mask_score_unvalidated": 0.9703968167304993,
+            "checkpoint_sha256": "6dbb90523a35330fedd7f1d3dfc66f995213d81b29a5ca8108dbcdd4e37d6c2f",
+            "reasons": [
+              "mask_touches_frame_boundary",
+              "required_anatomical_ownership_ambiguous",
+              "required_head_evidence_unavailable"
+            ],
+            "backend_error": null,
+            "timings": {
+              "embedding_ms": 958.765,
+              "prompt_ms": 101.459
+            }
+          },
+          "mask_geometry": {
+            "mask_geometry_checks_passed": false,
+            "engineering_checks_passed": false,
+            "ownership_validated": false,
+            "reasons": [
+              "mask_touches_frame_boundary",
+              "required_anatomical_ownership_ambiguous",
+              "required_head_evidence_unavailable"
+            ],
+            "metrics": {
+              "foreground_pixels": 11734,
+              "mask_inside_intended_box_fraction": 0.9971876597920573,
+              "intended_box_occupancy": 0.25170477767978144,
+              "component_count": 1,
+              "secondary_component_fraction": 0.0,
+              "foreground_bbox": [
+                0,
+                285,
+                226,
+                481
+              ],
+              "hole_fraction": 0.0,
+              "principal_axis_ratio": 5.104886808908645,
+              "mask_touches_frame_boundary": true,
+              "parent_bbox_touches_frame_boundary": false,
+              "detected_part_box_coverage": {
+                "Body": 0.44
+              },
+              "pair_overlap_fraction": {
+                "2": 0.0,
+                "3": 0.0004840739665020815,
+                "4": 0.0,
+                "5": 0.0,
+                "6": 0.0
+              }
+            }
+          }
+        },
+        {
+          "id": 2,
+          "bbox": [
+            438.76,
+            140.09,
+            559.4,
+            294.71
+          ],
+          "quality": "Ungraded",
+          "primary_both_detected_secondary_skipped": false,
+          "anatomical_verification": {
+            "version": "1",
+            "fish_id": 2,
+            "frame_id": "anatomy-secondary-audit:1",
+            "activated": true,
+            "primary": {
+              "Head": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 2,
+                "frame_id": "anatomy-secondary-audit:1",
+                "association_valid": true
+              },
+              "Body": {
+                "detected": true,
+                "confidence": 0.6011580228805542,
+                "status": "detected",
+                "fish_id": 2,
+                "frame_id": "anatomy-secondary-audit:1",
+                "association_valid": true
+              },
+              "Tail": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 2,
+                "frame_id": "anatomy-secondary-audit:1",
+                "association_valid": true
+              }
+            },
+            "parts": {
+              "Head": {
+                "state": "UNCERTAIN",
+                "source": "silhouette_geometry",
+                "confidence": null,
+                "reason": "Silhouette tissue, continuity and endpoint candidates are uncalibrated; they cannot establish anatomical presence or absence."
+              },
+              "Body": {
+                "state": "PRESENT",
+                "source": "model2",
+                "confidence": 0.6011580228805542,
+                "reason": "Model 2 detected this region."
+              }
+            },
+            "undetected_regions": [
+              "Head"
+            ],
+            "missing_regions": [],
+            "geometry": {
+              "status": "candidate",
+              "validated_for_absence": false,
+              "orientation": "UNCERTAIN",
+              "reason": "Silhouette tissue, continuity and endpoint candidates are uncalibrated; they cannot establish anatomical presence or absence.",
+              "mask_source": "mobilesam_anatomy_candidate",
+              "fish_id": 2,
+              "frame_id": "anatomy-secondary-audit:1",
+              "axis_head_to_tail": null,
+              "principal_axis_ratio": 3.46596208971829,
+              "centerline_deviation_ratio": 0.40725347508824894,
+              "width_profile_px": [
+                17.886809844341492,
+                37.1213570629567,
+                49.64835058994383,
+                60.39911640439301,
+                59.97062606612876,
+                57.672508476105136,
+                52.34382533849124,
+                51.946468179967454,
+                50.53646444621282,
+                46.06476198512745,
+                43.92231029380616,
+                40.736078847513554,
+                38.00947091922568,
+                34.45701549414976,
+                31.823807105083276,
+                29.06606599705493,
+                25.942100910243262,
+                23.277759341436315,
+                20.64455095236984,
+                22.35851230542687,
+                24.165873197705302,
+                26.83021476651224,
+                29.954179853323907,
+                30.87342688933336
+              ],
+              "continuous_longitudinal_support": true,
+              "endpoint_cut_candidates": {
+                "start": false,
+                "end": false
+              },
+              "expected_regions": {},
+              "working_scale": 1.0
+            },
+            "automatic_rejection": false,
+            "rejection_reason": null,
+            "review_reason": "Cannot confidently verify Head; review is required. Silhouette tissue, continuity and endpoint candidates are uncalibrated; they cannot establish anatomical presence or absence.",
+            "uncertainty_causes": [
+              "head_unverified_detection_failure"
+            ],
+            "status": "UNCERTAIN",
+            "reason": "Cannot confidently verify Head; review is required."
+          },
+          "segmentation": {
+            "backend": "mobilesam_experimental",
+            "status": "candidate",
+            "engineering_checks_passed": false,
+            "validation_status": "Not validated",
+            "used_for_grading": false,
+            "mask_score_unvalidated": 0.9660673141479492,
+            "checkpoint_sha256": "6dbb90523a35330fedd7f1d3dfc66f995213d81b29a5ca8108dbcdd4e37d6c2f",
+            "reasons": [
+              "required_head_evidence_unavailable"
+            ],
+            "backend_error": null,
+            "timings": {
+              "embedding_ms": 958.765,
+              "prompt_ms": 64.916
+            }
+          },
+          "mask_geometry": {
+            "mask_geometry_checks_passed": true,
+            "engineering_checks_passed": false,
+            "ownership_validated": false,
+            "reasons": [
+              "required_head_evidence_unavailable"
+            ],
+            "metrics": {
+              "foreground_pixels": 6335,
+              "mask_inside_intended_box_fraction": 1.0,
+              "intended_box_occupancy": 0.3350079323109466,
+              "component_count": 1,
+              "secondary_component_fraction": 0.0,
+              "foreground_bbox": [
+                443,
+                140,
+                557,
+                295
+              ],
+              "hole_fraction": 0.0,
+              "principal_axis_ratio": 3.465962089718291,
+              "mask_touches_frame_boundary": false,
+              "parent_bbox_touches_frame_boundary": false,
+              "detected_part_box_coverage": {
+                "Body": 0.45309364548494985
+              },
+              "pair_overlap_fraction": {
+                "1": 0.0,
+                "3": 0.0,
+                "4": 0.0,
+                "5": 0.0,
+                "6": 0.0
+              }
+            }
+          }
+        },
+        {
+          "id": 3,
+          "bbox": [
+            0.6,
+            224.56,
+            234.91,
+            394.13
+          ],
+          "quality": "Ungraded",
+          "primary_both_detected_secondary_skipped": false,
+          "anatomical_verification": {
+            "version": "1",
+            "fish_id": 3,
+            "frame_id": "anatomy-secondary-audit:1",
+            "activated": true,
+            "primary": {
+              "Head": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 3,
+                "frame_id": "anatomy-secondary-audit:1",
+                "association_valid": false
+              },
+              "Body": {
+                "detected": true,
+                "confidence": 0.8007837533950806,
+                "status": "detected",
+                "fish_id": 3,
+                "frame_id": "anatomy-secondary-audit:1",
+                "association_valid": false
+              },
+              "Tail": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 3,
+                "frame_id": "anatomy-secondary-audit:1",
+                "association_valid": false
+              }
+            },
+            "parts": {
+              "Head": {
+                "state": "UNCERTAIN",
+                "source": "silhouette_geometry",
+                "confidence": null,
+                "reason": "Verification blocked: association_ambiguous, overlapping"
+              },
+              "Body": {
+                "state": "PRESENT",
+                "source": "model2",
+                "confidence": 0.8007837533950806,
+                "reason": "Model 2 detected this region."
+              }
+            },
+            "undetected_regions": [
+              "Head"
+            ],
+            "missing_regions": [],
+            "geometry": {
+              "status": "unavailable",
+              "validated_for_absence": false,
+              "orientation": "UNCERTAIN",
+              "reason": "mask_touches_frame_boundary; required_anatomical_ownership_ambiguous; required_head_evidence_unavailable",
+              "mask_source": "mobilesam_anatomy_candidate",
+              "fish_id": 3,
+              "frame_id": "anatomy-secondary-audit:1"
+            },
+            "automatic_rejection": false,
+            "rejection_reason": null,
+            "review_reason": "Cannot confidently verify Head; review is required. Verification blocked: association_ambiguous, overlapping",
+            "uncertainty_causes": [
+              "association_ambiguous",
+              "overlapping",
+              "head_unverified_detection_failure"
+            ],
+            "status": "UNCERTAIN",
+            "reason": "Cannot confidently verify Head; review is required."
+          },
+          "segmentation": {
+            "backend": "mobilesam_experimental",
+            "status": "candidate",
+            "engineering_checks_passed": false,
+            "validation_status": "Not validated",
+            "used_for_grading": false,
+            "mask_score_unvalidated": 0.9698730111122131,
+            "checkpoint_sha256": "6dbb90523a35330fedd7f1d3dfc66f995213d81b29a5ca8108dbcdd4e37d6c2f",
+            "reasons": [
+              "mask_touches_frame_boundary",
+              "required_anatomical_ownership_ambiguous",
+              "required_head_evidence_unavailable"
+            ],
+            "backend_error": null,
+            "timings": {
+              "embedding_ms": 958.765,
+              "prompt_ms": 64.463
+            }
+          },
+          "mask_geometry": {
+            "mask_geometry_checks_passed": false,
+            "engineering_checks_passed": false,
+            "ownership_validated": false,
+            "reasons": [
+              "mask_touches_frame_boundary",
+              "required_anatomical_ownership_ambiguous",
+              "required_head_evidence_unavailable"
+            ],
+            "metrics": {
+              "foreground_pixels": 10329,
+              "mask_inside_intended_box_fraction": 1.0,
+              "intended_box_occupancy": 0.2570362075401269,
+              "component_count": 2,
+              "secondary_component_fraction": 0.0004840739665020815,
+              "foreground_bbox": [
+                0,
+                227,
+                235,
+                390
+              ],
+              "hole_fraction": 0.0,
+              "principal_axis_ratio": 5.63444901846961,
+              "mask_touches_frame_boundary": true,
+              "parent_bbox_touches_frame_boundary": false,
+              "detected_part_box_coverage": {
+                "Body": 0.4036392405063291
+              },
+              "pair_overlap_fraction": {
+                "1": 0.0004840739665020815,
+                "2": 0.0,
+                "4": 0.0,
+                "5": 0.0,
+                "6": 0.0
+              }
+            }
+          }
+        },
+        {
+          "id": 4,
+          "bbox": [
+            316.64,
+            139.6,
+            411.28,
+            395.06
+          ],
+          "quality": "Class C",
+          "primary_both_detected_secondary_skipped": true,
+          "anatomical_verification": {
+            "version": "1",
+            "fish_id": 4,
+            "frame_id": "anatomy-secondary-audit:1",
+            "activated": false,
+            "primary": {
+              "Head": {
+                "detected": true,
+                "confidence": 0.7888988852500916,
+                "status": "detected",
+                "fish_id": 4,
+                "frame_id": "anatomy-secondary-audit:1",
+                "association_valid": true
+              },
+              "Body": {
+                "detected": true,
+                "confidence": 0.6456267237663269,
+                "status": "detected",
+                "fish_id": 4,
+                "frame_id": "anatomy-secondary-audit:1",
+                "association_valid": true
+              },
+              "Tail": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 4,
+                "frame_id": "anatomy-secondary-audit:1",
+                "association_valid": true
+              }
+            },
+            "parts": {
+              "Head": {
+                "state": "PRESENT",
+                "source": "model2",
+                "confidence": 0.7888988852500916,
+                "reason": "Model 2 detected this region."
+              },
+              "Body": {
+                "state": "PRESENT",
+                "source": "model2",
+                "confidence": 0.6456267237663269,
+                "reason": "Model 2 detected this region."
+              }
+            },
+            "undetected_regions": [],
+            "missing_regions": [],
+            "geometry": {},
+            "automatic_rejection": false,
+            "rejection_reason": null,
+            "review_reason": null,
+            "uncertainty_causes": [],
+            "status": "PRESENT",
+            "reason": "Model 2 detected both required anatomical regions; continue normal grading."
+          },
+          "segmentation": {
+            "backend": "mobilesam_experimental",
+            "status": "candidate",
+            "engineering_checks_passed": true,
+            "validation_status": "Not validated",
+            "used_for_grading": false,
+            "mask_score_unvalidated": 0.9617876410484314,
+            "checkpoint_sha256": "6dbb90523a35330fedd7f1d3dfc66f995213d81b29a5ca8108dbcdd4e37d6c2f",
+            "reasons": [
+              "Engineering checks passed; candidate remains unvalidated for anatomical ownership and grading."
+            ],
+            "backend_error": null,
+            "timings": {
+              "embedding_ms": 958.765,
+              "prompt_ms": 61.279
+            }
+          },
+          "mask_geometry": {
+            "mask_geometry_checks_passed": true,
+            "engineering_checks_passed": true,
+            "ownership_validated": false,
+            "reasons": [],
+            "metrics": {
+              "foreground_pixels": 13774,
+              "mask_inside_intended_box_fraction": 0.9994917961376506,
+              "intended_box_occupancy": 0.5580009727626459,
+              "component_count": 1,
+              "secondary_component_fraction": 0.0,
+              "foreground_bbox": [
+                315,
+                141,
+                409,
+                393
+              ],
+              "hole_fraction": 0.0,
+              "principal_axis_ratio": 3.85667977895505,
+              "mask_touches_frame_boundary": false,
+              "parent_bbox_touches_frame_boundary": false,
+              "detected_part_box_coverage": {
+                "Head": 0.7056634973129392,
+                "Body": 0.5936413313462494
+              },
+              "pair_overlap_fraction": {
+                "1": 0.0,
+                "2": 0.0,
+                "3": 0.0,
+                "5": 0.0,
+                "6": 0.0005325522566901877
+              }
+            }
+          }
+        },
+        {
+          "id": 5,
+          "bbox": [
+            240.26,
+            294.09,
+            324.94,
+            500.28
+          ],
+          "quality": "Ungraded",
+          "primary_both_detected_secondary_skipped": false,
+          "anatomical_verification": {
+            "version": "1",
+            "fish_id": 5,
+            "frame_id": "anatomy-secondary-audit:1",
+            "activated": true,
+            "primary": {
+              "Head": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 5,
+                "frame_id": "anatomy-secondary-audit:1",
+                "association_valid": true
+              },
+              "Body": {
+                "detected": true,
+                "confidence": 0.8011478781700134,
+                "status": "detected",
+                "fish_id": 5,
+                "frame_id": "anatomy-secondary-audit:1",
+                "association_valid": true
+              },
+              "Tail": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 5,
+                "frame_id": "anatomy-secondary-audit:1",
+                "association_valid": true
+              }
+            },
+            "parts": {
+              "Head": {
+                "state": "UNCERTAIN",
+                "source": "silhouette_geometry",
+                "confidence": null,
+                "reason": "Verification blocked: overlapping"
+              },
+              "Body": {
+                "state": "PRESENT",
+                "source": "model2",
+                "confidence": 0.8011478781700134,
+                "reason": "Model 2 detected this region."
+              }
+            },
+            "undetected_regions": [
+              "Head"
+            ],
+            "missing_regions": [],
+            "geometry": {
+              "status": "unavailable",
+              "validated_for_absence": false,
+              "orientation": "UNCERTAIN",
+              "reason": "Neighboring fish may own pixels in this silhouette.",
+              "mask_source": "mobilesam_anatomy_candidate",
+              "fish_id": 5,
+              "frame_id": "anatomy-secondary-audit:1"
+            },
+            "automatic_rejection": false,
+            "rejection_reason": null,
+            "review_reason": "Cannot confidently verify Head; review is required. Verification blocked: overlapping",
+            "uncertainty_causes": [
+              "overlapping",
+              "head_unverified_detection_failure"
+            ],
+            "status": "UNCERTAIN",
+            "reason": "Cannot confidently verify Head; review is required."
+          },
+          "segmentation": {
+            "backend": "mobilesam_experimental",
+            "status": "candidate",
+            "engineering_checks_passed": false,
+            "validation_status": "Not validated",
+            "used_for_grading": false,
+            "mask_score_unvalidated": 0.9591853022575378,
+            "checkpoint_sha256": "6dbb90523a35330fedd7f1d3dfc66f995213d81b29a5ca8108dbcdd4e37d6c2f",
+            "reasons": [
+              "required_head_evidence_unavailable"
+            ],
+            "backend_error": null,
+            "timings": {
+              "embedding_ms": 958.765,
+              "prompt_ms": 65.38
+            }
+          },
+          "mask_geometry": {
+            "mask_geometry_checks_passed": true,
+            "engineering_checks_passed": false,
+            "ownership_validated": false,
+            "reasons": [
+              "required_head_evidence_unavailable"
+            ],
+            "metrics": {
+              "foreground_pixels": 8667,
+              "mask_inside_intended_box_fraction": 1.0,
+              "intended_box_occupancy": 0.4925831202046036,
+              "component_count": 1,
+              "secondary_component_fraction": 0.0,
+              "foreground_bbox": [
+                242,
+                300,
+                321,
+                499
+              ],
+              "hole_fraction": 0.0,
+              "principal_axis_ratio": 3.357659092404416,
+              "mask_touches_frame_boundary": false,
+              "parent_bbox_touches_frame_boundary": false,
+              "detected_part_box_coverage": {
+                "Body": 0.5827586206896552
+              },
+              "pair_overlap_fraction": {
+                "1": 0.0,
+                "2": 0.0,
+                "3": 0.0,
+                "4": 0.0,
+                "6": 0.0
+              }
+            }
+          }
+        },
+        {
+          "id": 6,
+          "bbox": [
+            294.84,
+            335.16,
+            382.06,
+            501.3
+          ],
+          "quality": "Ungraded",
+          "primary_both_detected_secondary_skipped": false,
+          "anatomical_verification": {
+            "version": "1",
+            "fish_id": 6,
+            "frame_id": "anatomy-secondary-audit:1",
+            "activated": true,
+            "primary": {
+              "Head": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 6,
+                "frame_id": "anatomy-secondary-audit:1",
+                "association_valid": true
+              },
+              "Body": {
+                "detected": true,
+                "confidence": 0.8144001364707947,
+                "status": "detected",
+                "fish_id": 6,
+                "frame_id": "anatomy-secondary-audit:1",
+                "association_valid": true
+              },
+              "Tail": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 6,
+                "frame_id": "anatomy-secondary-audit:1",
+                "association_valid": true
+              }
+            },
+            "parts": {
+              "Head": {
+                "state": "UNCERTAIN",
+                "source": "silhouette_geometry",
+                "confidence": null,
+                "reason": "Verification blocked: overlapping"
+              },
+              "Body": {
+                "state": "PRESENT",
+                "source": "model2",
+                "confidence": 0.8144001364707947,
+                "reason": "Model 2 detected this region."
+              }
+            },
+            "undetected_regions": [
+              "Head"
+            ],
+            "missing_regions": [],
+            "geometry": {
+              "status": "unavailable",
+              "validated_for_absence": false,
+              "orientation": "UNCERTAIN",
+              "reason": "Neighboring fish may own pixels in this silhouette.",
+              "mask_source": "mobilesam_anatomy_candidate",
+              "fish_id": 6,
+              "frame_id": "anatomy-secondary-audit:1"
+            },
+            "automatic_rejection": false,
+            "rejection_reason": null,
+            "review_reason": "Cannot confidently verify Head; review is required. Verification blocked: overlapping",
+            "uncertainty_causes": [
+              "overlapping",
+              "head_unverified_detection_failure"
+            ],
+            "status": "UNCERTAIN",
+            "reason": "Cannot confidently verify Head; review is required."
+          },
+          "segmentation": {
+            "backend": "mobilesam_experimental",
+            "status": "candidate",
+            "engineering_checks_passed": false,
+            "validation_status": "Not validated",
+            "used_for_grading": false,
+            "mask_score_unvalidated": 0.9614955186843872,
+            "checkpoint_sha256": "6dbb90523a35330fedd7f1d3dfc66f995213d81b29a5ca8108dbcdd4e37d6c2f",
+            "reasons": [
+              "required_head_evidence_unavailable"
+            ],
+            "backend_error": null,
+            "timings": {
+              "embedding_ms": 958.765,
+              "prompt_ms": 65.156
+            }
+          },
+          "mask_geometry": {
+            "mask_geometry_checks_passed": true,
+            "engineering_checks_passed": false,
+            "ownership_validated": false,
+            "reasons": [
+              "required_head_evidence_unavailable"
+            ],
+            "metrics": {
+              "foreground_pixels": 7511,
+              "mask_inside_intended_box_fraction": 1.0,
+              "intended_box_occupancy": 0.5053488528560856,
+              "component_count": 1,
+              "secondary_component_fraction": 0.0,
+              "foreground_bbox": [
+                296,
+                340,
+                377,
+                500
+              ],
+              "hole_fraction": 0.0,
+              "principal_axis_ratio": 2.375258537551775,
+              "mask_touches_frame_boundary": false,
+              "parent_bbox_touches_frame_boundary": false,
+              "detected_part_box_coverage": {
+                "Body": 0.6455555555555555
+              },
+              "pair_overlap_fraction": {
+                "1": 0.0,
+                "2": 0.0,
+                "3": 0.0,
+                "4": 0.0005325522566901877,
+                "5": 0.0
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "scenario": "WIN_20260902_18_40_32_Pro_jpg.rf.2bf77c6d7eff30709e54ef354898feb4.jpg",
+      "source_sha256": "eca39d87cbc6e77cf413a954123023bc5f305b3ec5506aea5ce5a670420ca4bf",
+      "shape": [
+        640,
+        640,
+        3
+      ],
+      "elapsed_ms": 5369.922,
+      "fish_detected": 8,
+      "quality_counters": {
+        "Class A": 0,
+        "Class B": 0,
+        "Class C": 0,
+        "Rejected": 1,
+        "Ungraded": 7
+      },
+      "frame_mask_context": {
+        "scope": "one_original_frame",
+        "frame_id": "anatomy-secondary-audit:2",
+        "segmentation_calls": 0,
+        "cache_misses": 0,
+        "grabcut_executions": 0,
+        "cache_hits": 0,
+        "cache_entries": 8,
+        "segmentation_ms": 1319.888,
+        "lookup_ms": 50.662,
+        "feature_calls": 8,
+        "feature_cache_hits": 0,
+        "feature_ms": 2066.22,
+        "projection_calls": 0,
+        "projection_fallbacks": 0,
+        "projection_ms": 0.0,
+        "segmentation_backend": "mobilesam_experimental",
+        "experimental_segmentation": {
+          "backend": "mobilesam_experimental",
+          "experimental": true,
+          "embedding_calls": 1,
+          "prompt_calls": 8,
+          "segmentation_ms": 1319.888,
+          "used_for_grading": false,
+          "validation_status": "Not validated",
+          "frame_key": "anatomy-secondary-audit:2:75e92bd0ab91503ee586ebb1032cfa5b",
+          "embedding_ms": 792.787,
+          "actual_encoder_forward_calls": 1,
+          "prompt_ms": 520.878,
+          "prompt_cache_hits": 0,
+          "cpu_fallbacks": 0,
+          "prompt_requests": 8,
+          "decoder_attempts": 8,
+          "cached_mask_bytes": 3276800,
+          "lock_wait_ms": 0.003,
+          "model_load_ms": 382.068,
+          "device": "cpu",
+          "gpu_memory": {
+            "status": "not_measured",
+            "reason": "MobileSAM is running on CPU."
+          },
+          "scope": "shared image embedding plus sequential candidate prompts; child timings are not per-fish totals",
+          "candidate_count": 8,
+          "engineering_checks_passed": 0,
+          "applied_to_grading": false
+        },
+        "segmentation_stage_ms": {},
+        "native_pixels_processed": 0,
+        "working_pixels_processed": 0,
+        "downsized_calls": 0,
+        "generation_failures": 0,
+        "segmentation_rejections": 0,
+        "settings_fallbacks": 0,
+        "segmentation_settings": {
+          "maximum_dimension": 640,
+          "maximum_pixels": 200000,
+          "configuration_warnings": []
+        }
+      },
+      "segmentation_ms": null,
+      "model2_inference_ms": 509.624,
+      "fish": [
+        {
+          "id": 1,
+          "bbox": [
+            167.64,
+            209.23,
+            375.39,
+            342.99
+          ],
+          "quality": "Ungraded",
+          "primary_both_detected_secondary_skipped": false,
+          "anatomical_verification": {
+            "version": "1",
+            "fish_id": 1,
+            "frame_id": "anatomy-secondary-audit:2",
+            "activated": true,
+            "primary": {
+              "Head": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 1,
+                "frame_id": "anatomy-secondary-audit:2",
+                "association_valid": true
+              },
+              "Body": {
+                "detected": true,
+                "confidence": 0.7877235412597656,
+                "status": "detected",
+                "fish_id": 1,
+                "frame_id": "anatomy-secondary-audit:2",
+                "association_valid": true
+              },
+              "Tail": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 1,
+                "frame_id": "anatomy-secondary-audit:2",
+                "association_valid": true
+              }
+            },
+            "parts": {
+              "Head": {
+                "state": "UNCERTAIN",
+                "source": "silhouette_geometry",
+                "confidence": null,
+                "reason": "Verification blocked: overlapping"
+              },
+              "Body": {
+                "state": "PRESENT",
+                "source": "model2",
+                "confidence": 0.7877235412597656,
+                "reason": "Model 2 detected this region."
+              }
+            },
+            "undetected_regions": [
+              "Head"
+            ],
+            "missing_regions": [],
+            "geometry": {
+              "status": "unavailable",
+              "validated_for_absence": false,
+              "orientation": "UNCERTAIN",
+              "reason": "candidate_contains_neighbor_anatomical_evidence; required_head_evidence_unavailable",
+              "mask_source": "mobilesam_anatomy_candidate",
+              "fish_id": 1,
+              "frame_id": "anatomy-secondary-audit:2"
+            },
+            "automatic_rejection": false,
+            "rejection_reason": null,
+            "review_reason": "Cannot confidently verify Head; review is required. Verification blocked: overlapping",
+            "uncertainty_causes": [
+              "overlapping",
+              "head_unverified_detection_failure"
+            ],
+            "status": "UNCERTAIN",
+            "reason": "Cannot confidently verify Head; review is required."
+          },
+          "segmentation": {
+            "backend": "mobilesam_experimental",
+            "status": "candidate",
+            "engineering_checks_passed": false,
+            "validation_status": "Not validated",
+            "used_for_grading": false,
+            "mask_score_unvalidated": 0.9480414390563965,
+            "checkpoint_sha256": "6dbb90523a35330fedd7f1d3dfc66f995213d81b29a5ca8108dbcdd4e37d6c2f",
+            "reasons": [
+              "candidate_contains_neighbor_anatomical_evidence",
+              "required_head_evidence_unavailable"
+            ],
+            "backend_error": null,
+            "timings": {
+              "embedding_ms": 792.787,
+              "prompt_ms": 67.717
+            }
+          },
+          "mask_geometry": {
+            "mask_geometry_checks_passed": false,
+            "engineering_checks_passed": false,
+            "ownership_validated": false,
+            "reasons": [
+              "candidate_contains_neighbor_anatomical_evidence",
+              "required_head_evidence_unavailable"
+            ],
+            "metrics": {
+              "foreground_pixels": 8326,
+              "mask_inside_intended_box_fraction": 1.0,
+              "intended_box_occupancy": 0.297293437120617,
+              "component_count": 4,
+              "secondary_component_fraction": 0.013331731924093202,
+              "foreground_bbox": [
+                174,
+                211,
+                376,
+                341
+              ],
+              "hole_fraction": 0.0,
+              "principal_axis_ratio": 3.795143827776254,
+              "mask_touches_frame_boundary": false,
+              "parent_bbox_touches_frame_boundary": false,
+              "detected_part_box_coverage": {
+                "Body": 0.38697387518142234
+              },
+              "pair_overlap_fraction": {
+                "2": 0.0,
+                "3": 0.0,
+                "4": 0.02019650655021834,
+                "5": 0.0,
+                "6": 0.0,
+                "7": 0.0,
+                "8": 0.0
+              }
+            }
+          }
+        },
+        {
+          "id": 2,
+          "bbox": [
+            319.91,
+            152.91,
+            515.61,
+            273.96
+          ],
+          "quality": "Rejected",
+          "primary_both_detected_secondary_skipped": true,
+          "anatomical_verification": {
+            "version": "1",
+            "fish_id": 2,
+            "frame_id": "anatomy-secondary-audit:2",
+            "activated": false,
+            "primary": {
+              "Head": {
+                "detected": true,
+                "confidence": 0.6765025854110718,
+                "status": "detected",
+                "fish_id": 2,
+                "frame_id": "anatomy-secondary-audit:2",
+                "association_valid": true
+              },
+              "Body": {
+                "detected": true,
+                "confidence": 0.7707241177558899,
+                "status": "detected",
+                "fish_id": 2,
+                "frame_id": "anatomy-secondary-audit:2",
+                "association_valid": true
+              },
+              "Tail": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 2,
+                "frame_id": "anatomy-secondary-audit:2",
+                "association_valid": true
+              }
+            },
+            "parts": {
+              "Head": {
+                "state": "PRESENT",
+                "source": "model2",
+                "confidence": 0.6765025854110718,
+                "reason": "Model 2 detected this region."
+              },
+              "Body": {
+                "state": "PRESENT",
+                "source": "model2",
+                "confidence": 0.7707241177558899,
+                "reason": "Model 2 detected this region."
+              }
+            },
+            "undetected_regions": [],
+            "missing_regions": [],
+            "geometry": {},
+            "automatic_rejection": false,
+            "rejection_reason": null,
+            "review_reason": null,
+            "uncertainty_causes": [],
+            "status": "PRESENT",
+            "reason": "Model 2 detected both required anatomical regions; continue normal grading."
+          },
+          "segmentation": {
+            "backend": "mobilesam_experimental",
+            "status": "candidate",
+            "engineering_checks_passed": false,
+            "validation_status": "Not validated",
+            "used_for_grading": false,
+            "mask_score_unvalidated": 0.9518487453460693,
+            "checkpoint_sha256": "6dbb90523a35330fedd7f1d3dfc66f995213d81b29a5ca8108dbcdd4e37d6c2f",
+            "reasons": [
+              "candidate_omits_detected_head_region"
+            ],
+            "backend_error": null,
+            "timings": {
+              "embedding_ms": 792.787,
+              "prompt_ms": 64.029
+            }
+          },
+          "mask_geometry": {
+            "mask_geometry_checks_passed": true,
+            "engineering_checks_passed": false,
+            "ownership_validated": false,
+            "reasons": [
+              "candidate_omits_detected_head_region"
+            ],
+            "metrics": {
+              "foreground_pixels": 7083,
+              "mask_inside_intended_box_fraction": 1.0,
+              "intended_box_occupancy": 0.2947074977115753,
+              "component_count": 1,
+              "secondary_component_fraction": 0.0,
+              "foreground_bbox": [
+                321,
+                156,
+                505,
+                273
+              ],
+              "hole_fraction": 0.0,
+              "principal_axis_ratio": 4.301852611645698,
+              "mask_touches_frame_boundary": false,
+              "parent_bbox_touches_frame_boundary": false,
+              "detected_part_box_coverage": {
+                "Body": 0.3713587999302285,
+                "Head": 0.00043261951113995244
+              },
+              "pair_overlap_fraction": {
+                "1": 0.0,
+                "3": 0.0,
+                "4": 0.0,
+                "5": 0.0,
+                "6": 0.0,
+                "7": 0.0,
+                "8": 0.0
+              }
+            }
+          }
+        },
+        {
+          "id": 3,
+          "bbox": [
+            508.87,
+            263.32,
+            637.34,
+            385.82
+          ],
+          "quality": "Ungraded",
+          "primary_both_detected_secondary_skipped": false,
+          "anatomical_verification": {
+            "version": "1",
+            "fish_id": 3,
+            "frame_id": "anatomy-secondary-audit:2",
+            "activated": true,
+            "primary": {
+              "Head": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 3,
+                "frame_id": "anatomy-secondary-audit:2",
+                "association_valid": true
+              },
+              "Body": {
+                "detected": true,
+                "confidence": 0.8108611106872559,
+                "status": "detected",
+                "fish_id": 3,
+                "frame_id": "anatomy-secondary-audit:2",
+                "association_valid": true
+              },
+              "Tail": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 3,
+                "frame_id": "anatomy-secondary-audit:2",
+                "association_valid": true
+              }
+            },
+            "parts": {
+              "Head": {
+                "state": "UNCERTAIN",
+                "source": "silhouette_geometry",
+                "confidence": null,
+                "reason": "Verification blocked: overlapping"
+              },
+              "Body": {
+                "state": "PRESENT",
+                "source": "model2",
+                "confidence": 0.8108611106872559,
+                "reason": "Model 2 detected this region."
+              }
+            },
+            "undetected_regions": [
+              "Head"
+            ],
+            "missing_regions": [],
+            "geometry": {
+              "status": "unavailable",
+              "validated_for_absence": false,
+              "orientation": "UNCERTAIN",
+              "reason": "Neighboring fish may own pixels in this silhouette.",
+              "mask_source": "mobilesam_anatomy_candidate",
+              "fish_id": 3,
+              "frame_id": "anatomy-secondary-audit:2"
+            },
+            "automatic_rejection": false,
+            "rejection_reason": null,
+            "review_reason": "Cannot confidently verify Head; review is required. Verification blocked: overlapping",
+            "uncertainty_causes": [
+              "overlapping",
+              "head_unverified_detection_failure"
+            ],
+            "status": "UNCERTAIN",
+            "reason": "Cannot confidently verify Head; review is required."
+          },
+          "segmentation": {
+            "backend": "mobilesam_experimental",
+            "status": "candidate",
+            "engineering_checks_passed": false,
+            "validation_status": "Not validated",
+            "used_for_grading": false,
+            "mask_score_unvalidated": 0.9635229706764221,
+            "checkpoint_sha256": "6dbb90523a35330fedd7f1d3dfc66f995213d81b29a5ca8108dbcdd4e37d6c2f",
+            "reasons": [
+              "required_head_evidence_unavailable"
+            ],
+            "backend_error": null,
+            "timings": {
+              "embedding_ms": 792.787,
+              "prompt_ms": 63.741
+            }
+          },
+          "mask_geometry": {
+            "mask_geometry_checks_passed": true,
+            "engineering_checks_passed": false,
+            "ownership_validated": false,
+            "reasons": [
+              "required_head_evidence_unavailable"
+            ],
+            "metrics": {
+              "foreground_pixels": 4586,
+              "mask_inside_intended_box_fraction": 1.0,
+              "intended_box_occupancy": 0.2868042526579112,
+              "component_count": 1,
+              "secondary_component_fraction": 0.0,
+              "foreground_bbox": [
+                511,
+                264,
+                633,
+                384
+              ],
+              "hole_fraction": 0.0,
+              "principal_axis_ratio": 4.676465787949442,
+              "mask_touches_frame_boundary": false,
+              "parent_bbox_touches_frame_boundary": false,
+              "detected_part_box_coverage": {
+                "Body": 0.3504113297927731
+              },
+              "pair_overlap_fraction": {
+                "1": 0.0,
+                "2": 0.0,
+                "4": 0.0,
+                "5": 0.0,
+                "6": 0.0,
+                "7": 0.0,
+                "8": 0.0
+              }
+            }
+          }
+        },
+        {
+          "id": 4,
+          "bbox": [
+            176.83,
+            140.02,
+            282.68,
+            287.99
+          ],
+          "quality": "Ungraded",
+          "primary_both_detected_secondary_skipped": false,
+          "anatomical_verification": {
+            "version": "1",
+            "fish_id": 4,
+            "frame_id": "anatomy-secondary-audit:2",
+            "activated": true,
+            "primary": {
+              "Head": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 4,
+                "frame_id": "anatomy-secondary-audit:2",
+                "association_valid": true
+              },
+              "Body": {
+                "detected": true,
+                "confidence": 0.7501153945922852,
+                "status": "detected",
+                "fish_id": 4,
+                "frame_id": "anatomy-secondary-audit:2",
+                "association_valid": true
+              },
+              "Tail": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 4,
+                "frame_id": "anatomy-secondary-audit:2",
+                "association_valid": true
+              }
+            },
+            "parts": {
+              "Head": {
+                "state": "UNCERTAIN",
+                "source": "silhouette_geometry",
+                "confidence": null,
+                "reason": "Verification blocked: overlapping"
+              },
+              "Body": {
+                "state": "PRESENT",
+                "source": "model2",
+                "confidence": 0.7501153945922852,
+                "reason": "Model 2 detected this region."
+              }
+            },
+            "undetected_regions": [
+              "Head"
+            ],
+            "missing_regions": [],
+            "geometry": {
+              "status": "unavailable",
+              "validated_for_absence": false,
+              "orientation": "UNCERTAIN",
+              "reason": "Neighboring fish may own pixels in this silhouette.",
+              "mask_source": "mobilesam_anatomy_candidate",
+              "fish_id": 4,
+              "frame_id": "anatomy-secondary-audit:2"
+            },
+            "automatic_rejection": false,
+            "rejection_reason": null,
+            "review_reason": "Cannot confidently verify Head; review is required. Verification blocked: overlapping",
+            "uncertainty_causes": [
+              "overlapping",
+              "head_unverified_detection_failure"
+            ],
+            "status": "UNCERTAIN",
+            "reason": "Cannot confidently verify Head; review is required."
+          },
+          "segmentation": {
+            "backend": "mobilesam_experimental",
+            "status": "candidate",
+            "engineering_checks_passed": false,
+            "validation_status": "Not validated",
+            "used_for_grading": false,
+            "mask_score_unvalidated": 0.9624974727630615,
+            "checkpoint_sha256": "6dbb90523a35330fedd7f1d3dfc66f995213d81b29a5ca8108dbcdd4e37d6c2f",
+            "reasons": [
+              "required_head_evidence_unavailable"
+            ],
+            "backend_error": null,
+            "timings": {
+              "embedding_ms": 792.787,
+              "prompt_ms": 67.148
+            }
+          },
+          "mask_geometry": {
+            "mask_geometry_checks_passed": true,
+            "engineering_checks_passed": false,
+            "ownership_validated": false,
+            "reasons": [
+              "required_head_evidence_unavailable"
+            ],
+            "metrics": {
+              "foreground_pixels": 5496,
+              "mask_inside_intended_box_fraction": 1.0,
+              "intended_box_occupancy": 0.34705733771154335,
+              "component_count": 1,
+              "secondary_component_fraction": 0.0,
+              "foreground_bbox": [
+                179,
+                140,
+                282,
+                287
+              ],
+              "hole_fraction": 0.0,
+              "principal_axis_ratio": 4.264566978434063,
+              "mask_touches_frame_boundary": false,
+              "parent_bbox_touches_frame_boundary": false,
+              "detected_part_box_coverage": {
+                "Body": 0.35292238901309486
+              },
+              "pair_overlap_fraction": {
+                "1": 0.02019650655021834,
+                "2": 0.0,
+                "3": 0.0,
+                "5": 0.0,
+                "6": 0.0,
+                "7": 0.0,
+                "8": 0.0
+              }
+            }
+          }
+        },
+        {
+          "id": 5,
+          "bbox": [
+            224.67,
+            367.31,
+            520.68,
+            466.73
+          ],
+          "quality": "Ungraded",
+          "primary_both_detected_secondary_skipped": false,
+          "anatomical_verification": {
+            "version": "1",
+            "fish_id": 5,
+            "frame_id": "anatomy-secondary-audit:2",
+            "activated": true,
+            "primary": {
+              "Head": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 5,
+                "frame_id": "anatomy-secondary-audit:2",
+                "association_valid": false
+              },
+              "Body": {
+                "detected": true,
+                "confidence": 0.685616135597229,
+                "status": "detected",
+                "fish_id": 5,
+                "frame_id": "anatomy-secondary-audit:2",
+                "association_valid": false
+              },
+              "Tail": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 5,
+                "frame_id": "anatomy-secondary-audit:2",
+                "association_valid": false
+              }
+            },
+            "parts": {
+              "Head": {
+                "state": "UNCERTAIN",
+                "source": "silhouette_geometry",
+                "confidence": null,
+                "reason": "Verification blocked: association_ambiguous, overlapping"
+              },
+              "Body": {
+                "state": "PRESENT",
+                "source": "model2",
+                "confidence": 0.685616135597229,
+                "reason": "Model 2 detected this region."
+              }
+            },
+            "undetected_regions": [
+              "Head"
+            ],
+            "missing_regions": [],
+            "geometry": {
+              "status": "unavailable",
+              "validated_for_absence": false,
+              "orientation": "UNCERTAIN",
+              "reason": "Neighboring fish may own pixels in this silhouette.",
+              "mask_source": "mobilesam_anatomy_candidate",
+              "fish_id": 5,
+              "frame_id": "anatomy-secondary-audit:2"
+            },
+            "automatic_rejection": false,
+            "rejection_reason": null,
+            "review_reason": "Cannot confidently verify Head; review is required. Verification blocked: association_ambiguous, overlapping",
+            "uncertainty_causes": [
+              "association_ambiguous",
+              "overlapping",
+              "head_unverified_detection_failure"
+            ],
+            "status": "UNCERTAIN",
+            "reason": "Cannot confidently verify Head; review is required."
+          },
+          "segmentation": {
+            "backend": "mobilesam_experimental",
+            "status": "candidate",
+            "engineering_checks_passed": false,
+            "validation_status": "Not validated",
+            "used_for_grading": false,
+            "mask_score_unvalidated": 0.9531794786453247,
+            "checkpoint_sha256": "6dbb90523a35330fedd7f1d3dfc66f995213d81b29a5ca8108dbcdd4e37d6c2f",
+            "reasons": [
+              "required_anatomical_ownership_ambiguous",
+              "required_head_evidence_unavailable"
+            ],
+            "backend_error": null,
+            "timings": {
+              "embedding_ms": 792.787,
+              "prompt_ms": 66.632
+            }
+          },
+          "mask_geometry": {
+            "mask_geometry_checks_passed": true,
+            "engineering_checks_passed": false,
+            "ownership_validated": false,
+            "reasons": [
+              "required_anatomical_ownership_ambiguous",
+              "required_head_evidence_unavailable"
+            ],
+            "metrics": {
+              "foreground_pixels": 15144,
+              "mask_inside_intended_box_fraction": 0.9843502377179081,
+              "intended_box_occupancy": 0.5019191919191919,
+              "component_count": 2,
+              "secondary_component_fraction": 0.0003961965134706815,
+              "foreground_bbox": [
+                226,
+                371,
+                524,
+                480
+              ],
+              "hole_fraction": 0.0,
+              "principal_axis_ratio": 4.121422127847237,
+              "mask_touches_frame_boundary": false,
+              "parent_bbox_touches_frame_boundary": false,
+              "detected_part_box_coverage": {
+                "Body": 0.5707287933094385
+              },
+              "pair_overlap_fraction": {
+                "1": 0.0,
+                "2": 0.0,
+                "3": 0.0,
+                "4": 0.0,
+                "6": 0.01849598442443417,
+                "7": 0.0,
+                "8": 0.0
+              }
+            }
+          }
+        },
+        {
+          "id": 6,
+          "bbox": [
+            149.14,
+            371.55,
+            299.52,
+            479.78
+          ],
+          "quality": "Ungraded",
+          "primary_both_detected_secondary_skipped": false,
+          "anatomical_verification": {
+            "version": "1",
+            "fish_id": 6,
+            "frame_id": "anatomy-secondary-audit:2",
+            "activated": true,
+            "primary": {
+              "Head": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 6,
+                "frame_id": "anatomy-secondary-audit:2",
+                "association_valid": false
+              },
+              "Body": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 6,
+                "frame_id": "anatomy-secondary-audit:2",
+                "association_valid": false
+              },
+              "Tail": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 6,
+                "frame_id": "anatomy-secondary-audit:2",
+                "association_valid": false
+              }
+            },
+            "parts": {
+              "Head": {
+                "state": "UNCERTAIN",
+                "source": "silhouette_geometry",
+                "confidence": null,
+                "reason": "Verification blocked: association_ambiguous, overlapping"
+              },
+              "Body": {
+                "state": "UNCERTAIN",
+                "source": "silhouette_geometry",
+                "confidence": null,
+                "reason": "Verification blocked: association_ambiguous, overlapping"
+              }
+            },
+            "undetected_regions": [
+              "Head",
+              "Body"
+            ],
+            "missing_regions": [],
+            "geometry": {
+              "status": "unavailable",
+              "validated_for_absence": false,
+              "orientation": "UNCERTAIN",
+              "reason": "Neighboring fish may own pixels in this silhouette.",
+              "mask_source": "mobilesam_anatomy_candidate",
+              "fish_id": 6,
+              "frame_id": "anatomy-secondary-audit:2"
+            },
+            "automatic_rejection": false,
+            "rejection_reason": null,
+            "review_reason": "Cannot confidently verify Head and Body; review is required. Verification blocked: association_ambiguous, overlapping Verification blocked: association_ambiguous, overlapping",
+            "uncertainty_causes": [
+              "association_ambiguous",
+              "overlapping",
+              "head_unverified_detection_failure",
+              "body_unverified_detection_failure"
+            ],
+            "status": "UNCERTAIN",
+            "reason": "Cannot confidently verify Head and Body; review is required."
+          },
+          "segmentation": {
+            "backend": "mobilesam_experimental",
+            "status": "candidate",
+            "engineering_checks_passed": false,
+            "validation_status": "Not validated",
+            "used_for_grading": false,
+            "mask_score_unvalidated": 0.900789201259613,
+            "checkpoint_sha256": "6dbb90523a35330fedd7f1d3dfc66f995213d81b29a5ca8108dbcdd4e37d6c2f",
+            "reasons": [
+              "required_anatomical_ownership_ambiguous",
+              "required_body_evidence_unavailable",
+              "required_head_evidence_unavailable"
+            ],
+            "backend_error": null,
+            "timings": {
+              "embedding_ms": 792.787,
+              "prompt_ms": 64.73
+            }
+          },
+          "mask_geometry": {
+            "mask_geometry_checks_passed": true,
+            "engineering_checks_passed": false,
+            "ownership_validated": false,
+            "reasons": [
+              "required_anatomical_ownership_ambiguous",
+              "required_body_evidence_unavailable",
+              "required_head_evidence_unavailable"
+            ],
+            "metrics": {
+              "foreground_pixels": 4109,
+              "mask_inside_intended_box_fraction": 0.9807739109272329,
+              "intended_box_occupancy": 0.24485084148490188,
+              "component_count": 2,
+              "secondary_component_fraction": 0.0007301046483329277,
+              "foreground_bbox": [
+                150,
+                370,
+                308,
+                475
+              ],
+              "hole_fraction": 0.0,
+              "principal_axis_ratio": 6.288044267667849,
+              "mask_touches_frame_boundary": false,
+              "parent_bbox_touches_frame_boundary": false,
+              "detected_part_box_coverage": {},
+              "pair_overlap_fraction": {
+                "1": 0.0,
+                "2": 0.0,
+                "3": 0.0,
+                "4": 0.0,
+                "5": 0.01849598442443417,
+                "7": 0.03090776344609394,
+                "8": 0.0
+              }
+            }
+          }
+        },
+        {
+          "id": 7,
+          "bbox": [
+            145.82,
+            202.56,
+            191.62,
+            385.93
+          ],
+          "quality": "Ungraded",
+          "primary_both_detected_secondary_skipped": false,
+          "anatomical_verification": {
+            "version": "1",
+            "fish_id": 7,
+            "frame_id": "anatomy-secondary-audit:2",
+            "activated": true,
+            "primary": {
+              "Head": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 7,
+                "frame_id": "anatomy-secondary-audit:2",
+                "association_valid": true
+              },
+              "Body": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 7,
+                "frame_id": "anatomy-secondary-audit:2",
+                "association_valid": true
+              },
+              "Tail": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 7,
+                "frame_id": "anatomy-secondary-audit:2",
+                "association_valid": true
+              }
+            },
+            "parts": {
+              "Head": {
+                "state": "UNCERTAIN",
+                "source": "silhouette_geometry",
+                "confidence": null,
+                "reason": "Verification blocked: overlapping"
+              },
+              "Body": {
+                "state": "UNCERTAIN",
+                "source": "silhouette_geometry",
+                "confidence": null,
+                "reason": "Verification blocked: overlapping"
+              }
+            },
+            "undetected_regions": [
+              "Head",
+              "Body"
+            ],
+            "missing_regions": [],
+            "geometry": {
+              "status": "unavailable",
+              "validated_for_absence": false,
+              "orientation": "UNCERTAIN",
+              "reason": "Neighboring fish may own pixels in this silhouette.",
+              "mask_source": "mobilesam_anatomy_candidate",
+              "fish_id": 7,
+              "frame_id": "anatomy-secondary-audit:2"
+            },
+            "automatic_rejection": false,
+            "rejection_reason": null,
+            "review_reason": "Cannot confidently verify Head and Body; review is required. Verification blocked: overlapping Verification blocked: overlapping",
+            "uncertainty_causes": [
+              "overlapping",
+              "head_unverified_detection_failure",
+              "body_unverified_detection_failure"
+            ],
+            "status": "UNCERTAIN",
+            "reason": "Cannot confidently verify Head and Body; review is required."
+          },
+          "segmentation": {
+            "backend": "mobilesam_experimental",
+            "status": "candidate",
+            "engineering_checks_passed": false,
+            "validation_status": "Not validated",
+            "used_for_grading": false,
+            "mask_score_unvalidated": 0.9164774417877197,
+            "checkpoint_sha256": "6dbb90523a35330fedd7f1d3dfc66f995213d81b29a5ca8108dbcdd4e37d6c2f",
+            "reasons": [
+              "required_body_evidence_unavailable",
+              "required_head_evidence_unavailable"
+            ],
+            "backend_error": null,
+            "timings": {
+              "embedding_ms": 792.787,
+              "prompt_ms": 60.838
+            }
+          },
+          "mask_geometry": {
+            "mask_geometry_checks_passed": true,
+            "engineering_checks_passed": false,
+            "ownership_validated": false,
+            "reasons": [
+              "required_body_evidence_unavailable",
+              "required_head_evidence_unavailable"
+            ],
+            "metrics": {
+              "foreground_pixels": 4703,
+              "mask_inside_intended_box_fraction": 0.9914947905592175,
+              "intended_box_occupancy": 0.5391998149861239,
+              "component_count": 2,
+              "secondary_component_fraction": 0.0006378907080586859,
+              "foreground_bbox": [
+                147,
+                203,
+                195,
+                389
+              ],
+              "hole_fraction": 0.0,
+              "principal_axis_ratio": 5.7185227658523665,
+              "mask_touches_frame_boundary": false,
+              "parent_bbox_touches_frame_boundary": false,
+              "detected_part_box_coverage": {},
+              "pair_overlap_fraction": {
+                "1": 0.0,
+                "2": 0.0,
+                "3": 0.0,
+                "4": 0.0,
+                "5": 0.0,
+                "6": 0.03090776344609394,
+                "8": 0.0
+              }
+            }
+          }
+        },
+        {
+          "id": 8,
+          "bbox": [
+            352.79,
+            238.69,
+            408.03,
+            347.78
+          ],
+          "quality": "Ungraded",
+          "primary_both_detected_secondary_skipped": false,
+          "anatomical_verification": {
+            "version": "1",
+            "fish_id": 8,
+            "frame_id": "anatomy-secondary-audit:2",
+            "activated": true,
+            "primary": {
+              "Head": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 8,
+                "frame_id": "anatomy-secondary-audit:2",
+                "association_valid": true
+              },
+              "Body": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 8,
+                "frame_id": "anatomy-secondary-audit:2",
+                "association_valid": true
+              },
+              "Tail": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 8,
+                "frame_id": "anatomy-secondary-audit:2",
+                "association_valid": true
+              }
+            },
+            "parts": {
+              "Head": {
+                "state": "UNCERTAIN",
+                "source": "silhouette_geometry",
+                "confidence": null,
+                "reason": "Verification blocked: overlapping"
+              },
+              "Body": {
+                "state": "UNCERTAIN",
+                "source": "silhouette_geometry",
+                "confidence": null,
+                "reason": "Verification blocked: overlapping"
+              }
+            },
+            "undetected_regions": [
+              "Head",
+              "Body"
+            ],
+            "missing_regions": [],
+            "geometry": {
+              "status": "unavailable",
+              "validated_for_absence": false,
+              "orientation": "UNCERTAIN",
+              "reason": "Neighboring fish may own pixels in this silhouette.",
+              "mask_source": "mobilesam_anatomy_candidate",
+              "fish_id": 8,
+              "frame_id": "anatomy-secondary-audit:2"
+            },
+            "automatic_rejection": false,
+            "rejection_reason": null,
+            "review_reason": "Cannot confidently verify Head and Body; review is required. Verification blocked: overlapping Verification blocked: overlapping",
+            "uncertainty_causes": [
+              "overlapping",
+              "head_unverified_detection_failure",
+              "body_unverified_detection_failure"
+            ],
+            "status": "UNCERTAIN",
+            "reason": "Cannot confidently verify Head and Body; review is required."
+          },
+          "segmentation": {
+            "backend": "mobilesam_experimental",
+            "status": "candidate",
+            "engineering_checks_passed": false,
+            "validation_status": "Not validated",
+            "used_for_grading": false,
+            "mask_score_unvalidated": 0.9584949016571045,
+            "checkpoint_sha256": "6dbb90523a35330fedd7f1d3dfc66f995213d81b29a5ca8108dbcdd4e37d6c2f",
+            "reasons": [
+              "required_body_evidence_unavailable",
+              "required_head_evidence_unavailable"
+            ],
+            "backend_error": null,
+            "timings": {
+              "embedding_ms": 792.787,
+              "prompt_ms": 66.041
+            }
+          },
+          "mask_geometry": {
+            "mask_geometry_checks_passed": true,
+            "engineering_checks_passed": false,
+            "ownership_validated": false,
+            "reasons": [
+              "required_body_evidence_unavailable",
+              "required_head_evidence_unavailable"
+            ],
+            "metrics": {
+              "foreground_pixels": 4046,
+              "mask_inside_intended_box_fraction": 0.995304003954523,
+              "intended_box_occupancy": 0.6422647527910685,
+              "component_count": 1,
+              "secondary_component_fraction": 0.0,
+              "foreground_bbox": [
+                352,
+                241,
+                410,
+                349
+              ],
+              "hole_fraction": 0.0,
+              "principal_axis_ratio": 2.0913740998338675,
+              "mask_touches_frame_boundary": false,
+              "parent_bbox_touches_frame_boundary": false,
+              "detected_part_box_coverage": {},
+              "pair_overlap_fraction": {
+                "1": 0.0,
+                "2": 0.0,
+                "3": 0.0,
+                "4": 0.0,
+                "5": 0.0,
+                "6": 0.0,
+                "7": 0.0
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "scenario": "WIN_20260902_18_56_53_Pro_jpg.rf.4ad82d7d47d6866451206cd87366e7c7.jpg",
+      "source_sha256": "6f0e634f28ec6bc3f0910e43c56d103107c3ce819d7bee44210164fe57144268",
+      "shape": [
+        640,
+        640,
+        3
+      ],
+      "elapsed_ms": 6442.427,
+      "fish_detected": 7,
+      "quality_counters": {
+        "Class A": 0,
+        "Class B": 0,
+        "Class C": 0,
+        "Rejected": 1,
+        "Ungraded": 6
+      },
+      "frame_mask_context": {
+        "scope": "one_original_frame",
+        "frame_id": "anatomy-secondary-audit:3",
+        "segmentation_calls": 0,
+        "cache_misses": 0,
+        "grabcut_executions": 0,
+        "cache_hits": 0,
+        "cache_entries": 9,
+        "segmentation_ms": 1295.99,
+        "lookup_ms": 58.302,
+        "feature_calls": 7,
+        "feature_cache_hits": 0,
+        "feature_ms": 3209.977,
+        "projection_calls": 0,
+        "projection_fallbacks": 2,
+        "projection_ms": 0.303,
+        "segmentation_backend": "mobilesam_experimental",
+        "experimental_segmentation": {
+          "backend": "mobilesam_experimental",
+          "experimental": true,
+          "embedding_calls": 1,
+          "prompt_calls": 7,
+          "segmentation_ms": 1295.99,
+          "used_for_grading": false,
+          "validation_status": "Not validated",
+          "frame_key": "anatomy-secondary-audit:3:404084952ed2779ae51ccba125bdc52f",
+          "embedding_ms": 826.74,
+          "actual_encoder_forward_calls": 1,
+          "prompt_ms": 463.701,
+          "prompt_cache_hits": 0,
+          "cpu_fallbacks": 0,
+          "prompt_requests": 7,
+          "decoder_attempts": 7,
+          "cached_mask_bytes": 2867200,
+          "lock_wait_ms": 0.002,
+          "model_load_ms": 382.068,
+          "device": "cpu",
+          "gpu_memory": {
+            "status": "not_measured",
+            "reason": "MobileSAM is running on CPU."
+          },
+          "scope": "shared image embedding plus sequential candidate prompts; child timings are not per-fish totals",
+          "candidate_count": 7,
+          "engineering_checks_passed": 0,
+          "applied_to_grading": false
+        },
+        "segmentation_stage_ms": {},
+        "native_pixels_processed": 0,
+        "working_pixels_processed": 0,
+        "downsized_calls": 0,
+        "generation_failures": 0,
+        "segmentation_rejections": 0,
+        "settings_fallbacks": 0,
+        "segmentation_settings": {
+          "maximum_dimension": 640,
+          "maximum_pixels": 200000,
+          "configuration_warnings": []
+        }
+      },
+      "segmentation_ms": null,
+      "model2_inference_ms": 466.114,
+      "fish": [
+        {
+          "id": 1,
+          "bbox": [
+            23.55,
+            245.83,
+            179.58,
+            499.81
+          ],
+          "quality": "Ungraded",
+          "primary_both_detected_secondary_skipped": false,
+          "anatomical_verification": {
+            "version": "1",
+            "fish_id": 1,
+            "frame_id": "anatomy-secondary-audit:3",
+            "activated": true,
+            "primary": {
+              "Head": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 1,
+                "frame_id": "anatomy-secondary-audit:3",
+                "association_valid": true
+              },
+              "Body": {
+                "detected": true,
+                "confidence": 0.7623844742774963,
+                "status": "detected",
+                "fish_id": 1,
+                "frame_id": "anatomy-secondary-audit:3",
+                "association_valid": true
+              },
+              "Tail": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 1,
+                "frame_id": "anatomy-secondary-audit:3",
+                "association_valid": true
+              }
+            },
+            "parts": {
+              "Head": {
+                "state": "UNCERTAIN",
+                "source": "silhouette_geometry",
+                "confidence": null,
+                "reason": "Verification blocked: overlapping"
+              },
+              "Body": {
+                "state": "PRESENT",
+                "source": "model2",
+                "confidence": 0.7623844742774963,
+                "reason": "Model 2 detected this region."
+              }
+            },
+            "undetected_regions": [
+              "Head"
+            ],
+            "missing_regions": [],
+            "geometry": {
+              "status": "unavailable",
+              "validated_for_absence": false,
+              "orientation": "UNCERTAIN",
+              "reason": "Neighboring fish may own pixels in this silhouette.",
+              "mask_source": "mobilesam_anatomy_candidate",
+              "fish_id": 1,
+              "frame_id": "anatomy-secondary-audit:3"
+            },
+            "automatic_rejection": false,
+            "rejection_reason": null,
+            "review_reason": "Cannot confidently verify Head; review is required. Verification blocked: overlapping",
+            "uncertainty_causes": [
+              "overlapping",
+              "head_unverified_detection_failure"
+            ],
+            "status": "UNCERTAIN",
+            "reason": "Cannot confidently verify Head; review is required."
+          },
+          "segmentation": {
+            "backend": "mobilesam_experimental",
+            "status": "candidate",
+            "engineering_checks_passed": false,
+            "validation_status": "Not validated",
+            "used_for_grading": false,
+            "mask_score_unvalidated": 0.9656290411949158,
+            "checkpoint_sha256": "6dbb90523a35330fedd7f1d3dfc66f995213d81b29a5ca8108dbcdd4e37d6c2f",
+            "reasons": [
+              "required_head_evidence_unavailable"
+            ],
+            "backend_error": null,
+            "timings": {
+              "embedding_ms": 826.74,
+              "prompt_ms": 68.896
+            }
+          },
+          "mask_geometry": {
+            "mask_geometry_checks_passed": true,
+            "engineering_checks_passed": false,
+            "ownership_validated": false,
+            "reasons": [
+              "required_head_evidence_unavailable"
+            ],
+            "metrics": {
+              "foreground_pixels": 11993,
+              "mask_inside_intended_box_fraction": 1.0,
+              "intended_box_occupancy": 0.2995628824778319,
+              "component_count": 1,
+              "secondary_component_fraction": 0.0,
+              "foreground_bbox": [
+                27,
+                247,
+                180,
+                499
+              ],
+              "hole_fraction": 0.0,
+              "principal_axis_ratio": 2.976821411515691,
+              "mask_touches_frame_boundary": false,
+              "parent_bbox_touches_frame_boundary": false,
+              "detected_part_box_coverage": {
+                "Body": 0.4553284671532847
+              },
+              "pair_overlap_fraction": {
+                "2": 0.0,
+                "3": 0.0,
+                "4": 0.0,
+                "5": 0.0,
+                "6": 0.0,
+                "7": 0.0
+              }
+            }
+          }
+        },
+        {
+          "id": 2,
+          "bbox": [
+            331.7,
+            252.97,
+            485.82,
+            347.38
+          ],
+          "quality": "Ungraded",
+          "primary_both_detected_secondary_skipped": false,
+          "anatomical_verification": {
+            "version": "1",
+            "fish_id": 2,
+            "frame_id": "anatomy-secondary-audit:3",
+            "activated": true,
+            "primary": {
+              "Head": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 2,
+                "frame_id": "anatomy-secondary-audit:3",
+                "association_valid": true
+              },
+              "Body": {
+                "detected": true,
+                "confidence": 0.822805643081665,
+                "status": "detected",
+                "fish_id": 2,
+                "frame_id": "anatomy-secondary-audit:3",
+                "association_valid": true
+              },
+              "Tail": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 2,
+                "frame_id": "anatomy-secondary-audit:3",
+                "association_valid": true
+              }
+            },
+            "parts": {
+              "Head": {
+                "state": "UNCERTAIN",
+                "source": "silhouette_geometry",
+                "confidence": null,
+                "reason": "Verification blocked: overlapping"
+              },
+              "Body": {
+                "state": "PRESENT",
+                "source": "model2",
+                "confidence": 0.822805643081665,
+                "reason": "Model 2 detected this region."
+              }
+            },
+            "undetected_regions": [
+              "Head"
+            ],
+            "missing_regions": [],
+            "geometry": {
+              "status": "unavailable",
+              "validated_for_absence": false,
+              "orientation": "UNCERTAIN",
+              "reason": "Neighboring fish may own pixels in this silhouette.",
+              "mask_source": "mobilesam_anatomy_candidate",
+              "fish_id": 2,
+              "frame_id": "anatomy-secondary-audit:3"
+            },
+            "automatic_rejection": false,
+            "rejection_reason": null,
+            "review_reason": "Cannot confidently verify Head; review is required. Verification blocked: overlapping",
+            "uncertainty_causes": [
+              "overlapping",
+              "head_unverified_detection_failure"
+            ],
+            "status": "UNCERTAIN",
+            "reason": "Cannot confidently verify Head; review is required."
+          },
+          "segmentation": {
+            "backend": "mobilesam_experimental",
+            "status": "candidate",
+            "engineering_checks_passed": false,
+            "validation_status": "Not validated",
+            "used_for_grading": false,
+            "mask_score_unvalidated": 0.9428309202194214,
+            "checkpoint_sha256": "6dbb90523a35330fedd7f1d3dfc66f995213d81b29a5ca8108dbcdd4e37d6c2f",
+            "reasons": [
+              "required_head_evidence_unavailable"
+            ],
+            "backend_error": null,
+            "timings": {
+              "embedding_ms": 826.74,
+              "prompt_ms": 60.913
+            }
+          },
+          "mask_geometry": {
+            "mask_geometry_checks_passed": true,
+            "engineering_checks_passed": false,
+            "ownership_validated": false,
+            "reasons": [
+              "required_head_evidence_unavailable"
+            ],
+            "metrics": {
+              "foreground_pixels": 5646,
+              "mask_inside_intended_box_fraction": 0.9984059511158342,
+              "intended_box_occupancy": 0.37883064516129034,
+              "component_count": 4,
+              "secondary_component_fraction": 0.001771165426850868,
+              "foreground_bbox": [
+                321,
+                256,
+                485,
+                347
+              ],
+              "hole_fraction": 0.0,
+              "principal_axis_ratio": 3.552397857204544,
+              "mask_touches_frame_boundary": false,
+              "parent_bbox_touches_frame_boundary": false,
+              "detected_part_box_coverage": {
+                "Body": 0.5460254031682603
+              },
+              "pair_overlap_fraction": {
+                "1": 0.0,
+                "3": 0.001771165426850868,
+                "4": 0.0,
+                "5": 0.0,
+                "6": 0.0,
+                "7": 0.0
+              }
+            }
+          }
+        },
+        {
+          "id": 3,
+          "bbox": [
+            300.1,
+            181.47,
+            566.4,
+            277.04
+          ],
+          "quality": "Ungraded",
+          "primary_both_detected_secondary_skipped": false,
+          "anatomical_verification": {
+            "version": "1",
+            "fish_id": 3,
+            "frame_id": "anatomy-secondary-audit:3",
+            "activated": true,
+            "primary": {
+              "Head": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 3,
+                "frame_id": "anatomy-secondary-audit:3",
+                "association_valid": true
+              },
+              "Body": {
+                "detected": true,
+                "confidence": 0.8032326102256775,
+                "status": "detected",
+                "fish_id": 3,
+                "frame_id": "anatomy-secondary-audit:3",
+                "association_valid": true
+              },
+              "Tail": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 3,
+                "frame_id": "anatomy-secondary-audit:3",
+                "association_valid": true
+              }
+            },
+            "parts": {
+              "Head": {
+                "state": "UNCERTAIN",
+                "source": "silhouette_geometry",
+                "confidence": null,
+                "reason": "Verification blocked: overlapping"
+              },
+              "Body": {
+                "state": "PRESENT",
+                "source": "model2",
+                "confidence": 0.8032326102256775,
+                "reason": "Model 2 detected this region."
+              }
+            },
+            "undetected_regions": [
+              "Head"
+            ],
+            "missing_regions": [],
+            "geometry": {
+              "status": "unavailable",
+              "validated_for_absence": false,
+              "orientation": "UNCERTAIN",
+              "reason": "Neighboring fish may own pixels in this silhouette.",
+              "mask_source": "mobilesam_anatomy_candidate",
+              "fish_id": 3,
+              "frame_id": "anatomy-secondary-audit:3"
+            },
+            "automatic_rejection": false,
+            "rejection_reason": null,
+            "review_reason": "Cannot confidently verify Head; review is required. Verification blocked: overlapping",
+            "uncertainty_causes": [
+              "overlapping",
+              "head_unverified_detection_failure"
+            ],
+            "status": "UNCERTAIN",
+            "reason": "Cannot confidently verify Head; review is required."
+          },
+          "segmentation": {
+            "backend": "mobilesam_experimental",
+            "status": "candidate",
+            "engineering_checks_passed": false,
+            "validation_status": "Not validated",
+            "used_for_grading": false,
+            "mask_score_unvalidated": 0.952350914478302,
+            "checkpoint_sha256": "6dbb90523a35330fedd7f1d3dfc66f995213d81b29a5ca8108dbcdd4e37d6c2f",
+            "reasons": [
+              "required_head_evidence_unavailable"
+            ],
+            "backend_error": null,
+            "timings": {
+              "embedding_ms": 826.74,
+              "prompt_ms": 62.323
+            }
+          },
+          "mask_geometry": {
+            "mask_geometry_checks_passed": true,
+            "engineering_checks_passed": false,
+            "ownership_validated": false,
+            "reasons": [
+              "required_head_evidence_unavailable"
+            ],
+            "metrics": {
+              "foreground_pixels": 10889,
+              "mask_inside_intended_box_fraction": 0.9607861144274038,
+              "intended_box_occupancy": 0.4039538206108344,
+              "component_count": 1,
+              "secondary_component_fraction": 0.0,
+              "foreground_bbox": [
+                277,
+                185,
+                563,
+                277
+              ],
+              "hole_fraction": 0.00018363786612799558,
+              "principal_axis_ratio": 4.623697227703785,
+              "mask_touches_frame_boundary": false,
+              "parent_bbox_touches_frame_boundary": false,
+              "detected_part_box_coverage": {
+                "Body": 0.5112917795844625
+              },
+              "pair_overlap_fraction": {
+                "1": 0.0,
+                "2": 0.001771165426850868,
+                "4": 0.0,
+                "5": 0.0,
+                "6": 0.0,
+                "7": 0.0
+              }
+            }
+          }
+        },
+        {
+          "id": 4,
+          "bbox": [
+            127.17,
+            286.86,
+            224.68,
+            447.87
+          ],
+          "quality": "Ungraded",
+          "primary_both_detected_secondary_skipped": false,
+          "anatomical_verification": {
+            "version": "1",
+            "fish_id": 4,
+            "frame_id": "anatomy-secondary-audit:3",
+            "activated": true,
+            "primary": {
+              "Head": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 4,
+                "frame_id": "anatomy-secondary-audit:3",
+                "association_valid": true
+              },
+              "Body": {
+                "detected": true,
+                "confidence": 0.7853817343711853,
+                "status": "detected",
+                "fish_id": 4,
+                "frame_id": "anatomy-secondary-audit:3",
+                "association_valid": true
+              },
+              "Tail": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 4,
+                "frame_id": "anatomy-secondary-audit:3",
+                "association_valid": true
+              }
+            },
+            "parts": {
+              "Head": {
+                "state": "UNCERTAIN",
+                "source": "silhouette_geometry",
+                "confidence": null,
+                "reason": "Verification blocked: overlapping"
+              },
+              "Body": {
+                "state": "PRESENT",
+                "source": "model2",
+                "confidence": 0.7853817343711853,
+                "reason": "Model 2 detected this region."
+              }
+            },
+            "undetected_regions": [
+              "Head"
+            ],
+            "missing_regions": [],
+            "geometry": {
+              "status": "unavailable",
+              "validated_for_absence": false,
+              "orientation": "UNCERTAIN",
+              "reason": "Neighboring fish may own pixels in this silhouette.",
+              "mask_source": "mobilesam_anatomy_candidate",
+              "fish_id": 4,
+              "frame_id": "anatomy-secondary-audit:3"
+            },
+            "automatic_rejection": false,
+            "rejection_reason": null,
+            "review_reason": "Cannot confidently verify Head; review is required. Verification blocked: overlapping",
+            "uncertainty_causes": [
+              "overlapping",
+              "head_unverified_detection_failure"
+            ],
+            "status": "UNCERTAIN",
+            "reason": "Cannot confidently verify Head; review is required."
+          },
+          "segmentation": {
+            "backend": "mobilesam_experimental",
+            "status": "candidate",
+            "engineering_checks_passed": false,
+            "validation_status": "Not validated",
+            "used_for_grading": false,
+            "mask_score_unvalidated": 0.9498805999755859,
+            "checkpoint_sha256": "6dbb90523a35330fedd7f1d3dfc66f995213d81b29a5ca8108dbcdd4e37d6c2f",
+            "reasons": [
+              "required_head_evidence_unavailable"
+            ],
+            "backend_error": null,
+            "timings": {
+              "embedding_ms": 826.74,
+              "prompt_ms": 71.142
+            }
+          },
+          "mask_geometry": {
+            "mask_geometry_checks_passed": true,
+            "engineering_checks_passed": false,
+            "ownership_validated": false,
+            "reasons": [
+              "required_head_evidence_unavailable"
+            ],
+            "metrics": {
+              "foreground_pixels": 7207,
+              "mask_inside_intended_box_fraction": 0.9987512140974053,
+              "intended_box_occupancy": 0.45338876291257246,
+              "component_count": 1,
+              "secondary_component_fraction": 0.0,
+              "foreground_bbox": [
+                129,
+                288,
+                227,
+                446
+              ],
+              "hole_fraction": 0.0,
+              "principal_axis_ratio": 2.2356248409132564,
+              "mask_touches_frame_boundary": false,
+              "parent_bbox_touches_frame_boundary": false,
+              "detected_part_box_coverage": {
+                "Body": 0.7120634920634921
+              },
+              "pair_overlap_fraction": {
+                "1": 0.0,
+                "2": 0.0,
+                "3": 0.0,
+                "5": 0.0,
+                "6": 0.0,
+                "7": 0.0
+              }
+            }
+          }
+        },
+        {
+          "id": 5,
+          "bbox": [
+            487.13,
+            320.26,
+            636.04,
+            409.1
+          ],
+          "quality": "Ungraded",
+          "primary_both_detected_secondary_skipped": false,
+          "anatomical_verification": {
+            "version": "1",
+            "fish_id": 5,
+            "frame_id": "anatomy-secondary-audit:3",
+            "activated": true,
+            "primary": {
+              "Head": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 5,
+                "frame_id": "anatomy-secondary-audit:3",
+                "association_valid": true
+              },
+              "Body": {
+                "detected": true,
+                "confidence": 0.8195632696151733,
+                "status": "detected",
+                "fish_id": 5,
+                "frame_id": "anatomy-secondary-audit:3",
+                "association_valid": true
+              },
+              "Tail": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 5,
+                "frame_id": "anatomy-secondary-audit:3",
+                "association_valid": true
+              }
+            },
+            "parts": {
+              "Head": {
+                "state": "UNCERTAIN",
+                "source": "silhouette_geometry",
+                "confidence": null,
+                "reason": "Silhouette tissue, continuity and endpoint candidates are uncalibrated; they cannot establish anatomical presence or absence."
+              },
+              "Body": {
+                "state": "PRESENT",
+                "source": "model2",
+                "confidence": 0.8195632696151733,
+                "reason": "Model 2 detected this region."
+              }
+            },
+            "undetected_regions": [
+              "Head"
+            ],
+            "missing_regions": [],
+            "geometry": {
+              "status": "candidate",
+              "validated_for_absence": false,
+              "orientation": "UNCERTAIN",
+              "reason": "Silhouette tissue, continuity and endpoint candidates are uncalibrated; they cannot establish anatomical presence or absence.",
+              "mask_source": "mobilesam_anatomy_candidate",
+              "fish_id": 5,
+              "frame_id": "anatomy-secondary-audit:3",
+              "axis_head_to_tail": null,
+              "principal_axis_ratio": 2.635656714377381,
+              "centerline_deviation_ratio": 0.3471098742094277,
+              "width_profile_px": [
+                14.86280859927525,
+                23.76268129318981,
+                27.055602389281297,
+                30.081601506088113,
+                33.241061612537266,
+                36.40052171898642,
+                40.8504580659437,
+                45.656378720438596,
+                46.94685496094672,
+                47.08031595058906,
+                47.08031595058905,
+                45.656378720438596,
+                43.29794955731762,
+                46.10142535622916,
+                48.45985451935013,
+                53.844282799277934,
+                58.29421914623521,
+                62.388171185654876,
+                66.48212322507453,
+                68.57363040891084,
+                66.12613891753692,
+                55.71326666521895,
+                33.241061612537266,
+                16.15328483978338
+              ],
+              "continuous_longitudinal_support": true,
+              "endpoint_cut_candidates": {
+                "start": false,
+                "end": false
+              },
+              "expected_regions": {},
+              "working_scale": 1.0
+            },
+            "automatic_rejection": false,
+            "rejection_reason": null,
+            "review_reason": "Cannot confidently verify Head; review is required. Silhouette tissue, continuity and endpoint candidates are uncalibrated; they cannot establish anatomical presence or absence.",
+            "uncertainty_causes": [
+              "head_unverified_detection_failure"
+            ],
+            "status": "UNCERTAIN",
+            "reason": "Cannot confidently verify Head; review is required."
+          },
+          "segmentation": {
+            "backend": "mobilesam_experimental",
+            "status": "candidate",
+            "engineering_checks_passed": false,
+            "validation_status": "Not validated",
+            "used_for_grading": false,
+            "mask_score_unvalidated": 0.9532345533370972,
+            "checkpoint_sha256": "6dbb90523a35330fedd7f1d3dfc66f995213d81b29a5ca8108dbcdd4e37d6c2f",
+            "reasons": [
+              "required_head_evidence_unavailable"
+            ],
+            "backend_error": null,
+            "timings": {
+              "embedding_ms": 826.74,
+              "prompt_ms": 76.146
+            }
+          },
+          "mask_geometry": {
+            "mask_geometry_checks_passed": true,
+            "engineering_checks_passed": false,
+            "ownership_validated": false,
+            "reasons": [
+              "required_head_evidence_unavailable"
+            ],
+            "metrics": {
+              "foreground_pixels": 6671,
+              "mask_inside_intended_box_fraction": 1.0,
+              "intended_box_occupancy": 0.49414814814814817,
+              "component_count": 1,
+              "secondary_component_fraction": 0.0,
+              "foreground_bbox": [
+                488,
+                323,
+                633,
+                407
+              ],
+              "hole_fraction": 0.0,
+              "principal_axis_ratio": 2.6356567143773804,
+              "mask_touches_frame_boundary": false,
+              "parent_bbox_touches_frame_boundary": false,
+              "detected_part_box_coverage": {
+                "Body": 0.5431372549019607
+              },
+              "pair_overlap_fraction": {
+                "1": 0.0,
+                "2": 0.0,
+                "3": 0.0,
+                "4": 0.0,
+                "6": 0.0,
+                "7": 0.0
+              }
+            }
+          }
+        },
+        {
+          "id": 6,
+          "bbox": [
+            413.77,
+            348.94,
+            473.95,
+            498.63
+          ],
+          "quality": "Ungraded",
+          "primary_both_detected_secondary_skipped": false,
+          "anatomical_verification": {
+            "version": "1",
+            "fish_id": 6,
+            "frame_id": "anatomy-secondary-audit:3",
+            "activated": true,
+            "primary": {
+              "Head": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 6,
+                "frame_id": "anatomy-secondary-audit:3",
+                "association_valid": true
+              },
+              "Body": {
+                "detected": true,
+                "confidence": 0.8438474535942078,
+                "status": "detected",
+                "fish_id": 6,
+                "frame_id": "anatomy-secondary-audit:3",
+                "association_valid": true
+              },
+              "Tail": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 6,
+                "frame_id": "anatomy-secondary-audit:3",
+                "association_valid": true
+              }
+            },
+            "parts": {
+              "Head": {
+                "state": "UNCERTAIN",
+                "source": "silhouette_geometry",
+                "confidence": null,
+                "reason": "Silhouette tissue, continuity and endpoint candidates are uncalibrated; they cannot establish anatomical presence or absence."
+              },
+              "Body": {
+                "state": "PRESENT",
+                "source": "model2",
+                "confidence": 0.8438474535942078,
+                "reason": "Model 2 detected this region."
+              }
+            },
+            "undetected_regions": [
+              "Head"
+            ],
+            "missing_regions": [],
+            "geometry": {
+              "status": "candidate",
+              "validated_for_absence": false,
+              "orientation": "UNCERTAIN",
+              "reason": "Silhouette tissue, continuity and endpoint candidates are uncalibrated; they cannot establish anatomical presence or absence.",
+              "mask_source": "mobilesam_anatomy_candidate",
+              "fish_id": 6,
+              "frame_id": "anatomy-secondary-audit:3",
+              "axis_head_to_tail": null,
+              "principal_axis_ratio": 3.41211590232128,
+              "centerline_deviation_ratio": 0.32064163579778543,
+              "width_profile_px": [
+                11.043602144519785,
+                21.41796547200576,
+                35.22733777645154,
+                40.739399601119345,
+                48.36747126386351,
+                54.657065292540054,
+                54.76535867951499,
+                53.44635954063156,
+                48.36747126386351,
+                43.396876374070395,
+                39.20381368828603,
+                37.10728234539385,
+                34.341512185467856,
+                31.142568477642108,
+                27.70755950068231,
+                23.731083588847824,
+                22.7369646108892,
+                22.303791062989447,
+                20.768205150156135,
+                29.823569338758674,
+                30.473329660608304,
+                32.35327422955061,
+                33.67227336843405,
+                33.347393207509235
+              ],
+              "continuous_longitudinal_support": true,
+              "endpoint_cut_candidates": {
+                "start": false,
+                "end": true
+              },
+              "expected_regions": {},
+              "working_scale": 1.0
+            },
+            "automatic_rejection": false,
+            "rejection_reason": null,
+            "review_reason": "Cannot confidently verify Head; review is required. Silhouette tissue, continuity and endpoint candidates are uncalibrated; they cannot establish anatomical presence or absence.",
+            "uncertainty_causes": [
+              "head_unverified_detection_failure"
+            ],
+            "status": "UNCERTAIN",
+            "reason": "Cannot confidently verify Head; review is required."
+          },
+          "segmentation": {
+            "backend": "mobilesam_experimental",
+            "status": "candidate",
+            "engineering_checks_passed": false,
+            "validation_status": "Not validated",
+            "used_for_grading": false,
+            "mask_score_unvalidated": 0.9514042139053345,
+            "checkpoint_sha256": "6dbb90523a35330fedd7f1d3dfc66f995213d81b29a5ca8108dbcdd4e37d6c2f",
+            "reasons": [
+              "required_head_evidence_unavailable"
+            ],
+            "backend_error": null,
+            "timings": {
+              "embedding_ms": 826.74,
+              "prompt_ms": 62.582
+            }
+          },
+          "mask_geometry": {
+            "mask_geometry_checks_passed": true,
+            "engineering_checks_passed": false,
+            "ownership_validated": false,
+            "reasons": [
+              "required_head_evidence_unavailable"
+            ],
+            "metrics": {
+              "foreground_pixels": 5005,
+              "mask_inside_intended_box_fraction": 1.0,
+              "intended_box_occupancy": 0.5433720551514494,
+              "component_count": 1,
+              "secondary_component_fraction": 0.0,
+              "foreground_bbox": [
+                413,
+                348,
+                474,
+                499
+              ],
+              "hole_fraction": 0.0,
+              "principal_axis_ratio": 3.412115902321281,
+              "mask_touches_frame_boundary": false,
+              "parent_bbox_touches_frame_boundary": false,
+              "detected_part_box_coverage": {
+                "Body": 0.5064333504889347
+              },
+              "pair_overlap_fraction": {
+                "1": 0.0,
+                "2": 0.0,
+                "3": 0.0,
+                "4": 0.0,
+                "5": 0.0,
+                "7": 0.0
+              }
+            }
+          }
+        },
+        {
+          "id": 7,
+          "bbox": [
+            93.97,
+            152.41,
+            334.19,
+            404.5
+          ],
+          "quality": "Rejected",
+          "primary_both_detected_secondary_skipped": true,
+          "anatomical_verification": {
+            "version": "1",
+            "fish_id": 7,
+            "frame_id": "anatomy-secondary-audit:3",
+            "activated": false,
+            "primary": {
+              "Head": {
+                "detected": true,
+                "confidence": 0.8105764389038086,
+                "status": "detected",
+                "fish_id": 7,
+                "frame_id": "anatomy-secondary-audit:3",
+                "association_valid": true
+              },
+              "Body": {
+                "detected": true,
+                "confidence": 0.7576595544815063,
+                "status": "detected",
+                "fish_id": 7,
+                "frame_id": "anatomy-secondary-audit:3",
+                "association_valid": true
+              },
+              "Tail": {
+                "detected": true,
+                "confidence": 0.3526494801044464,
+                "status": "detected",
+                "fish_id": 7,
+                "frame_id": "anatomy-secondary-audit:3",
+                "association_valid": true
+              }
+            },
+            "parts": {
+              "Head": {
+                "state": "PRESENT",
+                "source": "model2",
+                "confidence": 0.8105764389038086,
+                "reason": "Model 2 detected this region."
+              },
+              "Body": {
+                "state": "PRESENT",
+                "source": "model2",
+                "confidence": 0.7576595544815063,
+                "reason": "Model 2 detected this region."
+              }
+            },
+            "undetected_regions": [],
+            "missing_regions": [],
+            "geometry": {},
+            "automatic_rejection": false,
+            "rejection_reason": null,
+            "review_reason": null,
+            "uncertainty_causes": [],
+            "status": "PRESENT",
+            "reason": "Model 2 detected both required anatomical regions; continue normal grading."
+          },
+          "segmentation": {
+            "backend": "mobilesam_experimental",
+            "status": "candidate",
+            "engineering_checks_passed": false,
+            "validation_status": "Not validated",
+            "used_for_grading": false,
+            "mask_score_unvalidated": 0.9211466312408447,
+            "checkpoint_sha256": "6dbb90523a35330fedd7f1d3dfc66f995213d81b29a5ca8108dbcdd4e37d6c2f",
+            "reasons": [
+              "candidate_omits_detected_head_region"
+            ],
+            "backend_error": null,
+            "timings": {
+              "embedding_ms": 826.74,
+              "prompt_ms": 61.699
+            }
+          },
+          "mask_geometry": {
+            "mask_geometry_checks_passed": true,
+            "engineering_checks_passed": false,
+            "ownership_validated": false,
+            "reasons": [
+              "candidate_omits_detected_head_region"
+            ],
+            "metrics": {
+              "foreground_pixels": 8152,
+              "mask_inside_intended_box_fraction": 0.9914131501472031,
+              "intended_box_occupancy": 0.13200274393231634,
+              "component_count": 4,
+              "secondary_component_fraction": 0.00858684985279686,
+              "foreground_bbox": [
+                84,
+                160,
+                329,
+                401
+              ],
+              "hole_fraction": 0.0,
+              "principal_axis_ratio": 7.183337381696551,
+              "mask_touches_frame_boundary": false,
+              "parent_bbox_touches_frame_boundary": false,
+              "detected_part_box_coverage": {
+                "Head": 0.0,
+                "Body": 0.3333333333333333,
+                "Tail": 0.0
+              },
+              "pair_overlap_fraction": {
+                "1": 0.0,
+                "2": 0.0,
+                "3": 0.0,
+                "4": 0.0,
+                "5": 0.0,
+                "6": 0.0
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "scenario": "1000094989_jpg.rf.1d74954df700ee6583602358fb7c70ed.jpg",
+      "source_sha256": "2279df0ffeb46479b175bf69b169f3169d0dd5689004bf68145f4f6208a06795",
+      "shape": [
+        640,
+        640,
+        3
+      ],
+      "elapsed_ms": 3984.865,
+      "fish_detected": 6,
+      "quality_counters": {
+        "Class A": 0,
+        "Class B": 0,
+        "Class C": 1,
+        "Rejected": 0,
+        "Ungraded": 5
+      },
+      "frame_mask_context": {
+        "scope": "one_original_frame",
+        "frame_id": "anatomy-secondary-audit:4",
+        "segmentation_calls": 0,
+        "cache_misses": 0,
+        "grabcut_executions": 0,
+        "cache_hits": 0,
+        "cache_entries": 6,
+        "segmentation_ms": 1296.523,
+        "lookup_ms": 40.816,
+        "feature_calls": 6,
+        "feature_cache_hits": 0,
+        "feature_ms": 945.293,
+        "projection_calls": 0,
+        "projection_fallbacks": 0,
+        "projection_ms": 0.0,
+        "segmentation_backend": "mobilesam_experimental",
+        "experimental_segmentation": {
+          "backend": "mobilesam_experimental",
+          "experimental": true,
+          "embedding_calls": 1,
+          "prompt_calls": 6,
+          "segmentation_ms": 1296.523,
+          "used_for_grading": false,
+          "validation_status": "Not validated",
+          "frame_key": "anatomy-secondary-audit:4:0f0dad1e8560f90719c2b36ec7d3c851",
+          "embedding_ms": 891.736,
+          "actual_encoder_forward_calls": 1,
+          "prompt_ms": 398.711,
+          "prompt_cache_hits": 0,
+          "cpu_fallbacks": 0,
+          "prompt_requests": 6,
+          "decoder_attempts": 6,
+          "cached_mask_bytes": 2457600,
+          "lock_wait_ms": 0.004,
+          "model_load_ms": 382.068,
+          "device": "cpu",
+          "gpu_memory": {
+            "status": "not_measured",
+            "reason": "MobileSAM is running on CPU."
+          },
+          "scope": "shared image embedding plus sequential candidate prompts; child timings are not per-fish totals",
+          "candidate_count": 6,
+          "engineering_checks_passed": 0,
+          "applied_to_grading": false
+        },
+        "segmentation_stage_ms": {},
+        "native_pixels_processed": 0,
+        "working_pixels_processed": 0,
+        "downsized_calls": 0,
+        "generation_failures": 0,
+        "segmentation_rejections": 0,
+        "settings_fallbacks": 0,
+        "segmentation_settings": {
+          "maximum_dimension": 640,
+          "maximum_pixels": 200000,
+          "configuration_warnings": []
+        }
+      },
+      "segmentation_ms": null,
+      "model2_inference_ms": 515.167,
+      "fish": [
+        {
+          "id": 1,
+          "bbox": [
+            295.81,
+            312.0,
+            608.52,
+            421.01
+          ],
+          "quality": "Ungraded",
+          "primary_both_detected_secondary_skipped": false,
+          "anatomical_verification": {
+            "version": "1",
+            "fish_id": 1,
+            "frame_id": "anatomy-secondary-audit:4",
+            "activated": true,
+            "primary": {
+              "Head": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 1,
+                "frame_id": "anatomy-secondary-audit:4",
+                "association_valid": true
+              },
+              "Body": {
+                "detected": true,
+                "confidence": 0.8227879405021667,
+                "status": "detected",
+                "fish_id": 1,
+                "frame_id": "anatomy-secondary-audit:4",
+                "association_valid": true
+              },
+              "Tail": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 1,
+                "frame_id": "anatomy-secondary-audit:4",
+                "association_valid": true
+              }
+            },
+            "parts": {
+              "Head": {
+                "state": "UNCERTAIN",
+                "source": "silhouette_geometry",
+                "confidence": null,
+                "reason": "Verification blocked: overlapping"
+              },
+              "Body": {
+                "state": "PRESENT",
+                "source": "model2",
+                "confidence": 0.8227879405021667,
+                "reason": "Model 2 detected this region."
+              }
+            },
+            "undetected_regions": [
+              "Head"
+            ],
+            "missing_regions": [],
+            "geometry": {
+              "status": "unavailable",
+              "validated_for_absence": false,
+              "orientation": "UNCERTAIN",
+              "reason": "candidate_contains_neighbor_anatomical_evidence; required_head_evidence_unavailable",
+              "mask_source": "mobilesam_anatomy_candidate",
+              "fish_id": 1,
+              "frame_id": "anatomy-secondary-audit:4"
+            },
+            "automatic_rejection": false,
+            "rejection_reason": null,
+            "review_reason": "Cannot confidently verify Head; review is required. Verification blocked: overlapping",
+            "uncertainty_causes": [
+              "overlapping",
+              "head_unverified_detection_failure"
+            ],
+            "status": "UNCERTAIN",
+            "reason": "Cannot confidently verify Head; review is required."
+          },
+          "segmentation": {
+            "backend": "mobilesam_experimental",
+            "status": "candidate",
+            "engineering_checks_passed": false,
+            "validation_status": "Not validated",
+            "used_for_grading": false,
+            "mask_score_unvalidated": 0.9629808664321899,
+            "checkpoint_sha256": "6dbb90523a35330fedd7f1d3dfc66f995213d81b29a5ca8108dbcdd4e37d6c2f",
+            "reasons": [
+              "candidate_contains_neighbor_anatomical_evidence",
+              "required_head_evidence_unavailable"
+            ],
+            "backend_error": null,
+            "timings": {
+              "embedding_ms": 891.736,
+              "prompt_ms": 64.849
+            }
+          },
+          "mask_geometry": {
+            "mask_geometry_checks_passed": false,
+            "engineering_checks_passed": false,
+            "ownership_validated": false,
+            "reasons": [
+              "candidate_contains_neighbor_anatomical_evidence",
+              "required_head_evidence_unavailable"
+            ],
+            "metrics": {
+              "foreground_pixels": 12946,
+              "mask_inside_intended_box_fraction": 0.999536536381894,
+              "intended_box_occupancy": 0.3712629827279509,
+              "component_count": 1,
+              "secondary_component_fraction": 0.0,
+              "foreground_bbox": [
+                294,
+                317,
+                605,
+                418
+              ],
+              "hole_fraction": 0.0,
+              "principal_axis_ratio": 5.055069011820047,
+              "mask_touches_frame_boundary": false,
+              "parent_bbox_touches_frame_boundary": false,
+              "detected_part_box_coverage": {
+                "Body": 0.535792887756284
+              },
+              "pair_overlap_fraction": {
+                "2": 0.0,
+                "3": 0.0,
+                "4": 0.0034361381159906134,
+                "5": 0.0,
+                "6": 0.0
+              }
+            }
+          }
+        },
+        {
+          "id": 2,
+          "bbox": [
+            0.05,
+            179.88,
+            255.64,
+            310.09
+          ],
+          "quality": "Class C",
+          "primary_both_detected_secondary_skipped": true,
+          "anatomical_verification": {
+            "version": "1",
+            "fish_id": 2,
+            "frame_id": "anatomy-secondary-audit:4",
+            "activated": false,
+            "primary": {
+              "Head": {
+                "detected": true,
+                "confidence": 0.71052086353302,
+                "status": "detected",
+                "fish_id": 2,
+                "frame_id": "anatomy-secondary-audit:4",
+                "association_valid": true
+              },
+              "Body": {
+                "detected": true,
+                "confidence": 0.8237844705581665,
+                "status": "detected",
+                "fish_id": 2,
+                "frame_id": "anatomy-secondary-audit:4",
+                "association_valid": true
+              },
+              "Tail": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 2,
+                "frame_id": "anatomy-secondary-audit:4",
+                "association_valid": true
+              }
+            },
+            "parts": {
+              "Head": {
+                "state": "PRESENT",
+                "source": "model2",
+                "confidence": 0.71052086353302,
+                "reason": "Model 2 detected this region."
+              },
+              "Body": {
+                "state": "PRESENT",
+                "source": "model2",
+                "confidence": 0.8237844705581665,
+                "reason": "Model 2 detected this region."
+              }
+            },
+            "undetected_regions": [],
+            "missing_regions": [],
+            "geometry": {},
+            "automatic_rejection": false,
+            "rejection_reason": null,
+            "review_reason": null,
+            "uncertainty_causes": [],
+            "status": "PRESENT",
+            "reason": "Model 2 detected both required anatomical regions; continue normal grading."
+          },
+          "segmentation": {
+            "backend": "mobilesam_experimental",
+            "status": "candidate",
+            "engineering_checks_passed": false,
+            "validation_status": "Not validated",
+            "used_for_grading": false,
+            "mask_score_unvalidated": 0.9574401378631592,
+            "checkpoint_sha256": "6dbb90523a35330fedd7f1d3dfc66f995213d81b29a5ca8108dbcdd4e37d6c2f",
+            "reasons": [
+              "mask_touches_frame_boundary"
+            ],
+            "backend_error": null,
+            "timings": {
+              "embedding_ms": 891.736,
+              "prompt_ms": 65.887
+            }
+          },
+          "mask_geometry": {
+            "mask_geometry_checks_passed": false,
+            "engineering_checks_passed": false,
+            "ownership_validated": false,
+            "reasons": [
+              "mask_touches_frame_boundary"
+            ],
+            "metrics": {
+              "foreground_pixels": 10430,
+              "mask_inside_intended_box_fraction": 1.0,
+              "intended_box_occupancy": 0.3086529356060606,
+              "component_count": 1,
+              "secondary_component_fraction": 0.0,
+              "foreground_bbox": [
+                0,
+                183,
+                250,
+                306
+              ],
+              "hole_fraction": 0.0,
+              "principal_axis_ratio": 5.109642171634196,
+              "mask_touches_frame_boundary": true,
+              "parent_bbox_touches_frame_boundary": false,
+              "detected_part_box_coverage": {
+                "Body": 0.4658412145345943,
+                "Head": 0.5855342136854742
+              },
+              "pair_overlap_fraction": {
+                "1": 0.0,
+                "3": 0.0,
+                "4": 0.0,
+                "5": 0.0,
+                "6": 0.0
+              }
+            }
+          }
+        },
+        {
+          "id": 3,
+          "bbox": [
+            181.18,
+            137.22,
+            344.0,
+            427.39
+          ],
+          "quality": "Ungraded",
+          "primary_both_detected_secondary_skipped": false,
+          "anatomical_verification": {
+            "version": "1",
+            "fish_id": 3,
+            "frame_id": "anatomy-secondary-audit:4",
+            "activated": true,
+            "primary": {
+              "Head": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 3,
+                "frame_id": "anatomy-secondary-audit:4",
+                "association_valid": false
+              },
+              "Body": {
+                "detected": true,
+                "confidence": 0.8168102502822876,
+                "status": "detected",
+                "fish_id": 3,
+                "frame_id": "anatomy-secondary-audit:4",
+                "association_valid": false
+              },
+              "Tail": {
+                "detected": true,
+                "confidence": 0.5798163414001465,
+                "status": "detected",
+                "fish_id": 3,
+                "frame_id": "anatomy-secondary-audit:4",
+                "association_valid": false
+              }
+            },
+            "parts": {
+              "Head": {
+                "state": "UNCERTAIN",
+                "source": "silhouette_geometry",
+                "confidence": null,
+                "reason": "Verification blocked: association_ambiguous, overlapping"
+              },
+              "Body": {
+                "state": "PRESENT",
+                "source": "model2",
+                "confidence": 0.8168102502822876,
+                "reason": "Model 2 detected this region."
+              }
+            },
+            "undetected_regions": [
+              "Head"
+            ],
+            "missing_regions": [],
+            "geometry": {
+              "status": "unavailable",
+              "validated_for_absence": false,
+              "orientation": "UNCERTAIN",
+              "reason": "fragmented_or_merged_foreground_components; overlapping_mask_ownership_conflict; required_anatomical_ownership_ambiguous; required_head_evidence_unavailable",
+              "mask_source": "mobilesam_anatomy_candidate",
+              "fish_id": 3,
+              "frame_id": "anatomy-secondary-audit:4"
+            },
+            "automatic_rejection": false,
+            "rejection_reason": null,
+            "review_reason": "Cannot confidently verify Head; review is required. Verification blocked: association_ambiguous, overlapping",
+            "uncertainty_causes": [
+              "association_ambiguous",
+              "overlapping",
+              "head_unverified_detection_failure"
+            ],
+            "status": "UNCERTAIN",
+            "reason": "Cannot confidently verify Head; review is required."
+          },
+          "segmentation": {
+            "backend": "mobilesam_experimental",
+            "status": "candidate",
+            "engineering_checks_passed": false,
+            "validation_status": "Not validated",
+            "used_for_grading": false,
+            "mask_score_unvalidated": 0.7673419117927551,
+            "checkpoint_sha256": "6dbb90523a35330fedd7f1d3dfc66f995213d81b29a5ca8108dbcdd4e37d6c2f",
+            "reasons": [
+              "fragmented_or_merged_foreground_components",
+              "overlapping_mask_ownership_conflict",
+              "required_anatomical_ownership_ambiguous",
+              "required_head_evidence_unavailable"
+            ],
+            "backend_error": null,
+            "timings": {
+              "embedding_ms": 891.736,
+              "prompt_ms": 71.906
+            }
+          },
+          "mask_geometry": {
+            "mask_geometry_checks_passed": false,
+            "engineering_checks_passed": false,
+            "ownership_validated": false,
+            "reasons": [
+              "fragmented_or_merged_foreground_components",
+              "overlapping_mask_ownership_conflict",
+              "required_anatomical_ownership_ambiguous",
+              "required_head_evidence_unavailable"
+            ],
+            "metrics": {
+              "foreground_pixels": 16613,
+              "mask_inside_intended_box_fraction": 0.9954252693673629,
+              "intended_box_occupancy": 0.3486391330929943,
+              "component_count": 16,
+              "secondary_component_fraction": 0.022512490218503583,
+              "foreground_bbox": [
+                182,
+                141,
+                350,
+                445
+              ],
+              "hole_fraction": 0.006221211939941377,
+              "principal_axis_ratio": 3.1836064311454275,
+              "mask_touches_frame_boundary": false,
+              "parent_bbox_touches_frame_boundary": false,
+              "detected_part_box_coverage": {
+                "Body": 0.5478971962616822,
+                "Tail": 0.028017241379310345
+              },
+              "pair_overlap_fraction": {
+                "1": 0.0,
+                "2": 0.0,
+                "4": 0.4139289306067717,
+                "5": 0.0,
+                "6": 0.0
+              }
+            }
+          }
+        },
+        {
+          "id": 4,
+          "bbox": [
+            245.35,
+            160.43,
+            354.85,
+            461.14
+          ],
+          "quality": "Ungraded",
+          "primary_both_detected_secondary_skipped": false,
+          "anatomical_verification": {
+            "version": "1",
+            "fish_id": 4,
+            "frame_id": "anatomy-secondary-audit:4",
+            "activated": true,
+            "primary": {
+              "Head": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 4,
+                "frame_id": "anatomy-secondary-audit:4",
+                "association_valid": false
+              },
+              "Body": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 4,
+                "frame_id": "anatomy-secondary-audit:4",
+                "association_valid": false
+              },
+              "Tail": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 4,
+                "frame_id": "anatomy-secondary-audit:4",
+                "association_valid": false
+              }
+            },
+            "parts": {
+              "Head": {
+                "state": "UNCERTAIN",
+                "source": "silhouette_geometry",
+                "confidence": null,
+                "reason": "Verification blocked: association_ambiguous, overlapping"
+              },
+              "Body": {
+                "state": "UNCERTAIN",
+                "source": "silhouette_geometry",
+                "confidence": null,
+                "reason": "Verification blocked: association_ambiguous, overlapping"
+              }
+            },
+            "undetected_regions": [
+              "Head",
+              "Body"
+            ],
+            "missing_regions": [],
+            "geometry": {
+              "status": "unavailable",
+              "validated_for_absence": false,
+              "orientation": "UNCERTAIN",
+              "reason": "fragmented_or_merged_foreground_components; overlapping_mask_ownership_conflict; required_anatomical_ownership_ambiguous; required_body_evidence_unavailable; required_head_evidence_unavailable",
+              "mask_source": "mobilesam_anatomy_candidate",
+              "fish_id": 4,
+              "frame_id": "anatomy-secondary-audit:4"
+            },
+            "automatic_rejection": false,
+            "rejection_reason": null,
+            "review_reason": "Cannot confidently verify Head and Body; review is required. Verification blocked: association_ambiguous, overlapping Verification blocked: association_ambiguous, overlapping",
+            "uncertainty_causes": [
+              "association_ambiguous",
+              "overlapping",
+              "head_unverified_detection_failure",
+              "body_unverified_detection_failure"
+            ],
+            "status": "UNCERTAIN",
+            "reason": "Cannot confidently verify Head and Body; review is required."
+          },
+          "segmentation": {
+            "backend": "mobilesam_experimental",
+            "status": "candidate",
+            "engineering_checks_passed": false,
+            "validation_status": "Not validated",
+            "used_for_grading": false,
+            "mask_score_unvalidated": 0.9352552890777588,
+            "checkpoint_sha256": "6dbb90523a35330fedd7f1d3dfc66f995213d81b29a5ca8108dbcdd4e37d6c2f",
+            "reasons": [
+              "fragmented_or_merged_foreground_components",
+              "overlapping_mask_ownership_conflict",
+              "required_anatomical_ownership_ambiguous",
+              "required_body_evidence_unavailable",
+              "required_head_evidence_unavailable"
+            ],
+            "backend_error": null,
+            "timings": {
+              "embedding_ms": 891.736,
+              "prompt_ms": 64.054
+            }
+          },
+          "mask_geometry": {
+            "mask_geometry_checks_passed": false,
+            "engineering_checks_passed": false,
+            "ownership_validated": false,
+            "reasons": [
+              "fragmented_or_merged_foreground_components",
+              "overlapping_mask_ownership_conflict",
+              "required_anatomical_ownership_ambiguous",
+              "required_body_evidence_unavailable",
+              "required_head_evidence_unavailable"
+            ],
+            "metrics": {
+              "foreground_pixels": 11932,
+              "mask_inside_intended_box_fraction": 0.9761984579282601,
+              "intended_box_occupancy": 0.350632149307646,
+              "component_count": 16,
+              "secondary_component_fraction": 0.03905464297686893,
+              "foreground_bbox": [
+                252,
+                142,
+                357,
+                472
+              ],
+              "hole_fraction": 0.0,
+              "principal_axis_ratio": 5.25751173327963,
+              "mask_touches_frame_boundary": false,
+              "parent_bbox_touches_frame_boundary": false,
+              "detected_part_box_coverage": {},
+              "pair_overlap_fraction": {
+                "1": 0.0034361381159906134,
+                "2": 0.0,
+                "3": 0.4139289306067717,
+                "5": 0.0,
+                "6": 0.002262822661749916
+              }
+            }
+          }
+        },
+        {
+          "id": 5,
+          "bbox": [
+            133.52,
+            385.05,
+            365.99,
+            501.69
+          ],
+          "quality": "Ungraded",
+          "primary_both_detected_secondary_skipped": false,
+          "anatomical_verification": {
+            "version": "1",
+            "fish_id": 5,
+            "frame_id": "anatomy-secondary-audit:4",
+            "activated": true,
+            "primary": {
+              "Head": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 5,
+                "frame_id": "anatomy-secondary-audit:4",
+                "association_valid": false
+              },
+              "Body": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 5,
+                "frame_id": "anatomy-secondary-audit:4",
+                "association_valid": false
+              },
+              "Tail": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 5,
+                "frame_id": "anatomy-secondary-audit:4",
+                "association_valid": false
+              }
+            },
+            "parts": {
+              "Head": {
+                "state": "UNCERTAIN",
+                "source": "silhouette_geometry",
+                "confidence": null,
+                "reason": "Verification blocked: association_ambiguous, overlapping"
+              },
+              "Body": {
+                "state": "UNCERTAIN",
+                "source": "silhouette_geometry",
+                "confidence": null,
+                "reason": "Verification blocked: association_ambiguous, overlapping"
+              }
+            },
+            "undetected_regions": [
+              "Head",
+              "Body"
+            ],
+            "missing_regions": [],
+            "geometry": {
+              "status": "unavailable",
+              "validated_for_absence": false,
+              "orientation": "UNCERTAIN",
+              "reason": "overlapping_mask_ownership_conflict; required_anatomical_ownership_ambiguous; required_body_evidence_unavailable; required_head_evidence_unavailable",
+              "mask_source": "mobilesam_anatomy_candidate",
+              "fish_id": 5,
+              "frame_id": "anatomy-secondary-audit:4"
+            },
+            "automatic_rejection": false,
+            "rejection_reason": null,
+            "review_reason": "Cannot confidently verify Head and Body; review is required. Verification blocked: association_ambiguous, overlapping Verification blocked: association_ambiguous, overlapping",
+            "uncertainty_causes": [
+              "association_ambiguous",
+              "overlapping",
+              "head_unverified_detection_failure",
+              "body_unverified_detection_failure"
+            ],
+            "status": "UNCERTAIN",
+            "reason": "Cannot confidently verify Head and Body; review is required."
+          },
+          "segmentation": {
+            "backend": "mobilesam_experimental",
+            "status": "candidate",
+            "engineering_checks_passed": false,
+            "validation_status": "Not validated",
+            "used_for_grading": false,
+            "mask_score_unvalidated": 0.9682302474975586,
+            "checkpoint_sha256": "6dbb90523a35330fedd7f1d3dfc66f995213d81b29a5ca8108dbcdd4e37d6c2f",
+            "reasons": [
+              "overlapping_mask_ownership_conflict",
+              "required_anatomical_ownership_ambiguous",
+              "required_body_evidence_unavailable",
+              "required_head_evidence_unavailable"
+            ],
+            "backend_error": null,
+            "timings": {
+              "embedding_ms": 891.736,
+              "prompt_ms": 65.579
+            }
+          },
+          "mask_geometry": {
+            "mask_geometry_checks_passed": false,
+            "engineering_checks_passed": false,
+            "ownership_validated": false,
+            "reasons": [
+              "overlapping_mask_ownership_conflict",
+              "required_anatomical_ownership_ambiguous",
+              "required_body_evidence_unavailable",
+              "required_head_evidence_unavailable"
+            ],
+            "metrics": {
+              "foreground_pixels": 8493,
+              "mask_inside_intended_box_fraction": 1.0,
+              "intended_box_occupancy": 0.3115439639044789,
+              "component_count": 1,
+              "secondary_component_fraction": 0.0,
+              "foreground_bbox": [
+                139,
+                389,
+                365,
+                500
+              ],
+              "hole_fraction": 0.0,
+              "principal_axis_ratio": 4.222163830448862,
+              "mask_touches_frame_boundary": false,
+              "parent_bbox_touches_frame_boundary": false,
+              "detected_part_box_coverage": {},
+              "pair_overlap_fraction": {
+                "1": 0.0,
+                "2": 0.0,
+                "3": 0.0,
+                "4": 0.0,
+                "6": 0.9948192629224066
+              }
+            }
+          }
+        },
+        {
+          "id": 6,
+          "bbox": [
+            102.68,
+            307.21,
+            368.35,
+            495.64
+          ],
+          "quality": "Ungraded",
+          "primary_both_detected_secondary_skipped": false,
+          "anatomical_verification": {
+            "version": "1",
+            "fish_id": 6,
+            "frame_id": "anatomy-secondary-audit:4",
+            "activated": true,
+            "primary": {
+              "Head": {
+                "detected": true,
+                "confidence": 0.7947325706481934,
+                "status": "detected",
+                "fish_id": 6,
+                "frame_id": "anatomy-secondary-audit:4",
+                "association_valid": false
+              },
+              "Body": {
+                "detected": false,
+                "confidence": null,
+                "status": "not_detected",
+                "fish_id": 6,
+                "frame_id": "anatomy-secondary-audit:4",
+                "association_valid": false
+              },
+              "Tail": {
+                "detected": true,
+                "confidence": 0.40484851598739624,
+                "status": "detected",
+                "fish_id": 6,
+                "frame_id": "anatomy-secondary-audit:4",
+                "association_valid": false
+              }
+            },
+            "parts": {
+              "Head": {
+                "state": "PRESENT",
+                "source": "model2",
+                "confidence": 0.7947325706481934,
+                "reason": "Model 2 detected this region."
+              },
+              "Body": {
+                "state": "UNCERTAIN",
+                "source": "silhouette_geometry",
+                "confidence": null,
+                "reason": "Verification blocked: association_ambiguous, overlapping"
+              }
+            },
+            "undetected_regions": [
+              "Body"
+            ],
+            "missing_regions": [],
+            "geometry": {
+              "status": "unavailable",
+              "validated_for_absence": false,
+              "orientation": "UNCERTAIN",
+              "reason": "candidate_omits_detected_head_region; fragmented_or_merged_foreground_components; overlapping_mask_ownership_conflict; required_anatomical_ownership_ambiguous; required_body_evidence_unavailable",
+              "mask_source": "mobilesam_anatomy_candidate",
+              "fish_id": 6,
+              "frame_id": "anatomy-secondary-audit:4"
+            },
+            "automatic_rejection": false,
+            "rejection_reason": null,
+            "review_reason": "Cannot confidently verify Body; review is required. Verification blocked: association_ambiguous, overlapping",
+            "uncertainty_causes": [
+              "association_ambiguous",
+              "overlapping",
+              "body_unverified_detection_failure"
+            ],
+            "status": "UNCERTAIN",
+            "reason": "Cannot confidently verify Body; review is required."
+          },
+          "segmentation": {
+            "backend": "mobilesam_experimental",
+            "status": "candidate",
+            "engineering_checks_passed": false,
+            "validation_status": "Not validated",
+            "used_for_grading": false,
+            "mask_score_unvalidated": 0.9189587235450745,
+            "checkpoint_sha256": "6dbb90523a35330fedd7f1d3dfc66f995213d81b29a5ca8108dbcdd4e37d6c2f",
+            "reasons": [
+              "candidate_omits_detected_head_region",
+              "fragmented_or_merged_foreground_components",
+              "overlapping_mask_ownership_conflict",
+              "required_anatomical_ownership_ambiguous",
+              "required_body_evidence_unavailable"
+            ],
+            "backend_error": null,
+            "timings": {
+              "embedding_ms": 891.736,
+              "prompt_ms": 66.435
+            }
+          },
+          "mask_geometry": {
+            "mask_geometry_checks_passed": false,
+            "engineering_checks_passed": false,
+            "ownership_validated": false,
+            "reasons": [
+              "candidate_omits_detected_head_region",
+              "fragmented_or_merged_foreground_components",
+              "overlapping_mask_ownership_conflict",
+              "required_anatomical_ownership_ambiguous",
+              "required_body_evidence_unavailable"
+            ],
+            "metrics": {
+              "foreground_pixels": 13243,
+              "mask_inside_intended_box_fraction": 0.9771954995091746,
+              "intended_box_occupancy": 0.25644531637041,
+              "component_count": 8,
+              "secondary_component_fraction": 0.28890734727780715,
+              "foreground_bbox": [
+                108,
+                311,
+                365,
+                499
+              ],
+              "hole_fraction": 0.004285714285714286,
+              "principal_axis_ratio": 3.7783907088229247,
+              "mask_touches_frame_boundary": false,
+              "parent_bbox_touches_frame_boundary": false,
+              "detected_part_box_coverage": {
+                "Head": 0.0,
+                "Tail": 0.40582027502398466
+              },
+              "pair_overlap_fraction": {
+                "1": 0.0,
+                "2": 0.0,
+                "3": 0.0,
+                "4": 0.002262822661749916,
+                "5": 0.9948192629224066
+              }
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "invariants": {
+    "both_detected_skips_secondary_anatomy": true,
+    "unreviewed_geometry_does_not_reject": true,
+    "one_mobilesam_embedding_per_original_frame": true,
+    "missing_accepted_regions_are_uncertain": true
+  },
+  "limitations": [
+    "No independently reviewed physical-absence or fish-ownership labels are supplied.",
+    "These photos have known historical training exposure and do not measure independent anatomy accuracy.",
+    "No real headless/bodyless validation accuracy is claimed.",
+    "Existing shared segmentation runs for pixel diagnostics; the anatomical branch reuses those native candidates.",
+    "Single actual pass per input; timings include first-use effects and are not a repeated speed benchmark."
+  ]
+}

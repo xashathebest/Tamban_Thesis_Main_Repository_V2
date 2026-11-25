@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 from io import BytesIO, StringIO
 import unittest
@@ -125,11 +126,20 @@ class GradingEngineTests(unittest.TestCase):
         first = engine.evaluate(44, crop(), [part("Body", "Class A", .55)], stabilize=True)
         second = engine.evaluate(44, crop(), [part("Body", "Class A", .65)], stabilize=True)
         self.assertIsNone(first.final_grade)
-        self.assertEqual(second.final_grade, "Class A")
-        self.assertAlmostEqual(second.final_score or 0, .30)
+        self.assertIsNone(second.final_grade)
+        self.assertIn("UG_ANATOMY_UNCERTAIN", second.reason_codes)
+        self.assertEqual(second.provisional_grade, "Class A")
+        self.assertAlmostEqual(second.provisional_score or 0, .30)
+        self.assertAlmostEqual(second.weighted_scores["Class A"], .30)
+        self.assertIsNone(second.final_score)
+        self.assertEqual(second.temporal_stability["evidence_bearing_frame_count"], 2)
         # Another fish's evidence has its own Model 1 ID and cannot mix here.
         other = engine.evaluate(45, crop(), [part("Body", "Class B", .92)], stabilize=False)
-        self.assertEqual(other.final_grade, "Class B")
+        self.assertIsNone(other.final_grade)
+        self.assertIn("UG_ANATOMY_UNCERTAIN", other.reason_codes)
+        self.assertEqual(other.provisional_grade, "Class B")
+        self.assertAlmostEqual(other.weighted_scores["Class B"], .46)
+        self.assertAlmostEqual(other.weighted_scores["Class A"], 0.)
 
     def test_color_is_measured_but_has_no_unconfigured_grade_adjustment(self) -> None:
         verdict = self.engine().evaluate(3, crop(), [part("Body", "Class C", .70)], stabilize=False)
@@ -188,12 +198,21 @@ class GradingEngineTests(unittest.TestCase):
                 repeated = live.evaluate(1, crop(), evidence, stabilize=True, frame_id=1)
                 self.assertIsNone(repeated.final_grade)
                 recovered = live.evaluate(1, crop(), evidence, stabilize=True, frame_id=3)
-                self.assertEqual(recovered.final_grade, "Class A")
+                self.assertEqual(recovered.temporal_stability["evidence_bearing_frame_count"], 2)
+                self.assertTrue(recovered.temporal_stability["ready"])
+                self.assertEqual(recovered.provisional_grade, "Class A")
+                if name == "body_head":
+                    self.assertEqual(recovered.final_grade, "Class A")
+                    self.assertNotIn("UG_ANATOMY_UNCERTAIN", recovered.reason_codes)
+                else:
+                    self.assertIsNone(recovered.final_grade)
+                    self.assertIn("UG_ANATOMY_UNCERTAIN", recovered.reason_codes)
         live = self.engine(minimum_track_observations=2, final_verdict_threshold=.25)
         for frame_id in (1, 2):
             no_body = live.evaluate(2, crop(), [part("Head", "Class A", .99), part("Tail", "Class A", .99)], stabilize=True, frame_id=frame_id)
         self.assertIsNone(no_body.final_grade)
         self.assertIn("UG_TEMPORAL_EVIDENCE", no_body.reason_codes)
+        self.assertIn("UG_ANATOMY_UNCERTAIN", no_body.reason_codes)
         self.assertEqual(no_body.temporal_stability["evidence_bearing_frame_count"], 0)
 
     def test_transient_uncertainty_recovers_only_after_new_clear_evidence(self) -> None:
@@ -302,7 +321,19 @@ class ExplainableExportTests(unittest.TestCase):
         workbook = make_xlsx([event], DEFAULT_EXPORT_FIELDS, {"Total Fish": 1}, verdict.to_dict().get("grading_config", {"part_weights": {"Body": .5, "Head": .3, "Tail": .2}}))
         from openpyxl import load_workbook
         loaded = load_workbook(BytesIO(workbook), data_only=True)
-        self.assertEqual(loaded.sheetnames, ["Fish Inspections", "Session Summary", "Feature Summary", "Grade Calculation Rules", "Review Queue"])
+        self.assertEqual(loaded.sheetnames[:5], ["Fish Inspections", "Session Summary", "Feature Summary", "Grade Calculation Rules", "Review Queue"])
+        self.assertTrue(set(loaded.sheetnames[5:]).issubset({"Extended Evidence"}))
+        for header, cell in zip(loaded["Fish Inspections"][1], loaded["Fish Inspections"][2]):
+            original = csv_rows[0][header.value]
+            if len(original.encode("utf-16-le")) // 2 <= 32767:
+                continue
+            reference = json.loads(cell.value)["xlsx_extended_evidence"]
+            chunks = sorted((values for values in list(loaded[reference["sheet"]].values)[1:]
+                             if values[0] == reference["record_key"]), key=lambda values: values[6])
+            self.assertEqual(len(chunks), reference["chunk_count"])
+            restored = "".join(values[9] for values in chunks)
+            self.assertEqual(restored, original)
+            self.assertEqual(hashlib.sha256(restored.encode("utf-8")).hexdigest(), reference["sha256"])
         self.assertEqual(loaded["Fish Inspections"].cell(row=2, column=3).value, "Class A")
 
     def test_history_keeps_an_updated_calculation_even_when_grade_is_unchanged(self) -> None:

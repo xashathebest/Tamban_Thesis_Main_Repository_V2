@@ -1,0 +1,5 @@
+# Local pytest work directories and superseded exploratory test output.
+/pytest_*/
+/regression_1.*
+/review_targeted.log
+/secondary_review_run.log

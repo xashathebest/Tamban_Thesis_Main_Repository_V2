@@ -51,6 +51,18 @@ def _unit_interval(value: object, *, field: str) -> float:
     return number
 
 
+def grade_margin_passes(margin: float | None, minimum: float) -> bool:
+    """Require a unique winner, then apply the configured margin.
+
+    The tolerance only absorbs floating-point roundoff in weighted sums; it
+    is not a biological confidence threshold. A zero configured minimum never
+    makes class-list order evidence for one of two equally supported grades.
+    """
+    return (margin is not None and math.isfinite(margin) and margin > 0
+            and not math.isclose(margin, 0., rel_tol=0., abs_tol=1e-12)
+            and margin >= minimum)
+
+
 @dataclass(frozen=True)
 class GradingPolicy:
     """The verdict-affecting settings shared by runtime and offline replay."""
@@ -278,12 +290,14 @@ def grade_fish(input_value: FishGradingInput, policy: GradingPolicy) -> FishPoli
         reasons.append(UG_ASSOCIATION_AMBIGUOUS)
     if input_value.out_of_frame and missing_required_regions:
         reasons.append(UG_OUT_OF_FRAME)
+    # Availability and rejected-quality flags remain authoritative even if a
+    # caller retained stale, otherwise plausible regional scores for review.
+    if input_value.frame_quality_rejected:
+        reasons.append(UG_FRAME_QUALITY)
+    if not input_value.model2_available:
+        reasons.append(UG_MODEL2_UNAVAILABLE)
     if not observed:
-        if input_value.frame_quality_rejected:
-            reasons.append(UG_FRAME_QUALITY)
-        if not input_value.model2_available:
-            reasons.append(UG_MODEL2_UNAVAILABLE)
-        else:
+        if input_value.model2_available:
             reasons.append(UG_MISSING_PART_EVIDENCE)
     if missing_required_regions:
         reasons.append(UG_MISSING_PART_EVIDENCE)
@@ -303,7 +317,7 @@ def grade_fish(input_value: FishGradingInput, policy: GradingPolicy) -> FishPoli
         reasons.append(UG_TEMPORAL_EVIDENCE)
     if top_support is None or top_support < policy.final_verdict_threshold:
         reasons.append(UG_LOW_GRADE_SUPPORT)
-    if grade_margin is not None and grade_margin < policy.minimum_grade_margin:
+    if grade_margin is not None and not grade_margin_passes(grade_margin, policy.minimum_grade_margin):
         reasons.append(UG_LOW_MARGIN)
 
     # Preserve deterministic order but do not repeat a reason when, for
@@ -347,9 +361,9 @@ def grade_fish(input_value: FishGradingInput, policy: GradingPolicy) -> FishPoli
         second_support=second_support,
         grade_margin=grade_margin,
         final_grade=final_grade,
-        # A final support is still useful in an Ungraded result: it is the top
-        # weighted support that failed a gate, not a probability claim.
-        final_support=top_support,
+        # An override's support belongs to its selected grade, not to the
+        # different provisional winner. Retain top support for review holds.
+        final_support=weighted_scores[final_grade] if final_grade is not None else top_support,
         reason_codes=final_reasons,
         override=override,
     )

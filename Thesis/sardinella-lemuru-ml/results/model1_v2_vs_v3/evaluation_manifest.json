@@ -1,0 +1,3159 @@
+{
+  "created_utc": "2026-11-23T16:52:15.549977+00:00",
+  "datasets": {
+    "development": {
+      "yaml": "C:\\Users\\User\\Downloads\\Tamban_Thesis_Main_Repository\\Thesis\\sardinella-lemuru-ml\\notebooks\\Tamban_Model1_Retrain\\model1_v3\\deduplicated\\dataset\\data.yaml",
+      "split": "val",
+      "images": 332,
+      "fingerprint": "0e7ec895faa26001d2757f2f0eeac39b5d59d6cab7bdc962e648628aca932eea",
+      "files": [
+        {
+          "file": "WIN_20260902_18_03_39_Pro.jpg",
+          "image_sha256": "fef576f4ac86b839ee8594b5cabbad9b11b742a48d0c30b058c19761183aa11c",
+          "label_sha256": "1cd9efb62a8f8630494c693d6f70118fd427f77d628749eb4ca7b1aa9f82dd6e"
+        },
+        {
+          "file": "WIN_20260902_18_03_54_Pro.jpg",
+          "image_sha256": "6126d30894baef7883bdff7f9df08bcfa4e8ff65cfd0477f0724ed67fc7b177e",
+          "label_sha256": "93c96204b25f0cf90ef85e8ec4b6e49ff04a480ef60704a347aaeaf6ac5bd45b"
+        },
+        {
+          "file": "WIN_20260902_18_05_42_Pro.jpg",
+          "image_sha256": "1016a61687e8ab9e930961cd34760f841934b88646bff8a88b133e414c883c22",
+          "label_sha256": "d273ab7d2fda6aeac8a910b080c12fdc34cade91737c2415561a1bf699bffe95"
+        },
+        {
+          "file": "WIN_20260902_18_05_55_Pro.jpg",
+          "image_sha256": "ab315d0722668ac90dc03a721dc18fc8cc6f4c24c3ec39fc4cb48f6a82759dae",
+          "label_sha256": "abf57c282536592ad037a839b8cfa846a2d37f418f019821e26a1001f913249b"
+        },
+        {
+          "file": "WIN_20260902_18_06_06_Pro.jpg",
+          "image_sha256": "b25e83aa36a1b8b5bea76cf7dad9cf2ea561f21a2a2430907d49f3ae41f3f6ed",
+          "label_sha256": "d64e65be37c4304e818b874e4df0af02140b51c8de3b95839904a2323b68e567"
+        },
+        {
+          "file": "WIN_20260902_18_06_21_Pro.jpg",
+          "image_sha256": "6c3803ad0de0df6e2ea84a098daf247d28b8246a9832196eaa2778d70c20d72a",
+          "label_sha256": "1443f45bda248a294ee136ab6b8fe8bafe36ee96507f56d9534411a81d668e99"
+        },
+        {
+          "file": "WIN_20260902_18_06_31_Pro.jpg",
+          "image_sha256": "cff8394ba8a38d12f8eb19ef62e393c3f824b638f3bc59f518cbbc44234f287a",
+          "label_sha256": "0356c2005b700ac69c344e2462ee1049e88f716b1c4266502f79c0e823e2e36d"
+        },
+        {
+          "file": "WIN_20260902_18_06_49_Pro.jpg",
+          "image_sha256": "fba225b0604fb518c0b15fc9337091769bb2453064e0491d3e69e6941ca54210",
+          "label_sha256": "7c2f564f9c7eec4c83a5d8c45e9b5a7ebe1a83b91870d924493a3707b3cf21fc"
+        },
+        {
+          "file": "WIN_20260902_18_06_57_Pro.jpg",
+          "image_sha256": "294b0741f51746e1c7333aafe66e18cd340e3cffe5c903812993fdf44d626cb6",
+          "label_sha256": "9099b3d129456304d601faf4fb5b838c9222cb57cb9e594ecd3f75503e4a8b7e"
+        },
+        {
+          "file": "WIN_20260902_18_07_14_Pro.jpg",
+          "image_sha256": "ac0cf150841bc22cbb5af2e20f6a5e8021f93cb4a2276d8a5f47847245e7e550",
+          "label_sha256": "d94e959d2b05deba31be99c55a310f6cca16e83e6fa342dd450d267a107d0903"
+        },
+        {
+          "file": "WIN_20260902_18_07_27_Pro.jpg",
+          "image_sha256": "bfe967aeaf1646589109e163601365fa1ad5e2960c9f26c5baabd7b87266193d",
+          "label_sha256": "828f0edd692b0ff0ca62de442d6e9f6daba7664918ae465398052ae2f08f7d9e"
+        },
+        {
+          "file": "WIN_20260902_18_07_40_Pro.jpg",
+          "image_sha256": "77f0ca78ced55623c6c050074e5e92c2e954a3df2a780e3eed18c027a3409a3f",
+          "label_sha256": "7987405147eed30372d3ebabfcb5675038050b49e5f706d43487747ef39056e1"
+        },
+        {
+          "file": "WIN_20260902_18_07_46_Pro.jpg",
+          "image_sha256": "6131e939ec4f01d810277f9f59c84421ebad968d67889b6c55cf60524d9cf040",
+          "label_sha256": "795092c4c76102074775affce868c0a5bc19a6107387f4499588fdc63145d7ee"
+        },
+        {
+          "file": "WIN_20260902_18_08_00_Pro.jpg",
+          "image_sha256": "f4bf013f383b0174f0b801045503ab49fc03a81291735f29f4a2d18a7f369930",
+          "label_sha256": "e9ebaf44ba292ab387192b8ac5ace1da5495d78474cf940dec92ea7a82dd7960"
+        },
+        {
+          "file": "WIN_20260902_18_08_12_Pro.jpg",
+          "image_sha256": "3ad5cce44bdd1975437848b0efe3776cbf6d1f652835f81d5eb65e3c26dfe547",
+          "label_sha256": "4ebcbf069dc7c93c439716de5e716845bc5348e1e2dec41c4e7bcfe5f6b5cd47"
+        },
+        {
+          "file": "WIN_20260902_18_08_30_Pro.jpg",
+          "image_sha256": "a82c7ad44fd73821e4f485235d05b847f5fd80107a3098f861fef9c0ddd29753",
+          "label_sha256": "34aa4ec97b7ce20a243da282cac5c05608365c8027a8346c486ff87acc8d3483"
+        },
+        {
+          "file": "WIN_20260902_18_08_40_Pro.jpg",
+          "image_sha256": "3fb12199264a087a3e678542a32f783f92b9918e55ad2a22349f9ed5bbd941cc",
+          "label_sha256": "03198b03b92e41d23b3ef878073aa6b45970ebed5dd6fe9cd4b45c3ab4cbae22"
+        },
+        {
+          "file": "WIN_20260902_18_09_08_Pro.jpg",
+          "image_sha256": "89808b7600f8750c3f0284dcf05c37b91c0365c7a2b55436579485e72d3b81da",
+          "label_sha256": "a48764457b0b604eada63ff4e4d391a7c073f4a7b15fd039d95790ce9789dbb7"
+        },
+        {
+          "file": "WIN_20260902_18_09_17_Pro.jpg",
+          "image_sha256": "0b85986843d6d6aa6aa71e479329ce90be939365bcb2ab1705df4247b3f6257e",
+          "label_sha256": "28ba33f73a2d0c9a70ac090eb59c2d521d16b7de6b4c20962822364eaa9435ff"
+        },
+        {
+          "file": "WIN_20260902_18_09_29_Pro.jpg",
+          "image_sha256": "1d12b5f65078511d6eb5e79a4cc4789dd38f7393e7941d983fbca764e1b161f5",
+          "label_sha256": "4ac1ee3273214686176ffa862ccddd408f27515e2dd4ef1de6d3f156c052ca58"
+        },
+        {
+          "file": "WIN_20260902_18_09_47_Pro.jpg",
+          "image_sha256": "15611e61880392e46e1b2cc86efcd126d05f8cadb84ea33fdf6264f05fad0f9a",
+          "label_sha256": "959a69ed37872df2630b5f4d1efbd2e173c254d1a68c1bec1ceda1c27402cfb5"
+        },
+        {
+          "file": "WIN_20260902_18_09_57_Pro.jpg",
+          "image_sha256": "a8e70c1739d1f511ffa50c1a4fb9775a8c6ffb9763cfb35e0e8188d7715558d2",
+          "label_sha256": "0a8f78a42d644f6bab19f1cf572b6ca33fecbe97cf0c6861a7480e301ae01796"
+        },
+        {
+          "file": "WIN_20260902_18_10_13_Pro.jpg",
+          "image_sha256": "1e61cd7b88775231fed26c36294d75a75a9b9f516f5e20d4ee20c19513f2f81a",
+          "label_sha256": "4cad99f3afbe2d7e71a633d3b4699a2c445d0838e707e69421690d22eb268896"
+        },
+        {
+          "file": "WIN_20260902_18_10_22_Pro.jpg",
+          "image_sha256": "dd8d5053c50e6eee0ad90454b5f1de6b91a826bc7a7d9b8c96d5cfd93c4eb8b2",
+          "label_sha256": "c75f9a0869466b0ab1281bc4badc2e08173a4c97f805c93aacedae449229684c"
+        },
+        {
+          "file": "WIN_20260902_18_10_30_Pro.jpg",
+          "image_sha256": "22acc2241262b698ed6913c0f18646fe5e4da20bb692f91c3a0801881dd05198",
+          "label_sha256": "cea259120fc5b5d84422546300b18055f7df69bb282405c8f7421149f2dd46f4"
+        },
+        {
+          "file": "WIN_20260902_18_10_50_Pro.jpg",
+          "image_sha256": "4e681825ed90a00896270b1feffad815923057aedc5d7c7b7f83f5c767f7902b",
+          "label_sha256": "c9d2e0f10b3a732fdd90085ab95fa5f838e3238a23be4b5618dc24818779a989"
+        },
+        {
+          "file": "WIN_20260902_18_11_13_Pro.jpg",
+          "image_sha256": "6cfea68ab5d49c83c53c03967a173f890b1198ed849fad98a6a10e2e6373ae53",
+          "label_sha256": "0e012d4b4608c347fae76e9e06e78e0f6a6dcdeb0de1d6e19f36a637f8f6fbfb"
+        },
+        {
+          "file": "WIN_20260902_18_11_26_Pro.jpg",
+          "image_sha256": "8225ed6716e43f53d43ccdbf8f86e20cabd04ab345d15f8da6674544e82ada3e",
+          "label_sha256": "66bce0425b9eb4692597714ab8904f4ce8a7953001b0d28cb8bc1a152e5155db"
+        },
+        {
+          "file": "WIN_20260902_18_11_41_Pro.jpg",
+          "image_sha256": "aaf828f1ba688b2d6f5c1b19ca6a227a489e0add4b9bba5c5eadfa7c1171559d",
+          "label_sha256": "e523cd0469beae2bf18e410cf17b448596c15d5dbb7620bc3bc8baecc72f5c26"
+        },
+        {
+          "file": "WIN_20260902_18_12_01_Pro.jpg",
+          "image_sha256": "ed8c20d8ed91527c1124a22e1b4ba78bf72dcc249880403c1778533b30bf0cde",
+          "label_sha256": "ee1793ef4117dcb3fe7ed3da205737a77429d799906a8010077a4e6fe8a76e19"
+        },
+        {
+          "file": "WIN_20260902_18_12_13_Pro.jpg",
+          "image_sha256": "7aff3c7f63dcd08d5f2b26d45df6f2ff117064a9758f33f97dc81584cd8998a4",
+          "label_sha256": "31c5339f368569fce2c8d1d4f07f02fbf3e5491a43e3ff7f098226318deae2c2"
+        },
+        {
+          "file": "WIN_20260902_18_12_28_Pro.jpg",
+          "image_sha256": "aa06a47166511beb42df2681cb68b0f3697ea0995cb5a2ccbc20ada6a8214e26",
+          "label_sha256": "5c0008b25ebf74ae6f46f3c216abdc093c13e09c59072d52335682867e985c04"
+        },
+        {
+          "file": "WIN_20260902_18_12_46_Pro.jpg",
+          "image_sha256": "a416386498761b834baa47a280db6ef9705ea187405b80577ef84296c00635d2",
+          "label_sha256": "f03cb3084fb87d7524a83f22d247dd3524ed3be65a37cc4ccf07446910a78226"
+        },
+        {
+          "file": "WIN_20260902_18_13_33_Pro.jpg",
+          "image_sha256": "2fbc307e9e43fa010703f12a785882efcf9a8e219cf8dd96324ac0a7f179e257",
+          "label_sha256": "52bb9f332f202234faa75225f453ffacb0ad1a147fef2b998d72764dcd36299a"
+        },
+        {
+          "file": "WIN_20260902_18_13_50_Pro.jpg",
+          "image_sha256": "f9f3c180d5acd68ee22211d5ebe4c5100397d81ade35bd546640f3bfeeaaf40f",
+          "label_sha256": "179aca3458cb557445e8c7f091fe2244e7ec772197a552a52484702aea0c84ba"
+        },
+        {
+          "file": "WIN_20260902_18_13_59_Pro.jpg",
+          "image_sha256": "f2be6d1204d8ae9d0d44d02d0ef6aca6b17f828bb2c251093f4022308209b604",
+          "label_sha256": "bd39b9abfd138f21235d935ef34fa7a9a4e38f96259718e05d7a90a9b3f90f0f"
+        },
+        {
+          "file": "WIN_20260902_18_14_33_Pro.jpg",
+          "image_sha256": "e6051e5ece792c8862a003413ade57e25b393e45ef9d2d416d8f133811a0753a",
+          "label_sha256": "60425e3d3b124b1070947cfcd8c60019ca45beabae13aadba05a42cbcac03490"
+        },
+        {
+          "file": "WIN_20260902_18_14_46_Pro.jpg",
+          "image_sha256": "1be999159aacc406e9518c44f9d61d30aa64bf75b2c55c4e1a82e569702c0c61",
+          "label_sha256": "182ddba132d68c67a01987109ecd1b644667adfef54609818ca178f3227620e9"
+        },
+        {
+          "file": "WIN_20260902_18_14_59_Pro.jpg",
+          "image_sha256": "33917f731f86da295e2bad40e5838a45add0ff95585a5964f1d4d2db9c789b68",
+          "label_sha256": "59c56b5ab1a2afbb22c5e62a05eb5b17fc1a0a85148c3879bee6a525fd16ce30"
+        },
+        {
+          "file": "WIN_20260902_18_15_16_Pro.jpg",
+          "image_sha256": "cd3e4c53cb5ae854273218aebfbf6c2486a557485ee55189429d7e973a8ec71b",
+          "label_sha256": "1192240adbf22d5629d8a6b0acb98f3ca95113c497e4e1d45c6adccd74bb8261"
+        },
+        {
+          "file": "WIN_20260902_18_15_25_Pro.jpg",
+          "image_sha256": "aa13b48b21887774f42f453e89425a9f55c95eaf65e1cf2c005c17646ad9d3e3",
+          "label_sha256": "41cc1f61b2263fdcd2599e9ff164ad5d3dbd905d2b296250d12a1abd178746a5"
+        },
+        {
+          "file": "WIN_20260902_18_15_45_Pro.jpg",
+          "image_sha256": "d5fb7694f61089324bbba1af74133c2e7693ee934565c2816678758c8b6b8f7f",
+          "label_sha256": "391b4ed6ab00f8f2f31dd0697c73deaa74c3e2c224d186cd3ba5fb819e6e7752"
+        },
+        {
+          "file": "WIN_20260902_18_15_54_Pro.jpg",
+          "image_sha256": "f1af0dc11975b865eddec2cc3b22954941672d5cf4c70d30b71da0cdb79e5858",
+          "label_sha256": "072cbd87e0def8d909ba2956d2a22cc3a8f7d749bcbf5be84f3b6690a12b4674"
+        },
+        {
+          "file": "WIN_20260902_18_16_17_Pro.jpg",
+          "image_sha256": "752b14b8262be0d45541df7b03e29fcc999d2e0cb03503b5c4da92f8967ef241",
+          "label_sha256": "8d9dc386467cddb9d5e1cdbdb314ec916bd19ed87229440a92b5e0c631fbbb17"
+        },
+        {
+          "file": "WIN_20260902_18_16_27_Pro.jpg",
+          "image_sha256": "eaef01bb164ba4f3feb8ad4de95d483fbbd23c72a7266c70d0cec06bdaf575d2",
+          "label_sha256": "e694634d7e2ff34329238cf03d324cee0821461af81760869c2d0dc5a6c653db"
+        },
+        {
+          "file": "WIN_20260902_18_16_48_Pro.jpg",
+          "image_sha256": "6415d877442546b81032e91d8372ee14747330a5886e9b4b037a1c7d105af540",
+          "label_sha256": "5b2ad4fd9453791189edb6a5efeed7af97dbeb77170fc5dae86825b9910f0b01"
+        },
+        {
+          "file": "WIN_20260902_18_17_08_Pro.jpg",
+          "image_sha256": "4b3520430e83cb9cca6a52ade64425871c5a0089172d58b8ed6a9ac6a162b3e6",
+          "label_sha256": "44b2fe39a16876ad38860222a1a6c398a99a9529818230f7205fe69aa495af25"
+        },
+        {
+          "file": "WIN_20260902_18_18_08_Pro.jpg",
+          "image_sha256": "6531f4649377acefaa934f06862f1034da6ac18be7976337679d539de55b76d9",
+          "label_sha256": "94099822dab10fbf764802513e60711f6cfb9ba62ee343b04a6508c8d0564bc1"
+        },
+        {
+          "file": "WIN_20260902_18_18_19_Pro.jpg",
+          "image_sha256": "68eec0fcdd2c8f12573214b113e26ae08a82582846f4b0dd1dc26e124cbbf3f2",
+          "label_sha256": "a52bf2b64a48e21958cc1bec320d397b55fe52eec55c412ec40ff2635899dd8f"
+        },
+        {
+          "file": "WIN_20260902_18_18_29_Pro.jpg",
+          "image_sha256": "e7b0b5b635bdcc0b7d6535f17338b904b917a7d69999e9abda9268f694b02670",
+          "label_sha256": "87c62a1d66a7b334d96c619175fe4eb426ce44bdae11ec0653f2ca309c7d6691"
+        },
+        {
+          "file": "WIN_20260902_18_18_37_Pro.jpg",
+          "image_sha256": "5b196bb61412c5abafd4337e7e12f37e3c20528db3b56b0beb8cbd667a35c775",
+          "label_sha256": "b231fdcef698d667339502740b43dd1baf9b181617e8b1d9752fc90cf3fc5a82"
+        },
+        {
+          "file": "WIN_20260902_18_20_23_Pro.jpg",
+          "image_sha256": "69b0b0484870de8070e510da0a46f561277825b063c781253ac041c2a428302b",
+          "label_sha256": "89bd5ef31571a2418d0f7416a9f8a08f09d7d6587d18eff11329c434f97421d9"
+        },
+        {
+          "file": "WIN_20260902_18_20_34_Pro.jpg",
+          "image_sha256": "0a98cf7517becbb5d9dbbbe16b980369dceb66ce81899135c388f0bae5b1bea4",
+          "label_sha256": "daa7f80a99a9e0c99bf768db8ae1e1fcbaee8efd9c7c3bd7d881ab4f70e921bf"
+        },
+        {
+          "file": "WIN_20260902_18_20_45_Pro.jpg",
+          "image_sha256": "acc001fb93a4160d62371b4f2a504ec4ab6552d5a530d9a95d29f51b9059c142",
+          "label_sha256": "68003f85870e9d07c5ee66904331db3f24c940989e71c8f0869dde4c072deee2"
+        },
+        {
+          "file": "WIN_20260902_18_20_51_Pro.jpg",
+          "image_sha256": "658acf5c1ea4677d8d7584e7d7292af44357bb3459ce59398043b202b8d3a26c",
+          "label_sha256": "443e79b6861cc838dc3cce51ee69a1ff2386a9f9bc3e64e1dd6ca1dca712b133"
+        },
+        {
+          "file": "WIN_20260902_18_20_55_Pro.jpg",
+          "image_sha256": "3d864c128464eac2e2595aac810e81da70c99597768477ec2917b878110ddb36",
+          "label_sha256": "33b9cac58d0f7b6f9a94cabe7a4b3c9b1639862dc15cf14c8d6fee096a194771"
+        },
+        {
+          "file": "WIN_20260902_18_21_03_Pro.jpg",
+          "image_sha256": "33e18b583f6cab9452f88e76596d20f5a14c1293c6be98504152d511615cdd8b",
+          "label_sha256": "61ee430fa071448df581fd3c85007bd291055ec613feb49bf5b7d26854d399d8"
+        },
+        {
+          "file": "WIN_20260902_18_21_14_Pro.jpg",
+          "image_sha256": "2f29a1ab1f066ff664001c63da1e90958763dde8378c331afe8812ed487edbee",
+          "label_sha256": "ec17816a18a7edf7b092c88489afccd9413451fedbf3ca36637775174a0a6243"
+        },
+        {
+          "file": "WIN_20260902_18_21_19_Pro.jpg",
+          "image_sha256": "6c27a10e20822e96ccd6f6220bac128e5b3ca8ffdfee57ca72e9827204011baf",
+          "label_sha256": "ff347831a68f6b4c504189b2634e4be23b24e205377ad1e8dcc25fcaf5e65d97"
+        },
+        {
+          "file": "WIN_20260902_18_21_25_Pro.jpg",
+          "image_sha256": "1a9c5dfb73edeed40154c5a7a8fda9da0c1942b88ad65807855a2029aec919b9",
+          "label_sha256": "76839a1ae5b5136e189e05b102e5cf5fbd134859e854731e2b4ba09d94c0905a"
+        },
+        {
+          "file": "WIN_20260902_18_21_33_Pro.jpg",
+          "image_sha256": "a2225a48ff0826be9604de5686393fab149d8e89bde271bc62c2fd95347d3251",
+          "label_sha256": "91fc97e53af004fbb544c9b08db30dddc9cd2c6365d646d6ca52dbf57bc5e733"
+        },
+        {
+          "file": "WIN_20260902_18_21_40_Pro.jpg",
+          "image_sha256": "ed2df5eefeb9f1eedb838df651ec2711ba8d224615f74711d1638fc58764357e",
+          "label_sha256": "6cfa6d5a9077924ed71cfdd64f7d83864b67e5bbb85eba0ac55e9472df30e4b6"
+        },
+        {
+          "file": "WIN_20260902_18_21_47_Pro.jpg",
+          "image_sha256": "483680780d989493c7fa98168cbdd4096ab89c6aff10fe2e235eacedf6b6b65a",
+          "label_sha256": "dcdf65488f7224d57401d931ac207475d2b6da6c418146a319baf9fcc9c60ac5"
+        },
+        {
+          "file": "WIN_20260902_18_21_59_Pro.jpg",
+          "image_sha256": "808a8ec96ee3677a3884b96967605da2f745eea2539df9ba0f439bf16066f72e",
+          "label_sha256": "cf1c902a8a299ab3bf2c5b9b33b6c32fcef61d516765bb6fcf762ce484534ed7"
+        },
+        {
+          "file": "WIN_20260902_18_22_11_Pro.jpg",
+          "image_sha256": "44318b35b2917c48e91b617db8b62fad4cfe959945b93758789680d081459c34",
+          "label_sha256": "eb1b2a0587a1de49d7519ad7b4954cf45313ce2a220e518acba24a1b6e4033ec"
+        },
+        {
+          "file": "WIN_20260902_18_22_17_Pro.jpg",
+          "image_sha256": "d99797d8deedefd7a5e127585ec39b8597f00843007516fab72c2307c28671de",
+          "label_sha256": "d684efdd900b30f345d510e88e01657708816d22a97c4006791048f3b18fc7b5"
+        },
+        {
+          "file": "WIN_20260902_18_22_31_Pro.jpg",
+          "image_sha256": "a29780edd9c065ad4d9344b4f02ab90dcd302f6fde15c3a59a236de4d105e785",
+          "label_sha256": "dae47b5f50a1262713ac2c9a987cb724244ea92672ecd53ea372cd038f6d9af0"
+        },
+        {
+          "file": "WIN_20260902_18_22_40_Pro.jpg",
+          "image_sha256": "4aa1212c2ee20f392765c8575fd853b45cde40c736f5c71b6e6c51d92344c92c",
+          "label_sha256": "ff64c6b0d1d2f810677e96c7e1a5f8c3df96a9ff901e093e69420d0de0d52985"
+        },
+        {
+          "file": "WIN_20260902_18_22_48_Pro.jpg",
+          "image_sha256": "54db46282000b78058a81d2efb57f1bbf5898e4235572a10e35c6e7cbde54f69",
+          "label_sha256": "c5151af0b533a805496a69ad0520864f36aaddb589c231c92c2923b5a122d514"
+        },
+        {
+          "file": "WIN_20260902_18_22_55_Pro.jpg",
+          "image_sha256": "aebed2689158bba6f65d4c33ed51e2902f9b56d526d95baeddaa70d03c78b27a",
+          "label_sha256": "92353bf88c56c569162320ac5426bb008ed95faab9943bdb9ff37a0e8d6b1839"
+        },
+        {
+          "file": "WIN_20260902_18_23_02_Pro.jpg",
+          "image_sha256": "0f6e8313ec67be5a1bc3699a56f7e36c3eff48bb8443e2060061c23ea4707490",
+          "label_sha256": "f1317b08ff8e7c139f36594866ba6509243c0a955b204bcf95bde39c87c0c9d3"
+        },
+        {
+          "file": "WIN_20260902_18_23_29_Pro.jpg",
+          "image_sha256": "2dded2fdead4d069160f95433ffabf956af52ac08b331a192d4b2bdb8750a98e",
+          "label_sha256": "0d571602164167352a777b715cf4af2341b5c3b98d277b5bb14489e3d8cb2ad6"
+        },
+        {
+          "file": "WIN_20260902_18_23_42_Pro.jpg",
+          "image_sha256": "797deae29b49a7005fe5e251e1e7d234835ffa19e95bd0dafcd753a02c40965e",
+          "label_sha256": "0c7a060c1b68a943df63d5fa913b197ae3b5f1d3dab9a4399ab3b8f65c4cf96c"
+        },
+        {
+          "file": "WIN_20260902_18_23_56_Pro.jpg",
+          "image_sha256": "921b2146b4d53635ad9c11b14a40f133e756203e4abb6dac00b1955566122bfe",
+          "label_sha256": "0ef28cecd921d000a066a7629e5f69af92caf69640b7bd6a1c5b630f9cb8d686"
+        },
+        {
+          "file": "WIN_20260902_18_24_06_Pro.jpg",
+          "image_sha256": "53660bbf22844303752043714fcce07d6313ad8fadd51a5c0f7991d87c0d306c",
+          "label_sha256": "10bc5accf54441b1ec0ad0a54e5a3ba9daea776e9450e763f1f49d2aa86fbd33"
+        },
+        {
+          "file": "WIN_20260902_18_24_15_Pro.jpg",
+          "image_sha256": "a673b1c4aea446f90a7d04c181383aca13120514e9eb155a26fd51d95342d5de",
+          "label_sha256": "a4babdfd158d9d4063ecacc2695e00707c218db085f660c87e5019ddef7bc666"
+        },
+        {
+          "file": "WIN_20260902_18_24_24_Pro.jpg",
+          "image_sha256": "9fdc5f2e6c76024051908d5f80f5c45c49ad0686909a83546e8b73121b9e89d8",
+          "label_sha256": "de660a6bc4b5550095934252ddd37d511e47937c7318151ebcbe1485382af32e"
+        },
+        {
+          "file": "WIN_20260902_18_24_30_Pro.jpg",
+          "image_sha256": "b14b240f8e314be08b46d950dd2d196850cda9f4aebaf2e7c8950d6600773d3c",
+          "label_sha256": "cf65395250cb6b870453e3fb8fb9ac17ecd0291010fd25dcc080a32426927047"
+        },
+        {
+          "file": "WIN_20260902_18_24_36_Pro.jpg",
+          "image_sha256": "d961a7c091479b36335c9c1ff19a60d1d0103e43a63b95c2553340dd6357258e",
+          "label_sha256": "1eb01659874047db5c313b906b0a72f4500be267f7b3b3f61f24247cac08b6bc"
+        },
+        {
+          "file": "WIN_20260902_18_24_44_Pro.jpg",
+          "image_sha256": "ad977e40fd19b58d9e88102d0ed7038bc2000555f7b48440130649a8c6dfadc8",
+          "label_sha256": "f4365875b5de04cae10d5138dead01985537430d8b9c52248da161f81aa7db34"
+        },
+        {
+          "file": "WIN_20260902_18_24_55_Pro.jpg",
+          "image_sha256": "1ab7b1b6718a7e06db606d3f27be1726926c4bedb807603e1bda84536bedde55",
+          "label_sha256": "571f140c0abee35647b16c9441bcf3446d1abe71d20216476c6275326bd3ced0"
+        },
+        {
+          "file": "WIN_20260902_18_25_02_Pro.jpg",
+          "image_sha256": "3c9d944f5db933589d2d9eb6e0ef02eec8f522a1352296cfee1772e96bfec9e0",
+          "label_sha256": "270cc1206fa1fe22f3805a3ab02652981ad39cd61f9e86a2d3d3eb624cba093b"
+        },
+        {
+          "file": "WIN_20260902_18_25_06_Pro.jpg",
+          "image_sha256": "b9f9808e24c38672728a4e7eee7bf7311ae06ea4db530f9eb078e233efbca0de",
+          "label_sha256": "594e2149696c14e84743987c0d645bcf38490b1c9be9c16d9405a3c52241d51d"
+        },
+        {
+          "file": "WIN_20260902_18_25_12_Pro.jpg",
+          "image_sha256": "1df3d46be205a6fce2f635d2087d7fe3fc7f160ff97b64efe1e189b7e2ed43c8",
+          "label_sha256": "92480e75c97736c13e5153f8b8ea515ef9603e681f8a365987064714c517988b"
+        },
+        {
+          "file": "WIN_20260902_18_25_17_Pro.jpg",
+          "image_sha256": "3d838071123dc588e7a4ed0209457c730be573e37abf82ea6c1e9a02e6db8f0b",
+          "label_sha256": "aef13bdab607bef0077331f5dc10153fb8fb9a48b29b9a012a2f679e6aaad444"
+        },
+        {
+          "file": "WIN_20260902_18_25_23_Pro.jpg",
+          "image_sha256": "2434b7d9b301d63cccabc096a73d98658fbb0e6845583ffb5b2beeac54d2dd43",
+          "label_sha256": "0eefbd7b9d83e6aefa8be1e9ab5340bc4b43deb2fef73307e085882b6378befd"
+        },
+        {
+          "file": "WIN_20260902_18_25_29_Pro.jpg",
+          "image_sha256": "37b1a42e7799cd49bc79afb4f9cfa953d1d10bc3b4163811111c25ead9b40f0c",
+          "label_sha256": "f8d567d9f328e3a874d7811208d86089a1afa57490ca69c9b559a3e0a6e7c29e"
+        },
+        {
+          "file": "WIN_20260902_18_25_37_Pro.jpg",
+          "image_sha256": "06b563d77f146e146a7fed5733fec8fee2c502ef6ec563852f759911b3b34630",
+          "label_sha256": "60994f35fa20d58334e1db1503531641b5c7196cdf76a71ff21c88199cf90514"
+        },
+        {
+          "file": "WIN_20260902_18_25_49_Pro.jpg",
+          "image_sha256": "378c2378c868db793336bdaba9d8d69a7fba4dc3e02bc77ab88cf820e11f80b9",
+          "label_sha256": "04ae1102cd1898e002f20247bc86ef435143bf7d3c76f37b18cdea6ca1d0f679"
+        },
+        {
+          "file": "WIN_20260902_18_25_57_Pro.jpg",
+          "image_sha256": "74dfa44ead7e201fcf95d6d7580cf75ae0d80673dffa4698a95b960c52868814",
+          "label_sha256": "af637b9bfb00d96d6b0ed2e5a302164b2ed34a3deba78bd62880d21846d0807e"
+        },
+        {
+          "file": "WIN_20260902_18_26_48_Pro.jpg",
+          "image_sha256": "f52fd379c3dba16736dc23a2d12f0d23684e429ebd2474e6fb92cf0c77b154c6",
+          "label_sha256": "c7ea8478c1cb811bf8fdba1f053c87ba92a1eb641de7def083eb1c90a17ab728"
+        },
+        {
+          "file": "WIN_20260902_18_26_57_Pro.jpg",
+          "image_sha256": "8e3c1779ed3767bebfbcb40aa741aed555182c0b93beb24dc9846e5c5c361fd3",
+          "label_sha256": "e369b22da236dd1c1fa0e2d22b6950faded13242f5e35e357d2751acae7e02f9"
+        },
+        {
+          "file": "WIN_20260902_18_27_07_Pro.jpg",
+          "image_sha256": "22b940d8691c2cb57f58e2c8410dd4d056ceac21e08750086a47275a63cfb41b",
+          "label_sha256": "b944c81ae4c2ed894fdc801c9fdc34d4b7b382d22f6ce986d24336db7680b952"
+        },
+        {
+          "file": "WIN_20260902_18_27_15_Pro.jpg",
+          "image_sha256": "04f03ca51b032b25802b05f829389b77a13d20431aae93d6202a1d938d1a05d5",
+          "label_sha256": "62f8623391a2582bd20623be9e7e7131513edcc981309ca55c75ec304b7971a7"
+        },
+        {
+          "file": "WIN_20260902_18_27_25_Pro.jpg",
+          "image_sha256": "d396444853af032f365cf7455f2384dadd96f4620c5db85265849a9d57cb4ec6",
+          "label_sha256": "0e3c9acb686a68695cd1d246cd5bcb1cf6b7ed3a35132f384bfb242e588f1509"
+        },
+        {
+          "file": "WIN_20260902_18_27_34_Pro.jpg",
+          "image_sha256": "d71b16317e6d503186868a7f9b38d56cd3e85e0c7a4bba408f75779609d26de3",
+          "label_sha256": "ae31cf355ab3810295aaa0610550f79361ea8bfdfcac293679af4470ed3a7e39"
+        },
+        {
+          "file": "WIN_20260902_18_27_45_Pro.jpg",
+          "image_sha256": "4e91f7e49679e430f216822906a8f697d6329f0d1ca896dd4cc8170c4ec2f7b9",
+          "label_sha256": "77dae01c3173ca21417b4a8d16bea90574eb5e4ffdc5e8adae6d25704f7acd9f"
+        },
+        {
+          "file": "WIN_20260902_18_28_09_Pro.jpg",
+          "image_sha256": "69bee93b65e5bd475644799fc890fddb2585c0cbabb711d6188ad7d2c4f5300d",
+          "label_sha256": "731bb9dfd8762ee463335111c596196226b964b507fa5f6d45301d6a6a680a48"
+        },
+        {
+          "file": "WIN_20260902_18_28_20_Pro.jpg",
+          "image_sha256": "b1f902f131c7f22e4824a7b481e1ad47b384df52d1bf29c7bf0b613d02801e40",
+          "label_sha256": "ef12ca792dae36854e752dbc7d32ff40fdb41b6d63d82aa41613b5d1e0158ad8"
+        },
+        {
+          "file": "WIN_20260902_18_28_29_Pro.jpg",
+          "image_sha256": "072a6939a3fcc0a7fb8364802c6677ed04874f0fd3c353401491acc034bf2b56",
+          "label_sha256": "94789014d57fac554fd6d2aef4915f6623f55a486fcd968c70af1901aaad53dc"
+        },
+        {
+          "file": "WIN_20260902_18_28_39_Pro.jpg",
+          "image_sha256": "2e9ddcc38ad836be48443bc843e6e908130bf47cff513558882fdba3dcd2ff4a",
+          "label_sha256": "cba5453aec47effd72f274739e58b4d549bf3051fead64ce618248b8e975cb73"
+        },
+        {
+          "file": "WIN_20260902_18_28_47_Pro.jpg",
+          "image_sha256": "25fac66d6188b4dc6a8cd3b01f4123e973339ebc7120348fee2a8740bed61868",
+          "label_sha256": "d9dabc065804107c376c14f770cb125368e902180c98301381ca75e0f30857a9"
+        },
+        {
+          "file": "WIN_20260902_18_39_18_Pro.jpg",
+          "image_sha256": "b8cf75685134848a21c7c886d85f22e0a2864f6874f64a7cfd9cc81ceea29be7",
+          "label_sha256": "534d4ca287a5f75e8a6264e20085a6bbba946c590ce582f062d856f209430a9b"
+        },
+        {
+          "file": "WIN_20260902_18_39_47_Pro.jpg",
+          "image_sha256": "01465f3c0d172235002c3ad8e39aa386f6b2e1c01c113eb24736918c8b1bf0e1",
+          "label_sha256": "b292cd494144144c7d89e20b994fdf2c956fdab80806c49424b01df6ebb15ed7"
+        },
+        {
+          "file": "WIN_20260902_18_39_55_Pro.jpg",
+          "image_sha256": "c9b6c5071a82c9798f3a3b784bf26bbc1870cdce85a4cb785f7fa6117cddbc79",
+          "label_sha256": "b59347c5a9d2acd89c63cbf18c47db2c66ddc68872176978841039cb6e01bad6"
+        },
+        {
+          "file": "WIN_20260902_18_40_02_Pro.jpg",
+          "image_sha256": "a0ab1c3b25a31ebd6cab21a8e4aeadbe2da3c902fbeaf64c9ee2b16acb5a4b74",
+          "label_sha256": "aed76ea5f81678cee4791072248543e75873b2d354191ebc502bc674c160fb62"
+        },
+        {
+          "file": "WIN_20260902_18_40_10_Pro.jpg",
+          "image_sha256": "a929b4cd9e920595adab7389ad8f510b15c33efac587a7117816b06fa5c4ef7c",
+          "label_sha256": "966d281ed9d42a91a7a4724dd850615b7c8eb95277389d0f831875a7fe6a6ffd"
+        },
+        {
+          "file": "WIN_20260902_18_40_23_Pro.jpg",
+          "image_sha256": "dba7dab703ccb21d557a784cd0e7a279f30dee08c42c9439593920a45694d27d",
+          "label_sha256": "8856fdb6e5e96ab6c6f1da00707b9ad14c9a59148b5ac4d05caa1a9c6b32d35e"
+        },
+        {
+          "file": "WIN_20260902_18_40_32_Pro.jpg",
+          "image_sha256": "ba838f97e6c1cae6f4785cbd71e70cb782a6f747daf54d9a7573a6bb438301c0",
+          "label_sha256": "786ed2f933cc5222eb124544e3337e75e6a24ce7c0db18477a37db3fb437a4bc"
+        },
+        {
+          "file": "WIN_20260902_18_40_40_Pro.jpg",
+          "image_sha256": "7c0edfb5740226fd48dd32eed198864f5130aee4e063d189ac4741240c8016df",
+          "label_sha256": "093ea481018b7082402b5fe9623d51db014837de40d6843acd2cb411d68286b9"
+        },
+        {
+          "file": "WIN_20260902_18_40_49_Pro.jpg",
+          "image_sha256": "81eccfe315aad50fe6c5b4d567971a61341788ac244cf46e576ffd9552a4ae8d",
+          "label_sha256": "95e93e7e45fc161fb64ea45a53b1839b773e71f50eb93dcbe0f598af593acbf1"
+        },
+        {
+          "file": "WIN_20260902_18_40_58_Pro.jpg",
+          "image_sha256": "2116644e48ef7b718410c39aa78f57363be4cb67fbc9f2903b641b01a162456e",
+          "label_sha256": "fadfbcfe7b41902e1b90e343175687e5bcc36b3d956c2c10454e53dfe2ce0bb1"
+        },
+        {
+          "file": "WIN_20260902_18_41_09_Pro.jpg",
+          "image_sha256": "e1f689be8b2ee12b3e3870f4eb735be681fa0adc46627bc127db8f933e326473",
+          "label_sha256": "7bd0121e64cd84126a1d20d19df2168607bd8b3649f2415d151f98e7b6c0a4ce"
+        },
+        {
+          "file": "WIN_20260902_18_41_15_Pro.jpg",
+          "image_sha256": "fc068be093e6969800144c361fc7d1fd886a1d0e1b7cc171df9a03333575cefe",
+          "label_sha256": "f3a7ec8cf85292a3482a8067dd44ebc4a6a6e77ef2e33db877ede54397c750a2"
+        },
+        {
+          "file": "WIN_20260902_18_41_24_Pro.jpg",
+          "image_sha256": "daba8005369391868aecc2e1ac69140f1c731f523c6f880029a47212bb2c6c17",
+          "label_sha256": "c52e03d3a74d34d58526a7fea05d58e49da1ab1c9278b90c1d289e190d0e0a19"
+        },
+        {
+          "file": "WIN_20260902_18_41_32_Pro.jpg",
+          "image_sha256": "c9e57b245ad49129326ce81988b35dbc1fd1837e68ef88fe943f807e71b7b2b7",
+          "label_sha256": "51199aa7d3a1f510159eb5bdba20ea20f140a23c4e7e0eafdff1186cce0cfb80"
+        },
+        {
+          "file": "WIN_20260902_18_41_43_Pro.jpg",
+          "image_sha256": "49c5355c39f9609d3599717ac0cf72d041ff7df59a3f919cbd9c56630faa076e",
+          "label_sha256": "17f389f27fe383081620729260af19205bddae8c681e2bc768a13ab8568e8af0"
+        },
+        {
+          "file": "WIN_20260902_18_41_52_Pro.jpg",
+          "image_sha256": "a2b6d0e2c503f7238afe0e960c6baf4725f3705218db7d9b1fadd45c1a184920",
+          "label_sha256": "6eb3416b31e834ade5ca15db4f6adb778ffe9fd4a4c5b0c446ba5f357b04933c"
+        },
+        {
+          "file": "WIN_20260902_18_42_14_Pro.jpg",
+          "image_sha256": "12a2b3df0cfabf513ee63e752bc6706ec4afb9c1ca5d6ad6eab5495b5625ff25",
+          "label_sha256": "ef3ed4890fab54a66f217dd0363b7dd3ffd688f4d20be33bb888145cf1e18a83"
+        },
+        {
+          "file": "WIN_20260902_18_42_19_Pro.jpg",
+          "image_sha256": "14ec32d19b7b32d61e1acbbacbf7274577d8771b3f82c8f84a0ed07983e8bd9f",
+          "label_sha256": "e25ac8e95b290649f3cbb111815ac419ac03ed34ac79d4844e4c09b3a8d3308d"
+        },
+        {
+          "file": "WIN_20260902_18_42_29_Pro.jpg",
+          "image_sha256": "edadf3fc91e48ec55328edcee3008ff8dda86732d7dd58c97614b163740ca71a",
+          "label_sha256": "75922bbaeaf94e997552e22f58205286b262032727e30d56a2ed720f681d551b"
+        },
+        {
+          "file": "WIN_20260902_18_42_51_Pro.jpg",
+          "image_sha256": "7366cb11cd723db9a1c40513dbfbad1ffa07ac963300d49c418567e458e42a95",
+          "label_sha256": "c795fd05c4291799a5e75effb1979002e2a8ab6bfef3264f54f69f97dbe35bdd"
+        },
+        {
+          "file": "WIN_20260902_18_42_58_Pro.jpg",
+          "image_sha256": "c64706b852dd7c642cb3c73b98babd5e758fecbabc7a897fd021970a5d8a802f",
+          "label_sha256": "91c608807aacc8389dc28dfe87015e02c2ccb807e4228ad8c9905720ebed9808"
+        },
+        {
+          "file": "WIN_20260902_18_43_06_Pro.jpg",
+          "image_sha256": "b666caf6d8db99e3db9018ce20c43ad96a28306e686b628e414338e65de146a8",
+          "label_sha256": "cdd40d52dacfe276a00ed423a11ba67baa82c5759ff4c59988612813d126032e"
+        },
+        {
+          "file": "WIN_20260902_18_43_15_Pro.jpg",
+          "image_sha256": "afece20a0ce0ee73b544e7cbadef11a11da5c8e453af6b6015f11c8c75b94715",
+          "label_sha256": "96f338061afc3d88a3c69633a146d4685b260adfbb28aa2248984382bb23d06e"
+        },
+        {
+          "file": "WIN_20260902_18_43_29_Pro.jpg",
+          "image_sha256": "8d5f9c8cd34f0fff1505c78a5b94a268ca766e70789bc9624c6d0492a874c279",
+          "label_sha256": "727641a81ee5b5d162513b72ff217fe72e3c0e207d089c5100fd71f7064e5963"
+        },
+        {
+          "file": "WIN_20260902_18_43_39_Pro.jpg",
+          "image_sha256": "566b27d865495a6266bd174033833ab05d8a569e87fc8b4be19367c12c0c7431",
+          "label_sha256": "a4dfb5e63ee6660a24d04fe818baba66e6694870bc71b0de5ec0114fa21b03b9"
+        },
+        {
+          "file": "WIN_20260902_18_43_46_Pro.jpg",
+          "image_sha256": "28c24ac2625acfa14af44042712e0f2eb445baa3965406710f56afedf250d369",
+          "label_sha256": "28ea80901a70f17bc5e1f3dc01f442a41d7db816be9639ff5c4cd3c055af6003"
+        },
+        {
+          "file": "WIN_20260902_18_43_52_Pro.jpg",
+          "image_sha256": "c7243ba81125b6d624df3c46e97b7b86186094db27707872dcaa4ebbd7a0c261",
+          "label_sha256": "dc68e659b2e89425b472a83460b6727aa341f1a0ad0f12a078ca1986d43967a1"
+        },
+        {
+          "file": "WIN_20260902_18_44_00_Pro.jpg",
+          "image_sha256": "be70a0b9610722bbf0c718c323a39bd7868d6d712e4d5e5c08f189590e06bc00",
+          "label_sha256": "e16cb5e711e6605df3e6c5c830effe437611b9a2cd267e487113ab5809c242ec"
+        },
+        {
+          "file": "WIN_20260902_18_44_08_Pro.jpg",
+          "image_sha256": "2218873c7f3eda7c93af7d45f11bd706342f75d14f85736d509c5c41f98ecdb4",
+          "label_sha256": "3359ef290601504164c03c395b58ca58018d8f737f76efbccc00b1fe22814d97"
+        },
+        {
+          "file": "WIN_20260902_18_44_17_Pro.jpg",
+          "image_sha256": "50ff01b420e81efccbf82a56a8e3977a7f46f48284405c32740dc1eac6cde671",
+          "label_sha256": "2ba9e996113581dd7f34e4fa4e6f536fc989440959213392c9d8adef343d2fd5"
+        },
+        {
+          "file": "WIN_20260902_18_44_31_Pro.jpg",
+          "image_sha256": "b82defd273bbd2415786e9f9b7f60e6fcd30a38bff5e0f9ce2df287d0c1088b1",
+          "label_sha256": "a94efe79b37fa2b5b67bd57203e09402289b5974e832aed15dca34f733ba8c12"
+        },
+        {
+          "file": "WIN_20260902_18_44_43_Pro.jpg",
+          "image_sha256": "6191635eda57c90f46ef01dee1fbd1622e441c779dcca2d6d83a54522727238c",
+          "label_sha256": "dab794e8598f3d88184fce37e26a9285578f402df889e89e1529002d652f4d6f"
+        },
+        {
+          "file": "WIN_20260902_18_45_00_Pro.jpg",
+          "image_sha256": "859ca9e3f3ff1dd21cd75d58ef33f8d9b26849e5fee9f153dea3493d470a8ce4",
+          "label_sha256": "1283b9569657aab0548eeeee88c989cffac235eb2ee31a78275deaee96becb24"
+        },
+        {
+          "file": "WIN_20260902_18_45_33_Pro.jpg",
+          "image_sha256": "dddbbf44770e4c8846a6c01f4b61410bb3b5256c53e7945db04df1d0a624f17f",
+          "label_sha256": "747b0073d7f4d9921a90efb3e4f65dd60301c70ada4766dd5f76f5036532d061"
+        },
+        {
+          "file": "WIN_20260902_18_45_44_Pro.jpg",
+          "image_sha256": "2713b16445b7acaf2301cf6c6cd99b82b5eaf55a804361689591cb9c6e0e00fa",
+          "label_sha256": "3ceb71e400f96c03bac3b2619b08ea5a7beac4f808519a990795a294d1e42f5a"
+        },
+        {
+          "file": "WIN_20260902_18_46_02_Pro.jpg",
+          "image_sha256": "0e426c47c95a8ca66958f067471d1ebce7c96f8f211aa58ea96649eab23ec386",
+          "label_sha256": "a8cfee45ab5fa04149586245c58b0b8d1bea509b1cdb21be42c1652f106508ec"
+        },
+        {
+          "file": "WIN_20260902_18_46_34_Pro.jpg",
+          "image_sha256": "74c1ad0b123fd8f57d176f6697fd9132a2fd4fcc8c9f0964a6fa5786b635dd43",
+          "label_sha256": "a198b268b73177d2b9c680461ee3e0548c3516741223d18de466c6fc1496589c"
+        },
+        {
+          "file": "WIN_20260902_18_46_45_Pro.jpg",
+          "image_sha256": "cc7a17ca73da04d8f8c5d49f5564616d81aa116f667d82703d284d4f12ed3bc5",
+          "label_sha256": "ed1603bc621845affdbd6074cea2c75ede19ad13a343b32f724369f24053f5bd"
+        },
+        {
+          "file": "WIN_20260902_18_46_55_Pro.jpg",
+          "image_sha256": "fac562481e3ea19ae3b238397837a1f2d378468d2e7f2724e1650cff5f6fdcb1",
+          "label_sha256": "2254874f70d052731a82ff2ef44d549a084d0efd726507098c4033db70a2e6ae"
+        },
+        {
+          "file": "WIN_20260902_18_47_06_Pro.jpg",
+          "image_sha256": "d9d88fa08750b9fbacac36cb74342f12c567afb49b3654b06044450e732cb263",
+          "label_sha256": "415349b9a9c44534ca6a5b79d0a743f22e237291b8a99093df74c7a0aa08c23b"
+        },
+        {
+          "file": "WIN_20260902_18_47_22_Pro.jpg",
+          "image_sha256": "44767e408fea2eef5c410b231bd9f2f687e29a7fca69277d726f4f9fe84c47f3",
+          "label_sha256": "45b37a3b1e811458a0fb981b4d544bc992655053776c45e688a693035aad8aa5"
+        },
+        {
+          "file": "WIN_20260902_18_47_45_Pro.jpg",
+          "image_sha256": "b4372f11d56b2823c05d284bc1c377cec8aab50d32a359da49bcd1c8e347266b",
+          "label_sha256": "7146bbaff0464e967d844693b24d9a17d9c9d613c4226a840a1f73d9e18841be"
+        },
+        {
+          "file": "WIN_20260902_18_47_55_Pro.jpg",
+          "image_sha256": "f97245dab83727fafa76d325d2e02ba62ac003f636ec12d85156c855fcafc8fb",
+          "label_sha256": "d7e13a328a059a35db084419ebcb7b1a89db668c589f7337e363a1f67217ca84"
+        },
+        {
+          "file": "WIN_20260902_18_48_17_Pro.jpg",
+          "image_sha256": "ae51856f79d94c9fc1a064d1a8225264225988f0de5ea0c662306331a255ecb0",
+          "label_sha256": "246b5b82d79431f425a4d4c2f22bb66a175ab4859b43212830e4f10219933f88"
+        },
+        {
+          "file": "WIN_20260902_18_48_27_Pro.jpg",
+          "image_sha256": "c9eea73a803f9a740ed631712edf1b5aa4317bba0c2cdba23e2c245c98c78a26",
+          "label_sha256": "e746cf5f449da298af73bacb5fcda41a6ab158f14f80f4cdd6768dff9ad79fb2"
+        },
+        {
+          "file": "WIN_20260902_18_48_36_Pro.jpg",
+          "image_sha256": "339925881ad67932a4772ef88d229d8a9c53085a53db97ebd29c0876582c4e79",
+          "label_sha256": "84ddab2286c24b19b7cedbfacbe405566465967ecf3873f63d1431724c114c5a"
+        },
+        {
+          "file": "WIN_20260902_18_48_46_Pro.jpg",
+          "image_sha256": "11b59535546a2c6949cff690f81fc5402f9fdf3f0fbf3355b9759465e6dda0d4",
+          "label_sha256": "a7473c4fedf47458c6fcc1cfb5fecf7c905c309b92681016af52ef7ae4f22e8c"
+        },
+        {
+          "file": "WIN_20260902_18_48_55_Pro.jpg",
+          "image_sha256": "6f3bb2a65fa468b8cb9fdf35b7a345407f2be6a281b2789dbee78e45a1ee3527",
+          "label_sha256": "89fe6ad835bee1c336aacc72f5af2b0da595c13097fa84a1e903b933b211a4e3"
+        },
+        {
+          "file": "WIN_20260902_18_49_05_Pro.jpg",
+          "image_sha256": "54ba2a7bed3d709cc5ef9c7d9864a8adad5710e492feb5c6ac9e61310ad4978e",
+          "label_sha256": "7bb924d248d697a12ac42e17196417506dd2ef0daefdc5eed45d84902a7cf465"
+        },
+        {
+          "file": "WIN_20260902_18_52_40_Pro.jpg",
+          "image_sha256": "1529c039eef4142d7100ec3061bc38f54fbfe06a16c84b119cd7507546734148",
+          "label_sha256": "08e5ece5607853e35a8dbd6ba836f08186406e8ac26aa5d32525935ef8830355"
+        },
+        {
+          "file": "WIN_20260902_18_52_47_Pro.jpg",
+          "image_sha256": "71e1cd3b666c31295495c2cd617c2bf96281ef342ce457b557a625d2ebf7052c",
+          "label_sha256": "b6a6575f2c80766b684244f4e51b4b3733f182b020a7917f7e277185124676fb"
+        },
+        {
+          "file": "WIN_20260902_18_52_56_Pro.jpg",
+          "image_sha256": "20157a6f2bec730f584f3220a2613595be9401adf6c5c44a4dcf204a40bc2f13",
+          "label_sha256": "26784b95d5ef32e0956b22e824a2c760e3a3c3be67c12cda3bc72807e31c90bb"
+        },
+        {
+          "file": "WIN_20260902_18_53_05_Pro.jpg",
+          "image_sha256": "7fd2bde3cebadb94f6c9169ae4220b8019256b56bb4fd1dbce18ebaf46d3cb5e",
+          "label_sha256": "c52561dc5f2662d7edb2a5616518a43df7dd40494f1f18c4009173fe75e7c8e4"
+        },
+        {
+          "file": "WIN_20260902_18_53_14_Pro.jpg",
+          "image_sha256": "6f8ba8efada7a0383b336689c8af7cd2512c3ef9b3d3c9d28727cb6d411038f9",
+          "label_sha256": "f94bb029a7dc3285dea6cb20d93721029326abac61efda5c180eb134addfc63f"
+        },
+        {
+          "file": "WIN_20260902_18_53_25_Pro.jpg",
+          "image_sha256": "f39e4b981d1bb09935203fcc48a24a629ed04dd47aae7e056fb957b9a3f109f3",
+          "label_sha256": "ebd24a8e6c981c696d2ddb8deaca50f704fd37d946d1cfc71943e3fcb65e498e"
+        },
+        {
+          "file": "WIN_20260902_18_53_44_Pro.jpg",
+          "image_sha256": "e98247b7ae612b785a2847ea5a06fac6c6ecdad426073881c4d614fecb9ebfbb",
+          "label_sha256": "434c1f77e4baffbf55e15d9abbd9594c472ec83261735e07b6f0eb9d2a592f8f"
+        },
+        {
+          "file": "WIN_20260902_18_53_54_Pro.jpg",
+          "image_sha256": "c92f8c20cb8b2a6e3e7e24de843fe801af6363385b90707a01d4e990dfd0105f",
+          "label_sha256": "bb8f00c06f6c15af7f3cdcae7aad9fc95ab8537f29891e880034875cc6c742b1"
+        },
+        {
+          "file": "WIN_20260902_18_54_02_Pro.jpg",
+          "image_sha256": "d81d47a500b6b1d9bf9287e415b939e5e67bccbab67557f35af7beccdd1d118e",
+          "label_sha256": "01a40a10ab9845ee22d9d9d111e2f663ca171f5dd735085204b5bb36ec1d5495"
+        },
+        {
+          "file": "WIN_20260902_18_54_28_Pro.jpg",
+          "image_sha256": "6a6659c649cc1396694dbe48844e496dccd6fedd09f15b722459132f10e13e9b",
+          "label_sha256": "e190ed6a74cabcacf0af4a4d52a9c17121b64de7a7cfad83b7ba8c10e98410ad"
+        },
+        {
+          "file": "WIN_20260902_18_54_39_Pro.jpg",
+          "image_sha256": "4caeb1bd42a7ed1160c100f080fc812800261f8b57e9ab82c762ec6d8c027416",
+          "label_sha256": "bfd82a31ce6d9f7cbf850806bc907766ed894fa4425b627d2174a55b320031e6"
+        },
+        {
+          "file": "WIN_20260902_18_54_44_Pro.jpg",
+          "image_sha256": "d0ad317eecd648d5119588505dccc1f5444fa501904eca23052835aba9fe9630",
+          "label_sha256": "b71f74cad7c1f345508f7930cf3c0256018ab640f4639a5d943c560d9a1e501c"
+        },
+        {
+          "file": "WIN_20260902_18_55_06_Pro.jpg",
+          "image_sha256": "70a11ef811c5a3a314cae0dbb2b197d63c53ef23f675aacec1780d84867ad1f9",
+          "label_sha256": "e8bed91b3253f0527db8cc423ce66d746270281554d2f8b2186df8c17f959087"
+        },
+        {
+          "file": "WIN_20260902_18_55_15_Pro.jpg",
+          "image_sha256": "25ee7a0bd26211e8a50260dc14e7da9f7bd9174b824337645085b5a2a0b117fc",
+          "label_sha256": "6410e4a62ddbdaabcda483b47dba1b43198f3059fb18f071bbc887f0f2dd9f25"
+        },
+        {
+          "file": "WIN_20260902_18_55_22_Pro.jpg",
+          "image_sha256": "9bd93dcb7026749c64f01f1f7dc3bcbce6376e1bda834acdcbb5ada2a3393d29",
+          "label_sha256": "3ca0f1ef34ca17017df15ec9d0363f9336184ebad56eb3709b79632cb3862ccc"
+        },
+        {
+          "file": "WIN_20260902_18_55_30_Pro.jpg",
+          "image_sha256": "3f8205920fa8083ba4f80d2a4d41679ee42f7ed4d4222967526b3d1907d9b1da",
+          "label_sha256": "17f09a4764b86bd9762cc4833b36c4a500f15af7b8cfb7dcf1f2db0ce7a09419"
+        },
+        {
+          "file": "WIN_20260902_18_55_47_Pro.jpg",
+          "image_sha256": "31d6fb56aa395f7e685c1dbe3ef3244ca48acc52021a954c871b159e9b401ff0",
+          "label_sha256": "d65cb4e2fb8177ad09a93970eb0b49266e53e60a35b1de1a1802e4eb769e4cc3"
+        },
+        {
+          "file": "WIN_20260902_18_55_57_Pro.jpg",
+          "image_sha256": "6056a537c7322eba21880a2eb8e46318f3a18fcf577c6a20bf4fa6969fa023da",
+          "label_sha256": "309dfd43a221d008199e5e0c3526ae83c0bf43933dfcba9546c0e7258d5979d3"
+        },
+        {
+          "file": "WIN_20260902_18_56_14_Pro.jpg",
+          "image_sha256": "afd578905bfad5052673081a394bce8750ff12eda5635edc3e26e7e8da6d0341",
+          "label_sha256": "1229e2c6344e24748946d68cefef848f245c1984ee32a08a936a8f541d13f42d"
+        },
+        {
+          "file": "WIN_20260902_18_56_23_Pro.jpg",
+          "image_sha256": "9853ccdda3df2686b7238e5f4794d9e55e187ec18679d1381f088abfe5acbc0d",
+          "label_sha256": "98cca95eeff70f457676e224105f96aa01f6e6d01320ba35aab0dcaeb05796cf"
+        },
+        {
+          "file": "WIN_20260902_18_56_41_Pro.jpg",
+          "image_sha256": "62da7c456610c33fa716bd4d6ea88e5d465d1e64bdf8457248f0445044b91f9e",
+          "label_sha256": "13eeb5fe74ea1fbac24a27b44cce2492030e08cbe6f0ee32344bcd1f4c34c8e3"
+        },
+        {
+          "file": "WIN_20260902_18_56_53_Pro.jpg",
+          "image_sha256": "ff4e0b384cb9523f30c8c5cc988b23cad63ba26bfc04acd95c0d524d90a05196",
+          "label_sha256": "186e1aa1b47961c82241a385e6208e85750ecfa59c97fae81fafb61016cd4850"
+        },
+        {
+          "file": "WIN_20260902_18_57_35_Pro.jpg",
+          "image_sha256": "f63144d15a2aea9b0f057ddf214885ae61ce5f43416db2de12a7a4f156f571dd",
+          "label_sha256": "e59f744c5272ae15994cff22251e1324828080c16d7bfefb904fedf2ffa3996b"
+        },
+        {
+          "file": "WIN_20260902_18_57_48_Pro.jpg",
+          "image_sha256": "47eb03adf5394e27a257c13c6aa7946861691767a495fdc36912d1458c6d7ca1",
+          "label_sha256": "9b28c021f2f48852642772dc31a17d632371af7aed474865d72bd3b37fe05127"
+        },
+        {
+          "file": "WIN_20260902_18_57_58_Pro.jpg",
+          "image_sha256": "c6c3ed3dbe4b00f62828525f2013838d5bb04aeaad3f62822f16963175331fbd",
+          "label_sha256": "1b6a7b927c62db73e7a4bb1f774d2a2b0aea80020a7888408d60161b2078efad"
+        },
+        {
+          "file": "WIN_20260902_18_58_09_Pro.jpg",
+          "image_sha256": "e932f461452a403d99efb921499e10d9830f245155cf57093403c2d70b6f1ccb",
+          "label_sha256": "a583b93b55c63de8e42269349f722444b5827d53adf4eccceb4b9d837daa78a0"
+        },
+        {
+          "file": "WIN_20260902_18_58_39_Pro.jpg",
+          "image_sha256": "b402c160e1487123f617fef7bee40dc0f52344bc2ddb7f910fa4f0055fb9c734",
+          "label_sha256": "6dbaab314faf734a976ef9e97581da3b150db9e07586064f2342615704ab5a6a"
+        },
+        {
+          "file": "WIN_20260902_18_59_27_Pro.jpg",
+          "image_sha256": "eecb03af3e9bae13924c50da2573c29c629d6b588a7f1ef857680d95c7dedd51",
+          "label_sha256": "560ff5cdcd17a04fcc93750ab80344ed90b4d71a5aabbd62ca2e66dca26c526b"
+        },
+        {
+          "file": "WIN_20260902_18_59_37_Pro.jpg",
+          "image_sha256": "32dd01a92c48c8ea9a865b6d10785d16aa5139070b069b9eeac9e0d5114b53c0",
+          "label_sha256": "2f32411c37c92bc945e81f270bb240d6eb0a280d59e7007f7ee2e365e344a49e"
+        },
+        {
+          "file": "WIN_20260902_18_59_50_Pro.jpg",
+          "image_sha256": "e2d5512c3f978d2575646e4885a9baa49c19f104c59f0729f64d4873392d844e",
+          "label_sha256": "68f0ab961afe004970520576a8c124fc3e07e1d6773bcd17b3f92def6f514944"
+        },
+        {
+          "file": "WIN_20260902_19_00_06_Pro.jpg",
+          "image_sha256": "6d646c2196eeef4fa51fd40037fd420d8eb8bad11bf2030299376562132991b3",
+          "label_sha256": "17257d2be1f8a080433266d19f107ce68f64df8f6c938a84bed24542046b9c27"
+        },
+        {
+          "file": "WIN_20260902_19_00_21_Pro.jpg",
+          "image_sha256": "c157c869e68f3dac8649c00048aaed4c14bd7de7e9db6e48f63041563f157cb4",
+          "label_sha256": "86a2675f0c017732e561a4eb5b022edbcb73b6509ada3e366e22f91573e853bd"
+        },
+        {
+          "file": "WIN_20260902_19_00_33_Pro.jpg",
+          "image_sha256": "c5e7e462296f813b5987243bd09038984d7d52cc0a21165b6f2601215c39e4a9",
+          "label_sha256": "3610e265c191688edf517c89b563776ae5c7319dc7d91c325bffd0db65fbf3af"
+        },
+        {
+          "file": "WIN_20260902_19_00_48_Pro.jpg",
+          "image_sha256": "e5a2c58a8dbd5b0cda89f07bd0ffe06c500c82eabb00c3bfc05b8922e25bd5c6",
+          "label_sha256": "570b4920c841390558b0ea01d8bb305d7767221abc8c785978fcf08c3e88d387"
+        },
+        {
+          "file": "WIN_20260902_19_01_18_Pro.jpg",
+          "image_sha256": "a2aaa982bc296e4b18bdb7be904f24e4488870a589ae8dc028d2ba0fcc4140fd",
+          "label_sha256": "22b0dd90f9d1396b2afb0fb86bcaff5ff2f310f9689f701a0146d88ee0a1c52a"
+        },
+        {
+          "file": "WIN_20260902_19_01_25_Pro.jpg",
+          "image_sha256": "7e6fc0ab4d4d4f94deed0d2f37e4070e28fe17b5de0279231f3d7c0008358eb1",
+          "label_sha256": "7c3a368c1d05c3108a63400525eafbebe8032eaa1889b91c627a904a3fa802d8"
+        },
+        {
+          "file": "WIN_20260902_19_01_36_Pro.jpg",
+          "image_sha256": "f4b5327a77c12dbb01aee468da0f03c2d8dc7d3779fe34f369a074b40b6b2b9d",
+          "label_sha256": "b49df24f557cff1ad78dd36a9e4a783645c3fc96a182e5bcace9dc984508404c"
+        },
+        {
+          "file": "WIN_20260902_19_01_47_Pro.jpg",
+          "image_sha256": "e05ca8d201ab4402264516c9e9d698d3b621429b7556b911d71e0817a7f2724c",
+          "label_sha256": "251952306a427eb7b3f666d5fe0d3d7c76978192de9aa18ba03218df01f9a60f"
+        },
+        {
+          "file": "WIN_20260902_19_01_58_Pro.jpg",
+          "image_sha256": "f6117839244bce2f2335f1055b70959d0f59974feecdfc6bd4e5c9fb69be6023",
+          "label_sha256": "c350647d53e75efbcf3a4d41db1c886e18348a2d4ee7c700255a8fa8cc2a5a37"
+        },
+        {
+          "file": "WIN_20260902_19_03_59_Pro.jpg",
+          "image_sha256": "03645b6f314a1eff0873c63f00ddc114500696b891feee3f0b7eac60e435df3c",
+          "label_sha256": "11c6355508c08c0c4ffb399f05fa8fc3525a4a85b5bc41df0423e116c6b238ad"
+        },
+        {
+          "file": "WIN_20260902_19_04_09_Pro.jpg",
+          "image_sha256": "c66270e05127e11ead5a8bf42ca6771b9a610e7544ec69fc31715b6fd87c7feb",
+          "label_sha256": "efbf0b8c4f71d57e7df1d6afd75f3a38e8088d69d0a4c97f52c924c2b1ae7399"
+        },
+        {
+          "file": "WIN_20260902_19_04_47_Pro.jpg",
+          "image_sha256": "8edda04badafcdde9f1243d013f56d0104142a52c301ac265d4624ce3d65dad4",
+          "label_sha256": "908fed691c14c12e764449c5bc9a2e7f6f0a3fd776bc5a2d18b120b1863028ad"
+        },
+        {
+          "file": "WIN_20260902_19_04_57_Pro.jpg",
+          "image_sha256": "7d5725c08d7baf80669c0aef30b441f5bb612d37bba451365c9e00d072684f29",
+          "label_sha256": "6593060016f04f75ffb4cd5d7530da21a8794acab62fb607a29cbea9ab31b876"
+        },
+        {
+          "file": "WIN_20260902_19_05_30_Pro.jpg",
+          "image_sha256": "ad311936b11a21e83c8ee509781f490452e176266d17f81203899b709e617b02",
+          "label_sha256": "f63ff92bfeb82097b0361e156894998565546476a1aa7d815e470bf8f35c6fe7"
+        },
+        {
+          "file": "WIN_20260902_19_05_38_Pro.jpg",
+          "image_sha256": "6fea31ff4b4e794090d8f47f4e13335da8cd3b36b0da0ccfc2246714d7232279",
+          "label_sha256": "4c635bc03c0265bae35ca80280681454a84cb7f32755793fe81a9d10c08cc6cb"
+        },
+        {
+          "file": "WIN_20260902_19_05_44_Pro.jpg",
+          "image_sha256": "3f342b4a57327a4f0d80608039664961f1341c711454431e2212760803f55942",
+          "label_sha256": "095704b99ae7e8fed234cff4ac8101526ce205883dfff8d37b7ecb5b7f2bfc12"
+        },
+        {
+          "file": "WIN_20260902_19_06_08_Pro.jpg",
+          "image_sha256": "770b3722f197cf7a428060c03a08787d7f131a3590589b9e42dce537f033254c",
+          "label_sha256": "8d4295dee1188e78bb07ea3223eea5caf7b2d439fa93dc915323e424f9c1a3d1"
+        },
+        {
+          "file": "WIN_20260902_19_06_31_Pro.jpg",
+          "image_sha256": "5001c84463a41ec412690de0d45911d8c529226a61b75c3393f59ee3679ab502",
+          "label_sha256": "1799f7a4add9dfb5d280dee18742cca5e96536513d0ee7b2e6803a9414f04a03"
+        },
+        {
+          "file": "WIN_20260902_19_06_41_Pro.jpg",
+          "image_sha256": "f79c53a91650edd1a4f509c49b9848f297e388298bed6b620e1cf8e4d66a4c13",
+          "label_sha256": "d8ca67a5966443808da44572de466a42fae7477333e81e4952a3996db762c1e2"
+        },
+        {
+          "file": "WIN_20260902_19_08_35_Pro.jpg",
+          "image_sha256": "d65b7b7bd4247960df73e936e8ad0fff1747000c7a77b7f60a28f72c23655e0d",
+          "label_sha256": "f0ac735ca46972ac0b7695873c432d1e8f8e1820fb2722a1436b05f5b17deba6"
+        },
+        {
+          "file": "WIN_20260902_19_08_47_Pro.jpg",
+          "image_sha256": "6a18e2a179e66204035478e4ad75b608bd43584ac704dcbf94136628e47df610",
+          "label_sha256": "0657533deb8c12d6df0dfe1138f685262a7d699b0e572ac8b8b890e0f940bd92"
+        },
+        {
+          "file": "WIN_20260902_19_09_16_Pro.jpg",
+          "image_sha256": "edf709e7162abfc134f2f687153627e3e98961fb6a70dccce00b6a1d02ce573a",
+          "label_sha256": "a1033c632421997f997832f774bf87a76d05dcb49ce7363c869238ae805e282a"
+        },
+        {
+          "file": "WIN_20260902_19_09_28_Pro.jpg",
+          "image_sha256": "319980f30192710bc61634c340f7cb9d2a1b02d274f4ebd147e1224c43c7a92a",
+          "label_sha256": "7fc94730424ec087b0371cf6d19bdebe484c1ea4abeb4417a10a86fe0715d5dc"
+        },
+        {
+          "file": "WIN_20260902_19_09_40_Pro.jpg",
+          "image_sha256": "36f6e3a6354be33580b38fd9ae0525e7c67cf42f44b60321ce319246fcc57399",
+          "label_sha256": "edec6e81171a2242b645b2ed8e554fe2e68dd5ec345400c6e6c167d8661a2f48"
+        },
+        {
+          "file": "WIN_20260902_19_10_30_Pro.jpg",
+          "image_sha256": "a41ecfda6d487be50471ce637ab5d4aa74948baad21ddbe488bb2184c37b0ee9",
+          "label_sha256": "17e9036694aa1876319d00484f24b872d8234244db80d6d78dd54d62221869ca"
+        },
+        {
+          "file": "WIN_20260902_19_10_58_Pro.jpg",
+          "image_sha256": "cf88e84868c7bc68d49309c2fc1e42a50b2e5fca50835ad1517bd76f3c48d623",
+          "label_sha256": "388551cc2808f9aa71829b801023b28161b9b02a6ff52a5084eed7016d8df1fc"
+        },
+        {
+          "file": "WIN_20260902_19_11_12_Pro.jpg",
+          "image_sha256": "7ad68b4303051fbcfbb657ede117cfaa3ed9483cd5f268c1de42323e607e55bd",
+          "label_sha256": "7295f39f8c58b58cb99648090658b9731110007df30bb297a251ed1ae790e5cf"
+        },
+        {
+          "file": "WIN_20260902_19_11_20_Pro.jpg",
+          "image_sha256": "7af97c385377a61b5552c88efc9d4fed04096b2b8790f850ef633b36a7d3aca8",
+          "label_sha256": "58f7db6e4275cddb6a4635917b8a277624c35783cda4bd33317d3555c45bf588"
+        },
+        {
+          "file": "WIN_20261104_18_02_13_Pro.jpg",
+          "image_sha256": "2d888ff03dda511c98a94c120c00464efa8fa1484dfbe9f3dac79f3c414bb3b6",
+          "label_sha256": "7207cd57d57f401256bb7345877b01f8d5c89e68364f6d8ec3da70ac4f8559e8"
+        },
+        {
+          "file": "WIN_20261106_15_18_19_Pro.jpg",
+          "image_sha256": "6e0960f63354b7cba2208b289e1565d3df1f0fbfc0276934f89cdbb14a135d98",
+          "label_sha256": "365d89e9b9af17e950d5fd67a206f41310c81689285abe1507b5fda73fc65f6d"
+        },
+        {
+          "file": "WIN_20261106_15_20_24_Pro.jpg",
+          "image_sha256": "1ec9b09cc384d85e8634951913a63df83f2183a893b31221dfbf85f4a248857c",
+          "label_sha256": "7cc5aae2922b106d73fdf690b3b375d586b18ac5749f496e1d0de58bb1cdbead"
+        },
+        {
+          "file": "WIN_20261106_16_19_48_Pro.jpg",
+          "image_sha256": "1d9c2b4e5bd78036840a89c8fe6972b238fb69b9e5c418b24bc22e1e93b6452b",
+          "label_sha256": "855b3f9c4748493f34399005b45fb4dd66bdee6f28052f3c3c15e7523ed1b503"
+        },
+        {
+          "file": "WIN_20261106_16_22_51_Pro.jpg",
+          "image_sha256": "626b7194a3fc8ee5068fb59074c13755addd974db015a60d06b9c97d076efb26",
+          "label_sha256": "846e9fbf4c703255d2c41d43ae34e67ff66d6cfe450059b2ae02e28a7e0c0449"
+        },
+        {
+          "file": "WIN_20261106_16_25_37_Pro.jpg",
+          "image_sha256": "092e8a87e787b6889fa229317c5e28655a0d9ac6b30d9aea814a3e47000c066d",
+          "label_sha256": "0243f7a8f20b30d17415b88ad7609bc0173e04270c10633edc77e6838958a304"
+        },
+        {
+          "file": "WIN_20261106_16_27_16_Pro.jpg",
+          "image_sha256": "1ece9382f6e60cfaefac9a7e369582ebf50e777c9fa71db7dd336f8a20727a04",
+          "label_sha256": "543f2f6088700574ab8f804c39f981624eb78bc81a3df086d98d34c8c93894d4"
+        },
+        {
+          "file": "WIN_20261106_16_29_11_Pro.jpg",
+          "image_sha256": "6df47981d96b0d08d31ceade728fbf8d20e3d6a9fa6eca1275664dfa326d9ff8",
+          "label_sha256": "8d0a2a1f61230f338c2884c536f940425feb3e5f4363590d0c788929571b9c60"
+        },
+        {
+          "file": "WIN_20261106_16_29_46_Pro.jpg",
+          "image_sha256": "bbc48d9cd121aaf88c203c5c9628069aeeb36e9270c96b1dc803160b1fcaa6e8",
+          "label_sha256": "ffd1a72dbde544b6723c58dd5a1704fb923837ffc69234202cce5fd2c50111d9"
+        },
+        {
+          "file": "WIN_20261106_16_30_24_Pro.jpg",
+          "image_sha256": "11552d062132e77cd23b386a617aa786edfdcb3028d6935eddedae0885e8c16e",
+          "label_sha256": "ce67e4ab6b9f7a4f2cdd9c856dd3d94d50e452824806671f0d69bc0fc823d403"
+        },
+        {
+          "file": "WIN_20261106_16_32_09_Pro.jpg",
+          "image_sha256": "f3b703197a656918cf8a7bf10fa372b66e582e634f159b5d3885392c3dd8d01f",
+          "label_sha256": "556eba60d07fcd9c908402a2d6c8b52f02c018e3d35cd08013685e7af008b898"
+        },
+        {
+          "file": "WIN_20261106_16_32_48_Pro.jpg",
+          "image_sha256": "75c6e145d7730df339d8affae39f2e542fd9b52e31d73ce92cd354d462c7c8dd",
+          "label_sha256": "4c45615eb6dc5f5f301756c2c3af3f6b28f168f0c91639eb30308703048cb35c"
+        },
+        {
+          "file": "WIN_20261106_16_34_16_Pro.jpg",
+          "image_sha256": "ac9edf879e8ea04d2818b8c8a76f83c7b74bfaa9d10446d8429270f66b38083a",
+          "label_sha256": "95072540dddfd5fb9d7ceb5b5c19a135e8fe2de3fef9f5781496e44c46f9f1e0"
+        },
+        {
+          "file": "WIN_20261106_16_34_48_Pro.jpg",
+          "image_sha256": "c3f608892da89942b0d76d8c0b159b77f8a494d3fc8f03b442bca306f17012a7",
+          "label_sha256": "80ddf0308cc764296bcb984b7c6297aecde3fc1a65f89e6bf9d53bb87573e132"
+        },
+        {
+          "file": "WIN_20261106_16_35_16_Pro.jpg",
+          "image_sha256": "9a69148ba6b19b67ae57eb224483188eaf86e64e455fc0662ad976cd4931bede",
+          "label_sha256": "46d2ffcb72a2c4e3f4ba3de795d7bef9af5a0036fa479e175b0e9d546741089a"
+        },
+        {
+          "file": "WIN_20261106_16_36_41_Pro.jpg",
+          "image_sha256": "549495f02889248fd613755e8b05a11dee852eee610129c630f00268ce63971e",
+          "label_sha256": "627e3bc4eb07210b750f8b2e408d6c46663ea2930be47ce0d0afabb69f71c48c"
+        },
+        {
+          "file": "WIN_20261106_16_37_59_Pro.jpg",
+          "image_sha256": "bc78e3319a8291efc022ee508eef6626f5bc7bcf8ed6cae6ee1fb115becdfc92",
+          "label_sha256": "022fe9fcdc89ebabf56c9a47f76643b5ba936356813bedfb9431f5495f14ee7d"
+        },
+        {
+          "file": "WIN_20261106_16_40_02_Pro.jpg",
+          "image_sha256": "4ab4b6d0b00189717dc19af0b5169afd6e0ec1388ee2af0eb778598af2ecc424",
+          "label_sha256": "d4ff0a16e522fea10218f1c070f4f5acf3389bdc596b1d42a7c893536bc853b4"
+        },
+        {
+          "file": "WIN_20261106_16_41_37_Pro.jpg",
+          "image_sha256": "2e162391da5321831893b580080b850ddd8c5f7b6fb40398cc8b2a784e1dbdc4",
+          "label_sha256": "74380f56d241d1a6e2febc8d4ce8dfa6a9414354562fa5dd2064c90331655fa4"
+        },
+        {
+          "file": "WIN_20261106_16_42_01_Pro.jpg",
+          "image_sha256": "ed325fc7202321853d52ee00bb695b96d64021329aac60d0ad3d970841bafa1e",
+          "label_sha256": "baac173e2dbc3d5cbb11d3fe132ac8ec9bff630f468147a6a9a5a9799e9d5d68"
+        },
+        {
+          "file": "WIN_20261106_16_43_16_Pro.jpg",
+          "image_sha256": "ceedeaf92dab5c37265c3b1bd48f05827f4fbfd06d109880f813a13ed051b1c8",
+          "label_sha256": "7a1b4fe3e83af9b0fb22b325956565bff519555ca4bd83cdd1e53690568ed260"
+        },
+        {
+          "file": "WIN_20261106_16_43_48_Pro.jpg",
+          "image_sha256": "844aef5b77780c01168a5bef274b856cacbda8072cd56e3fe4a12cedb6d037c6",
+          "label_sha256": "d7007cddcd10e021bd075ed593095814b44a50d3344badc16a71fe089ef84a1d"
+        },
+        {
+          "file": "WIN_20261106_16_44_58_Pro.jpg",
+          "image_sha256": "4d17c39e88b339962009e1dd2c9a5f3df00dbe9ac27ccc484f7930a5f2163156",
+          "label_sha256": "980d5c10b5023f700aa2401264215d71fa51e436ff326c3506cd31c175eb3c58"
+        },
+        {
+          "file": "WIN_20261106_16_46_17_Pro.jpg",
+          "image_sha256": "45eb6a0bd96628d6a0699bbf2205d6117f4c3b7d4c8659a8f3cc132ebb382bf4",
+          "label_sha256": "7f7e22c00e2a4f876c7cfcc6339391461fa57e4f9b6f2e060736a9d62c612ed3"
+        },
+        {
+          "file": "WIN_20261106_16_47_54_Pro.jpg",
+          "image_sha256": "0769c4c5f16f7bc4650e86fa54c713364cfe05aa6c621de01c0df7050c37b689",
+          "label_sha256": "71831b030573c4b8422708721b7750fd15b2d2b30db6b90935436e5877ce555e"
+        },
+        {
+          "file": "WIN_20261106_16_48_11_Pro.jpg",
+          "image_sha256": "de148cbd302c3570c49d051f320bc5dd21d7b426a63ed43da060d89add493214",
+          "label_sha256": "6c18060b8f166e1c053e6ba66d672ebe536e03319872c95301c445ebc4b264c0"
+        },
+        {
+          "file": "WIN_20261106_16_49_19_Pro.jpg",
+          "image_sha256": "da456a3bf3da0aeffc84e009f0e47587c1ad13a4377de12d73e0e0be9373a2a5",
+          "label_sha256": "940205a450e07a7104019fcdb4a8ed9ef859ecf8b652cfaeb9c59eb44628f1ef"
+        },
+        {
+          "file": "WIN_20261106_16_49_53_Pro.jpg",
+          "image_sha256": "c3ddfce2c9307075ca53ec5bc274e6bee5631d40606a5b4736962c7d01fc96d8",
+          "label_sha256": "e372373458ce2445acf8c398eae0ab74abe4a67266b6c8caf3525547d111c06e"
+        },
+        {
+          "file": "WIN_20261106_16_50_17_Pro.jpg",
+          "image_sha256": "c68abeeaaf35360753e24a439b21de277ae73d173f369f168006c8d297582c12",
+          "label_sha256": "c5323dc2ac14c7b2c20213a86027c3067c051f67eaecfceb21d5a2e5df579327"
+        },
+        {
+          "file": "WIN_20261106_16_51_12_Pro.jpg",
+          "image_sha256": "6725e3eaf8492853e962a18f4174f6fd522f0096714dae77c5b47f992ac5dd00",
+          "label_sha256": "1fce517a4f74c0cd704e114f2f07dce5b4ee1308d4aa9019804b1f41f271cb7c"
+        },
+        {
+          "file": "WIN_20261106_16_51_53_Pro.jpg",
+          "image_sha256": "52669ea0cfdc8ea3ffd5195d2cac65dfa26f890ef98747539b755a08c3dd3cd9",
+          "label_sha256": "ce91f4d0e98da9245cb764d1cff9f0bdc2ecfc30f675280db394250a551c49e5"
+        },
+        {
+          "file": "WIN_20261106_16_53_07_Pro.jpg",
+          "image_sha256": "f251e10208bed80bce20c33cd32d30f9f6e32510979fcba88f2dd592f0798e77",
+          "label_sha256": "b127da0f6e72b20f997a51e4d0fdab4adf61eaf5c64525f2aa00e6c65cd2c2ee"
+        },
+        {
+          "file": "WIN_20261106_16_53_34_Pro.jpg",
+          "image_sha256": "f7a1f9a792502e8bc3cdd342879d9991215285b9c7870fe79870761e1b4be97f",
+          "label_sha256": "020d3fa0c58f0d9406cf78ac2030b55a7a4d3eefc1ef9df81e659177b8c1314b"
+        },
+        {
+          "file": "WIN_20261106_16_54_00_Pro.jpg",
+          "image_sha256": "a57e0bcd06ebd8e9ca0d7f3aa5d12b854b8cb8e46fcb086f8f847df848cbe701",
+          "label_sha256": "b6620f59aee4a28a6391d143aa5284c9f5daf467b68dffc7e3b22596639723e7"
+        },
+        {
+          "file": "WIN_20261106_16_54_51_Pro.jpg",
+          "image_sha256": "c95c0984081ad646ec3f04501add5ecb5b9fff21badc99fca62282a681ff059b",
+          "label_sha256": "0c728d4289be48cecc03539955a85a622e8f1506dccd59a444ae9c3fab9411f1"
+        },
+        {
+          "file": "WIN_20261106_16_58_25_Pro.jpg",
+          "image_sha256": "0a9a58c0a7340900c2449b3ad73b29658774e1608e7fd03008d886766af27ee3",
+          "label_sha256": "b94c3c2080ccaa32a854c09e73108b5581dbb146eca6ae289598b68a32d6cbd0"
+        },
+        {
+          "file": "WIN_20261106_17_01_14_Pro.jpg",
+          "image_sha256": "8c8dea809846855dbb210644741c66d42ad20f1579e8841b94542464d7558374",
+          "label_sha256": "e4fc3497ad52c8f4ddb3e17cb244ed6acd909f89290f4134664bfab160b0535f"
+        },
+        {
+          "file": "WIN_20261106_17_02_11_Pro.jpg",
+          "image_sha256": "70e93a05d5ca26c242fbf91c782ea5bc845f1bb106703ee76fa94f406113751d",
+          "label_sha256": "a152f20eb1828fb4e61891957043c511216cf3582601aac0ba4f5735e1995c6e"
+        },
+        {
+          "file": "WIN_20261106_17_02_23_Pro.jpg",
+          "image_sha256": "92736fb43655f18adbace1887e12cf16d45e6a740a84ead6d06b73b7d4ab5de7",
+          "label_sha256": "06bd9686d4fb919026922b431badb96c776507d259a5cdc66503fcf894a5f865"
+        },
+        {
+          "file": "WIN_20261106_17_02_24_Pro.jpg",
+          "image_sha256": "bb4201213ebfd2546166dc6471351aa48e4dc8e56e9e3d02d8e24599043e843d",
+          "label_sha256": "ff88381a8004d38876ab9703f8910eb2444903d5e7602a8820e6fe5c295f5be3"
+        },
+        {
+          "file": "WIN_20261106_17_02_37_Pro.jpg",
+          "image_sha256": "24c11a8ae9fb4a0bd2123bc07a402c439c466459d5bea5cf66ab18873d83d1fd",
+          "label_sha256": "c13671f3fa8a263fb3374910feecec16bf1adc6148d787382c8f9bc9cc19a117"
+        },
+        {
+          "file": "WIN_20261106_17_03_10_Pro.jpg",
+          "image_sha256": "3eecf1a60c204dbfc120fff823c9c1bc8b026881155d3c0d78a437d7ec4fc62f",
+          "label_sha256": "0505c4586ac116b482c95a5c0fe214d18bdadd15846375c1a1fe3ee076b9fe5b"
+        },
+        {
+          "file": "WIN_20261106_17_03_54_Pro.jpg",
+          "image_sha256": "35899204718880b303512bb3652593e9405e6f481cf1248a5df415578719f5aa",
+          "label_sha256": "0f4bbaa3d66de7ad70164822e4c5a89cca62e6962b42079fb2b0b0038dab2588"
+        },
+        {
+          "file": "WIN_20261106_17_04_21_Pro.jpg",
+          "image_sha256": "cb4fef2f48ff70ab0ad5abc6114a1b736f14f7c31211b44739a92bd41d1a85dc",
+          "label_sha256": "4a4fd01c26db307c983cb09e91ab835bb06a9f5eec824cdc8933aceabb364f2f"
+        },
+        {
+          "file": "WIN_20261106_17_04_55_Pro.jpg",
+          "image_sha256": "980cb0905177ba38cab99b53e0a5133ca7a49d9f786e1f54441c713744d930af",
+          "label_sha256": "ea423564bd8de0a5a01dd5e8793dbe532bd669339bb26c3e786c2c2c35a1feab"
+        },
+        {
+          "file": "WIN_20261106_17_05_51_Pro.jpg",
+          "image_sha256": "5b7c6e374ffeb5a635bac19f1b6eb5c7b870e8260e8b55b6929981a80763eaeb",
+          "label_sha256": "bc2763f87349840e097501d0b9d1122856a5afbac1988c58a7d2ae80a706134b"
+        },
+        {
+          "file": "WIN_20261106_17_06_24_Pro.jpg",
+          "image_sha256": "b662f019ff598f3ab369ad6eae340505b97a50e3abadd45b0460cc4251fa5072",
+          "label_sha256": "96f61a61aa12675ddace16a3454c3cbf8a03482b3e349fc416bbd53d6476d991"
+        },
+        {
+          "file": "WIN_20261106_17_06_42_Pro.jpg",
+          "image_sha256": "30707c15dcacf5449cb7b418e5ac464ce9d6d16bb2c97cfb92080878a581232c",
+          "label_sha256": "cd1dbc2e01b1c33aca64ac8f3d4582abe8c985b00f73f7a40704382f1bf6c507"
+        },
+        {
+          "file": "WIN_20261106_17_07_57_Pro.jpg",
+          "image_sha256": "8bf03ecfed847d6ebcfa531383263b3029d52fd6b40ca2bc7c7f61ccee6cff05",
+          "label_sha256": "f4eb3067a6f6b7a7105cde267c523fbfc56dac9ea49cfa8d7a3ed9aafbda8bca"
+        },
+        {
+          "file": "WIN_20261106_17_08_40_Pro.jpg",
+          "image_sha256": "baeee5c4a5d5fa7d0d4e6985a5af3f996efb9d43a3e75f5b657ec7fc4a25346e",
+          "label_sha256": "eaf0511222ff0715dcc3b56a8edf42fc495ed70914190da79d3d85f7949c15fe"
+        },
+        {
+          "file": "WIN_20261106_17_09_00_Pro.jpg",
+          "image_sha256": "9f44f5fe4b93c2eae30ade5f573e86c3609a3e598e92a88b57ef377d9627a5e4",
+          "label_sha256": "262fe64bc0f6f2eb42ea972be830debc36f0abc5c934f9331908d9b201f9ba91"
+        },
+        {
+          "file": "WIN_20261106_17_10_04_Pro.jpg",
+          "image_sha256": "33c66ca01588ce087f75e7b915dd407983f797f45d9ec4095eb90c98242996f6",
+          "label_sha256": "5c68b73835298e565935f0d89f965ac22e0291cb40283222aa8ecbeb5672700f"
+        },
+        {
+          "file": "WIN_20261106_17_11_33_Pro.jpg",
+          "image_sha256": "98a71529f01e9c1b8eb4fbe89772041fcb87fca3cd0c5b2f2d54a70cd362e08f",
+          "label_sha256": "fa27aa90b7672a83991d5e059e2d17b3dffd1c9cd6a90487b7fc210b4bb90a6d"
+        },
+        {
+          "file": "WIN_20261106_17_12_09_Pro.jpg",
+          "image_sha256": "31ece5b914ab64df2440dddf3705c2e6c22af2ee3a418949614ea6f9f59582d8",
+          "label_sha256": "dcd330e151bdc194ae62f9d358df0075f91f7d869d8004cc3a5f17e5e9e98f80"
+        },
+        {
+          "file": "WIN_20261106_17_12_28_Pro.jpg",
+          "image_sha256": "48ef72958aa454cf83dd6f0f7a3f622c2d3720c6aae41110200bbf5c4459fe9b",
+          "label_sha256": "2e790a116b032db0a62ce6e278f5b8a37582fe7abbca62359bf328b2254a8c5f"
+        },
+        {
+          "file": "WIN_20261106_17_13_00_Pro.jpg",
+          "image_sha256": "ead8d10a41e5a67ddb7df8430cf69d2d7ffd957c7958fd7a869cf65483d71c78",
+          "label_sha256": "7ef2becdd03c9e1906b94163c582f347eccf53c67887992f5a11939556713869"
+        },
+        {
+          "file": "WIN_20261106_17_13_35_Pro.jpg",
+          "image_sha256": "62dab1cd597014c4d8b97bd9061707108dc8880b35349064502ba93e1eab3ede",
+          "label_sha256": "8b533144a0d5ec362e455e3caae945186b8e5d4777fd987e910fea9d033363f8"
+        },
+        {
+          "file": "WIN_20261106_17_13_58_Pro.jpg",
+          "image_sha256": "221630befe6a0ed5531aa3ce06c9773eeb78b3b2519447673b6ad5add10bc8c5",
+          "label_sha256": "e60226c7807b50e0cd3eec525244cb512f792cb5a097458781d4a84130e407e5"
+        },
+        {
+          "file": "WIN_20261106_17_14_32_Pro.jpg",
+          "image_sha256": "427003baa2e9c5c70afd761f57103b4de4b31a447970606a66dffb6b5104f7ec",
+          "label_sha256": "f720397c4e615755c96c0b0e8c53e57d66cd464a38bb94f15e2ee32b19f0771b"
+        },
+        {
+          "file": "WIN_20261106_17_15_11_Pro.jpg",
+          "image_sha256": "958491bbc1701c4eba775021925d7ff1de6e904b5a61e7240698f2117ce02d84",
+          "label_sha256": "9cbcfa2ab3d249d4a56d5930278240459132248154244c487c41a3a4a80e0988"
+        },
+        {
+          "file": "WIN_20261106_17_15_23_Pro.jpg",
+          "image_sha256": "665766fbbccda9e159fef69f972b43cf6f60db09ebca47b1eb38033dc0df6825",
+          "label_sha256": "5740c3ebcf88a3a5c7105d7494efbc458bc06b2f7bf4af8e6ca406948b068a16"
+        },
+        {
+          "file": "WIN_20261106_17_16_09_Pro.jpg",
+          "image_sha256": "22eb217af78f1ef19bfde947202b8b4d13d4d6fe6262e04c4e5ab4fc912af615",
+          "label_sha256": "4a9918dc56a5a667ff5b2db6d765a3bc5bda969bdad6c9b3b8a367b0c384afdd"
+        },
+        {
+          "file": "WIN_20261106_17_16_48_Pro.jpg",
+          "image_sha256": "5bdc5ed7f61c885e55cdf4be4be392428ce1a91f091c3dc26dc1cfe97667a68a",
+          "label_sha256": "b6f443fd15ec28203fc8d5ea68af97cfc1c71439d6d9be20f524513528453a5a"
+        },
+        {
+          "file": "WIN_20261106_17_17_03_Pro.jpg",
+          "image_sha256": "4cea2ff7e4a7d64b430338e6734081e401271b3b15b65fbbdac7198d91fd05be",
+          "label_sha256": "0f65847003af5293707098dab51bd0914df0f741f962591121266ea4460dec58"
+        },
+        {
+          "file": "WIN_20261106_17_17_25_Pro.jpg",
+          "image_sha256": "768de3929b0d553b58f1579cebbcd26660c69693902c6675021f5066375d6245",
+          "label_sha256": "c75f63ee069fa94bdb79b80a7ee7de4f1138e091068c6243c16c6fa0dd04f874"
+        },
+        {
+          "file": "WIN_20261106_17_17_37_Pro.jpg",
+          "image_sha256": "e30aa41da26b9f6442510e4e5e339e52d9d2eb8a86ca8500737c4adb0acfefd7",
+          "label_sha256": "cd5b7689270fd9d7e36cb0cc73511257ef71136bad1db4065f5bd6c3078e47db"
+        },
+        {
+          "file": "WIN_20261106_17_17_45_Pro.jpg",
+          "image_sha256": "a8bc3ee8dd05468fbdcd205ad79b2d41ffb44bd945d9cceb308b3c73744e3815",
+          "label_sha256": "e3e749a2d0ee50ef9d4447cae2d4ad4eac45b9098a2df6ec27079368067ab354"
+        },
+        {
+          "file": "WIN_20261106_17_18_05_Pro.jpg",
+          "image_sha256": "c1581ef760afa0da8107d8682e5e502acd466cf427481f7ad4491f4be282f333",
+          "label_sha256": "2ab4091c9a8b641d76a6d69c60f5633fff4b9944a880ba9ed28312328c098e62"
+        },
+        {
+          "file": "WIN_20261106_17_18_31_Pro.jpg",
+          "image_sha256": "07d8050a255b09366f871571e5dd3c6d1131e03e545b70e28508e9d371b1792c",
+          "label_sha256": "cd25f40b2618064e6810f63c69975a6558bbd67be3b801704263285c497da5c7"
+        },
+        {
+          "file": "WIN_20261106_17_18_42_Pro.jpg",
+          "image_sha256": "c3ab0ee0eb3dc1785d6debf7e2647ae62933cb23c8620aa6c4ff5509dc360b5e",
+          "label_sha256": "4691fd798eb24cbf24d205877c38b8c25e6d7ff2e10123a5353603891f6163be"
+        },
+        {
+          "file": "WIN_20261106_17_19_22_Pro.jpg",
+          "image_sha256": "8c43232df53a0a9a3a5290bf14f668eb970e84691cca3cb7521c9fdf12947bfa",
+          "label_sha256": "14e05f6a53fcdbcecca355a4011c04d0719a51a1001d73731a6af9de9743d4b8"
+        },
+        {
+          "file": "WIN_20261106_17_20_58_Pro.jpg",
+          "image_sha256": "30e5fef8a37d0e7cb5ae8cc47ea364ff6efa2766498bc7e42ca4bfe81385e034",
+          "label_sha256": "8b943a3e1788e59288e30ed5d10b453637c1f8aefe20d7452e839cf247735da2"
+        },
+        {
+          "file": "WIN_20261106_17_22_40_Pro.jpg",
+          "image_sha256": "c1095ecb8228d542c7d43eeaf3dc9b7e6b767b971bc1088231653549221e31fe",
+          "label_sha256": "5d73394dbab7ff6b53e4d5ae41b5f6ff31cbf4a27146e504a1b1e0b8bf5a3b93"
+        },
+        {
+          "file": "WIN_20261106_17_23_56_Pro.jpg",
+          "image_sha256": "aee1f188fa9ef4c15d5a4c07a9880a1cfd4ffc3576a7965470bf30227b11253d",
+          "label_sha256": "0cd1833eda9fabdbca92426ec7a42a988cae59a78ea89ae2eb4c64dcde8aa51f"
+        },
+        {
+          "file": "WIN_20261106_17_24_30_Pro.jpg",
+          "image_sha256": "c055ae02ddea5f5291648c810729835bdd7ca40c539e2c0cbd95e58eca0f1f80",
+          "label_sha256": "dc5ad042b93e764529614d30032524c8ac9c3d576969095dc69c0635d77b3ddf"
+        },
+        {
+          "file": "WIN_20261106_17_24_41_Pro.jpg",
+          "image_sha256": "4c5fbb2f90fb95bc103d7693b560c98e3afa09f66f2c9fa543c6e592c4c3b748",
+          "label_sha256": "9850e21ca7798510bd0fcfb583f07fdeb011e17ec9cbd02227c93bff254243d0"
+        },
+        {
+          "file": "WIN_20261106_17_25_53_Pro.jpg",
+          "image_sha256": "b74633db9c0952d1204ea98efa6d172a7f39cd509f640ac675a8b924bdcf7458",
+          "label_sha256": "08f4ae676e5947773c329d7674eb54e77e3038840b0f9bf604a98657c87d571d"
+        },
+        {
+          "file": "WIN_20261106_17_26_39_Pro.jpg",
+          "image_sha256": "00c88b7fa99bb4fb2ef4cd48a23bf384cd2e50d2e691b2f84b0aa9f0f401ca2c",
+          "label_sha256": "b4ac6174123788772ca58f9af29d76485c4b65981e39ee6473c8209e7ca2c20f"
+        },
+        {
+          "file": "WIN_20261106_17_27_06_Pro.jpg",
+          "image_sha256": "9126c5bdbdd112c2a975f1cecf978e41b486ee05808a6ab81ad8db82d81e616a",
+          "label_sha256": "168bf2023c607b660450724d39cdc73bc7512dd021d5e6fa0fd29a4d7d3eaa67"
+        },
+        {
+          "file": "WIN_20261106_17_27_11_Pro.jpg",
+          "image_sha256": "647755b8abcf2f8d3c1d5d6d4b3cf4c596c5d47a3d4908021456482910d0ea00",
+          "label_sha256": "bc882f6eb3f4d4d5439e881ef2085b8eb59e92114ccc6ffb14a86b52036638ab"
+        },
+        {
+          "file": "WIN_20261106_17_27_52_Pro.jpg",
+          "image_sha256": "3c89741507649271bd92d57c48bd629b11f41e3b6f62e104d725a0e39a066186",
+          "label_sha256": "72594c242da5df1d7c2b3f301c2598a39b21c542687be6a0fe6a5541a61ac746"
+        },
+        {
+          "file": "WIN_20261106_17_28_19_Pro.jpg",
+          "image_sha256": "9caf7bee56840409e23fb375ef3eeec93eb526f1bd0a7444bce95957dbbb66c1",
+          "label_sha256": "73f5303af2931f05189ad7925e155177eda457d233f269c8cabb6af1edc89d87"
+        },
+        {
+          "file": "WIN_20261106_17_29_01_Pro.jpg",
+          "image_sha256": "18ac17e9d43a1ae36dcff45242d9a65d59eacc1d83e8d09999914b496c4b2c34",
+          "label_sha256": "c5c32ebcb64e94d4a17ee3e91708549fc5c9161e0625fd3d2dbf2a1e5dad8259"
+        },
+        {
+          "file": "WIN_20261106_17_29_41_Pro.jpg",
+          "image_sha256": "1b7f71abf1c276e8b1c5bd1efd09031e0ff95c215ee3646e5d9bc9ff81716ceb",
+          "label_sha256": "76eef87567b79bbeb8f8cd6f22b1a265fbbd423fe818ce80aa67b91661734451"
+        },
+        {
+          "file": "WIN_20261106_17_30_41_Pro.jpg",
+          "image_sha256": "186383362776baa5645aab1b1ce6f8659639c88866201748722cb3ef3d57dd41",
+          "label_sha256": "d1390cb3435c6b87f54fd89f90f5c133d56cede797797b5f741a9deccbbe137a"
+        },
+        {
+          "file": "WIN_20261106_17_32_51_Pro.jpg",
+          "image_sha256": "a43cb30ec0a40933a4767a8fe7bcfbbe380171ff25fbeb4dc85f8d9b2d0c7b0f",
+          "label_sha256": "93a47ad3eb54ea3bfe0396c40671d6bd8e027f1845196f9f62645ac076b46230"
+        },
+        {
+          "file": "WIN_20261106_17_33_14_Pro.jpg",
+          "image_sha256": "ae8fc6c38c22ecc6d8df974537d07d14c14cab8d76366bda68cb14260ebe743d",
+          "label_sha256": "156206cf5df1d04f94632a2f234294b8ff9f6ce28644482c4424f24f6819c089"
+        },
+        {
+          "file": "WIN_20261106_17_33_23_Pro.jpg",
+          "image_sha256": "bd6b44a7a3b1ede650ae8d0bfa5e9b10d6292f1d2222df606d9c416d57b9b66f",
+          "label_sha256": "09f0ba7061d1bb90bd05e8699fc5151c20857f2f98fad0204180a3f56e24be0a"
+        },
+        {
+          "file": "WIN_20261106_17_34_31_Pro.jpg",
+          "image_sha256": "d264ee89b074e66127cceb38a0dae6c15ee6885d4885912a4f802b7a5720d354",
+          "label_sha256": "4b3824115bc84c55f80948ea48722bb77819ea1eb4c6b6639173631ff2993de6"
+        },
+        {
+          "file": "WIN_20261106_17_34_50_Pro.jpg",
+          "image_sha256": "232fa7e7655f7b395b429af6276f88ede2de264fbf4fa748f437f365311aa4bd",
+          "label_sha256": "6dcb7bc3b4a8878ada9d1bdb41300c504e76d45aaaa19a3542a133701d5e1399"
+        },
+        {
+          "file": "WIN_20261106_17_36_24_Pro.jpg",
+          "image_sha256": "60fc6f76db1ac279828ac48c02ccdf0cd9703bc53281dcc7072c4ee5c8bc7e62",
+          "label_sha256": "4ac72d5e1a8eedef4a9e03be19edde10d2c23580bc746dbd263e405b714464fe"
+        },
+        {
+          "file": "WIN_20261106_17_37_02_Pro.jpg",
+          "image_sha256": "45daff5dc7f48cd134b4cd564fd4dd9110d423ecf8d7c5e81fcfe7668d628054",
+          "label_sha256": "5b33d9eb4509be70cd669990b7a182b4ddc7ecfcf602034b58fe6ee3570d7387"
+        },
+        {
+          "file": "WIN_20261106_17_38_10_Pro.jpg",
+          "image_sha256": "c6b18de9a91053deec7fdd0fea4a3119bbe2a19df2f22a46343a2722c22226d7",
+          "label_sha256": "d32e5141367a2551e52f080bc5d359812272bc4e8c418c5f6e9a86938311b6d1"
+        },
+        {
+          "file": "WIN_20261106_17_38_34_Pro.jpg",
+          "image_sha256": "b24041d952d8806b9c7495c888551db9f36fba85459cfe2a9b6268734c85d836",
+          "label_sha256": "e4b058875e5f7d87b184e33a235d2ac013de33457d934d38a2309fa3ed0b57df"
+        },
+        {
+          "file": "WIN_20261106_17_39_01_Pro.jpg",
+          "image_sha256": "3d77daa45a446d27d673781d1d09d4d5e37802b55ef040e4ba9c63e72e4bcd0e",
+          "label_sha256": "d328e2d1c3c9fe0354cca51045f3e1bc4b7b5295db95a4f9e391b56ee6fa123e"
+        },
+        {
+          "file": "WIN_20261106_17_39_40_Pro.jpg",
+          "image_sha256": "fef0040a9d901f058c92df751cd169b25adc30644b1a2b159e204b7379d15b92",
+          "label_sha256": "e9be7a7b26055ebfebad574570760a4f05f649cb06c3846758411e77623e68fb"
+        },
+        {
+          "file": "WIN_20261106_17_41_16_Pro.jpg",
+          "image_sha256": "c06af2509659b3859eaf342a605a647327def088142f0f53207723654480d382",
+          "label_sha256": "2af4059393ca808fc975bcd7ecb7fb19d8ab1df6e8f74c0e66d684a30bc07f90"
+        },
+        {
+          "file": "WIN_20261106_17_41_22_Pro.jpg",
+          "image_sha256": "6bc2d8573a4b43ffc31c24b2453a82272ed041aba034d5a14a4a8a4ad591178d",
+          "label_sha256": "6e3a646b0e6608520fbf34d70adf03f9a3aa14af9b200575db4d9590bc9a3875"
+        },
+        {
+          "file": "WIN_20261106_17_41_53_Pro.jpg",
+          "image_sha256": "2293a3aade4024d0e95a6207995057edd281daeb048aaac859f43574faed03b1",
+          "label_sha256": "7f2087713f3e0e5f3b1565be4ed8e55977e12c999cf4c7c0fc82053f8fe640df"
+        },
+        {
+          "file": "WIN_20261106_17_42_23_Pro.jpg",
+          "image_sha256": "dc7d413a20f706f91d02fcb18268196a4deea50c0bce976ecae36a4a98b7e70d",
+          "label_sha256": "04c2af04e1561199279ef4f2e844c3346947e659c7fae006ee0e8464a4995699"
+        },
+        {
+          "file": "WIN_20261106_17_42_36_Pro.jpg",
+          "image_sha256": "9f07a345ec5321c7f1754871e033726b3e7f741df92f33657c8144a1d6a16ea0",
+          "label_sha256": "82322329f978a75f50d8df7fac3e363a1a891b0384bc7b857af71bcc7c089e07"
+        },
+        {
+          "file": "WIN_20261106_17_43_19_Pro.jpg",
+          "image_sha256": "9b44d0e6516bf425f3b30bb99bd642785da799dfdf1a13cc5441c051362f2538",
+          "label_sha256": "c4a7670def1f3d30d48b8f7ed1f1a3ce6f8d08ffad1ea5d8873fb840525d18e2"
+        },
+        {
+          "file": "WIN_20261106_17_46_01_Pro.jpg",
+          "image_sha256": "1147bc8cc6725c357a1449f55800a16011c2ced49742a8d4a29a89caf1a3df64",
+          "label_sha256": "c7a1c3b78c666436ca876bd752ce7b249156390132bc3d8d47892c1c19d23622"
+        },
+        {
+          "file": "WIN_20261106_17_49_34_Pro.jpg",
+          "image_sha256": "6e94b40770998c325626accd5a2b602b976e2cdf2fb951458fc4a2fb83f564cd",
+          "label_sha256": "516e8215facae47b1dc7daee8e908e68e97d3a06e4092faa573fe08f0cf0fc76"
+        },
+        {
+          "file": "WIN_20261106_17_50_32_Pro.jpg",
+          "image_sha256": "f896bee811aa3ca5d8e844704da58d95614820febff36eb88d605b6e61d2db97",
+          "label_sha256": "abec167064da925da085666cb76eac1f7edd993ccacec8f585359fd856c37309"
+        },
+        {
+          "file": "WIN_20261106_17_51_18_Pro (2).jpg",
+          "image_sha256": "0525a224b6f93a4a0aae2ca27a7381b672433fe6963e7dac0d1d37ead865bbc8",
+          "label_sha256": "94acfde076a352ed0693d1c8757430ba1e64216d69892c57aaded57d3aaf08e5"
+        },
+        {
+          "file": "WIN_20261106_17_51_51_Pro.jpg",
+          "image_sha256": "e5b87bdf487d721a9197aff755b068a1f2d0bbf73c59183347d224a83f14161a",
+          "label_sha256": "2c0a439a11b3303018bd0ca64acd7ce3dd5e684585c90100c5ea8fa425699332"
+        },
+        {
+          "file": "WIN_20261106_17_52_18_Pro.jpg",
+          "image_sha256": "873e46d86cd544a4cb16504dd739a53fad4a9474b94aad183f189f0e1a9ab76d",
+          "label_sha256": "be782aace6609b4ae04458f1fbc4dffa3d8ae63c23d0279a0d41f350e12a5eab"
+        },
+        {
+          "file": "WIN_20261106_17_52_21_Pro.jpg",
+          "image_sha256": "5ded85035af943d1493baad20d540cb83215e6800efcc75ad4f9d1a85c4413d1",
+          "label_sha256": "2634387c04e8669c6fb2fcf3491ca27c949f06118f838027a5259b5c1aaa0e9b"
+        },
+        {
+          "file": "WIN_20261106_17_52_55_Pro.jpg",
+          "image_sha256": "58f8682eaaa5a688320ad30d996dab10cd1c1a22ca4858cc52a495c5e336cb29",
+          "label_sha256": "15ae74e8ef9756cec35795824cf88cad7f68fe5366356147a39a823e35dd6f97"
+        },
+        {
+          "file": "WIN_20261106_17_53_21_Pro.jpg",
+          "image_sha256": "177649bcc6ea507ccbd3a16cf035fa6a23853e09050812f0b943415549e2bc35",
+          "label_sha256": "16581b70f03e31789afe0981ca8e8e67fa3772d78aa1a1ae95af74753717e0b7"
+        },
+        {
+          "file": "WIN_20261106_17_53_58_Pro.jpg",
+          "image_sha256": "d7dfbd55724dfa4ec012f227c3dc766792e16fdae6e357d76598af3bb2badffb",
+          "label_sha256": "de6579c6a1d83f81367d9a505f0e67df3d34362013f2f1156bddd4c557dd8fe6"
+        },
+        {
+          "file": "WIN_20261106_17_54_20_Pro.jpg",
+          "image_sha256": "3f3c4168c8f41f11b04945fc59c769309b19652bc436a076ef72254f842ce9a5",
+          "label_sha256": "17e3acdb603ab4baa49eb436f968e8c5a4489c4ed1f147884e3945c3533a7253"
+        },
+        {
+          "file": "WIN_20261106_17_55_08_Pro.jpg",
+          "image_sha256": "96b2c64254dbc6d1208df7f3be30d996b3a63cc22883fa671da450ab40c5d2bc",
+          "label_sha256": "900ba3e05c5eba730cb4d9d7f626d1691ab004efa34ef7b809e0cd0308d5e254"
+        },
+        {
+          "file": "WIN_20261106_17_55_34_Pro.jpg",
+          "image_sha256": "9ddef72794d8ef58f90603f0ef67ccacf097563c35e3e62caa5ddc44abf6df6c",
+          "label_sha256": "32ed8562a272778824d8c21f65e512fb40deb24c13e8666169973362569b9954"
+        },
+        {
+          "file": "WIN_20261106_17_56_09_Pro.jpg",
+          "image_sha256": "6a892248fe69b1b08d17fb55f61b79c21d5f5a8901269ea6fa3a6172eedc2382",
+          "label_sha256": "d6dcca2a9656e7627ba497af9441b2735b0eb29bc0f113623d624ce99a24195e"
+        },
+        {
+          "file": "WIN_20261106_17_56_38_Pro.jpg",
+          "image_sha256": "8574fee008d1dccb7a238f39e004f7cb5abda9e0757593dccf50a7318139b45c",
+          "label_sha256": "52bfb4e03182c4754d6333892e5cbf69d73da2d144a6c383f75453f15ff22ff4"
+        },
+        {
+          "file": "WIN_20261106_17_56_56_Pro.jpg",
+          "image_sha256": "eb3ccf96f06cf5ca431debda69c7968a96274ecbdc1f3892c9959d6c4806c50d",
+          "label_sha256": "8e8a33c1947604c3b2c507443b718237a1a1f2a62ff6ebcda6bec0aa1e9f24c0"
+        },
+        {
+          "file": "WIN_20261106_17_57_09_Pro.jpg",
+          "image_sha256": "54c2b806cedbd95a60fe25ee65dfbc7ff81eff47591ccbf06233b8c20ba27cb5",
+          "label_sha256": "0a700638b80c30440730080a58bb305f749b40809bdad4f95a8931d7475afb97"
+        },
+        {
+          "file": "WIN_20261106_17_57_56_Pro.jpg",
+          "image_sha256": "140df6412a6f9e98a72b4660ad0c986f905dfca88fa80e0d9d4ca4afb87ce5d7",
+          "label_sha256": "d3b2904af9129e79c39bc4cf9b763a08904bddac3ec9b89edf6cc8eb6ecadcca"
+        },
+        {
+          "file": "WIN_20261106_17_58_26_Pro.jpg",
+          "image_sha256": "ad5714688444a82b13f735f6af0bbaf5bf84e4e073878fd5e8f7c331e4427c23",
+          "label_sha256": "ad56d4b417dfc0a7f37c76ca7a040614018e78c45595e118c5b00192fa1f3927"
+        },
+        {
+          "file": "WIN_20261106_17_58_44_Pro.jpg",
+          "image_sha256": "d5ae0a39b0ea1b77a56e06a9c00c75bc1173bdb0df2cd057301b6fd8bd641c88",
+          "label_sha256": "e11fe9afbc5da374e0fe51bb1c7c97df21f352e0183dc65168c34ad0278be717"
+        },
+        {
+          "file": "WIN_20261106_17_59_05_Pro.jpg",
+          "image_sha256": "7f5e25c50f3c85e939a7f4812858def579773f085c0cb20288079a59bf718307",
+          "label_sha256": "2aaec0b8bba80b05e53ba41b8f068089f63c506e329ee6ab2bfab8f82dd3c497"
+        }
+      ]
+    },
+    "legacy": {
+      "yaml": "C:\\Users\\User\\Downloads\\Tamban_Thesis_Main_Repository\\Thesis\\sardinella-lemuru-ml\\notebooks\\tamban_model1_1900_work\\yolo_cleaned\\data.yaml",
+      "split": "test",
+      "images": 295,
+      "fingerprint": "b7ddd8b54030deed9590e04beff5a1ade46b78b9660b294ddb15004ebd9e1b6f",
+      "files": [
+        {
+          "file": "fish_000011.jpg",
+          "image_sha256": "f2dbc011fef2b7f2c549fa0bc5b8bcf67fe1aa948a5da41b23ae24ccc17de38f",
+          "label_sha256": "cfd089ce45c902b5c3929ec9942cdd46989db3000e12c7645380c5b56f844ac5"
+        },
+        {
+          "file": "fish_000012.jpg",
+          "image_sha256": "bd5d5e84e8300c3a4839db28654f4d496c5627bb712470113e5aeb32874d7099",
+          "label_sha256": "2c1853f54256d76c878ba092066c74ed56f5473069b97db4154ab50adfd6f3f1"
+        },
+        {
+          "file": "fish_000017.jpg",
+          "image_sha256": "a106b033f731c3208b9e72f0816d732febf276280191c9545726d1fad3128251",
+          "label_sha256": "748ff47bacc8ff655486b866cba6b33557535032d5e5ef9946cce7c6ebc00a7a"
+        },
+        {
+          "file": "fish_000019.jpg",
+          "image_sha256": "bdc8076bac58738158c095f31614d6ee26909856ef3804f8feec718968f42cb0",
+          "label_sha256": "c3f682a107579c12abdfb7abe2bbe6bde1f204ad929e9e9fad966b9f3077115d"
+        },
+        {
+          "file": "fish_000044.jpg",
+          "image_sha256": "20b30c2de945bd1d6c6d64bca11bcc5d2ccf8e85690746038bc0775dbdb71ff0",
+          "label_sha256": "af9ec696ffa991e0fffaff2ca331a20cb191fe3c2bba5fc8742467e8ea0b50bc"
+        },
+        {
+          "file": "fish_000045.jpg",
+          "image_sha256": "3ed6e3e4dbdb386dc4c9b826afdda71e6a901dbd416a46c09de5c6b703bcdda9",
+          "label_sha256": "c254bbc8408905d983e6313aeada00fa17c427db5f2d4cf3060e26646048b477"
+        },
+        {
+          "file": "fish_000061.jpg",
+          "image_sha256": "d1b1f3627abb22b1b3a3094f044b31622cb013288d17802dc16eb44d9050b23f",
+          "label_sha256": "f2c0fc1d635b482f7cca03283f922c2365c0e74d4674fcf2bfb5f28aada80058"
+        },
+        {
+          "file": "fish_000062.jpg",
+          "image_sha256": "82d44b6781aed54ceb599a5c1a2309223733f7cc3b547f8f0a4df5526db67351",
+          "label_sha256": "88fd132de41f09b6974fab1b728a3b4736652f052ddea1a032428573cc1ba666"
+        },
+        {
+          "file": "fish_000083.jpg",
+          "image_sha256": "dd05b3f8ed9de2df456c4f7f0bff173b5e2e25dd21d0bb257fc49cc558a29240",
+          "label_sha256": "50654490bdc142d43184781ffcbc2d170e80008aca0d0e4949b39b10a899077e"
+        },
+        {
+          "file": "fish_000091.jpg",
+          "image_sha256": "27f73710ef02e4be7de8a17ecb3d09a31af7f411aa667fdda40bc95b01a2fc58",
+          "label_sha256": "ca24d8486aff292988f149c538758ad01f4f0d78deafe6912b27c4ac571e80d9"
+        },
+        {
+          "file": "fish_000092.jpg",
+          "image_sha256": "e06edcd5919aa46ef9a1ecd37872fb46cb8f2f27bf5a5314f953d638432611e1",
+          "label_sha256": "f0c23739e2e250836f829cdfae1746e00c930a5bdf2ae145337623e13cf9b060"
+        },
+        {
+          "file": "fish_000109.jpg",
+          "image_sha256": "932b9dc2e8ef33169b6aacbabbf8ec8c7f153d603afdad8d08de872f0a4f5c47",
+          "label_sha256": "6b5c2bc0612d0ced0ab08c2dbd959f32ae9785635d139590c29c0c06948abe04"
+        },
+        {
+          "file": "fish_000116.jpg",
+          "image_sha256": "cec19b2bb06e265937272f541482435ee99e0e504d98a13c0a4080ff6492c597",
+          "label_sha256": "ab136387f23517cb688c65430d1246ae0793dafb7f79fcadaf22947f338ef3fd"
+        },
+        {
+          "file": "fish_000120.jpg",
+          "image_sha256": "5aa5dbd76ae46f0d112398bfe61b265dbe19723e97c1121c52be08de04fb28ef",
+          "label_sha256": "f2ab24e36123fa26ff76e65fa9409dfb9b46a0f6fa7895c54f31f539456acafc"
+        },
+        {
+          "file": "fish_000135.jpg",
+          "image_sha256": "5d8577b17b4f3d3cde919e2243cfaa8047496e928ed8c69a09536d4ecaa0ca91",
+          "label_sha256": "c43d1db3ad23f404c8ce10592de2ce34324206df4548b00d32af501c45562bf4"
+        },
+        {
+          "file": "fish_000140.jpg",
+          "image_sha256": "864705a6bf4919148517c93cfdcc28f9976fe314adc0a010233cd3a2166b90fe",
+          "label_sha256": "1b83ce59e807bdac673c9e3d8544ded850b59b50f720f02350afa1622ce0b4f4"
+        },
+        {
+          "file": "fish_000149.jpg",
+          "image_sha256": "ba6505a7102d976b89e3037bd70c326b26e14de12cfd997d63c1b23cc4adcf85",
+          "label_sha256": "c382717b5b6088b59920ce46de7301a1dff1a8b451cc29856ada8fac710fed12"
+        },
+        {
+          "file": "fish_000160.jpg",
+          "image_sha256": "b9f332729aa725e8bc34d13855b1700553275ad9cab39b515a71f66047109e49",
+          "label_sha256": "7265dec307fa8f9ce95536943644ad5387120ee04b2af7c021b947d3044004fc"
+        },
+        {
+          "file": "fish_000162.jpg",
+          "image_sha256": "ac425887f24f4b9e7019c35093dfc768c1a916aea22082d10a135c81a086c891",
+          "label_sha256": "59ed202c3b268a1104a61933f320c5509a0eb4bfcb25b57bfd587fccac50965c"
+        },
+        {
+          "file": "fish_000163.jpg",
+          "image_sha256": "10c8ad16cb17bd9e1460613bc491e8df35bd7a76bf7fdab0cc2969f496182e64",
+          "label_sha256": "87721c2c91070663b464def8ac1f0a9a7563281b4c5062c327f735049087db57"
+        },
+        {
+          "file": "fish_000165.jpg",
+          "image_sha256": "dcd01031af5a61e635a43f23914bf00087384fe4b3d327ffef8863393176afcb",
+          "label_sha256": "1e943a5566532b8d5d3de847d33a79c0fa5b8ff9714f5b5e54c8dddcbb3f84f6"
+        },
+        {
+          "file": "fish_000166.jpg",
+          "image_sha256": "b04ca41c9c78af47b9565ed09a6271a78d3fd0362c884378b45fbba045e3772a",
+          "label_sha256": "629f42d444ea5bc8a1a8ca03a325cb4ebe496e98045ce8a38adb87ee3b94be01"
+        },
+        {
+          "file": "fish_000170.jpg",
+          "image_sha256": "c6c0309a2f5cc561de8ad68f4582980fda08df260d57ba0af0f9f7216de7a869",
+          "label_sha256": "e17be6bba6bdde7fddb8d09eea55cc9e31136cfe17ea7aaa54c126c439cb9527"
+        },
+        {
+          "file": "fish_000183.jpg",
+          "image_sha256": "7ba739b2a61fd4e26693b3cc7b65b104c7eff424ad3083cb46e45b73b5becd65",
+          "label_sha256": "7dc4133bb49ee1c9596c471bab78889f7c0fc22d219446ddba0550e065955353"
+        },
+        {
+          "file": "fish_000195.jpg",
+          "image_sha256": "34bcff549ae4fbce16a055c7fca97121e879a6fd5307117cae4cd7b6014b187f",
+          "label_sha256": "d048499ec5b178817396887f74ce1cdfa37d3c19177cd10c28765f27d2bacd6d"
+        },
+        {
+          "file": "fish_000214.jpg",
+          "image_sha256": "0f2c00d8063bb4d5a5d31aa098d682703af602177092688693a74d9e0d046704",
+          "label_sha256": "d3fa4890623b058455e17a7b92523c964b23aa9360aaccaf1679991de6560070"
+        },
+        {
+          "file": "fish_000223.jpg",
+          "image_sha256": "6d2c0acf14680909f8208aa1d152156fec649b5999e8460251fc5388ce407731",
+          "label_sha256": "0e95db601eb637cd0c737ab43c2984fcf9e775cc0ba4c70b47063c91a7b4852f"
+        },
+        {
+          "file": "fish_000224.jpg",
+          "image_sha256": "9059447aae3bfb18f339790a320b13c2a74f343db44db869e73b9b815bb35847",
+          "label_sha256": "3cefe0fa1b2fa95ac44643f0da65ec4eb4c8521e7172d7ce0f3e9ab0c135ef1b"
+        },
+        {
+          "file": "fish_000225.jpg",
+          "image_sha256": "1b4ed8631d7a90f6f44a9968c4b29517a0f3624b68997fb3d9ecf232834c358a",
+          "label_sha256": "ae20729a75c73bf797a117b6607d767a249eda5f42fdccb7904943a530644b19"
+        },
+        {
+          "file": "fish_000247.jpg",
+          "image_sha256": "ac6f719ba2a9c1fca0959bb3bc633723fe7a39a7ad4ebbc6591f430f1a66f3e0",
+          "label_sha256": "aaa9566f567b2a916deb15b498a0ca9322974ff5b453b5811df11264aad9b56a"
+        },
+        {
+          "file": "fish_000260.jpg",
+          "image_sha256": "8c833cd65fbb51cb242213b351f65f83ac7e2412d3325eb9dfffb6530eb15376",
+          "label_sha256": "835b738f7d0e9e5f374df3d01c9c507daa16e46eba9bb8f2f9600b03dc7fc600"
+        },
+        {
+          "file": "fish_000267.jpg",
+          "image_sha256": "46d767ef232d5accbb8e8d69ec0ee66e3834b8b4cc42ba37da19ad1b2cd8a6f0",
+          "label_sha256": "980a616fe6bd88c2328138042bfeeb46e6b96ade99dbb2f7c13f6ad5daef19ce"
+        },
+        {
+          "file": "fish_000278.jpg",
+          "image_sha256": "044f8b5285ac81ea4bb1f649d08895d918c3e1c9a769904de9c68d88b58d62d7",
+          "label_sha256": "b96722720abcc4f19a5161f663b989aed91ca50e58a685defbfc23cf0e4f50e5"
+        },
+        {
+          "file": "fish_000280.jpg",
+          "image_sha256": "384e87338b5f61494bd13432115fcc2589920c47c19d7976799b1490e3f68790",
+          "label_sha256": "9641940766987131a0ac38267e5c9c20002ed527d1a6d5af84fe129eddf1a780"
+        },
+        {
+          "file": "fish_000281.jpg",
+          "image_sha256": "411a81ffe7a5a43cb934934036ab523640c331b212984ec24d839bab00ce60be",
+          "label_sha256": "b0892d488e0d9b9deb8430cc6c53fe3e71c88282761c1a0ed9b738bcb3edfa02"
+        },
+        {
+          "file": "fish_000287.jpg",
+          "image_sha256": "1dd9018bc6c58158c293ae3d81b3bc58c0d1acde81105a3d61ae7d0b903e3e56",
+          "label_sha256": "7c56b0c023b9427fbc7b70b27dd2b89651a7bcc35903e0453cf1f5bf64d4cba0"
+        },
+        {
+          "file": "fish_000292.jpg",
+          "image_sha256": "9b306968471c1aedb0eb10da0ba12cc1d3d1b18d04926816062e04e5fd96757b",
+          "label_sha256": "238543750a073458ebaf816eaf5d477bd17199877b12c7876bd0bc027af2998f"
+        },
+        {
+          "file": "fish_000296.jpg",
+          "image_sha256": "ca4740195f8849081973742f348275a6f72897cc11c0e98300c70e31d9fe79b6",
+          "label_sha256": "def4a3c66cae7e3b86969bfa6f9c693e94b4af0fd86a763e3af0070cfe71b9b2"
+        },
+        {
+          "file": "fish_000301.jpg",
+          "image_sha256": "e28b3f56df4dbd88502d0a25a740e14057313a51c668749b43e2edd3cab8b8d4",
+          "label_sha256": "65184114a274895f6751b3c28f70ed5870cd17b6303f364b765ac587192a8aa9"
+        },
+        {
+          "file": "fish_000306.jpg",
+          "image_sha256": "40594dc561c287ad5fd3d256444ddd69c3f19c102a60765ed500aebe60e6d944",
+          "label_sha256": "432c3f7cc803b62f3815936d44503ed2e91c7a95a56a05f602c9fed8ae6ea054"
+        },
+        {
+          "file": "fish_000312.jpg",
+          "image_sha256": "c72ce2b11ee4b7dbde786bc4e0a2759740e34a83a3abf6e010dd827eddc8e1e7",
+          "label_sha256": "2b74acc4621c263ef15ab4c606dc0608df28728fe33ae7f9f0973ce7337e1a08"
+        },
+        {
+          "file": "fish_000318.jpg",
+          "image_sha256": "78fbd7139a882e33aae4d1ad3d3ec1396a2f6a9fad306a8e62d22e83c93cf490",
+          "label_sha256": "dbeef19a8dc38efd8d4630f2db2f777523caabfe7547f48497350e86b43063e1"
+        },
+        {
+          "file": "fish_000327.jpg",
+          "image_sha256": "8c9e5f19bb20373ea382c6a4939ec81f51abe9c74060aa3797cbacbf11cc1b7e",
+          "label_sha256": "88efc75b496ac08d148c4e9168fb5ddd112306ff5705897936920603ab436275"
+        },
+        {
+          "file": "fish_000349.jpg",
+          "image_sha256": "3056a9dc10dc0fb1ed7cc85f503a70e0be6bdeb45f4dc478e57243926e321db6",
+          "label_sha256": "57f89ad8db0c7f0769e0b8e35a15b3b7d023d507dd2dece49b13bb2c9b2635d4"
+        },
+        {
+          "file": "fish_000355.jpg",
+          "image_sha256": "52cda20d5548924535c5775210d9931f3ea36754a8103e7b9f4faec1361a1d82",
+          "label_sha256": "c8ed1fa50659eb8eea93fc136d6d54daa3f51358d5101eeb862518c1444143b8"
+        },
+        {
+          "file": "fish_000374.jpg",
+          "image_sha256": "328cfb7100aaac77e08d0eef1512acf48705cddfaee55526e68cba9400687af8",
+          "label_sha256": "df6e1a3008688efa1909aedd177c54f5e1d4bee3de248aed45071a68622c418b"
+        },
+        {
+          "file": "fish_000375.jpg",
+          "image_sha256": "f47aa4587932f408fa4d22ca1ddd8a0a880725e1fa6437ea21ca8706c48a7637",
+          "label_sha256": "d705e305b726113800ba82f5d2078a7a656713f3ef4c5b99a99433a09c1aa0ac"
+        },
+        {
+          "file": "fish_000378.jpg",
+          "image_sha256": "29291f9fa1e9e2f6f65e2cb17fabde355d78d11a5d29f1728ae5579d9c5094ae",
+          "label_sha256": "6cebbb98b803e64b2e33b0ee433566501df4b3bc3d162ab7aaf9839509010169"
+        },
+        {
+          "file": "fish_000388.jpg",
+          "image_sha256": "3814b016d0698a4263e115a2248ddbb4f39c5777c188ec6e9c5faba20e5c6ea6",
+          "label_sha256": "d81392259806c88df402da7e973fd76313db22a322e2ddef499caa196601edd9"
+        },
+        {
+          "file": "fish_000393.jpg",
+          "image_sha256": "6feaeb15a0fe535db9bcb6b709b419da0b220321403b8c93750790af7fb594ae",
+          "label_sha256": "5c368cd6414b0e24489ca2465e6b41d64341bf1e6b537366f896354e996cad74"
+        },
+        {
+          "file": "fish_000395.jpg",
+          "image_sha256": "349d31e5e2ef42c2ce3a8994d9b357e815f7f6553b996b75267937456d4abe62",
+          "label_sha256": "f9c11f09f79f8d16e95165d58d4e6af2be9d9fec888b6eb1aeabda7aecb8f9bb"
+        },
+        {
+          "file": "fish_000399.jpg",
+          "image_sha256": "e5b11efddb1e23a5549438ae13b6a0b114be2a0970b6e9123211df6be25e79a6",
+          "label_sha256": "fb54a7b2d6a813a632c38850e9d2002df0560434f3d0fbd442f5a259036d6fda"
+        },
+        {
+          "file": "fish_000408.jpg",
+          "image_sha256": "ccd3554c8a09b3c20b7d4056dfdb0862fb0aa5d07a246b6b1c412e22531bfa7f",
+          "label_sha256": "2ec2a2e5b619fecb27e4b4932ee5f2ae2c54e21457864fcc9b872b22e519f5ad"
+        },
+        {
+          "file": "fish_000410.jpg",
+          "image_sha256": "a3b3bf58f8c791a4bab320899b293d867e8b18cb185c31860105456722cbad42",
+          "label_sha256": "a7e7305ba27a0297c4aa7d6d4d3e25081421ff53b8d32984f13a4c6f8d5a3f84"
+        },
+        {
+          "file": "fish_000414.jpg",
+          "image_sha256": "a65f2a06516cce669c8b047d4bc99615d8c70c4550af2ef161e9883d12183cd0",
+          "label_sha256": "1da8c687def0274090e5b592c8332774cc923e497e3cb15fc5dde0ab93ecf5a8"
+        },
+        {
+          "file": "fish_000415.jpg",
+          "image_sha256": "84549437776f51270631bbc96b3f57e032edec78684a7303adf9c9aa17153be4",
+          "label_sha256": "5ffc296f05c09cc09ff85afe0e0f59c3c704bb474ae62a588c01411f5ffaa9d0"
+        },
+        {
+          "file": "fish_000422.jpg",
+          "image_sha256": "69035ddfa2132ce6edc5cde565a77b83cdf3d148c746a73ecfb009f50b98a2c1",
+          "label_sha256": "bec3f534f1f08944b67d5597d8ebe0c545e1a93b29547d3d6284972f027cddfc"
+        },
+        {
+          "file": "fish_000428.jpg",
+          "image_sha256": "bed5787b6ddc8bd8df8b588276ad5f80b0c72d15b756b21cfb217f54194bb463",
+          "label_sha256": "b39e6596c55fb8e597516447aa4a23c4c5803e9c127e82ce5f4874c78657bb88"
+        },
+        {
+          "file": "fish_000432.jpg",
+          "image_sha256": "e026da599492ccfdd52f027e034a102d4429dda0ae8d33aca8766dde086e1adc",
+          "label_sha256": "a4233511c4a23557fabb3a56e1802fdeb7525e2db2622afb4158f9927e42ca9e"
+        },
+        {
+          "file": "fish_000433.jpg",
+          "image_sha256": "dc06d21bb41904877c52f2607f94213b56889a4fdeec93078f3a8484e4f71455",
+          "label_sha256": "d45fa880c698aba01b1c84c0de1e7a43f12f0ca8bb6c21a30121ff05236ca234"
+        },
+        {
+          "file": "fish_000438.jpg",
+          "image_sha256": "3bd0acaffa3c07385083974f2b994e7175cc0d4267f7e5c4eae976af8c78e8f9",
+          "label_sha256": "a10f868170e27a7c8aa157ef0b2103bcde942f332bf13484726131196bf6be12"
+        },
+        {
+          "file": "fish_000439.jpg",
+          "image_sha256": "8061c1f1aebb64617980d38a9c2b6ddc442df38dccd6c3856dcd70f91d7da411",
+          "label_sha256": "b5933e4e4604ad368d6ce369352b2424e67242953bafb6598f5815208f03d3cb"
+        },
+        {
+          "file": "fish_000444.jpg",
+          "image_sha256": "8ba85b7ab2e6ff6cd99db442bcae3de2980bebec341045d86f72a9769672569d",
+          "label_sha256": "1621ed177601b6595397e0907a394855ad29c440df8f28e62066f17488edf630"
+        },
+        {
+          "file": "fish_000458.jpg",
+          "image_sha256": "96d8cb99e250514e655588d6bb17685d81b2e4ac370e1e9bcdd349d8728902f0",
+          "label_sha256": "4e4c57e70fb8eaf6722f1e92b81539df1aad5ba6d632dccb6f3d39642efb97d4"
+        },
+        {
+          "file": "fish_000491.jpg",
+          "image_sha256": "8b95c2defaf0cbd0374aae88d40784b238e257b28ff919a9fd969c5084a6dd88",
+          "label_sha256": "bad3b6c350e386b74b4b5f019ebad7065b951bb3809e764165cad6ffac6bfcef"
+        },
+        {
+          "file": "fish_000510.jpg",
+          "image_sha256": "a39c0c9cc0b9657237824322672b8cd557bad61afa5e441d65576f6812666157",
+          "label_sha256": "761a541f17629c5a56e52a3cf5735f07447069f8a9897232a90f4923002b107e"
+        },
+        {
+          "file": "fish_000514.jpg",
+          "image_sha256": "acff2ae84669481864b58b9e28ae01f14e93177981335bfb7d6e14f86adacbee",
+          "label_sha256": "f7df524e6cbd3d21e7ec32b08fcfa559581ae4eb94b9493b5a9beb2d57dbe339"
+        },
+        {
+          "file": "fish_000517.jpg",
+          "image_sha256": "1c285c50abcdab347624b363bcbda981cf12e73a2440f7bdc2009350b8b8fdc7",
+          "label_sha256": "c880c8214241739cfa3b16ef02b1772b839d12a6612dbaf902ee5ef90832d74d"
+        },
+        {
+          "file": "fish_000522.jpg",
+          "image_sha256": "0fdb7163c63d64113be8f975c45faf8b6f5e828c5cd334364df387800ddef409",
+          "label_sha256": "2f077324054c8c381c08cf3b7f8a638ac4354f259155b483536e16f271ea7421"
+        },
+        {
+          "file": "fish_000532.jpg",
+          "image_sha256": "82f7a79dd0a5b1b03b67b73c291e95199ffe3723502703d54093dcd17fb7aa3c",
+          "label_sha256": "39c9efde8e563fd05861f08ffa959d01c7a42ad539b7a43298bc5f84a0f6026b"
+        },
+        {
+          "file": "fish_000539.jpg",
+          "image_sha256": "1119ee5f2636e48e3302a3c8986c1a167df2eed4959c6fbdac03a1a4b88bd3da",
+          "label_sha256": "8a892acfa44f51b1154f6bcead1cafbce4c8343d56c58ce5477b0f0bf7fba828"
+        },
+        {
+          "file": "fish_000543.jpg",
+          "image_sha256": "901d4630d8e813add8f0dbba2ef5767c2c18e8023c52b5b7bface87b1842b17e",
+          "label_sha256": "ff6380e7342f9d4117c76a2d43600ffac60d47dcc0a0bd4a57f4c9aa8d845df1"
+        },
+        {
+          "file": "fish_000551.jpg",
+          "image_sha256": "5949497525970d6007ed42c2f6adb0ea5f06154bc95d43d9a4c68df495198fb1",
+          "label_sha256": "2a7ace65e70846c0cfb8e0b5423e642bb172537602823bf9e1833ff9e22c614d"
+        },
+        {
+          "file": "fish_000558.jpg",
+          "image_sha256": "b9a8ebef500972b5bfe2da64edb4215c078206a9b26e4e62f2b2fd77b5fe0193",
+          "label_sha256": "acddc608469ecb63ac4d870c8a2c32a78870bc6c74d373941e50270bfe0f3e0c"
+        },
+        {
+          "file": "fish_000565.jpg",
+          "image_sha256": "fd6b467ae6f1878e32170530cf1ebe1d0d5ed2fddd6c07cb547792ad3abb664f",
+          "label_sha256": "6bc9ea9615a564541eaa96bb6a889dab12d9159f49a30061f1205c1520d41c0f"
+        },
+        {
+          "file": "fish_000567.jpg",
+          "image_sha256": "36778336e7000f5ba5f19851dba0143ad2c6faf49e6284567fbbe453e7a02ccd",
+          "label_sha256": "cc0b87b19cc24fce451ffa0ebced3976dd1bf121d7d78dd815536e150b8fd2bb"
+        },
+        {
+          "file": "fish_000582.jpg",
+          "image_sha256": "9b2621ebeb8ea4fef532fa653418ed4243cffac092a20e6cffcf2cf51731c953",
+          "label_sha256": "188a53061c36f92a235081c8d01a6ffe1d968507737c1f0733fa8dbf55efb99e"
+        },
+        {
+          "file": "fish_000585.jpg",
+          "image_sha256": "cdfadcea4c28850615f6a3a06a17f480a4cba2253dbe9dc604e2df8fe0e0efe1",
+          "label_sha256": "90d5e1205dedf84673b4e884244c93a8241f943fa38d8bb0ee306343b1e086ac"
+        },
+        {
+          "file": "fish_000589.jpg",
+          "image_sha256": "bc007c588a03cd5ebe35e8d65a62c2b07aa4e7b4c126d8002da53c205ff6406d",
+          "label_sha256": "fe99e58077c03c48b8489c0fee63247bea0767202c84393fd1ea0c5fe2a28646"
+        },
+        {
+          "file": "fish_000593.jpg",
+          "image_sha256": "cdf974158a75f1cc84909f2b49fc742b34cf95ff56b30eb9c62213a1c1286378",
+          "label_sha256": "c3dbc0a5352652562bb195f94425ab84b2b8a14033f6acf03458df4ea613c403"
+        },
+        {
+          "file": "fish_000598.jpg",
+          "image_sha256": "b098162f120cda31b91c13ac6ca7c418d166bbec02a799e8020d386436117553",
+          "label_sha256": "dc9333e3684d514766d4f7a5decdda4c18a77df4870a8a4fd3c612f301efc373"
+        },
+        {
+          "file": "fish_000613.jpg",
+          "image_sha256": "7d8103c9c9854ab6da622caaf9246abceaff8d2b16cc1f1b5fc7085d27dea0f7",
+          "label_sha256": "557d7dd23e8aa559173268ded01b19b67375115f2865ba6b9b874b753aecbd0f"
+        },
+        {
+          "file": "fish_000614.jpg",
+          "image_sha256": "c2873f864e163965ab34a0bc51cc9e2e42c4327d84474e30a298672ced0670f0",
+          "label_sha256": "9c5b86378f369376f7cc5158e8a0ab4b3d45114e0c47a2140dab8c8e40bec9e2"
+        },
+        {
+          "file": "fish_000624.jpg",
+          "image_sha256": "b80d187fe0698c71261b3a659c8ca149f3af464bbdf50e8ac8f6a41d092be7af",
+          "label_sha256": "6c1a93df6c5a54ad92015cf2e337627ed428d5ae2199fdb6a286679b677a54c7"
+        },
+        {
+          "file": "fish_000627.jpg",
+          "image_sha256": "c32614cb4c5cb013d5b18fbcb6d33532fb50360bc65af5b0f3337b62e6287efc",
+          "label_sha256": "24b6fe45b7317a373d4270b8d74a2f27761f35e4ca2752b7fe36f19eeb4ea789"
+        },
+        {
+          "file": "fish_000634.jpg",
+          "image_sha256": "44cffdd3ae6247010aa1243e97454daca8a6fb8b47a44d72d6cbda64b24c295d",
+          "label_sha256": "0f109dc402f702e59c866c4151b8c4affaade9b741e91ba6fa290f0db6a0cdfc"
+        },
+        {
+          "file": "fish_000636.jpg",
+          "image_sha256": "1e665c54f833713a800393d5da6e0403b0df7a8813e682b831adf06f5bc72d0c",
+          "label_sha256": "bfebdcdb332775d7743a01b9d49f702396bbe51402a68caddd48b92bab0e52c9"
+        },
+        {
+          "file": "fish_000639.jpg",
+          "image_sha256": "a616fa98ada3ee7abfa5629baff194a4ba7765b563f70407b31c84a93c826f92",
+          "label_sha256": "a186f480c081473cbeccd0ef036f03588169e41edfb7baf22bbeb44ce495c1cd"
+        },
+        {
+          "file": "fish_000651.jpg",
+          "image_sha256": "1af0803e19eb61f78c89f90e531b2bb7a2e6b2faf0a811044f2ffa5c81b84cff",
+          "label_sha256": "ad02782f7883d59eab3c099398265d29ecb3f2e9a5b26689b0d6729973ea830c"
+        },
+        {
+          "file": "fish_000664.jpg",
+          "image_sha256": "2fa5541ab1354879457a256d457a3ae916c5d6ba5240c5ddf319170caeca3277",
+          "label_sha256": "b76a909b5572f51685c91ab71fd644e90cc22ac84ebc2f9caf12a82ca0e57be1"
+        },
+        {
+          "file": "fish_000669.jpg",
+          "image_sha256": "1243162bd70ad6e02b6bff963119e0ceea3ae113f074cce291274e577b76e680",
+          "label_sha256": "a88748a6c44c010a8f41d3f552abf722d1438c25bf99f62d234717c92f93f09e"
+        },
+        {
+          "file": "fish_000672.jpg",
+          "image_sha256": "9474ad016a0f942d591005cc2699b336329be06e978c3e5d584fe5538ff17810",
+          "label_sha256": "e19f45c4e19ea77196890782aa05c43f258209a8017cc9b0ebdca9e1625666b5"
+        },
+        {
+          "file": "fish_000677.jpg",
+          "image_sha256": "76da662391d263123aabf0d64d9f5c83a490b9a56dbb3ab3918c0dc160195ccb",
+          "label_sha256": "02623c45ee7ee791d0e61da37353ffae27e8ce5e76ec76178dff235f486415d3"
+        },
+        {
+          "file": "fish_000680.jpg",
+          "image_sha256": "88d65049aaaba4c00a8690dfbba5a6d0678c30d4c718af3cc9a6ecc2dcb36680",
+          "label_sha256": "759b2729b918486adcdf6eaea2629930d2070a29d417de607bfd9119dd67798f"
+        },
+        {
+          "file": "fish_000700.jpg",
+          "image_sha256": "ebb982118f58bc6043b142db07c4cbbeb086b38dfce43dae521ead4b29b42db5",
+          "label_sha256": "815a053f2dddc8f8254fc92c13bd4e6d1d2631b238521224a9704179e562b697"
+        },
+        {
+          "file": "fish_000702.jpg",
+          "image_sha256": "2d60d13dfec9cc573639b969da235d38ca8a171149a26c279287e1b6a03c8522",
+          "label_sha256": "df0d478d3d5eb1d36c464e9b33ea7bec796a230d8ddd85b315ceb33d65cd3038"
+        },
+        {
+          "file": "fish_000721.jpg",
+          "image_sha256": "a59585784bf032639cc92f43baee99a20ee4c54fea98dd7df4f4f2a37c690ae3",
+          "label_sha256": "4726acd6c36e18e81e2eb13c188cf3632fbfcc6443615a1550cbf8b624a2e986"
+        },
+        {
+          "file": "fish_000725.jpg",
+          "image_sha256": "029dc6ebcb4cfe9f6538aade62ba631f2089d6086d3fd29175a503bc0080bee7",
+          "label_sha256": "0e949bab2a92aa7e14e65e1c6c30ab2d38222084b9deb0b040f7a2c74fdb51d0"
+        },
+        {
+          "file": "fish_000728.jpg",
+          "image_sha256": "b90fc2a22f8bef7dd1db0ad2286072141e725c0c538ca40d0db40b903b1d3008",
+          "label_sha256": "79c6dee62704ebc91f39ddfb85d556122b7914d9124e26d02402db08c4d969eb"
+        },
+        {
+          "file": "fish_000734.jpg",
+          "image_sha256": "5b5f923f9cafa9a8cc7198909baba6f7e7e34cc01f6331b597c0070b34d25c56",
+          "label_sha256": "8c3faf81c8b69bf1afae54d7ad8a6c91695ed50ef403b2a602086c5c3b93167a"
+        },
+        {
+          "file": "fish_000737.jpg",
+          "image_sha256": "e7fb3c41a27ddd1aedf1399a2616e02febd91c51e4a37e5da2cffde1889b8147",
+          "label_sha256": "67c9fabf0dffa0c562ee3022a80e403090a794dd598dddded42970ade623b968"
+        },
+        {
+          "file": "fish_000765.jpg",
+          "image_sha256": "dc89aca5f874ce6a3d29f7575652db5a824b6066df451f044b2782f4d7e97156",
+          "label_sha256": "016aa66a655128e34a5e78b4f0d73673df06222bb621274ccd032fb9cb3126e0"
+        },
+        {
+          "file": "fish_000766.jpg",
+          "image_sha256": "5c32041f0bffdc6ec1760d2aadc2f767bfafde523421dad3ecc3ce3aafc569c4",
+          "label_sha256": "fc2c7e2a54eddb707f8c7812e1d94a9a5e6c8b34979ad62cfcf6641a55c34738"
+        },
+        {
+          "file": "fish_000770.jpg",
+          "image_sha256": "d3cb2f187029ad27c750535ecf841eb1811eb49133d7f0a3e9e7d686b5dc72e6",
+          "label_sha256": "0512ba8455f34c50a922c7c65555c0b36f07cd242931dddbdd5e3ec27d2efdaa"
+        },
+        {
+          "file": "fish_000776.jpg",
+          "image_sha256": "ff832f33e0f6caa83b72f7103f4e84709421dcc8e636f5298f774829d3ee8a24",
+          "label_sha256": "bd026ab3d0a305387839d908e7deab1a2f250d3f3efa93be0d3df6864a85ecda"
+        },
+        {
+          "file": "fish_000779.jpg",
+          "image_sha256": "6ab5e772c65a9ab85e4ee5bb6242d3c938b8d41c1b46f29bdb16e198295da0ee",
+          "label_sha256": "90de8140d216f409d7067801a7fc04aecb8981b4bd94ac673eb23ef5776b2058"
+        },
+        {
+          "file": "fish_000783.jpg",
+          "image_sha256": "ad9049da3efd7a65ee56756f765caeb0ec34b51237031486385bdd30acaec7ea",
+          "label_sha256": "2df1c3a1adbd935bd2a8e6834103e1c867b5e9185b0091bdb638ef8279d21a68"
+        },
+        {
+          "file": "fish_000788.jpg",
+          "image_sha256": "73a37eb77235c1219826db60b0480af89d332549787ac1e03275d94f3bf497f6",
+          "label_sha256": "e84dc721525b848a23221daf5117b21637d92dcbfe76ccc19e3b8e72a93ee283"
+        },
+        {
+          "file": "fish_000790.jpg",
+          "image_sha256": "fb54301b1f75e49ee640f7b82cc2da9fac0ab37255af44fe503548fb5ca60e7e",
+          "label_sha256": "99018a1b622a2af898d9c86086f444a0f1f30d5a0f3055650a82fb78aa08978e"
+        },
+        {
+          "file": "fish_000792.jpg",
+          "image_sha256": "534a3b9f4388f7c2fcdf54ca02f6b0a1fdd51283d7941ecd57e513c1c811bbc8",
+          "label_sha256": "a47ac8aab597849ff507340a065d72c7fc7d9716a34ae159a21f42bb413cdbec"
+        },
+        {
+          "file": "fish_000799.jpg",
+          "image_sha256": "4cdc70fb6d3070d3a35c3a9f36ff85365419c7a55bcae1bcc6ecef980e419b10",
+          "label_sha256": "142270626ff65c738960e5b0dffabad6d73998851c3cae4047321a853903c0f1"
+        },
+        {
+          "file": "fish_000801.jpg",
+          "image_sha256": "7e115157e1e3406039db01fe5f269c488c39fc46af0e802a994c2f8ec9d0afdb",
+          "label_sha256": "b58817f1e38f0a628bf49919dedb3b134d546e1a54f316416cbe85baba79d092"
+        },
+        {
+          "file": "fish_000803.jpg",
+          "image_sha256": "3757e476cd31c8502921fcd02b9a17626fabf8d501c216a2156dbb9ca959e81d",
+          "label_sha256": "fcdd539734e03b7b2323bd60760123c06bdbe5f9f332a5911a3d16df39c37c41"
+        },
+        {
+          "file": "fish_000804.jpg",
+          "image_sha256": "5add243a18e2f0dd07c491ef139c552b1dc06b4134e4bc603d58fedec1859e48",
+          "label_sha256": "0c3bc84ca668a7c7f3c23eda84a7c2e301303ee1edcf7857df8601ceee0fc81b"
+        },
+        {
+          "file": "fish_000806.jpg",
+          "image_sha256": "4773e25cb69b299590480ea256204a0bdb7402a9af9e1871ff9a935a6cb3843d",
+          "label_sha256": "5f96b5c58eca1c4375b10e9bcfa18cf035a215902306e5b566c9fc6f3ed66fe0"
+        },
+        {
+          "file": "fish_000815.jpg",
+          "image_sha256": "3bf35570ed171a79cd0b7fe8b6095a2e1a0aedd79cb96a937cfa88239f515958",
+          "label_sha256": "0673590535313d647d859a18d02d8e86228f8c71ec81bee84e9bc35bee93cef0"
+        },
+        {
+          "file": "fish_000821.jpg",
+          "image_sha256": "6b03a80c246b6503864a5ce430273190c870408ab4adc3bf4823b9697ce3261f",
+          "label_sha256": "9445bb043a33a4336f40ae035f0a2cb47aa858eb7c12896328e12a9771022747"
+        },
+        {
+          "file": "fish_000825.jpg",
+          "image_sha256": "075d9ac26b4f7ea4062885e94c2fc1a8e033abf1cac11824155ebe103339a943",
+          "label_sha256": "8262760f21279dde304bb54c0189faaef152580c8388189170aaff68478797e8"
+        },
+        {
+          "file": "fish_000829.jpg",
+          "image_sha256": "b9a8e17adb8ce126ed44d46c39b51c96852bc162dbf1bf98d450e253a4689f1d",
+          "label_sha256": "9d30105a0605e6054397bf70dd5d65c092abbe98c167bf1629544a9f6e31c571"
+        },
+        {
+          "file": "fish_000833.jpg",
+          "image_sha256": "f5346225f693120715e9b43d0efc5498f6b94d9b02fd1ea049820c2526083cab",
+          "label_sha256": "761b863bb735fe2657a84689726e06ee8f71c4d9564d58683deb4b8322bd1d25"
+        },
+        {
+          "file": "fish_000838.jpg",
+          "image_sha256": "b683be1dd0cb49305e92d72ec1d6f6b76195b265a28a2a7fadf3d125d5224d90",
+          "label_sha256": "a08ece9e20cd3b10d1140352765f3095ba2a5e6fdac59334b9ca868f00dbba09"
+        },
+        {
+          "file": "fish_000840.jpg",
+          "image_sha256": "093f9939f52efe029b5d9fe8790567f7a0bbae0b1fc613d0c1d42525a459c6f3",
+          "label_sha256": "7caf013650dcd78f2a1ed8bd58d7a2e236aaab58e2c6e305f851410217ffd32c"
+        },
+        {
+          "file": "fish_000842.jpg",
+          "image_sha256": "81f978bc5b9744ba5a90a24ab7988e39e4f65523487021ed8deba02223debb35",
+          "label_sha256": "51cd2185591478c119e74efe2b73657b89b4d8bbcfa26ef1901252482ca44441"
+        },
+        {
+          "file": "fish_000849.jpg",
+          "image_sha256": "c71aec6279cd705a568e0173685ce938b3456fb63fa3596af2b2a80c89267e81",
+          "label_sha256": "33adc5d3a4fb6d624883aee79c0ffad921d791b1fcdc42944ef19e8e95831564"
+        },
+        {
+          "file": "fish_000850.jpg",
+          "image_sha256": "80da81665143939f4b479c0786781dc26472f7d5a347284b083785bc30e7cc27",
+          "label_sha256": "c624e9e0191f34c5fa66d06dbbd4786073c150e19bcb2b3b23ea833306d558e2"
+        },
+        {
+          "file": "fish_000857.jpg",
+          "image_sha256": "5fbdbdeda2a39b6c8f3a9d281c2f5a705eb3c2f0890a0ccc4e750c427cae3554",
+          "label_sha256": "05ec14481462bc337da6c177a00cc596803ded81ab59eda403e5d9488a88befc"
+        },
+        {
+          "file": "fish_000859.jpg",
+          "image_sha256": "1924d7a2edd6f598da0867f0d7ed6c9a6dd9123414407e31db85449c35e50bdb",
+          "label_sha256": "65cf43fb35a2c372daf3668922cd15cfb97998891154407df7c177e275b8976a"
+        },
+        {
+          "file": "fish_000875.jpg",
+          "image_sha256": "7fc90abfb9e53119d7399924bbd65c750f2042c600dec07a631eb1f2d4353cfb",
+          "label_sha256": "424a7f008aafb939988983e0726ae3ad460eacac31a34e9006b2df125888cb2b"
+        },
+        {
+          "file": "fish_000878.jpg",
+          "image_sha256": "34b713a14948d19a2f67993503d4ecad4c901035b765c79f0b9b2f15776ec6bc",
+          "label_sha256": "88dc7f65140a6fc0d23d749c7f78460cf84a3641f834885f8059bf181cc71bfc"
+        },
+        {
+          "file": "fish_000891.jpg",
+          "image_sha256": "5670c5184802a048940ca0fbb99790663a7d6cc1e56bf91dfaf6ce7033785d3b",
+          "label_sha256": "8ebd082dea55e99b42ea7b9ebbd4189b18041ddd289b894fb21c6f3402884d0c"
+        },
+        {
+          "file": "fish_000896.jpg",
+          "image_sha256": "6f50d8ddb76bbaed05d25870b6d88bf0fda08aaaff24e594be0a7d0f0002b026",
+          "label_sha256": "fbd7c3eaa8d6e54d7fbac3315dc4d58d162a813235e954d24fc01e1f3529db82"
+        },
+        {
+          "file": "fish_000898.jpg",
+          "image_sha256": "33d10ac960392816c7f7c823e4e1565856c9b0c7a17c8e08f34703198cd58048",
+          "label_sha256": "26e1466b724f916a4b3902101bb75c77cd4fa9cd79692f3a1f9754ab15083a77"
+        },
+        {
+          "file": "fish_000909.jpg",
+          "image_sha256": "5a519248cc53f23eed8818a3a44bf5966b81309038819f6a645cdba87f05c5b8",
+          "label_sha256": "d201af039a376f2493effc0f5a64d1560cd9da7c38570f2db877c2fbf571c1ac"
+        },
+        {
+          "file": "fish_000932.jpg",
+          "image_sha256": "b588ae45268eff6406d07a38d757ab604421d197bf8c526471f0ede98ee49b24",
+          "label_sha256": "00f55db41b16e284420c1a344c77d93051095d01a3ea31546277d9ef7f0694cf"
+        },
+        {
+          "file": "fish_000940.jpg",
+          "image_sha256": "534325b11d53d9dbdbe05e19d9137b635f46cdd1d5e623bb63244962b4f54ed6",
+          "label_sha256": "2a28bc67ad3f92176f28b2ae99e9739a90b4ded454b9e60606ae2e1020be3cf2"
+        },
+        {
+          "file": "fish_000944.jpg",
+          "image_sha256": "d5f6331d30bf6f7c336449e67df9aec59efcb3b18ce52b653acbe4917271a6e2",
+          "label_sha256": "fde20661a5fe025beb16d3b396f909176d210a598d3684365a3c355627557581"
+        },
+        {
+          "file": "fish_000946.jpg",
+          "image_sha256": "c0e1d10f1d7e3a83b515406f251bf3b17fa294ecef81ffacfe0540d852083da6",
+          "label_sha256": "f915dd157449bbf709981f8f6a318782f874758cb6651fe70ca4f0330b5f29e5"
+        },
+        {
+          "file": "fish_000960.jpg",
+          "image_sha256": "c1d6602b4c72613e5e8a1dc9fa8812bfa23c2042fcf52b6c2c3e5551db78745b",
+          "label_sha256": "cf62070712449e0f4c668c2ead01c7f4b2441d3595fd16a46e4513ab3e0b0c88"
+        },
+        {
+          "file": "fish_000968.jpg",
+          "image_sha256": "1e6be055733623b6bb353afebde56dc8eff93896af879d7831d8f0da981e04f6",
+          "label_sha256": "384fcaa4c9a06e4d18eda83c84bc46c725c58690419326b5bacc0f0f6ff88cda"
+        },
+        {
+          "file": "fish_000973.jpg",
+          "image_sha256": "a864f95ab254857d5f74b779ba19884ed78748d70635b8d0325411628530d03f",
+          "label_sha256": "4c02f7439075d9e0daf6ead7949cfcb858d9b9126ad6a57d2e60813a483e5519"
+        },
+        {
+          "file": "fish_000986.jpg",
+          "image_sha256": "2cd2476ecb217795fda5ab2a30368f2069ea5c49ca8f65f062068faa9bb608fc",
+          "label_sha256": "e333e663b0f1b7ba356bd414e6cb0723e7c21df25d1a777aa06d09143d18d398"
+        },
+        {
+          "file": "fish_000987.jpg",
+          "image_sha256": "c2074a9d051c1ab96bfb348cf82891da0e4b3bac810abc174d605eb013a6f0ba",
+          "label_sha256": "1a7ed29d8af9f4d598d9f811a26e4573e010d911cbdb3311fb6d4688c0a9a9e6"
+        },
+        {
+          "file": "fish_000993.jpg",
+          "image_sha256": "dd39eccee8c984cd229294ff31ee1b429564b8e9d046eb3e6ed155922f865de3",
+          "label_sha256": "3942972eee9e410b76b1b28da3e2679a911e6094cd0223ec67e916d20633553d"
+        },
+        {
+          "file": "fish_001012.jpg",
+          "image_sha256": "5d8c35a31e52a38d9bb3bd72db2fa8032e9753ca10041c8873beb894ac4de317",
+          "label_sha256": "fa6ff7276c80e1d03fb309626153c3fc26856415fa3537976be657bdcc99c4ea"
+        },
+        {
+          "file": "fish_001016.jpg",
+          "image_sha256": "303c106d62e425c5684783d39ad983454b4b6cf055ed1ab453ac38ef1f058fc1",
+          "label_sha256": "d0d6d26fc69f449f426640f10d18646f6ea0d3ea569f5c9b0986ffc10f90589f"
+        },
+        {
+          "file": "fish_001021.jpg",
+          "image_sha256": "aa4ca1746cfd88c5e6efee193f4065f5433a1480f9f8368441ba8df2d5f91d23",
+          "label_sha256": "7fe55963eef58171be5cd6cac052b00fdb1460b9590b7de78e5781e87f98f78d"
+        },
+        {
+          "file": "fish_001033.jpg",
+          "image_sha256": "8a7ea74dcecb66eabec4ae02156979145855be6b8bbecac232d834331d90da38",
+          "label_sha256": "1e0f9d6ff4866445ffa61e7a7429db3446335a3d545657f042daac8608f548c8"
+        },
+        {
+          "file": "fish_001042.jpg",
+          "image_sha256": "b1fbab1a934e2a6e8455f20589526f0a3d2deff54431b7310e018ae90cd6d590",
+          "label_sha256": "96f3b3de291a129a4d13425286846f48220b37120c8a7173f4db86c0ebcf30ac"
+        },
+        {
+          "file": "fish_001044.jpg",
+          "image_sha256": "71002da41959fe02f08f1b3cec811c6ab2e49e081ba1c1c19ca73488d5528a9d",
+          "label_sha256": "c993be90b57dbfdec026812347dc9e28db363af802911c001f763c8cd8b2abf4"
+        },
+        {
+          "file": "fish_001049.jpg",
+          "image_sha256": "c3619e969e5c53366982079f83922d9c900b17ae03e37b5a84a4e19e8d1ae2d6",
+          "label_sha256": "ebb07ec905ab9e8650a7f894b9eeb0bf12be154d576625f5f2101f078bdabd66"
+        },
+        {
+          "file": "fish_001067.jpg",
+          "image_sha256": "337562ffc459fcf2ac6b8cbeee78a3767487043bf4569e0345ba7c1ebe477cba",
+          "label_sha256": "345f01f031f8c48bbf418868d81dca4fe5a8b69f0d3fef966c49518dfb0709aa"
+        },
+        {
+          "file": "fish_001077.jpg",
+          "image_sha256": "6efb14d486f4f97d8ba579d3f62a6c7974be77c59b320f6c64afa79935ec280d",
+          "label_sha256": "0b9390c9e6abd7067f22947f1b01c1c701f110f6a259851b6c4cbed50b8139da"
+        },
+        {
+          "file": "fish_001079.jpg",
+          "image_sha256": "311bb694f030e6cf5aa0e040005a493a2acde7adbd267d3aae66a4aa83a6e96d",
+          "label_sha256": "dfbfc957d25ce24f930d8d5b2a91c0c3b2b642d1100c4baec812da6ccc30b02f"
+        },
+        {
+          "file": "fish_001082.jpg",
+          "image_sha256": "aad4b72a9d1e523007bc6e75aa03296dfdfa77a937905ba0d6f1680765bb2f29",
+          "label_sha256": "836f43af32910e52fc942e75342cccff9d686a4163fd869e0fe0ddb1d5b84a26"
+        },
+        {
+          "file": "fish_001088.jpg",
+          "image_sha256": "9ee01346a6a3f71398a5b5f649ee15153f6925198e8835cf19a708c50f04e85d",
+          "label_sha256": "e026a9ed515e935fd0f91b0ccf533dbdf070255f3ada4b55bf84163c63826ecc"
+        },
+        {
+          "file": "fish_001096.jpg",
+          "image_sha256": "cdcdc74649cef459d5b58c2f59f61665210ebed9a41762a09d6d33ef24dd4bc3",
+          "label_sha256": "8a48942de653bdb4e62a3ecaa8acfbf0b990d3805494c5fb95bf101ccc578dca"
+        },
+        {
+          "file": "fish_001097.jpg",
+          "image_sha256": "28dfc72938b02022a957bc404df34acc712a485f663b3482063171240ed90d6a",
+          "label_sha256": "a4df2e998f8be1dec40dad0a101237cd86fbb1884c19b3050d59f884a3f5ca5b"
+        },
+        {
+          "file": "fish_001103.jpg",
+          "image_sha256": "f3a6723897d46039739eac15fa67cb595c3c51e1abd20625a7c814c7b037bc29",
+          "label_sha256": "6ff4fcf52353e84216ac3ce2b3610e21c5f9ac543955896b3ebc620915b0b1f5"
+        },
+        {
+          "file": "fish_001110.jpg",
+          "image_sha256": "08acd4654e94529f92f2f92c54635de97a136b131c9cd599b7fcf612cd8f4df7",
+          "label_sha256": "d208a50353f444c508dc66bcd54626e7b315af79a48285bc26bcb645bad55074"
+        },
+        {
+          "file": "fish_001130.jpg",
+          "image_sha256": "f48acb619eaa207b92dc950a323612d89f53b45632d38827ffe17916d2766d0e",
+          "label_sha256": "7db71fd9c07d56c5453afb2f0564050ca72cce50de5b9c3666bc35f4f0555446"
+        },
+        {
+          "file": "fish_001140.jpg",
+          "image_sha256": "f55baea7ac8e02757bb2885b9a6e9a55de46e6eb79119b7b2936ebb3326236a2",
+          "label_sha256": "f4155e3379ed5675ae6797fb8f00cacb31dd0a4e00f61451abcf1b817f878448"
+        },
+        {
+          "file": "fish_001148.jpg",
+          "image_sha256": "e1ab59e1739e489ff9600dd4b5347ae3c83a7fb37d03a4954cb182a9dd7fd369",
+          "label_sha256": "cba96f6ed2649e61873216bc79974108df873d939fcc2b0b9ffc4beef40f402f"
+        },
+        {
+          "file": "fish_001158.jpg",
+          "image_sha256": "39a11ab558c9bed799b0770a229e9ed748d250383d8cf6d8ba291ce4e710feb1",
+          "label_sha256": "61328a157ac62e28e73fbe1ecc615bfceb9187c4afb95168abbf2891882f42df"
+        },
+        {
+          "file": "fish_001165.jpg",
+          "image_sha256": "609e822c98da6bff6be7aac7ea1aa0808e82356688c6ee0443154a23d135cedc",
+          "label_sha256": "5d076e790fc0cfe765d5f930ebda15521d9b70444606203872f92bb225ac4bf5"
+        },
+        {
+          "file": "fish_001177.jpg",
+          "image_sha256": "02f9fca6e0b893cc3cdf5f7ce1f33ea234f37963a8eef142f370263eafc39057",
+          "label_sha256": "013ece15f75b63ad96d35a5b71eb5fe1468cf910a16e45c4582b9bfa84978dda"
+        },
+        {
+          "file": "fish_001189.jpg",
+          "image_sha256": "d00b9785fd6b681ddec0c8e3e61a8da4cf52f59805352a727b8e24bb666a95c6",
+          "label_sha256": "082d603700ce8546e61caeb984b3a7c83229459dbc7686bd87e694502e80bb89"
+        },
+        {
+          "file": "fish_001191.jpg",
+          "image_sha256": "315bb1d8d13d2436e6574ac602fe2592a8ee696b6b96add250378b2732c77444",
+          "label_sha256": "a4726f4fd386072a22c3679c86dd172716441ded58ac118105102a6ef127b609"
+        },
+        {
+          "file": "fish_001194.jpg",
+          "image_sha256": "827d1c6c64c852b8f8dce8daaa1a65f66252191a9fc4a47e257d6e3b236100bb",
+          "label_sha256": "d105929d399f34e1795d2b92dbdca30d39e76a9b97be7e50df7e1098c074a463"
+        },
+        {
+          "file": "fish_001198.jpg",
+          "image_sha256": "1053b93cf6458a6f89d4340282cfa39006f684084729990b0c42b887c5020f83",
+          "label_sha256": "24c069c6435903b409b5e0ab597460876959b217e280311c962ca06b47415088"
+        },
+        {
+          "file": "fish_001201.jpg",
+          "image_sha256": "dd28aa47252c464da38f4a1de058ed96b6062e4b038f80ca28eb8c0291a9e0a6",
+          "label_sha256": "36f00f229061bb78306539e6f6e5a01dc46616168a696c24b21fcfc9cda6442e"
+        },
+        {
+          "file": "fish_001207.jpg",
+          "image_sha256": "303a6b3cec67b0214c67f9386006b0b7520c9cc1a508665f2037a765a9c61933",
+          "label_sha256": "b6ed1f4afe30116f2bd5e278682662d37ed601c8beb5b729fbaf0be8120713fc"
+        },
+        {
+          "file": "fish_001212.jpg",
+          "image_sha256": "e05fa46fba1d53e8346543659b8780dfac9c3d304406e41aea11639abb51b84a",
+          "label_sha256": "1358be7a9297391f1ee2d411249a66ebe153fe761e2d54c1eea2bfe828487154"
+        },
+        {
+          "file": "fish_001224.jpg",
+          "image_sha256": "c21568bd9b20106ebfe4ea10bf4c04faa25fe33917c2db704f45b197f515c0f8",
+          "label_sha256": "257a293aa9060b2bd075c603e5add09ab1c7b20e47e68fbd3ee2765b4438114b"
+        },
+        {
+          "file": "fish_001226.jpg",
+          "image_sha256": "02a53c90f35a3ee51ae5c6880ebba71a1082771196d5ae7bc92d987c33f7a44a",
+          "label_sha256": "f3fc9e0f1a89dcb6670324bd05c5ff58f03b53185937e8f48be9b9c7533aebac"
+        },
+        {
+          "file": "fish_001234.jpg",
+          "image_sha256": "df2c0550f842b881f5cb0cf7ffeb9acde78fb7ec934800cce053cb2c4c5b13ed",
+          "label_sha256": "3cd9727c380e06a3dac7ed30bb1d61955e864000fe295ffacf49e9f2ee132498"
+        },
+        {
+          "file": "fish_001239.jpg",
+          "image_sha256": "e057d13226fcaff05b1a334f9aca83a7227761787219e93a98ee84c1033965ab",
+          "label_sha256": "7a91fd061c474943e9acf9ac4ff713026d2996c8d517f3f90d5c29d0674b52b3"
+        },
+        {
+          "file": "fish_001245.jpg",
+          "image_sha256": "1554632ebf9e266ef255ba87036974c97435ecc391544eb45d3e62034d454312",
+          "label_sha256": "b08d509cc3303a0e18e0610d08f2bfc7a31b6be0a464dab8708eaab209ffb112"
+        },
+        {
+          "file": "fish_001246.jpg",
+          "image_sha256": "b541dc70ba66be57e03523426b44760fed2ee4f40a3e7a4bca79e39674cd63e0",
+          "label_sha256": "32044134d7e1972268185be997b118e558e1498dff022dbb86087184a207cd8f"
+        },
+        {
+          "file": "fish_001254.jpg",
+          "image_sha256": "441cbad138c85c75fb197dab161fec0966e9d03076143882624c48c5a5789347",
+          "label_sha256": "94f582541e6c9d6aeac6e7eb0c404bb2c8458d8607c35de4e25220a43e996500"
+        },
+        {
+          "file": "fish_001256.jpg",
+          "image_sha256": "902e7c13e1b6c8f4aa6208b5a16e926846796780dd533ddd92f4d2ea3c86f9d2",
+          "label_sha256": "5c02b6ff6d145d77dfc53901472c5207c327b6b26353043c148bd187cbc90fcf"
+        },
+        {
+          "file": "fish_001267.jpg",
+          "image_sha256": "d06038ceb62126fdf57515d5821d02bbb56a1e73073a84edebb51708243481b7",
+          "label_sha256": "1cb782fa865a3d3214de3e0b4c669d9fc7ad8825a80babb5e6ce4faed8d7a36b"
+        },
+        {
+          "file": "fish_001289.jpg",
+          "image_sha256": "3d8d3c32463835aa2aaed6437e73ad2801e777c52f1baac4cdcb6e7938a6703f",
+          "label_sha256": "1285cbc09cdb91bc1f150f8d5b612f881d552afb10fd2f2c242a00b94e1d5653"
+        },
+        {
+          "file": "fish_001301.jpg",
+          "image_sha256": "9e23d757ba80bb96dd931bfc1da9605402185060834fa9d4ab190b05120c1bee",
+          "label_sha256": "80f989a1b03c8aba03730cb05b5d607f78eeefeaa69ba07188ba8684c8add9be"
+        },
+        {
+          "file": "fish_001312.jpg",
+          "image_sha256": "1b88048f5e2067fd77b1749b77e652233b13eb4766f9a6a12e0022f3becc35d5",
+          "label_sha256": "c0411f6dcad06004302efabbcb31fde9ea6d94b2dc6a36b4bcd88a541ee99ddd"
+        },
+        {
+          "file": "fish_001314.jpg",
+          "image_sha256": "f2e2e2e05ff5372bc1a8815afd27e9f2732831392b697538c45a2db44e3bf792",
+          "label_sha256": "3692e6e9187878dc0260cf31d4688957dc349f90e0c116ea9a1716ba8b94555b"
+        },
+        {
+          "file": "fish_001324.jpg",
+          "image_sha256": "2bffca9a3d3aa9c822f333f35656aa7d3698a3b57d5c4a957473add3a61a4ad4",
+          "label_sha256": "91aa8c68642a7318daa85e081582eeee183d28544195c0ebbebaa8f81b82e9c1"
+        },
+        {
+          "file": "fish_001326.jpg",
+          "image_sha256": "ad4b7a9a4fefd16fa0ebf6b3ce888928f7bb73240640403b4a11c9fee55bf692",
+          "label_sha256": "4c46be9e1721711ed47b3db5311b9d079dada47ee278e291f5b83751d087a086"
+        },
+        {
+          "file": "fish_001329.jpg",
+          "image_sha256": "1180f5e81bb7673c2fcd5d6eb09ca7c52f18957e47c51dbef2f79b0281fdbcaa",
+          "label_sha256": "bf9147b0fefe291b968bee5bcd589635a42b30046f08d86c105d2ab5f9019ae9"
+        },
+        {
+          "file": "fish_001331.jpg",
+          "image_sha256": "e2ba4bd8a57d584bdf69e56ea604e9082dfd4fe4f9c821c6bfd2d365e57aebc2",
+          "label_sha256": "6e0e9a2974a7cceae7b1edd641935b0e8cc2f300e0f27921e42785200de96e15"
+        },
+        {
+          "file": "fish_001346.jpg",
+          "image_sha256": "6f0908cc62b9e14c70956fa47523df20c2911a8360613b7bbff0ab1667b8c681",
+          "label_sha256": "560fb5ddc35ceb18b72fff63b268b25c03c42cd4df833ff3d28997cbef7bcc55"
+        },
+        {
+          "file": "fish_001348.jpg",
+          "image_sha256": "1442f9149a98853155817c6d797bc8ca36f7d0cdb7f454a1588525fb05626c52",
+          "label_sha256": "7f0e3eea6961c22681aede80455eba3c2152f2e2876fa1196cb18c97f51d2ca2"
+        },
+        {
+          "file": "fish_001357.jpg",
+          "image_sha256": "2c9098419b71361060dc90929e2c22f6dd1c96da8d1dd875c3d250a3d58d2249",
+          "label_sha256": "dcdc862cde5b05ef64c4c5c0a7025b7d619f3d1be45f3e91ff0d6a764da1f6d1"
+        },
+        {
+          "file": "fish_001373.jpg",
+          "image_sha256": "907bdbb9411e7d3fcf8ecda224b06889222c160e8cad224d7c88775835211b95",
+          "label_sha256": "007c20b1ad4fbd52f2295f7ab92206c84f5d74af587e24720daa7dc5feade9da"
+        },
+        {
+          "file": "fish_001378.jpg",
+          "image_sha256": "57a0a6d4a7874a1d235b0ef6282936be2e245285663b0a18ecbcfd1cebec7c7c",
+          "label_sha256": "97c6a49e1849df230e5d380d4f5e0982682bb21ff27095ecc89b3b490d7ffbc4"
+        },
+        {
+          "file": "fish_001385.jpg",
+          "image_sha256": "3c13c501619dfde625e7dbd59159282003cd340e179a372d61a24dd755cba2b4",
+          "label_sha256": "83130016a83aa733f93e51877e75fb1e0491755ea5c62b9c0319b56146103851"
+        },
+        {
+          "file": "fish_001386.jpg",
+          "image_sha256": "6f09566045a43ea9cc318272c9e7e7d3b4c4d9eb500a997f918d55ac2686ce16",
+          "label_sha256": "7440ef58d4e76deda361b495aec84c529568819fe03d421e44fd0abd3ae9ad0e"
+        },
+        {
+          "file": "fish_001387.jpg",
+          "image_sha256": "cff262aba7ada8de7a1bd2cbd94ed2628fec8931359d92cbd539eb392c31aa2b",
+          "label_sha256": "8ab22b5e85073e2934a1c25324bb96cb188f7d9a94a233f512961b6c9235452f"
+        },
+        {
+          "file": "fish_001403.jpg",
+          "image_sha256": "c1aa644dd1eb121d1ae3763c3cdde4d4484e5b9d7101a0cc1fec12ec2f0c5363",
+          "label_sha256": "fd69d563b5de4369930e5041579038a84d90a16034e291ca5ef8f31b6f7c5c53"
+        },
+        {
+          "file": "fish_001409.jpg",
+          "image_sha256": "8d6ccd7efdd392e9fde18bc28ccb205260e7e84e1ddc4a5352fc55627284250c",
+          "label_sha256": "3b3f111650079a028dd08696df4210e11d2d093ab7e3a47332d91916cfaa295d"
+        },
+        {
+          "file": "fish_001422.jpg",
+          "image_sha256": "da4e98f6a9c4eeab812dc2ff104cddcf2b3f643d90e31f468bfd6faf6bdede1d",
+          "label_sha256": "cae0835d91a26f96de395bc58b7a9fe7617e38f6ae2cc6f90aee640e3da8b075"
+        },
+        {
+          "file": "fish_001423.jpg",
+          "image_sha256": "7690a11bdb217f565fa4468a027a80af05266e1d88a732e9d8de3e793c06b6e0",
+          "label_sha256": "bfe9b8ef028c8a58fb7df4ba3a282628ab149192e19d66a8abf0dbadcd073b6b"
+        },
+        {
+          "file": "fish_001426.jpg",
+          "image_sha256": "89506795107d08237c7562dd21a762b5efab124ec15805bdd4cf68c4c3531999",
+          "label_sha256": "a3b3df42e320b60b25bdde2b23d73c46248a622eb7c9c2dbb101791dd52a514f"
+        },
+        {
+          "file": "fish_001433.jpg",
+          "image_sha256": "68667684d6851941dadf1b4a99134ee3f79915345c7d80555cb9aa2ca56d99b7",
+          "label_sha256": "18953012fc9c0dad343ff4d409a863d01d187c47b9b5911ce564b12c556c921e"
+        },
+        {
+          "file": "fish_001449.jpg",
+          "image_sha256": "3d39afd034f1b1fec3935c67f924295a2d0192adb0f7bab587055af724a7ba93",
+          "label_sha256": "485fa30189b7dd95a73ee51684405e346f6075f08269f8adeac2592366929f1a"
+        },
+        {
+          "file": "fish_001450.jpg",
+          "image_sha256": "51a06a5ec081985353243af9c421105050d0808614829188b8b7afa0725aaf6b",
+          "label_sha256": "8820ede12d783246de038f1131a48e4dc3796da2d0b765d78a779e2951229cac"
+        },
+        {
+          "file": "fish_001452.jpg",
+          "image_sha256": "15f4cc255a86a20aaf74d38310c11aaca62ad16b631a2c55984dd770c22754aa",
+          "label_sha256": "53065f2026123c91912c700075d9fda52fd210fdd0c596c2f2425a551e11def1"
+        },
+        {
+          "file": "fish_001457.jpg",
+          "image_sha256": "518a293f15554a900798d5c90354a9fb92345cb45ab9b2f2ed800857897425fb",
+          "label_sha256": "9a188b88fc79ff6821855ae4a43fe148d3916376bd146ff92dcfe38b18859171"
+        },
+        {
+          "file": "fish_001468.jpg",
+          "image_sha256": "1ded1088332c38db36c1207876cd6ccfde344b6c154ef37dc4512ce6078623c8",
+          "label_sha256": "fdddcf87a216b124c1ecdc97e4c492229b8d22b776118054f50a49ff24accc7b"
+        },
+        {
+          "file": "fish_001469.jpg",
+          "image_sha256": "e9a0a32c6adf045dc5f76ae45a82351ccaa0d09cd9a712717b6cad9bf3c68906",
+          "label_sha256": "688356cab274754b25f99d830ef5def7075ff3bcef669c1f41c01888729f32ea"
+        },
+        {
+          "file": "fish_001475.jpg",
+          "image_sha256": "d3d2614c5b1105bceed00253b1596dac634df4d5fa44864c09c67ba8bd21287e",
+          "label_sha256": "b99a07848a3fa3f9516d908003b3a49dba731f0318b3eb1aedd60a99e2064329"
+        },
+        {
+          "file": "fish_001485.jpg",
+          "image_sha256": "0a1d580f9f1b16d1d7f9a3f6a8221f978daf536d55b1cb1627579c6a06b4b1e7",
+          "label_sha256": "ec01236506902708cc49264f2146fbd6a0c071328d858dcb239de4ebc9b5891e"
+        },
+        {
+          "file": "fish_001487.jpg",
+          "image_sha256": "25228b95b101fabfdc3ddc5cc57a0781d93ad132761b94a8c8ef687baa479dd4",
+          "label_sha256": "f86b69894611aa8e35b1dadaa6b5c89598e9a1d0433ed17abb71aa89a2fa2606"
+        },
+        {
+          "file": "fish_001493.jpg",
+          "image_sha256": "dee5dac9dba275e7a77fb734e524ab8e3fa8ca8c599722c47a21f76e50b4fb35",
+          "label_sha256": "0bac8a98c52a124471e76bcfd86da27a0df6673c177ac85b80ddee5260f0788d"
+        },
+        {
+          "file": "fish_001496.jpg",
+          "image_sha256": "1c656dc5e9991d10a35c6fb70b482cb5308cd1fc85f48e92e3e6c35d5a3df4c3",
+          "label_sha256": "e326a9067b242553214ab92f4edf7953ea85eb607d0c6f338201ade6caed6ab3"
+        },
+        {
+          "file": "fish_001504.jpg",
+          "image_sha256": "bafe1d163daa88df64fc54f04dff497f026d8cc58be8602668dc3cb24ea6527c",
+          "label_sha256": "aab2d60764a9aeaf6f11593223cc889a4137e12e7510a6815b4cacfeb2dceb03"
+        },
+        {
+          "file": "fish_001516.jpg",
+          "image_sha256": "32d60a2b4fedaa821c91745d875d06017a9f17891877d93b4abd8379c500e882",
+          "label_sha256": "0b77068833e1459c29c46aa4470eaa3c00dee9e723b818890ded5977c4f3113b"
+        },
+        {
+          "file": "fish_001526.jpg",
+          "image_sha256": "59ffbc3f38696463c46ca91711f874f7e69e15bb395b96fa65c19969a9351421",
+          "label_sha256": "1ae0f45a7bb6b3dd48a36f9958bb28500a1446602bb10e228c2ae9fd5f455e60"
+        },
+        {
+          "file": "fish_001535.jpg",
+          "image_sha256": "ebdc05563391e1c5481ea8031fdac353bbf9e289b41d1b026b9da565e45c12bc",
+          "label_sha256": "c1971b520cfb07cb015e07aaf2cef4ace3b5c92689da700db7ebbc73b3dfff95"
+        },
+        {
+          "file": "fish_001536.jpg",
+          "image_sha256": "a061760966d65d452cda494f8634ace9778e9a25238639fdc1229daf3b671af3",
+          "label_sha256": "45eaacbcbb40e9a057ae9f3732dc28d2b093912e07fd46e0ec79192913813290"
+        },
+        {
+          "file": "fish_001544.jpg",
+          "image_sha256": "efc6448b685775381321ad291e0db63d43f121da8cdd9bc3b0807718a69a55a5",
+          "label_sha256": "eaa71a830c17d283c4b0abceabfae67dd3d37de802cfe34ea7e78d8aaa423216"
+        },
+        {
+          "file": "fish_001563.jpg",
+          "image_sha256": "08112801b74f9b10fd25cb998f9486a8e81b684423b848b62ddcb0616d516ea9",
+          "label_sha256": "4e7a6b1bee6c828b9a109e21cf1d28ed4d70345bb577315994c6834095521b06"
+        },
+        {
+          "file": "fish_001565.jpg",
+          "image_sha256": "76fd657ae3ad6b29c92a0cc337f4d8dba8ff4e345ebb14bef3d20dd5cd84cf55",
+          "label_sha256": "3484f338d8b1a75beefb076e4bfd1adbba5ad6a3ce5c351c76bcad93c27a323f"
+        },
+        {
+          "file": "fish_001578.jpg",
+          "image_sha256": "2d82884a7dcce66908714e57da07fd434a12b18285daa8c80b96dd1d62f04714",
+          "label_sha256": "f432407d4cd4db9aacb7535c8dcd37fb177023fa5ae7d3a6455dec7ed6b8f54e"
+        },
+        {
+          "file": "fish_001579.jpg",
+          "image_sha256": "45350354fd64f25cfdafcb77b9697bd3b1eb66c3ceaf2007576223897a20814d",
+          "label_sha256": "4facd091208c1f520428332035fa10f1b2e26488eb1e1c6b81c4063d8fe57847"
+        },
+        {
+          "file": "fish_001581.jpg",
+          "image_sha256": "86e6d1235254c413bec865217e4370b84dbbf4b0ed93e1596e50e85f9c27da45",
+          "label_sha256": "a0a23e8cad14c2b6bd0e1d6607ac5dddc1d1850a61b29d7c052e224e7a345b03"
+        },
+        {
+          "file": "fish_001583.jpg",
+          "image_sha256": "33d6128fbaf289920ad4b3fd59966a0491ef60cfbf5d69ec90293f56298f2981",
+          "label_sha256": "eed15453fb6736a0e7fa5d966c3238d8dcf93ed1635dc19b5407c49237cebf79"
+        },
+        {
+          "file": "fish_001586.jpg",
+          "image_sha256": "83c3f9235c6403666299a6a7bf6086ed8fd3b62bad4407f4615201050efd3985",
+          "label_sha256": "d29a3fb358c57e9bcf4ad46513a5c4f4f0106c594479552a9071c2fc1a52dffe"
+        },
+        {
+          "file": "fish_001588.jpg",
+          "image_sha256": "dacec41329a9f59faa577834da9e8bf5ab5f94c6894f060ca77f51aa628a3ca4",
+          "label_sha256": "ceacbef03a4bc33baa43650e104dd9e4030417819b1bbf53a085836cac7a0769"
+        },
+        {
+          "file": "fish_001592.jpg",
+          "image_sha256": "42b85c4fbfd9c4f9a90c56d17fc68565b84bc2b0c7ed3a88e9a4a08392034f2a",
+          "label_sha256": "c9beda132735ced0028257b8351d4b7500ab78540b3ad8576bf60f35dd451b8d"
+        },
+        {
+          "file": "fish_001597.jpg",
+          "image_sha256": "69ed9730f5a8e1434fe23f96bfa1f17a326f001f4398ba570e8a8aae6a33c793",
+          "label_sha256": "a5a24d5dc8275765413ecb50ca687810c846e6997f860fe281dfd5f1d4f5deff"
+        },
+        {
+          "file": "fish_001609.jpg",
+          "image_sha256": "193b23811d97cd09355ae963a3aec56927e24da6bffa8fb16c3d9f5a8287d9df",
+          "label_sha256": "f7a375b543872372c68a7297519d3673c52b4fb152a78f85188d3d30ae66ca1b"
+        },
+        {
+          "file": "fish_001616.jpg",
+          "image_sha256": "1613d2daacf86b486ecaa2fffa01002d4c9aaa246893ac1952856a6a4a80e0fc",
+          "label_sha256": "a2cf4265d3b95906d94f9485a974bd3b4c376b873d2f8df9eb2b1034f8a66e79"
+        },
+        {
+          "file": "fish_001617.jpg",
+          "image_sha256": "2bed727330a6de0a1925540db5379a44b73dcb20bc6b7cfc5e0ce8aecab84e94",
+          "label_sha256": "d554e0c27e04fff1d3caeb825307a367e1b331cf27710b0c299985e305a84a4d"
+        },
+        {
+          "file": "fish_001622.jpg",
+          "image_sha256": "4c07e705eef4547a5bd287980eca1a348adce7a1d280c9a3d3db52554ee02cbf",
+          "label_sha256": "a1927dd57407fa0f90f2583a0c17dd30824ea8318a2650eabeab8532b6540d4d"
+        },
+        {
+          "file": "fish_001624.jpg",
+          "image_sha256": "34f0a7342a15a7d1809813a9cae3047150eaa724f7bb5850d98897cbd7363718",
+          "label_sha256": "da40b59a4e9e1c822faed33ac200128d61cfeeb6bf7576eb6fc444f357c12231"
+        },
+        {
+          "file": "fish_001632.jpg",
+          "image_sha256": "ba5e0077737ecefeefeeca892465e73b603a04b0d25f0e6cdfae2cce44cd2e38",
+          "label_sha256": "c898efaa3079acbfd9c440a879d7ecf4f08d3ed3dac89c1b940f993395c925fc"
+        },
+        {
+          "file": "fish_001637.jpg",
+          "image_sha256": "6e51e7898048abe6c873061bf74fee80b1a47af37e4c8885129acdddd153f056",
+          "label_sha256": "1536c822c1c30714dfd37443898b531b25ac4bd30441cae15af9d792c65ba8a1"
+        },
+        {
+          "file": "fish_001647.jpg",
+          "image_sha256": "4e1217b7d8fa0d9944d6181fd028b10182915c5c2dab15f22ea07249f23eb1c4",
+          "label_sha256": "48c11dca07668e1c204973e71f0eb5c89e40e4787d6ce6e4483fb7be80eb4aa6"
+        },
+        {
+          "file": "fish_001662.jpg",
+          "image_sha256": "7988fd36fe2515aba5e05daf03be0cb8b1e38c0ad8e41a2ad7f21ae38356c352",
+          "label_sha256": "af9d97e761d12ce743802cb32d83192223417d2eff370c8c2960ff3393015c08"
+        },
+        {
+          "file": "fish_001685.jpg",
+          "image_sha256": "3f0f0c88a8b617c414575e8f0667da442f853f6fd354ea30296c29cbc9479c63",
+          "label_sha256": "026b72f410e112cbd9ebbd52c93431555c86722ac3ea3f29e7066179ae10439f"
+        },
+        {
+          "file": "fish_001694.jpg",
+          "image_sha256": "b4cf9183563128ceec0899e8736ca22dc2e27b358497d8ac49e2729c6148a2e9",
+          "label_sha256": "e3cfc831c77ce8bd60c1e81868e6857b0e43cf234fdba3dc36834881b811e061"
+        },
+        {
+          "file": "fish_001698.jpg",
+          "image_sha256": "45ab9a7bffd6cb079c6192e80313910fd60e587224a6eacb436dfa9ef21f57b5",
+          "label_sha256": "2fa48c5c24b635a6fb32fb56a42f2686d12fca05c39f63b2e48e625f154d47a6"
+        },
+        {
+          "file": "fish_001702.jpg",
+          "image_sha256": "5ef2f1fcc7851412b6b30a92f73c1cac90b45825746ac8318e87a6492fba943b",
+          "label_sha256": "a227caedfeb05b86fb33b4e09543ee8176347ddb4d2aa0d3420a0c5e7e3a9c0f"
+        },
+        {
+          "file": "fish_001703.jpg",
+          "image_sha256": "db8428013b7351b0ba8d2625515a8ce44559bc165001ee845bb06ba5a8310ecf",
+          "label_sha256": "787a3583132b09dcc46e6748c1d3855f2bec3f0e593a3f27f9b34eeaf9c42c4b"
+        },
+        {
+          "file": "fish_001704.jpg",
+          "image_sha256": "2de2bb6047581fdcd2e5bfaa25621671912bd3a6e502a89f1d76845ab9f97b16",
+          "label_sha256": "cb6c2ec423b39e8c5a5d1bf6303babc441e77bfc0f5b6055a6b27d6bae24f02e"
+        },
+        {
+          "file": "fish_001707.jpg",
+          "image_sha256": "475661b6469ab640fdd430f14f3e4f9890c808b6ff6586e962098b6436a7da2f",
+          "label_sha256": "85377d7d8ba730aa9bb961ac365eab911234867634affe0e5da68cd8c784f3d2"
+        },
+        {
+          "file": "fish_001711.jpg",
+          "image_sha256": "1e12a3cd465808ce66ad4abe610960a86de082419d51ae8d5f13ca9c141bb512",
+          "label_sha256": "fbe08aae8b69aaf33f1f3bf3fecfb018c45c6491c83a843b7c1f4fde50914893"
+        },
+        {
+          "file": "fish_001713.jpg",
+          "image_sha256": "c510954656a1374856a8b904a70979a27da8045a419dc13504fc1bd989e77325",
+          "label_sha256": "3329910773d8e4d5b23d2c1e5f758eecc0a9236ba740279cc0617567fb0293cd"
+        },
+        {
+          "file": "fish_001721.jpg",
+          "image_sha256": "302cb9ea1a0a48ce69135138f1762cd809ce506d679365b0f183b9ea5cf2b4a3",
+          "label_sha256": "78097f44234e1ab8c58431a98ea1e7b65769fef81a5c00a2f2b16b162937ad71"
+        },
+        {
+          "file": "fish_001724.jpg",
+          "image_sha256": "92c58850598a8e4a7ef4a9bdd18fb1e7f5d3006232a72414b810960e7abcef31",
+          "label_sha256": "dc9c3a76e610d287adc11a14eb10aaddab5377e1a709fa5b60ce58ad5b8372d7"
+        },
+        {
+          "file": "fish_001726.jpg",
+          "image_sha256": "e6972f3db7ac0254f500c5aa31df308f6fb1441724efc593b31ec74ee6bb3722",
+          "label_sha256": "ab5f9d644e32ade18bccb21d2c7be13591463217e44ae9b752bee2b180fe8fc2"
+        },
+        {
+          "file": "fish_001735.jpg",
+          "image_sha256": "8b43e0b3c81ac8d5fd213fb6a1be7b277ad1a9a235c1d14f12a5c9d5b7226d21",
+          "label_sha256": "f6db2eeca4a6c32299aaff8a1d054e6346dfe9f3c82e3774744e78db5fbb087d"
+        },
+        {
+          "file": "fish_001736.jpg",
+          "image_sha256": "35651b3b93e463aef8465aa13aa2f5c82646d9d667393318328b36393735ac80",
+          "label_sha256": "3183a160694cdb7b7ab668009729eb95fd22ed734f624c55a4ca3c48f44b7b66"
+        },
+        {
+          "file": "fish_001738.jpg",
+          "image_sha256": "27f2bf5c2072d145abccdc1386660fb65f956b9ad36d6140fce119ed352d683a",
+          "label_sha256": "4ff9c7d23b60aa89ab54378e6dcf9e4de7f4f7c92e6dc77da339c050a3ead8d7"
+        },
+        {
+          "file": "fish_001746.jpg",
+          "image_sha256": "6d343ef2859b9a9906f0338376a49405083801ece45958a09228e254fd06f0cb",
+          "label_sha256": "cd2a6994cc13fbc1f7e1040a2604b6df802bc7827343137f56bd2e279f8e8ee0"
+        },
+        {
+          "file": "fish_001752.jpg",
+          "image_sha256": "c1214687c6f95b22df0ea7e8e8b6fa6c858111bf4577c905ea840562b4438459",
+          "label_sha256": "f3de71e7b13a9d9c85a3415c9413b232134400340809b193f013dc9a9f9d6480"
+        },
+        {
+          "file": "fish_001755.jpg",
+          "image_sha256": "1cf3fb160a500af46ccb50baea3291d01199f618e4024f533b490493d0522a2f",
+          "label_sha256": "d9bbbc2f3d855921e2f32580e5ba6c518091ef998d3905388fe1b340f0929618"
+        },
+        {
+          "file": "fish_001758.jpg",
+          "image_sha256": "4eb160890ee212a397e0cb492a460151d65c47bdd8fedbd1c8c56828343c9202",
+          "label_sha256": "dae6bdf94ea0c51b4df7e18e925d81a78c1dfd13be50f65d3643a5347886f522"
+        },
+        {
+          "file": "fish_001768.jpg",
+          "image_sha256": "bc7f4c5c3ba196afb941f98721ad86b557ba8811d2239aaa304520ddfa03146d",
+          "label_sha256": "486da0daba2c057ba712da00a394ee3839656a7e58413a6dea36a6e302b82abd"
+        },
+        {
+          "file": "fish_001771.jpg",
+          "image_sha256": "f0cb8d615ad32110e85dbb122a7a6c66e295f4119f5e17befbfc9fd93d994a9b",
+          "label_sha256": "fb5bddf86db5d597374edc6eb1888cd44a17f1ece6810710d752063b104d5345"
+        },
+        {
+          "file": "fish_001773.jpg",
+          "image_sha256": "fcc2b98f101e40b8f9c2d287bf6be73b78ceb424dfccb8b80fd576c0b37fabf8",
+          "label_sha256": "b04b9386f74f703000a094d8f174c6722337f5575be9ee0fbd6ed5db6c555d49"
+        },
+        {
+          "file": "fish_001774.jpg",
+          "image_sha256": "e63255a07ba52a29bd98dc77dead2f74822cb2466d63a12ab543c61512e84d6e",
+          "label_sha256": "1bd1454e713c2e0fac5fb7f5cb1faba201633624bbb27ed81abdc27b86c6b783"
+        },
+        {
+          "file": "fish_001776.jpg",
+          "image_sha256": "79c4085aa91a64f31dc3513134448058ef9e89ebeb741ade4e2fe97f23233a63",
+          "label_sha256": "af62712fe6993f5964f0828788c90a28fd9e3a661d6514f4f577bda08301201e"
+        },
+        {
+          "file": "fish_001779.jpg",
+          "image_sha256": "6ef025e64f20f33006a98bc6546db24c793b66a3dc7dc70e0fee76ff36316cbf",
+          "label_sha256": "59c17eae6b0e2410fae45c74928dbb519cb7325acbe7410245713945b347c5f2"
+        },
+        {
+          "file": "fish_001783.jpg",
+          "image_sha256": "fe22272418e243d0347f74677487f560c9fecabdf2bd02e38c7ed269bd101049",
+          "label_sha256": "5377c4fba08f6f137a2692c35817d6655fc9e098a40a047c78963f63cddc2db7"
+        },
+        {
+          "file": "fish_001788.jpg",
+          "image_sha256": "7551420615f4346d06a730c2768c9d9ea188d40d28092b0a6dbaa116f487ad9d",
+          "label_sha256": "c85e52a5763b5b40f4b3ae6d18b6df9cbbf2037b62c68949d283824f6cd8c1d5"
+        },
+        {
+          "file": "fish_001800.jpg",
+          "image_sha256": "de332cd9aa65b64825a8dd5c1d7a1525922190af16ac90d3a083f254eb093438",
+          "label_sha256": "00e2f752a89074f99e9738521dc07eea59bd63a06fe95613a483b939e7c446a7"
+        },
+        {
+          "file": "fish_001803.jpg",
+          "image_sha256": "7c2a0ca477d1e47bd20ce129d310a967b1e34013389c8bb5aa959274624c7c2d",
+          "label_sha256": "19ad5928dfabbe2783a36a487e1582e1edbea2c557389cb0e5b27c5886a7a1ba"
+        },
+        {
+          "file": "fish_001811.jpg",
+          "image_sha256": "08b6e2b8afc5573a6d38797d0d871d02318486ff3977a85fe86b93d4d63ea6c2",
+          "label_sha256": "9985e3b0b93b62b90ad475a10f3817a9586b60b07b48d8b6ea53c003ca3da7e4"
+        },
+        {
+          "file": "fish_001815.jpg",
+          "image_sha256": "d9e192cb8613e91fda27670048a1fa76f4a9927b638c55a4810114128bdf304c",
+          "label_sha256": "ed38318a37ee06c71ea354fdfd55c1bfa4b6828eeaf516bba517c2ff18ac3db8"
+        },
+        {
+          "file": "fish_001818.jpg",
+          "image_sha256": "da0c724054454c76d6488cac579ec05f178a22fd05e78183f20c57fbf6f67023",
+          "label_sha256": "b4a62b27d22a5688baa6739cf93db3ba4876c7778bdff72aa15ccd104f5d9ec8"
+        },
+        {
+          "file": "fish_001821.jpg",
+          "image_sha256": "edfab329834fcfa56ce066810f009b6af721735328ad32a036c7a1c72ace1580",
+          "label_sha256": "e21e817511d1bb3469852a45ea8d22a6e1f6f68dd9c5c90a19642e256d0ca79e"
+        },
+        {
+          "file": "fish_001822.jpg",
+          "image_sha256": "ecb7e5f29d46f7143982b3ffa78111b9aca2b017eb98f5edc1c0867b04ffdaeb",
+          "label_sha256": "b2caa94b9a38e72414ef472aa1cd72dac58746a2c2f9cdb814c6574a03cbba68"
+        },
+        {
+          "file": "fish_001835.jpg",
+          "image_sha256": "b0dc21355be7855e254081ac277d9a71f71c5abf5f4ab8b965190fa71e5fd322",
+          "label_sha256": "eca660b91e4b6b7280a81ea8e52ca6f4b4e646897b6c5fe6d26a53eedd98ff03"
+        },
+        {
+          "file": "fish_001839.jpg",
+          "image_sha256": "2b39219fddf99017eee1577aaf619b443bf391ca609117511bd90c725a46253d",
+          "label_sha256": "30b488722159ef603551f6bdedbfbbf6b46aad13f072b315fcb9c6c8d3eda952"
+        },
+        {
+          "file": "fish_001855.jpg",
+          "image_sha256": "c1e2ba0a187b4d6bcb26edf38debc7cc96f0f9653710dea31a5e439b0050050f",
+          "label_sha256": "80bdf50921f01210754208e1db8d2fa168c3b75a41b95a9aa267596c8349164c"
+        },
+        {
+          "file": "fish_001872.jpg",
+          "image_sha256": "9fee09cfddbcf39c7862a9237b31c1566c0e03f93a565a0003c1b3f044db22d6",
+          "label_sha256": "13b761c1c3d6ba9cbb603e2899f1ee338405c0ca4325a9e99db9c68766f43d12"
+        },
+        {
+          "file": "fish_001879.jpg",
+          "image_sha256": "8ef4015df55afb823e77fba9a5c30b3f5c5efd70ee140dc5c43ccb9a06d964b5",
+          "label_sha256": "063b6c8e0da4227ccfd8678ca757e6b69874d622fdb75bec335b805a0409d2d0"
+        },
+        {
+          "file": "fish_001881.jpg",
+          "image_sha256": "dc3ee11151269aa8e97d7f58083349198393a57eaa9ea387830788a9876c85b0",
+          "label_sha256": "9f73e7b8d438e4705e1591f207bfe1dae10f16ab479351ee839eb6fe66696d65"
+        },
+        {
+          "file": "fish_001884.jpg",
+          "image_sha256": "6324443d339cdbf5db47b660ad61a18f76dd31b1746212d751dc124ac32deffd",
+          "label_sha256": "22351c9a08617eb01adf0a2ec22b57c28fb3aedeed5b3f7e8f12ff93a2061109"
+        },
+        {
+          "file": "fish_001893.jpg",
+          "image_sha256": "4594ce68ef06355f6d45abea710118802df907d805761b31c7b18718da827cea",
+          "label_sha256": "f1a5b35d09e7f5f5cc96ea4635c1172dd2861be4c9c875f205fe8024cf09a3f8"
+        },
+        {
+          "file": "fish_001896.jpg",
+          "image_sha256": "ebaa031b90948d9a982f7b429f5f232a2df951a347055e49e7d2e669f2ee4772",
+          "label_sha256": "05aacb3cbf8bf03dfb96abbc32452bdfad3206e1c7d16fb24757ce60d118906f"
+        },
+        {
+          "file": "fish_001900.jpg",
+          "image_sha256": "e33d8ce4770df5bc538974b2d46a10bd89760ca4ea515d46287f184a711b025a",
+          "label_sha256": "2bcbe7367768b6699f8d5f613af4fbbdea06ef3f6886b60f31cbc26bca613d01"
+        },
+        {
+          "file": "fish_001904.jpg",
+          "image_sha256": "a878b11d6aadd821c801dcd4326a573b1410e1a280792f6b2d8bae9ac420cb66",
+          "label_sha256": "1dc2bb8ff3e6cc9a166970f4660e88c09da8ed8aa4b3a2a3a6db118cde5f531d"
+        },
+        {
+          "file": "fish_001906.jpg",
+          "image_sha256": "f4f512469aa2530511efcdd15295c384ff37cf35abc593ef874e07aa4b5e15d5",
+          "label_sha256": "d7fa105c423f8bf9b4b589aadab27f42e0976ff20b625c06bf0e4fcd3b851ca0"
+        },
+        {
+          "file": "fish_001907.jpg",
+          "image_sha256": "8d526e514e59fe1560a4606261a1ec91f7322f062e4a5157cc92ac96479f352a",
+          "label_sha256": "175af94b0228adccbbdd8b30e19c303e474575293dd95bc315232213f94ceb93"
+        },
+        {
+          "file": "fish_001910.jpg",
+          "image_sha256": "7a2c019451c579985812c2dbb3084d77fbab00e018f3db88c8b31ed265b7ae65",
+          "label_sha256": "70b6db36d090a07d101c4437462c6949602a249f30ef503d16e4ff9dbfe97842"
+        },
+        {
+          "file": "fish_001913.jpg",
+          "image_sha256": "02547a88a4f6d8d96e3ac066d4ec7892a9188bd163dfab6e36f809fa10bc0eb9",
+          "label_sha256": "270f43d0ba3d66c288fa4d06abb0dbb8ac398c74e36ab0393a1d979de1ca80c2"
+        },
+        {
+          "file": "fish_001915.jpg",
+          "image_sha256": "3db92d46fe3daaacb866e733060154229af21249db6c6fd87d7c0e2cb6271f14",
+          "label_sha256": "ecbfa062381930eb5e081431cda6ca0dbbd11c6143b88327115880d377b8f1d4"
+        },
+        {
+          "file": "fish_001930.jpg",
+          "image_sha256": "c9220d0318e97fadd1509c0a868f505114ca5ce7d2d6af16ae6cc21a7d7019f1",
+          "label_sha256": "34e3a788e33e2ffdacf0d07530af95193caed07d61d9a33a61122de25d94d9e1"
+        },
+        {
+          "file": "fish_001942.jpg",
+          "image_sha256": "2bf539b7909f48a1136dadc79660d0a06b584baaf588a5e406cc5ec4d80f16d8",
+          "label_sha256": "d7c9840f0775df18b5ab6ed1205007688cf5106b979eaac2fb4340cfeeb4217b"
+        },
+        {
+          "file": "fish_001943.jpg",
+          "image_sha256": "c59180e8a4248ea3b3996484d7b78327fa511be011ace49696a0ca4fe412f11a",
+          "label_sha256": "c8445ba3daf2e62c4f4b97663d910c47499bf40bd510a217e4360ecd6225b519"
+        },
+        {
+          "file": "fish_001958.jpg",
+          "image_sha256": "cf219041d95c05f023e93418e8c20fcb99753b331cf1b20e8327588a9642e64f",
+          "label_sha256": "7d9a1df37b4a5f6f17c7257c74c7c1011d3430cf003ce4ad4f5541d1b1deca36"
+        },
+        {
+          "file": "fish_001962.jpg",
+          "image_sha256": "94c7d5ab4ffac786edb4944be7e39b1022a86d3a267567c0c142a1df7aad2ba9",
+          "label_sha256": "a6370092e17c6866d09ec709341abdbd6ddebe16ef0ae2cb5d106e975c442a68"
+        },
+        {
+          "file": "fish_001963.jpg",
+          "image_sha256": "95d43e8c53474c540ab8b2f2a60bb24d68dff962968defea96ae3ac601840249",
+          "label_sha256": "2e42a12b9c29a3e4431ec99fada77809e827ab806af3ff9ec11de73986185657"
+        }
+      ]
+    }
+  },
+  "training_csv": "C:\\Users\\User\\Downloads\\Tamban_Thesis_Main_Repository\\Thesis\\sardinella-lemuru-ml\\notebooks\\Tamban_Model1_Retrain\\model1_v3\\deduplicated\\runs\\model1_v3_deduplicated_20261123T074613Z\\results.csv",
+  "training_csv_sha256": "c1766ed64d358975ce33362eea6cf95c6f0d1a39925540c15d20c8425a655060",
+  "limitation": "Internal development comparison, not an independent thesis test. V3 validation influenced checkpoint selection; v2 training exposure and specimen independence are unknown. Images from one capture date can be correlated. Image-bootstrap intervals describe this set and do not establish population significance. The legacy test set is a regression check and has already been evaluated previously."
+}

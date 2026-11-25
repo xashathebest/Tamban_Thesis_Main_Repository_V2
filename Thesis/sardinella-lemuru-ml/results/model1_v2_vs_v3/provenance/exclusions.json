@@ -1,0 +1,111 @@
+{
+  "source_sha256": "a5d5eee9cb94009f959e6f043bd69603996a4476ab912aa4662ec5e5c0ced1be",
+  "policy": "Keep the canonical representative; exclude every additional frame in each detected group",
+  "requested_by": "user",
+  "excluded_images": [
+    {
+      "file": "WIN_20261105_14_19_02_Pro.jpg",
+      "keep": "WIN_20261105_14_18_24_Pro.jpg",
+      "group": "near_duplicate_group_0001",
+      "split": "train",
+      "reason": "User-requested exclusion of visually near-duplicate frames",
+      "ssim": "0.997819"
+    },
+    {
+      "file": "WIN_20261112_11_40_18_Pro.jpg",
+      "keep": "WIN_20261112_11_40_17_Pro.jpg",
+      "group": "near_duplicate_group_0002",
+      "split": "train",
+      "reason": "User-requested exclusion of visually near-duplicate frames",
+      "ssim": "0.999704"
+    },
+    {
+      "file": "WIN_20261112_15_29_05_Pro.jpg",
+      "keep": "WIN_20261112_15_29_03_Pro.jpg",
+      "group": "near_duplicate_group_0003",
+      "split": "train",
+      "reason": "User-requested exclusion of visually near-duplicate frames",
+      "ssim": "0.994392"
+    },
+    {
+      "file": "WIN_20261112_16_23_38_Pro.jpg",
+      "keep": "WIN_20261112_16_23_36_Pro.jpg",
+      "group": "near_duplicate_group_0004",
+      "split": "train",
+      "reason": "User-requested exclusion of visually near-duplicate frames",
+      "ssim": "0.985554"
+    },
+    {
+      "file": "WIN_20261112_16_51_02_Pro.jpg",
+      "keep": "WIN_20261112_16_43_11_Pro.jpg",
+      "group": "near_duplicate_group_0005",
+      "split": "train",
+      "reason": "User-requested exclusion of visually near-duplicate frames",
+      "ssim": "0.980492"
+    },
+    {
+      "file": "WIN_20261112_17_08_04_Pro.jpg",
+      "keep": "WIN_20261112_17_07_54_Pro.jpg",
+      "group": "near_duplicate_group_0006",
+      "split": "train",
+      "reason": "User-requested exclusion of visually near-duplicate frames",
+      "ssim": "0.997698"
+    },
+    {
+      "file": "WIN_20261112_17_11_12_Pro.jpg",
+      "keep": "WIN_20261112_17_11_11_Pro.jpg",
+      "group": "near_duplicate_group_0007",
+      "split": "train",
+      "reason": "User-requested exclusion of visually near-duplicate frames",
+      "ssim": "0.998752"
+    },
+    {
+      "file": "WIN_20261113_19_05_16_Pro.jpg",
+      "keep": "WIN_20261113_19_05_11_Pro.jpg",
+      "group": "near_duplicate_group_0008",
+      "split": "train",
+      "reason": "User-requested exclusion of visually near-duplicate frames",
+      "ssim": "0.999859"
+    },
+    {
+      "file": "WIN_20261113_19_26_30_Pro.jpg",
+      "keep": "WIN_20261113_19_26_28_Pro.jpg",
+      "group": "near_duplicate_group_0009",
+      "split": "train",
+      "reason": "User-requested exclusion of visually near-duplicate frames",
+      "ssim": "0.991066"
+    },
+    {
+      "file": "WIN_20261106_16_58_58_Pro.jpg",
+      "keep": "WIN_20261106_16_58_25_Pro.jpg",
+      "group": "near_duplicate_group_0010",
+      "split": "val",
+      "reason": "User-requested exclusion of visually near-duplicate frames",
+      "ssim": "0.999309"
+    },
+    {
+      "file": "WIN_20261106_17_38_36_Pro.jpg",
+      "keep": "WIN_20261106_17_38_34_Pro.jpg",
+      "group": "near_duplicate_group_0011",
+      "split": "val",
+      "reason": "User-requested exclusion of visually near-duplicate frames",
+      "ssim": "0.997595"
+    },
+    {
+      "file": "WIN_20261106_17_48_05_Pro.jpg",
+      "keep": "WIN_20261106_17_46_01_Pro.jpg",
+      "group": "near_duplicate_group_0012",
+      "split": "val",
+      "reason": "User-requested exclusion of visually near-duplicate frames",
+      "ssim": "0.981146"
+    },
+    {
+      "file": "WIN_20261106_17_51_18_Pro.jpg",
+      "keep": "WIN_20261106_17_51_18_Pro (2).jpg",
+      "group": "near_duplicate_group_0013",
+      "split": "val",
+      "reason": "User-requested exclusion of visually near-duplicate frames",
+      "ssim": "0.999689"
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "active_version": "V2",
+  "active_path": "models/fish_detector/weights/model1_v2_yolo26s_best.pt",
+  "active_sha256": "c79f597c2ed51b45ac2911cdbc744f8d2a4bea2411efc6a6ec0d4bcab35901e2",
+  "candidate_version": "V3",
+  "candidate_path": "models/fish_detector/candidates/v3/model1_v3_yolo26s_best.pt",
+  "candidate_sha256": "b5b9032f48b95b72385ada7242d0ecc604b45195e817ce458b9f5d89c5b3d4fc",
+  "candidate_source": "C:\\Users\\User\\Downloads\\Tamban_Thesis_Main_Repository\\Thesis\\sardinella-lemuru-ml\\notebooks\\Tamban_Model1_Retrain\\model1_v3\\deduplicated\\runs\\model1_v3_deduplicated_20261123T074613Z\\model1_v3_finetuned_best.pt",
+  "promoted": false,
+  "v2_archived": false,
+  "reason": "V3 gains on development validation but regresses legacy mAP50-95 by 11.14 percentage points and application-path recall at confidence 0.70 by 7.45 points. V2 remains active.",
+  "report": "results/model1_v2_vs_v3/REPORT.md",
+  "gate": {
+    "candidate_supported": false,
+    "checks": {
+      "development_map50_95_gain_at_least_2pp": true,
+      "development_f1_improves_at_0.50": true,
+      "development_precision_loss_at_most_1pp_at_0.50": true,
+      "development_paired_f1_interval_above_zero_at_0.50": true,
+      "development_f1_improves_at_0.70": true,
+      "development_precision_loss_at_most_1pp_at_0.70": true,
+      "development_paired_f1_interval_above_zero_at_0.70": true,
+      "legacy_map50_95_loss_at_most_2pp": false,
+      "legacy_f1_loss_at_most_2pp_at_0.50": false,
+      "legacy_f1_loss_at_most_2pp_at_0.70": false
+    },
+    "interpretation": "Practical internal validation gate; independent population significance is not established.",
+    "policy": "At least +2 percentage points development mAP50\u201395, better F1 at both deployed thresholds with descriptive paired intervals above zero, no precision loss above 1pp, and no legacy mAP/F1 loss above 2pp."
+  }
+}

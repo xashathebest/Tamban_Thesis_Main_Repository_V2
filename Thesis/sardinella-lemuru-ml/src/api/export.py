@@ -325,8 +325,46 @@ EXPORT_FIELDS.update({
     "fusion_effective_weights": "Fusion Effective Weights (JSON)",
     "fusion_feature_reliability": "Fusion Per-feature Reliability (JSON)",
     "fusion_class_support": "Fusion Per-class Combined Support (JSON)",
+    "fusion_source_contributions": "Fusion Per-source Class Contributions (JSON)",
+    "fusion_feature_class_deltas": "Fusion Per-feature Class Support Changes (JSON)",
+    "fusion_resolved_score_reasons": "Fusion Resolved Model 2 Score Reasons (JSON)",
+    "fusion_model2_leading_grades": "Fusion Model 2 Calibrated Leading Grades (JSON)",
+    "fusion_feature_leading_grades": "Fusion Feature-only Leading Grades (JSON)",
+    "fusion_combined_leading_grades": "Fusion Combined Leading Grades (JSON)",
+    "fusion_tie_resolving_features": "Fusion Features Distinguishing Tied Model 2 Grades (JSON)",
 })
 EXPORT_FIELDS.update({field: field for field in SURFACE_FIELDS})
+EXPORT_FIELDS.update({
+    "anatomical_verification_status": "Head / Body Anatomical Verification Status",
+    "anatomical_secondary_activated": "Secondary Anatomical Verification Activated",
+    "anatomical_automatic_rejection": "Anatomy Automatic Rejection Applied",
+    "anatomical_missing_regions": "Confirmed Missing Anatomical Parts",
+    "anatomical_rejection_reason": "Anatomical Automatic Rejection Reason",
+    "anatomical_verification_reason": "Anatomical Verification Explanation",
+    "anatomical_verification": "Complete Anatomical Verification (JSON)",
+    "anatomical_fish_id": "Anatomical Verification Fish ID",
+    "anatomical_frame_id": "Anatomical Verification Frame ID",
+    "anatomical_review_reason": "Anatomical Review Reason",
+    "anatomical_uncertainty_causes": "Anatomical Uncertainty Causes",
+    "anatomical_geometry_caveat": "Anatomical Geometry Evidence Limitation",
+    "needs_review_reason": "Reason for NEEDS REVIEW",
+    "model2_tail_detected": "Model 2 Tail Detected (optional)",
+    "model2_tail_detection_status": "Model 2 Tail Detection Status (optional)",
+    "model2_tail_detection_confidence": "Model 2 Tail Detection Confidence (%) (optional)",
+})
+for _region in ("head", "body"):
+    _label = _region.title()
+    EXPORT_FIELDS.update({
+        f"model2_{_region}_detected": f"Model 2 {_label} Detected",
+        f"model2_{_region}_detection_status": f"Model 2 {_label} Detection Status",
+        f"model2_{_region}_detection_confidence": f"Model 2 {_label} Detection Confidence (%)",
+        f"{_region}_anatomical_state": f"{_label} Anatomical State",
+        f"{_region}_anatomical_source": f"{_label} Anatomical Verification Source",
+        f"{_region}_anatomical_confidence": f"{_label} Anatomical Verification Confidence (%)",
+        f"{_region}_anatomical_reason": f"{_label} Anatomical Verification Explanation",
+        f"{_region}_anatomical_evidence_summary": f"{_label} Recorded Anatomical Supporting Evidence",
+        f"{_region}_anatomical_evidence": f"{_label} Recorded Anatomical Supporting Evidence (JSON)",
+    })
 EXPORT_FIELDS.update({
     "anatomical_association_diagnostics": "Anatomical Association Diagnostics (JSON)",
     "anatomical_part_decisions": "Anatomical Part Decisions and Candidate Scores (JSON)",
@@ -390,6 +428,14 @@ def _traceability(analysis: Mapping[str, object]) -> dict[str, object]:
 
 def _json(value: object) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, allow_nan=False) if isinstance(value, (dict, list, tuple)) else ""
+
+
+def _anatomical_support_summary(records: list) -> str:
+    labels = (("review_id", "Review"), ("reviewer", "reviewer"), ("source", "type"),
+              ("source_id", "source"), ("fish_id", "Fish"), ("frame_id", "frame"))
+    return " | ".join("; ".join(f"{label}: {record[key]}" for key, label in labels
+                                if record.get(key) is not None and record[key] != "")
+                      for record in records if isinstance(record, Mapping))
 
 
 def _box_dimensions(value: object) -> tuple[object, object]:
@@ -751,20 +797,32 @@ def inspection_row(
     })
     decision_fusion = fusion.get("decision_fusion")
     decision_fusion = decision_fusion if isinstance(decision_fusion, dict) else {}
+    decision_features = decision_fusion.get("features")
+    decision_features = decision_features if isinstance(decision_features, dict) else {}
+    feature_leaders = decision_fusion.get("feature_only_leading_grades", [])
+    feature_tie = isinstance(feature_leaders, list) and len(feature_leaders) > 1
     row.update({
         "decision_fusion_mode": decision_fusion.get("mode", ""),
         "model2_only_prediction": decision_fusion.get("model_only_prediction", ""),
-        "feature_only_prediction": decision_fusion.get("feature_only_prediction") or "Unavailable",
+        "feature_only_prediction": "Tied: " + " / ".join(feature_leaders) if feature_tie else decision_fusion.get("feature_only_prediction") or "Unavailable",
         "final_fused_prediction": decision_fusion.get("final_fused_prediction", ""),
         "evidence_agreement_score": _number(decision_fusion.get("evidence_agreement_score")),
         "model_feature_disagreement": _number(decision_fusion.get("model_to_feature_disagreement")),
         "fusion_decision_state": decision_fusion.get("decision_state", ""),
         "fusion_decision_confidence": _number(decision_fusion.get("decision_confidence")),
         "fusion_review_required": "Yes" if decision_fusion.get("review_required") is True else "No" if decision_fusion.get("review_required") is False else "",
+        "fusion_feature_class_deltas": _json({family: feature.get("class_support_delta")
+            for family, feature in decision_features.items() if isinstance(feature, dict)}) if decision_fusion else "",
         **{column: _json(decision_fusion[key]) if key in decision_fusion else "" for column, key in (
             ("fusion_disagreement_reasons", "disagreement_reasons"), ("fusion_configured_weights", "configured_weights"),
             ("fusion_effective_weights", "effective_weights"), ("fusion_feature_reliability", "per_feature_reliability"),
-            ("fusion_class_support", "per_class_combined_support"))},
+            ("fusion_class_support", "per_class_combined_support"),
+            ("fusion_resolved_score_reasons", "resolved_score_review_reasons"),
+            ("fusion_model2_leading_grades", "model2_leading_grades"),
+            ("fusion_feature_leading_grades", "feature_only_leading_grades"),
+            ("fusion_combined_leading_grades", "combined_leading_grades"),
+            ("fusion_tie_resolving_features", "tie_resolving_features"),
+            ("fusion_source_contributions", "per_source_class_contributions"))},
     })
     segmentation = analysis.get("segmentation") if isinstance(analysis.get("segmentation"), dict) else {}
     experimental = segmentation.get("backend") == "mobilesam_experimental" or segmentation.get("experimental") is True
@@ -875,6 +933,49 @@ def inspection_row(
         "anatomical_inference_provenance": _json(inference),
         "model2_raw_detection_diagnostics": _json(analysis.get("model2_debug", {})),
     })
+    verification = analysis.get("anatomical_verification")
+    verification = verification if isinstance(verification, dict) else {}
+    boolean_text = lambda value: "Yes" if value is True else "No" if value is False else ""
+    confidence_value = lambda value: _number(value, scale=100) if not isinstance(value, bool) and isinstance(value, (int, float)) and math.isfinite(value) and 0 <= value <= 1 else ""
+    review_reason = verification.get("review_reason") or (verification.get("reason") if verification.get("status") == "UNCERTAIN" else "")
+    row.update({
+        "anatomical_verification_status": verification.get("status") or "UNAVAILABLE",
+        "anatomical_secondary_activated": boolean_text(verification.get("activated")),
+        "anatomical_automatic_rejection": boolean_text(verification.get("automatic_rejection")),
+        "anatomical_missing_regions": ", ".join(str(region) for region in verification.get("missing_regions", []) if region) if isinstance(verification.get("missing_regions"), list) else "",
+        "anatomical_rejection_reason": verification.get("rejection_reason") or "",
+        "anatomical_verification_reason": verification.get("reason") or "Anatomical verification was not recorded for this observation.",
+        "anatomical_verification": _json(verification),
+        "anatomical_fish_id": verification.get("fish_id", ""),
+        "anatomical_frame_id": verification.get("frame_id", ""),
+        "anatomical_review_reason": review_reason,
+        "anatomical_uncertainty_causes": ", ".join(str(reason) for reason in verification.get("uncertainty_causes", [])) if isinstance(verification.get("uncertainty_causes"), list) else "",
+        "anatomical_geometry_caveat": "Diagnostic only; silhouette geometry is not independently validated to prove anatomical presence or absence.",
+        "needs_review_reason": (review_reason or analysis.get("verdict_reason_text") or "Review reason was not recorded.") if requires_human_review(analysis) else "",
+    })
+    primary = verification.get("primary") if isinstance(verification.get("primary"), dict) else {}
+    anatomical_parts = verification.get("parts") if isinstance(verification.get("parts"), dict) else {}
+    for region in ("Head", "Body", "Tail"):
+        prefix = region.lower()
+        detected = primary.get(region) if isinstance(primary.get(region), dict) else {}
+        unavailable = detected.get("status") == "unavailable"
+        row.update({
+            f"model2_{prefix}_detected": "" if unavailable else boolean_text(detected.get("detected")),
+            f"model2_{prefix}_detection_status": detected.get("status") or "Not recorded",
+            f"model2_{prefix}_detection_confidence": "" if unavailable else confidence_value(detected.get("confidence")),
+        })
+        if region == "Tail":
+            continue
+        part = anatomical_parts.get(region) if isinstance(anatomical_parts.get(region), dict) else {}
+        records = part.get("evidence") if isinstance(part.get("evidence"), list) else []
+        row.update({
+            f"{prefix}_anatomical_state": part.get("state") or "UNAVAILABLE",
+            f"{prefix}_anatomical_source": part.get("source") or "",
+            f"{prefix}_anatomical_confidence": confidence_value(part.get("confidence")),
+            f"{prefix}_anatomical_reason": part.get("reason") or "",
+            f"{prefix}_anatomical_evidence_summary": _anatomical_support_summary(records),
+            f"{prefix}_anatomical_evidence": _json(records),
+        })
     row.update(surface_export_record(event))
     return row
 

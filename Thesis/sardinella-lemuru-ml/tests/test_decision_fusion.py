@@ -39,8 +39,8 @@ def artifact():
             "reliability": 1., "per_class_reliability": dict.fromkeys(GRADE_NAMES, 1.),
             "temperature": 1., "distance_limit": 4., "capture_profiles": ["fixture-profile"],
             "class_counts": {split: dict.fromkeys(GRADE_NAMES, 5) for split in ("calibration", "validation")},
-            "distributions": {grade: {"mean": [float(i)] * len(FEATURE_KEYS[family]),
-                                     "scale": [.15] * len(FEATURE_KEYS[family]), "prior": .25}
+            "distributions": {grade: {"mean": [.1 + i * .25] * len(FEATURE_KEYS[family]),
+                                     "scale": [.03] * len(FEATURE_KEYS[family]), "prior": .25}
                               for i, grade in enumerate(GRADE_NAMES)}} for family in FAMILIES}}
 
 
@@ -48,7 +48,7 @@ def measurements(targets=None):
     targets = targets or dict.fromkeys(FAMILIES, "Class A")
     return {"extractor_version": EXTRACTOR_VERSION, "fish_id": 7, "frame_id": "frame-1", **SOURCE,
         "capture_profile_id": "fixture-profile",
-        "features": {family: {"values": dict.fromkeys(FEATURE_KEYS[family], float(GRADE_NAMES.index(grade))),
+        "features": {family: {"values": dict.fromkeys(FEATURE_KEYS[family], .1 + GRADE_NAMES.index(grade) * .25),
             "checks": dict.fromkeys(REQUIRED_CHECKS[family], True), "measurement_reliability": 1.}
             for family, grade in targets.items()}}
 
@@ -108,7 +108,10 @@ def test_no_calibration_keeps_exact_model2_verdict_and_exposes_absent_support():
     assert report["effective_weights"]["model2"] == .7
     assert sum(report["effective_weights"].values()) == .7
     assert report["unallocated_supporting_weight"] == .3
+    assert report["per_source_class_contributions"] is None
+    assert report["contribution_target_grade"] is None
     assert not any(f["used_for_grading"] for f in report["features"].values())
+    assert all(not any(f["weighted_class_contributions"].values()) for f in report["features"].values())
 
 
 @pytest.mark.parametrize("change", [{"fish_id": 8}, {"frame_id": "old"}, {"frame_pixels_sha256": "d" * 64},
@@ -137,6 +140,19 @@ def test_reliability_changes_supporting_weight_only_and_does_not_hide_uncertaint
     assert report["effective_weights"]["size"] == pytest.approx(.3 * .15 / (.15 + .05 * .8))
     assert report["per_feature_reliability"]["color"] == .8
     assert sum(report["effective_weights"][key] for key in FAMILIES) == pytest.approx(.3)
+    for family in FAMILIES:
+        feature = report["features"][family]
+        assert sum(feature["weighted_class_contributions"].values()) == pytest.approx(report["effective_weights"][family])
+        if feature["used_for_grading"]:
+            weight = report["effective_weights"][family]
+            for grade in GRADE_NAMES:
+                assert feature["weighted_class_contributions"][grade] == pytest.approx(
+                    weight * feature["reliability_adjusted_support"][grade])
+                assert feature["class_support_delta"][grade] == pytest.approx(
+                    weight * (feature["reliability_adjusted_support"][grade] - report["model2_class_probabilities"][grade]))
+    for grade in GRADE_NAMES:
+        assert sum(source[grade] for source in report["per_source_class_contributions"].values()) == pytest.approx(
+            report["per_class_combined_support"][grade])
 
 
 @pytest.mark.parametrize("value", [None, float("nan"), float("inf"), True])
@@ -217,7 +233,7 @@ def verified_fixture_records():
                 measured = measurements(dict.fromkeys(FAMILIES, grade))
                 measured.update(**source, frame_id=name)
                 for family in FAMILIES:
-                    measured["features"][family]["values"] = {key: i + float(rng.normal(0, .02)) for key in FEATURE_KEYS[family]}
+                    measured["features"][family]["values"] = {key: .1 + i * .25 + float(rng.normal(0, .005)) for key in FEATURE_KEYS[family]}
                 scores = {label: .85 if label == grade else .05 for label in GRADE_NAMES}
                 original = baseline(scores)
                 records.append({"specimen_id": name, "capture_group_id": f"capture-{name}",
@@ -276,6 +292,15 @@ def test_pseudo_labels_and_unknown_specimens_cannot_establish_calibration():
     for changes in ({"annotator_verified": False}, {"specimen_id": "unknown"}, {"annotator_id": ""}):
         rows = verified_fixture_records(); rows[0].update(changes)
         with pytest.raises(ValueError): fit_calibration(rows)
+
+
+@pytest.mark.parametrize("reference_unit", ["fish_part", "Head", "Body", "Tail", "model1_detection", "weighted_part_policy"])
+def test_part_and_detector_labels_cannot_be_promoted_to_whole_fish_truth(reference_unit):
+    from src.evaluation.calibrate_decision_fusion import validate_records
+    rows = verified_fixture_records()
+    rows[0]["reference_unit"] = reference_unit
+    with pytest.raises(ValueError, match="independently graded parts require part-level feature calibration"):
+        validate_records(rows)
 
 
 def test_export_keeps_original_ai_separate_from_review_and_records_disagreement():

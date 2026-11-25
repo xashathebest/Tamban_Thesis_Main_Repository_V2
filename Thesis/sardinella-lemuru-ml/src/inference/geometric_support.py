@@ -12,7 +12,7 @@ import math
 from typing import Mapping
 
 from src.inference.body_width import BodyWidthConfig
-from src.inference.grading_policy import FishPolicyVerdict, GRADE_NAMES, GradingPolicy
+from src.inference.grading_policy import FishPolicyVerdict, GRADE_NAMES, GradingPolicy, grade_margin_passes
 
 
 def integrate_geometric_support(
@@ -103,7 +103,7 @@ def integrate_geometric_support(
     ordered = sorted(GRADE_NAMES, key=lambda grade: (-combined[grade], GRADE_NAMES.index(grade)))
     first, second = ordered[:2]
     margin = combined[first] - combined[second]
-    if combined[first] < policy.final_verdict_threshold or margin < policy.minimum_grade_margin:
+    if combined[first] < policy.final_verdict_threshold or not grade_margin_passes(margin, policy.minimum_grade_margin):
         geometry["candidate_scores"] = combined
         return unchanged("combined_support_below_acceptance_gates")
     # Geometry supports C only; it cannot establish a new Rejected decision.

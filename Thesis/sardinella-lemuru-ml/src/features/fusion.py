@@ -75,7 +75,8 @@ def extract_fusion_measurements(image_rgb, whole_mask, *, fish_id, frame_id, sou
     owned = mask.astype(bool) if usable else None
     bound = source_matches(validation, fish_id=fish_id, frame_id=frame_id, source=source)
     provenance = validation.get("validation_provenance", {})
-    reviewed = (bound and validation.get("reviewed") is True and isinstance(provenance, Mapping)
+    provenance = provenance if isinstance(provenance, Mapping) else {}
+    reviewed = (bound and validation.get("reviewed") is True
                 and all(isinstance(provenance.get(k), str) and provenance[k].strip()
                         for k in ("reviewer", "review_id", "reference_set_id")))
     common = {
@@ -92,7 +93,8 @@ def extract_fusion_measurements(image_rgb, whole_mask, *, fish_id, frame_id, sou
     complete_count = finite(metadata.get("full_frame_foreground_pixels"))
     if usable and complete_count is not None and int(owned.sum()) != complete_count:
         common["complete_mask"] = False
-    result = {"extractor_version": EXTRACTOR_VERSION, "fish_id": fish_id, "frame_id": frame_id,
+    result = {"extractor_version": EXTRACTOR_VERSION, "reference_unit": "whole_fish",
+              "fish_id": fish_id, "frame_id": frame_id,
               "source_id": source.get("source_id"), "frame_pixels_sha256": source.get("frame_pixels_sha256"),
               "capture_profile_id": validation.get("capture_profile_id"), "features": {},
               "owned_pixel_count": int(owned.sum()) if usable else 0,
@@ -157,14 +159,17 @@ def extract_fusion_measurements(image_rgb, whole_mask, *, fish_id, frame_id, sou
             checks["lighting_calibrated"] = checks["lighting_calibrated"] and result.get("lighting_correction_applied") is True
         if family == "texture":
             counts = result.get("texture_sample_counts", {})
-            checks["glcm_valid"] = checks["glcm_valid"] and (counts.get("glcm_valid_pair_count") or 0) > 0
-            checks["lbp_valid"] = checks["lbp_valid"] and (counts.get("lbp_valid_pixel_count") or 0) > 0
+            pairs = finite(counts.get("glcm_valid_pair_count"))
+            centers = finite(counts.get("lbp_valid_pixel_count"))
+            checks["glcm_valid"] = checks["glcm_valid"] and pairs is not None and pairs > 0 and pairs.is_integer()
+            checks["lbp_valid"] = checks["lbp_valid"] and centers is not None and centers > 0 and centers.is_integer()
         # A reviewed full crack measurement can cover defects outside the
         # candidate detector's documented scope, including reviewed negatives.
         if family == "cracks" and reviewed and approval.get("measurement_source") == "reviewed_structural_measurement":
             supplied = approval.get("values", {})
             if isinstance(supplied, Mapping) and all(finite(supplied.get(k)) is not None and supplied[k] >= 0 for k in FEATURE_KEYS[family]):
                 values[family] = dict(supplied)
+                errors.pop(family, None)
             else:
                 checks["measurement"] = False
         quality = finite(approval.get("measurement_reliability", 1.))

@@ -35,7 +35,7 @@ def part(region, confidence=.9, grade="Class A"):
 
 def active_engine(**options):
     config = load_grading_config()
-    assert config.config_version == "4.0" and config.grading_mode == "tail_optional_v1"
+    assert config.config_version == "4.1" and config.grading_mode == "tail_optional_v1"
     assert config.to_policy().required_regions() == ("Body", "Head")
     return WeightedGradingEngine(config, **options)
 

@@ -34,6 +34,7 @@ from src.inference.feature_fusion import (
     load_structural_fusion_config,
 )
 from src.inference.part_types import PartDetection
+from src.inference.anatomical_verification import verify_anatomy, apply_anatomical_gate
 from src.inference.grading_policy import (
     GRADE_NAMES,
     PART_NAMES,
@@ -125,7 +126,7 @@ class GradingConfig:
     values used by the offline replay module.
     """
 
-    config_version: str = "3.0"
+    config_version: str = "3.1"
     head_weight: float = 0.30
     body_weight: float = 0.50
     tail_weight: float = 0.20
@@ -519,6 +520,7 @@ class FishVerdict:
     body_width: dict[str, object] = field(default_factory=dict)
     geometric_support: dict[str, object] = field(default_factory=dict)
     feature_fusion: dict[str, object] = field(default_factory=dict)
+    anatomical_verification: dict[str, object] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, object]:
         tail = self.part_results.get("Tail", {})
@@ -576,6 +578,7 @@ class FishVerdict:
             "body_width": dict(self.body_width),
             "geometric_support": dict(self.geometric_support),
             "feature_fusion": deepcopy(self.feature_fusion),
+            "anatomical_verification": deepcopy(self.anatomical_verification),
         }
 
 
@@ -787,6 +790,18 @@ class WeightedGradingEngine:
             "context": feature_context.diagnostics() if feature_context is not None else {},
         }
         quality = dict(frame_quality or {})
+        quality["frame_id"] = frame_id
+        anatomical_records = quality.get("anatomical_evidence", [])
+        anatomical_records = list(anatomical_records) if isinstance(anatomical_records, (list, tuple)) else []
+        head_integrity = quality.get("head_integrity_evidence")
+        if isinstance(head_integrity, Mapping):
+            anatomical_records.append({"source": "expert_review", **head_integrity, "region": "Head"})
+        quality["anatomical_verification"] = verify_anatomy(
+            presence, threshold=self.config.minimum_part_confidence,
+            fish_id=quality.get("fusion_fish_id"), frame_id=frame_id, source=quality.get("source_context"),
+            geometry=quality.get("anatomical_geometry"), evidence=anatomical_records,
+            frame_quality=quality, model2_available=quality.get("model2_available", True),
+        )
         fusion_started = perf_counter()
         if "fusion_measurements" not in quality:
             quality["fusion_measurements"] = extract_fusion_measurements(
@@ -857,11 +872,13 @@ class WeightedGradingEngine:
         reason_codes: tuple[str, ...],
         support: float | None,
         margin: float | None,
+        override: Mapping[str, object] | None = None,
     ) -> str:
         """Human-readable context; structured codes remain the authority."""
 
         messages = {
             UG_PARENT_UNCERTAIN: "The Model 1 parent-fish evidence is uncertain, so no verdict was issued.",
+            "UG_ANATOMY_UNCERTAIN": "Secondary verification cannot confidently determine whether the undetected Head or Body exists.",
             UG_ASSOCIATION_AMBIGUOUS: "Model 2 part-to-parent association is ambiguous, so no verdict was issued.",
             UG_MISSING_PART_EVIDENCE: "Required " + " and ".join(self.config.to_policy().required_regions()) + " evidence was not reliably observed; this is not a physical missing-part claim.",
             UG_MODEL2_UNAVAILABLE: "Model 2 produced no reliable Head, Body, or Tail evidence.",
@@ -876,12 +893,18 @@ class WeightedGradingEngine:
                 f"Highest weighted grade support was {(support or 0.0) * 100:.2f}%, below the "
                 f"{self.config.active_final_threshold() * 100:.2f}% final verdict threshold."),
             UG_LOW_MARGIN: (
+                "Top grades have equal support; no unique winning grade is available."
+                if margin is not None and math.isclose(margin, 0., rel_tol=0., abs_tol=1e-12) else
                 f"Top-versus-second grade margin was {(margin or 0.0) * 100:.2f}%, below the "
                 f"{self.config.minimum_grade_margin * 100:.2f}% configured minimum."),
         }
         if reason_codes == ("GR_CONFIDENT",):
             return f"The top weighted grade passed all evidence gates with {(support or 0.0) * 100:.2f}% support."
         if reason_codes == ("RJ_GRADE_EVIDENCE",):
+            if override:
+                return (f"Configured Model 2 Rejected_{override['region']} override applied at "
+                        f"{float(override['confidence']) * 100:.2f}% part support. "
+                        f"Weighted Rejected support is {(support or 0.0) * 100:.2f}%.")
             return f"Rejected won the same weighted Model 2 evidence policy with {(support or 0.0) * 100:.2f}% support."
         return " ".join(messages.get(code, code) for code in reason_codes)
 
@@ -1153,6 +1176,28 @@ class WeightedGradingEngine:
         fusion = feature_fusion_report(model2_decision, geometric_support, structural_support, eligibility, decision)
         fusion["decision_fusion"] = intelligent_fusion
         fusion["contributions_applied"] += [name for name, value in intelligent_fusion["features"].items() if value["used_for_grading"]]
+        anatomy = deepcopy(latest_quality.get("anatomical_verification", {}))
+        quality_decision = decision
+        decision = apply_anatomical_gate(quality_decision, anatomy)
+        fusion["anatomical_verification"] = anatomy
+        fusion.update(final_grade=decision.final_grade or "Ungraded", final_support=decision.final_support)
+        if decision is not quality_decision:
+            intelligent_fusion.update(
+                quality_prediction_before_anatomical_verification=quality_decision.final_grade or "Ungraded",
+                final_fused_prediction=decision.final_grade or "Ungraded", decision_confidence=None,
+                changed_prediction=decision.final_grade != model2_decision.final_grade,
+                confidence_kind="anatomical_gate_no_quality_probability",
+                decision_state="ANATOMY_REJECTED" if anatomy.get("automatic_rejection") else "ANATOMY_UNCERTAIN",
+                review_required=decision.final_grade is None,
+                automatic_status="HUMAN_REVIEW" if decision.final_grade is None else "AUTOMATIC",
+                review_reasons=list(decision.reason_codes) if decision.final_grade is None else [],
+                anatomical_verification=anatomy,
+            )
+        for region in ("Head", "Body"):
+            verification = anatomy.get("parts", {}).get(region, {})
+            part_results[region]["anatomical_state"] = verification.get("state", "UNCERTAIN")
+            part_results[region]["physical_missing"] = (True if verification.get("state") == "MISSING" else
+                                                        False if verification.get("state") == "PRESENT" else None)
         available = list(decision.observed_regions)
         available_set = set(available)
         original_weight_coverage = decision.evidence_coverage
@@ -1170,8 +1215,11 @@ class WeightedGradingEngine:
                 width["contribution_reason"] = "applied_to_provisional_support_only"
         verdict_status = decision.verdict_status
         reason_code = decision.reason_codes[0]
-        reason_text = self._policy_reason_text(decision.reason_codes, decision.top_support, decision.grade_margin)
-        if geometric_support.get("contribution_applied") and final_grade is not None:
+        reason_text = self._policy_reason_text(
+            decision.reason_codes, decision.final_support if decision.final_grade is not None else decision.top_support,
+            decision.grade_margin, override=decision.override,
+        )
+        if geometric_support.get("contribution_applied") and final_grade is not None and final_score is not None:
             reason_text = f"Combined normalized {final_grade} support {float(final_score) * 100:.2f}% satisfies the configured support and margin gates; required Model 2 evidence was accepted before geometry."
         if geometric_support.get("width_changed_classification"):
             reason_text += f" Validated width support changed {baseline_decision.final_grade} to {final_grade}; the original evidence gates remain satisfied."
@@ -1180,13 +1228,17 @@ class WeightedGradingEngine:
                 f"The final eligible grade is {final_grade}; its existing support and margin gates remain satisfied."
                 if final_grade is not None else
                 "No remaining eligible grade satisfies the configured support and margin gates; expert review is required.")
-        if intelligent_fusion["mode"] == "calibrated_fusion" or intelligent_fusion["head_integrity"]["confirmed_missing_head"]:
+        if decision is quality_decision and (intelligent_fusion["mode"] == "calibrated_fusion" or intelligent_fusion["head_integrity"]["confirmed_missing_head"]):
             reason_text = (f"{intelligent_fusion['decision_state'].replace('_', ' ').title()}: "
                            f"Model 2-only {intelligent_fusion['model_only_prediction']}; "
                            f"combined {intelligent_fusion['final_fused_prediction']}; "
                            f"decision confidence {intelligent_fusion['decision_confidence']:.4f}. "
                            + " ".join(intelligent_fusion["disagreement_reasons"] + intelligent_fusion["review_reasons"]))
         override = decision.override
+        if anatomy.get("automatic_rejection"):
+            reason_text = anatomy["rejection_reason"]
+        elif anatomy.get("status") == "UNCERTAIN":
+            reason_text = (anatomy.get("review_reason") or anatomy["reason"]) + " " + reason_text
         for region in PART_NAMES:
             part_results[region]["normalized_weight"] = decision.effective_weights[region]
             part_results[region]["effective_weight"] = decision.effective_weights[region]
@@ -1269,6 +1321,7 @@ class WeightedGradingEngine:
             body_width=width,
             geometric_support=geometric_support,
             feature_fusion=fusion,
+            anatomical_verification=anatomy,
         )
 
     def evaluate(
@@ -1292,6 +1345,7 @@ class WeightedGradingEngine:
         source_context: Mapping[str, object] | None = None,
         fusion_measurements: Mapping[str, object] | None = None,
         head_integrity_evidence: Mapping[str, object] | None = None,
+        anatomical_evidence: Iterable[Mapping[str, object]] | None = None,
     ) -> FishVerdict:
         """Add one usable candidate crop (or explain why it was excluded).
 
@@ -1301,7 +1355,14 @@ class WeightedGradingEngine:
         """
 
         quality_payload = dict(frame_quality or {})
+        if (("fusion_fish_id" in quality_payload and (quality_payload["fusion_fish_id"] != fish_id
+                or isinstance(quality_payload["fusion_fish_id"], (bool, np.bool_, float, np.floating))))
+                or (quality_payload.get("frame_id") is not None and (quality_payload["frame_id"] != frame_id
+                or isinstance(quality_payload["frame_id"], (bool, np.bool_, float, np.floating))))):
+            quality_payload["evidence_identity_mismatch"] = True
         quality_payload["fusion_fish_id"] = fish_id
+        if anatomical_evidence is not None:
+            quality_payload["anatomical_evidence"] = serializable_evidence(deepcopy(list(anatomical_evidence)))
         if fusion_measurements is not None:
             quality_payload["fusion_measurements"] = serializable_evidence(deepcopy(dict(fusion_measurements)))
         if head_integrity_evidence is not None:
@@ -1330,6 +1391,8 @@ class WeightedGradingEngine:
             inferred_association_status = str(quality_payload.get("association_status") or "") or None
         if bool(quality_payload.get("association_ambiguous", False)):
             inferred_association_status = "ambiguous"
+        quality_payload["parent_usable"] = inferred_parent_usable
+        quality_payload["association_status"] = inferred_association_status
         inferred_out_of_frame, _ = _clipping_state(quality_payload)
         frame = self._frame_evidence(
             crop_bgr, parts, frame_id=frame_id, frame_quality=quality_payload, fish_mask=fish_mask,

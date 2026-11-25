@@ -1,0 +1,25 @@
+{
+  "source": "annotate.ndjson",
+  "source_sha256": "a5d5eee9cb94009f959e6f043bd69603996a4476ab912aa4662ec5e5c0ced1be",
+  "images": 2258,
+  "boxes": 12403,
+  "class_names": {
+    "0": "Fish"
+  },
+  "original_splits": {
+    "train": 2271
+  },
+  "reported_image_bytes": 2700996539,
+  "errors": [],
+  "warnings": [],
+  "subpixel_boundary_boxes_preserved": 1518,
+  "max_normalized_boundary_offset": 5.0000000000105516e-05,
+  "annotation_policy": "Explicit user-requested duplicate exclusions; source unchanged; retained labels unchanged",
+  "original_images": 2271,
+  "original_boxes": 12488,
+  "excluded_images": 13,
+  "excluded_boxes": 85,
+  "exclusion_manifest": "C:\\Users\\User\\Downloads\\Tamban_Thesis_Main_Repository\\Thesis\\sardinella-lemuru-ml\\notebooks\\Tamban_Model1_Retrain\\model1_v3\\deduplicated\\exclusions.json",
+  "exclusion_manifest_sha256": "1ac57bf0eceb8ce96997bbf8645ac0e62400ece5afdd9ee423dfee483a709701",
+  "selection_sha256": "8889d9ae3819f0d63e0c095a564dd338d6924651c5f63cd1eae5edef6c543c21"
+}

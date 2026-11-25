@@ -1,6 +1,14 @@
 # Adaptive Part-Weighted Fish Grading with Optional Tail Evaluation
 
-The configured `tail_optional_v1` policy (configuration version 4.0) is a proposed design intended to reduce penalties when a Tail measurement is unavailable. It does not establish improved accuracy or reliable detection of tail defects. Independent, expert-labeled fish-level videos are not currently available for that comparison.
+The configured `tail_optional_v1` policy (configuration version 4.1) is a proposed design intended to reduce penalties when a Tail measurement is unavailable. It does not establish improved accuracy or reliable detection of tail defects. Independent, expert-labeled fish-level videos are not currently available for that comparison.
+
+Version 4.1 retains the configured anatomy weights and thresholds while requiring
+a unique score winner and honoring explicit inference/frame-quality holds even
+with cached scores. A trained Rejected override reports weighted Rejected support
+separately from its part confidence and provisional winner. Standard-mode defaults
+record version 3.1 for the same corrections. Saved historical verdicts are not
+rewritten; recomputing old evidence with the corrected implementation can change
+ties or records affected by these defects.
 
 ## Evidence and decision
 

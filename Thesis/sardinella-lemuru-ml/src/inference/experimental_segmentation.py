@@ -167,6 +167,43 @@ class ExperimentalFrameSegmentation:
                             parent_isolation_reliable=False)
         return local, metadata
 
+    def anatomical_candidate(self, parent_id, bounds):
+        """Expose a current candidate without requiring the missing detection.
+
+        The usual feature accessor requires Head AND Body ownership evidence.
+        Geometry checks can independently gate an anatomy investigation while
+        preserving the fact that SAM has not validated anatomical identity.
+        """
+        candidate = self.candidates.get(parent_id, {})
+        ownership = self.ownership.get(parent_id, {})
+        mask = candidate.get("mask")
+        metadata = {"source": "mobilesam_anatomy_candidate", "frame_id": self.frame_id,
+                    "parent_track_id": parent_id, "parent_isolation_reliable": False,
+                    "ownership_validated": False, "validated_for_absence": False,
+                    "coordinate_space": "crop_local_native_pixels",
+                    "crop_bounds": [bounds.x1, bounds.y1, bounds.x2, bounds.y2],
+                    "reason": "; ".join(ownership.get("reasons", [])) or candidate.get("reason", "Fish mask unavailable.")}
+        if (not self.is_current() or ownership.get("mask_geometry_checks_passed") is not True
+                or not isinstance(mask, np.ndarray) or mask.shape != self.frame.shape[:2]):
+            return None, metadata
+        # Any pixel in another parent's box is withheld conservatively, even
+        # when that neighboring fish's own SAM proposal is unavailable.
+        for parent in self.parents:
+            if parent.track_id == parent_id:
+                continue
+            left, top, right, bottom = parent.bbox
+            left, top = max(0, int(np.floor(left))), max(0, int(np.floor(top)))
+            right, bottom = min(mask.shape[1], int(np.ceil(right))), min(mask.shape[0], int(np.ceil(bottom)))
+            if right > left and bottom > top and mask[top:bottom, left:right].any():
+                metadata.update(overlapping=True, reason="Neighboring fish may own pixels in this silhouette.")
+                return None, metadata
+        local = mask[bounds.y1:bounds.y2, bounds.x1:bounds.x2]
+        clipped = bool(int(np.count_nonzero(local)) != int(np.count_nonzero(mask))
+                       or mask[0].any() or mask[-1].any() or mask[:, 0].any() or mask[:, -1].any())
+        metadata.update(parent_isolation_reliable=True, clipped=clipped,
+                        reason="Current fish-specific mask passed geometry checks; anatomical identity remains unvalidated.")
+        return local, metadata
+
     def body_mask(self, parent_id, bounds):
         from src.inference.mask_ownership import body_support_mask
         if not self.is_current():

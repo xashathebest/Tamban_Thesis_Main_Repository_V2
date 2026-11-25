@@ -36,12 +36,17 @@ def measure_owned_surface(provider, parent_id):
              and native.dtype.kind in "buif" and np.isfinite(native).all()
              and np.isin(native, (0, 1, 255)).all() and native.any())
     reasons = report.get("reasons", [])
+    # A plausible elongated SAM silhouette is not enough to identify a fish.
+    # In particular, letterbox padding can pass the axis-ratio and mask-score
+    # checks. Keep its raw proposal in the segmentation report, but withhold
+    # surface measurements when both required anatomical references are absent.
+    no_anatomical_reference = {"required_body_evidence_unavailable", "required_head_evidence_unavailable"}.issubset(reasons)
     fatal = {"candidate_parent_identity_mismatch", "candidate_prompt_box_mismatch",
              "candidate_native_coordinates_mismatch", "candidate_frame_identity_mismatch",
              "fragmented_or_merged_foreground_components", "implausible_silhouette_holes",
              "implausible_or_orientation_uncertain_silhouette", "insufficient_foreground_pixels",
              "insufficient_visible_parent_support", "foreground_extends_beyond_intended_parent"}
-    if not reviewed_ok and (fatal.intersection(reasons) or report.get("status") == "unavailable"):
+    if not reviewed_ok and (fatal.intersection(reasons) or report.get("status") == "unavailable" or no_anatomical_reference):
         valid = False
     if valid:
         native = native.astype(bool)
@@ -88,6 +93,8 @@ def measure_owned_surface(provider, parent_id):
         "parent_track_id": parent_id, "frame_id": provider.frame_id, "frame_key": provider.frame_key,
         "complete_mask_pixel_count": int(complete.sum()), "owned_mask_pixel_count": int(owned.sum()),
         "ambiguous_pixel_count": int(ambiguous.sum()), "ownership_validated": reviewed_ok,
+        "ownership_ambiguous": not reviewed_ok and "required_anatomical_ownership_ambiguous" in reasons,
+        "surface_eligible": bool(valid),
         "possible_owner_fish_ids": [parent_id, *possible], "ownership_checks": report,
         "clipped": bool(valid and (native[0].any() or native[-1].any() or native[:, 0].any() or native[:, -1].any())),
         "reason": ("Complete native silhouette; shared pixels withheld." if valid else
@@ -95,6 +102,8 @@ def measure_owned_surface(provider, parent_id):
     }
     if valid and not owned.any():
         metadata["reason"] = "Whole-fish ownership is ambiguous; all pixels were withheld. " + "; ".join(reasons)
+    if no_anatomical_reference and not reviewed_ok:
+        metadata["reason"] = "Fish identity has no reliable assigned Head or Body reference; brightness and cracks are unavailable. Review the fish-mask proposal."
     rgb = cv2.cvtColor(frame[y:y+h, x:x+w], cv2.COLOR_BGR2RGB)
     brightness = measure_brightness(rgb, owned, metadata=metadata)
     try:

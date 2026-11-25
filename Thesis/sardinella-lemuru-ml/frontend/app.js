@@ -398,6 +398,7 @@ function renderFishZoomDetails(fish) {
     row.append(Object.assign(document.createElement("span"), {textContent: label}), Object.assign(document.createElement("strong"), {textContent: value})); elements.fishZoomDetails.append(row);
   });
   if (typeof appendDecisionFusionPanel === "function") appendDecisionFusionPanel(elements.fishZoomDetails, {analysis: fishZoomAnalysis(fish)});
+  if (typeof appendAnatomicalVerificationPanel === "function") appendAnatomicalVerificationPanel(elements.fishZoomDetails, {analysis: fishZoomAnalysis(fish)});
 }
 function fishZoomRelativeBox(box, crop) { const value = fishZoomBox(box); return value && [value[0] - crop[0], value[1] - crop[1], value[2] - crop[0], value[3] - crop[1]]; }
 function drawFishZoomOverlay(context, fish, crop, width, height) {
@@ -704,8 +705,57 @@ function verdictStatus(event) {
   return String(eventValue(event, "verdict_status") || "NOT_AVAILABLE").toUpperCase();
 }
 function anatomicalReviewHeld(event) {
+  const verification = analysisFor(event).anatomical_verification;
+  if (verification?.status === "UNCERTAIN") return true;
+  if (verification?.status === "MISSING" && verification.automatic_rejection === true) return false;
+  if (verification?.status === "PRESENT") return false;
   const head = analysisFor(event).structural_evidence?.regions?.Head;
   return head?.state === "confirmed_absent" || head?.conflict === true;
+}
+function anatomicalVerificationRows(event) {
+  const candidate = event?.analysis?.anatomical_verification;
+  const evidence = candidate && typeof candidate === "object" && !Array.isArray(candidate) ? candidate : {};
+  const status = ["PRESENT", "MISSING", "UNCERTAIN", "UNAVAILABLE"].includes(evidence.status) ? evidence.status : "UNAVAILABLE";
+  const confidence = value => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1 ? `${(value * 100).toFixed(1)}%` : "Not recorded";
+  const reviewReason = evidence.review_reason || (status === "UNCERTAIN" ? evidence.reason : null) || (event?.analysis?.verdict_status === "NEEDS_REVIEW" ? event.analysis.verdict_reason_text : null);
+  const supportingEvidence = records => (Array.isArray(records) ? records : []).filter(record => record && typeof record === "object" && !Array.isArray(record)).map(record =>
+    [["review_id", "Review"], ["reviewer", "reviewer"], ["source", "type"], ["source_id", "source"], ["fish_id", "Fish"], ["frame_id", "frame"]]
+      .filter(([key]) => record[key] != null && record[key] !== "").map(([key, label]) => `${label}: ${record[key]}`).join("; ")).filter(Boolean).join(" | ") || "No independent review evidence recorded";
+  const rows = [
+    ["Head / Body anatomy", status],
+    ["Anatomical verification result", status === "UNCERTAIN" ? "NEEDS REVIEW" : status === "MISSING" && evidence.automatic_rejection === true ? "REJECTED: independently confirmed missing anatomy" : status === "PRESENT" ? "Required anatomy verified; normal grading gates apply" : "UNAVAILABLE"],
+    ["Anatomical Fish ID", evidence.fish_id ?? "Not recorded"], ["Anatomical frame ID", evidence.frame_id ?? "Not recorded"],
+    ["Secondary verification", evidence.activated === true ? "Activated: Model 2 did not establish Head or Body" : evidence.activated === false && status === "PRESENT" ? "Not activated; primary Model 2 verification used" : evidence.activated === false && status === "UNAVAILABLE" ? "Not activated; primary verification unavailable" : evidence.activated === false && status === "UNCERTAIN" ? "Not activated; primary detection association requires review" : evidence.activated === false ? "Not activated" : "Not recorded"],
+  ];
+  for (const region of ["Head", "Body", "Tail"]) {
+    const primary = evidence.primary?.[region] || {}, part = evidence.parts?.[region] || {};
+    const unavailable = primary.status === "unavailable";
+    const detection = unavailable ? "UNAVAILABLE" : primary.detected === true ? "DETECTED" : primary.status ? String(primary.status).replaceAll("_", " ").toUpperCase() : primary.detected === false ? "NOT DETECTED" : "UNAVAILABLE";
+    rows.push([`Model 2 ${region}`, `${detection}; confidence ${confidence(unavailable ? null : primary.confidence)}${region === "Tail" ? "; optional" : ""}`]);
+    rows.push([`Model 2 ${region} association`, primary.detected !== true ? "No accepted detection to associate" : primary.association_valid === true ? `Verified for Fish ${primary.fish_id ?? "(ID not recorded)"}; frame ${primary.frame_id ?? "(ID not recorded)"}` : primary.association_valid === false ? "UNVERIFIED; detection cannot establish anatomy for this fish and frame" : "Not recorded"]);
+    if (region === "Tail") continue;
+    rows.push([`${region} anatomical state`, ["PRESENT", "MISSING", "UNCERTAIN"].includes(part.state) ? part.state : "UNAVAILABLE"],
+      [`${region} verification source`, part.source ? String(part.source).replaceAll("_", " ") : "Not recorded"],
+      [`${region} verification confidence`, confidence(part.confidence)],
+      [`${region} verification reason`, part.reason || "Anatomical verification was not recorded for this observation."],
+      [`${region} supporting independent evidence`, supportingEvidence(part.evidence)]);
+  }
+  rows.push(["Automatic anatomical rejection", evidence.automatic_rejection === true ? "Applied" : evidence.automatic_rejection === false ? "Not applied" : "Not recorded"],
+    ["Anatomical rejection reason", evidence.rejection_reason || "None recorded"],
+    ["Evidence supporting rejection", evidence.automatic_rejection === true ? ["Head", "Body"].filter(region => evidence.parts?.[region]?.state === "MISSING").map(region => `${region}: ${supportingEvidence(evidence.parts[region].evidence)}`).join(" | ") || "No supporting evidence recorded" : "No anatomical rejection applied"],
+    ["Reason for NEEDS REVIEW", reviewReason || "None recorded"],
+    ["Anatomical uncertainty causes", Array.isArray(evidence.uncertainty_causes) && evidence.uncertainty_causes.length ? evidence.uncertainty_causes.map(cause => String(cause).replaceAll("_", " ")).join("; ") : "None recorded"],
+    ["Verification explanation", evidence.reason || "Anatomical verification was not recorded for this observation."],
+    ["MobileSAM / silhouette diagnostic", evidence.geometry?.reason || "No geometry diagnostic recorded"],
+    ["Geometry evidence limitation", "Diagnostic only; silhouette geometry is not independently validated to prove anatomical presence or absence."],
+    ["Tail policy", "Optional; Tail absence never triggers anatomical rejection"]);
+  return rows;
+}
+function appendAnatomicalVerificationPanel(container, event) {
+  const panel = document.createElement("section"); panel.className = "anatomical-verification-panel";
+  panel.append(Object.assign(document.createElement("h3"), {textContent: "Head / Body anatomical verification"}));
+  appendResultTable(panel, ["Anatomical evidence", "Recorded result"], anatomicalVerificationRows(event));
+  container.append(panel);
 }
 function readableVerdictStatus(value) {
   const labels = { AUTO_GRADED: "Automatically graded", NEEDS_REVIEW: "Needs review", NOT_AVAILABLE: "Verdict status unavailable" };
@@ -994,6 +1044,7 @@ function renderLatest(data) {
   elements.resultEmptyTitle.textContent = "Ready for the next fish";
   elements.resultEmptyCopy.textContent = "The current track and its quality evidence will appear here.";
   if (!hasEvent) { elements.classificationPolicy.textContent = "Model 1 detection, Model 2 evidence, and final weighted support are reported separately."; return; }
+  if (typeof appendAnatomicalVerificationPanel === "function") appendAnatomicalVerificationPanel(elements.latestFeatures, event);
   elements.resultFish.textContent = event.fish_label || `Fish #${event.track_id}`; elements.resultLabel.textContent = manual ? `Manual: ${manual}` : aiGrade; const verdictLabel = elements.resultLabel.closest(".grade-readout")?.querySelector("span"); if (verdictLabel) verdictLabel.textContent = liveTrack ? "LIVE VERDICT" : "FINAL VERDICT";
   elements.confidence.textContent = scoreText(support); elements.confidenceBar.style.width = `${Math.max(0, Math.min(100, (asFraction(support) || 0) * 100))}%`;
   const confidenceLabel = elements.confidence.closest("div")?.querySelector("dt"); if (confidenceLabel) confidenceLabel.textContent = "Weighted final support";
@@ -1272,6 +1323,8 @@ function decisionFusionEvidence(event) {
 }
 function decisionFusionState(fusion) {
   if (!fusion) return {label: "Fusion evidence not recorded", style: "unavailable"};
+  if (fusion.decision_state === "ANATOMY_REJECTED") return {label: "Rejected: confirmed missing anatomy", style: "critical"};
+  if (fusion.decision_state === "ANATOMY_UNCERTAIN") return {label: "Anatomy UNCERTAIN; review required", style: "minor"};
   if (fusion.decision_state === "CRITICAL_ANATOMICAL_DISAGREEMENT") return {label: "Critical anatomical disagreement", style: "critical"};
   if (!fusion.agreement_validated) return {label: fusion.mode === "legacy_reviewed_rules" ? "Existing reviewed rules" : "Model 2-only fallback", style: "unavailable"};
   return ({AGREEMENT: {label: "Agreement", style: "agreement"}, MINOR_DISAGREEMENT: {label: "Minor disagreement", style: "minor"}, MAJOR_DISAGREEMENT: {label: "Major disagreement", style: "major"}})[fusion.decision_state] || {label: "Evidence unavailable", style: "unavailable"};
@@ -1279,11 +1332,19 @@ function decisionFusionState(fusion) {
 function decisionFusionSummaryRows(event) {
   const fusion = decisionFusionEvidence(event); if (!fusion) return [];
   const state = decisionFusionState(fusion);
+  const modelLeaders = Array.isArray(fusion.model2_leading_grades) ? fusion.model2_leading_grades : [];
+  const featureLeaders = Array.isArray(fusion.feature_only_leading_grades) ? fusion.feature_only_leading_grades : [];
+  const combinedLeaders = Array.isArray(fusion.combined_leading_grades) ? fusion.combined_leading_grades : [];
   return [
     ["Original Model 2-only grade", fusion.model_only_prediction || "Not recorded"],
+    ["Model 2 calibrated leading grades", modelLeaders.length > 1 ? `Tied: ${modelLeaders.join(" / ")}` : modelLeaders[0] || "Unavailable; calibrated leaders not recorded"],
+    ["Original score uncertainty", (fusion.baseline_score_review_reasons || []).map(reason => ({UG_LOW_GRADE_SUPPORT: "Insufficient grade support", UG_LOW_MARGIN: "Close class tie"})[reason] || reason).join("; ") || "None recorded"],
+    ["Score uncertainty resolved by features", fusion.resolved_score_review_reasons?.length ? "Yes; combined confidence and class margin passed" : "None resolved"],
     ["Model 2 configured / effective weight", `${scoreText(fusion.configured_weights?.model2)} / ${scoreText(fusion.effective_weights?.model2)}`],
-    ["Feature-only supporting prediction", fusion.feature_only_prediction || "Unavailable; no eligible calibrated supporting evidence"],
+    ["Feature-only supporting prediction", featureLeaders.length > 1 ? `Tied: ${featureLeaders.join(" / ")}` : fusion.feature_only_prediction || "Unavailable; no eligible calibrated supporting evidence"],
+    ["Features distinguishing tied Model 2 grades", (fusion.tie_resolving_features || []).join(", ") || "None recorded"],
     ["Final fused prediction", fusion.final_fused_prediction || "Not recorded"],
+    ["Score contribution target", combinedLeaders.length > 1 ? `Tied: ${combinedLeaders.join(" / ")}; automatic acceptance withheld` : fusion.contribution_target_grade ? `${fusion.contribution_target_grade}${fusion.review_required ? "; automatic acceptance withheld" : ""}` : "No calibrated feature contribution recorded"],
     ["Evidence Agreement", fusion.agreement_validated ? scoreText(fusion.evidence_agreement_score) : "Unavailable; supporting evidence is not calibrated or eligible"],
     ["Model-to-feature disagreement", fusion.agreement_validated ? scoreText(fusion.model_to_feature_disagreement) : "Unavailable"],
     ["Decision state", state.label],
@@ -1301,13 +1362,40 @@ function decisionFusionFeatureRows(event) {
   const labels = {size: "Size / proportions", cracks: "Cracks", color: "Color / brightness", texture: "Texture"};
   return Object.entries(labels).map(([key, label]) => {
     const feature = fusion.features?.[key] || {};
-    return [label, feature.eligible ? feature.assessment || "Available" : "Ineligible; diagnostic only", scoreText(feature.reliability),
+    const target = fusion.contribution_target_grade;
+    const amount = feature.weighted_class_contributions?.[target];
+    const delta = feature.class_support_delta?.[target];
+    const assessment = Array.isArray(feature.leading_grades) && feature.leading_grades.length > 1 ? `Tied: ${feature.leading_grades.join(" / ")}` : feature.assessment;
+    let contribution = feature.used_for_grading ? "Contributed; amount not recorded" : "No contribution";
+    if (feature.used_for_grading && !target && Object.keys(feature.weighted_class_contributions || {}).length) contribution = "Contributed; see class support table";
+    if (feature.used_for_grading && target && typeof amount === "number" && Number.isFinite(amount)) {
+      contribution = `${(amount * 100).toFixed(2)} support points to ${target}`;
+      if (typeof delta === "number" && Number.isFinite(delta)) contribution += `; ${delta >= 0 ? "+" : ""}${(delta * 100).toFixed(2)} points vs Model 2`;
+    }
+    return [label, feature.eligible ? assessment || "Available" : "Ineligible; diagnostic only", scoreText(feature.reliability),
       scoreText(fusion.configured_weights?.[key]), scoreText(fusion.effective_weights?.[key]),
-      feature.used_for_grading ? "Contributed" : "No contribution", (feature.reasons || []).join("; ") || "Validated reference and measurement checks passed"];
+      contribution, (feature.reasons || []).join("; ") || "Validated reference and measurement checks passed"];
   });
 }
+function decisionFusionClassRows(event) {
+  const fusion = decisionFusionEvidence(event); if (!fusion) return [];
+  const points = value => typeof value === "number" && Number.isFinite(value) ? (value * 100).toFixed(2) : "Not recorded";
+  return ["Class A", "Class B", "Class C", "Rejected"].map(grade => [grade,
+    fusion.model2_class_probabilities ? points(fusion.model2_class_probabilities[grade]) : "Not calibrated",
+    ...["size", "cracks", "color", "texture"].map(family => {
+      const feature = fusion.features?.[family];
+      if (!feature?.used_for_grading) return "No contribution";
+      const delta = feature.class_support_delta?.[grade];
+      return typeof delta === "number" && Number.isFinite(delta) ? `${delta > 0 ? "+" : ""}${points(delta)}` : "Not recorded";
+    }),
+    fusion.feature_only_class_support ? points(fusion.feature_only_class_support[grade]) : "Unavailable",
+    points(fusion.per_class_combined_support?.[grade]),
+  ]);
+}
 function decisionFusionBadge(event) {
-  const state = anatomicalReviewHeld(event) ? {label: "Critical anatomical disagreement", style: "critical"} : decisionFusionState(decisionFusionEvidence(event));
+  const fusion = decisionFusionEvidence(event);
+  const anatomyState = ["ANATOMY_REJECTED", "ANATOMY_UNCERTAIN"].includes(fusion?.decision_state);
+  const state = !anatomyState && anatomicalReviewHeld(event) ? {label: "Critical anatomical disagreement", style: "critical"} : decisionFusionState(fusion);
   return Object.assign(document.createElement("span"), {className: `fusion-state fusion-state-${state.style}`, textContent: state.label});
 }
 function appendDecisionFusionPanel(container, event) {
@@ -1319,11 +1407,11 @@ function appendDecisionFusionPanel(container, event) {
     container.append(panel); return;
   }
   appendResultTable(panel, ["Comparison / decision", "Recorded evidence"], decisionFusionSummaryRows(event));
-  appendResultTable(panel, ["Feature", "Assessment", "Reliability", "Configured weight", "Effective weight", "Grade contribution", "Exact eligibility reasons"], decisionFusionFeatureRows(event));
-  appendResultTable(panel, ["Class", "Model 2 calibrated probability", "Feature-only support", "Final combined support"], ["Class A", "Class B", "Class C", "Rejected"].map(grade => [grade,
-    fusion.model2_class_probabilities ? scoreText(fusion.model2_class_probabilities[grade]) : "Not calibrated",
-    fusion.feature_only_class_support ? scoreText(fusion.feature_only_class_support[grade]) : "Unavailable",
-    scoreText(fusion.per_class_combined_support?.[grade])]));
+  appendResultTable(panel, ["Feature", "Assessment", "Reliability", "Configured weight", "Effective weight", "Score contribution", "Exact eligibility reasons"], decisionFusionFeatureRows(event));
+  appendResultTable(panel, ["Class", "Model 2 calibrated support", "Size change", "Cracks change", "Color change", "Texture change", "Feature-only support", "Combined support"], decisionFusionClassRows(event));
+  panel.append(Object.assign(document.createElement("p"), {className: "muted", textContent: fusion.mode === "calibrated_fusion"
+    ? "Values are support points out of 100. Add each feature change to calibrated Model 2 support to obtain combined support. Combined support must also pass the recorded acceptance checks."
+    : "No calibrated supporting features contributed. Combined support retains the recorded Model 2 or reviewed-policy scores."}));
   panel.append(Object.assign(document.createElement("p"), {className: "muted", textContent: `${fusion.score_interpretation || ""} ${fusion.evidence_note || "Agreement measures consistency; it does not prove correctness."}`}));
   container.append(panel);
 }
@@ -1470,6 +1558,7 @@ function appendResultCard(parent, event) {
   const populate = () => {
     if (!details.open || built) return; built = true;
     const body = document.createElement("div"); body.className = "result-fish-details";
+    if (typeof appendAnatomicalVerificationPanel === "function") appendAnatomicalVerificationPanel(body, event);
     lazyResultSection(body, "A. Grading Evidence", `${key}:A`, (section) => {
       appendResultTable(section, ["Evidence", "Recorded value"], resultEvidenceRows(event));
       const scores = event.analysis?.geometric_support?.original_scores || event.analysis?.weighted_scores || {};
@@ -1779,7 +1868,57 @@ function resultExportRecord(event) {
   const fusion = analysis.feature_fusion || {}, structural = fusion.structural || {}, eligibility = fusion.eligibility || {};
   const structuralValidated = structural.status === "confirmed" && structural.severity_validated === true && structural.source_bound === true && Boolean(structural.validation_provenance && Object.keys(structural.validation_provenance).length);
   const structuralApplied = structuralValidated && structural.used_for_grading === true;
+  const verification = analysis.anatomical_verification && typeof analysis.anatomical_verification === "object" && !Array.isArray(analysis.anatomical_verification) ? analysis.anatomical_verification : {};
+  const anatomyBoolean = value => value === true ? "Yes" : value === false ? "No" : "";
+  const anatomyConfidence = value => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1 ? Number((value * 100).toFixed(4)) : "";
+  const anatomyReviewReason = verification.review_reason || (verification.status === "UNCERTAIN" ? verification.reason : "") || "";
+  const anatomyNeedsReview = ["NEEDS_REVIEW", "NEEDS REVIEW"].includes(String(analysis.verdict_status || "").toUpperCase()) || verification.status === "UNCERTAIN";
+  const anatomyRecord = {
+    "Head / Body anatomical verification status": verification.status || "UNAVAILABLE",
+    "Secondary anatomical verification activated": anatomyBoolean(verification.activated),
+    "Anatomy automatic rejection applied": anatomyBoolean(verification.automatic_rejection),
+    "Confirmed missing anatomical parts": Array.isArray(verification.missing_regions) ? verification.missing_regions.join("; ") : "",
+    "Anatomical automatic rejection reason": verification.rejection_reason || "",
+    "Anatomical verification explanation": verification.reason || "Anatomical verification was not recorded for this observation.",
+    "Complete anatomical verification": JSON.stringify(verification),
+  };
+  for (const region of ["Head", "Body"]) {
+    const primary = verification.primary?.[region] || {}, part = verification.parts?.[region] || {};
+    const unavailable = primary.status === "unavailable";
+    Object.assign(anatomyRecord, {
+      [`Model 2 ${region} detected`]: unavailable ? "" : anatomyBoolean(primary.detected),
+      [`Model 2 ${region} detection status`]: primary.status || "Not recorded",
+      [`Model 2 ${region} detection confidence (%)`]: unavailable ? "" : anatomyConfidence(primary.confidence),
+      [`${region} anatomical state`]: part.state || "UNAVAILABLE",
+      [`${region} anatomical verification source`]: part.source || "",
+      [`${region} anatomical verification confidence (%)`]: anatomyConfidence(part.confidence),
+      [`${region} anatomical verification explanation`]: part.reason || "",
+    });
+  }
+  Object.assign(anatomyRecord, {
+    "Anatomical verification Fish ID": verification.fish_id ?? "",
+    "Anatomical verification frame ID": verification.frame_id ?? "",
+    "Anatomical review reason": anatomyReviewReason,
+    "Anatomical uncertainty causes": Array.isArray(verification.uncertainty_causes) ? verification.uncertainty_causes.join("; ") : "",
+    "Reason for NEEDS REVIEW": anatomyNeedsReview ? anatomyReviewReason || analysis.verdict_reason_text || "Review reason was not recorded." : "",
+    "Anatomical geometry evidence limitation": "Diagnostic only; silhouette geometry is not independently validated to prove anatomical presence or absence.",
+  });
+  const tailPrimary = verification.primary?.Tail || {}, tailUnavailable = tailPrimary.status === "unavailable";
+  Object.assign(anatomyRecord, {
+    "Model 2 Tail detected (optional)": tailUnavailable ? "" : anatomyBoolean(tailPrimary.detected),
+    "Model 2 Tail detection status (optional)": tailPrimary.status || "Not recorded",
+    "Model 2 Tail detection confidence (%) (optional)": tailUnavailable ? "" : anatomyConfidence(tailPrimary.confidence),
+  });
+  for (const region of ["Head", "Body"]) {
+    const records = Array.isArray(verification.parts?.[region]?.evidence) ? verification.parts[region].evidence : [];
+    const summary = records.filter(record => record && typeof record === "object" && !Array.isArray(record)).map(record =>
+      [["review_id", "Review"], ["reviewer", "reviewer"], ["source", "type"], ["source_id", "source"], ["fish_id", "Fish"], ["frame_id", "frame"]]
+        .filter(([key]) => record[key] != null && record[key] !== "").map(([key, label]) => `${label}: ${record[key]}`).join("; ")).filter(Boolean).join(" | ");
+    anatomyRecord[`${region} recorded anatomical supporting evidence`] = summary;
+    anatomyRecord[`${region} recorded anatomical supporting evidence (JSON)`] = JSON.stringify(records);
+  }
   return {...record, ...(typeof surfaceFeatureExport === "function" ? surfaceFeatureExport(event) : {}), ...flattenResultData(event, "record"),
+    ...anatomyRecord,
     "Estimated fish length (px; sampled mask)": estimatedNumber(candidates.fish_length_px),
     "Estimated maximum body width (px; sampled mask)": estimatedNumber(candidates.max_body_width_px),
     "Estimated relative body width ratio": estimatedNumber(candidates.relative_width_ratio),
@@ -1826,7 +1965,11 @@ function resultExportRecord(event) {
     "Geometry and structural feature fusion": JSON.stringify(fusion),
     "Decision fusion mode": fusion.decision_fusion?.mode || "Not recorded",
     "Model 2-only prediction": fusion.decision_fusion?.model_only_prediction || fusion.original_grade || "Not recorded",
-    "Feature-only supporting prediction": fusion.decision_fusion?.feature_only_prediction || "Unavailable",
+    "Feature-only supporting prediction": fusion.decision_fusion?.feature_only_leading_grades?.length > 1 ? `Tied: ${fusion.decision_fusion.feature_only_leading_grades.join(" / ")}` : fusion.decision_fusion?.feature_only_prediction || "Unavailable",
+    "Fusion Model 2 calibrated leading grades": fusion.decision_fusion ? JSON.stringify(fusion.decision_fusion.model2_leading_grades || []) : "",
+    "Fusion feature-only leading grades": fusion.decision_fusion ? JSON.stringify(fusion.decision_fusion.feature_only_leading_grades || []) : "",
+    "Fusion combined leading grades": fusion.decision_fusion ? JSON.stringify(fusion.decision_fusion.combined_leading_grades || []) : "",
+    "Fusion features distinguishing tied Model 2 grades": fusion.decision_fusion ? JSON.stringify(fusion.decision_fusion.tie_resolving_features || []) : "",
     "Final fused prediction": fusion.decision_fusion?.final_fused_prediction || aiFinalGrade(event),
     "Evidence agreement score": fusion.decision_fusion?.evidence_agreement_score ?? "Unavailable",
     "Model-to-feature disagreement": fusion.decision_fusion?.model_to_feature_disagreement ?? "Unavailable",
@@ -1837,6 +1980,9 @@ function resultExportRecord(event) {
     "Fusion configured weights": JSON.stringify(fusion.decision_fusion?.configured_weights || {}),
     "Fusion effective weights": JSON.stringify(fusion.decision_fusion?.effective_weights || {}),
     "Fusion feature reliability": JSON.stringify(fusion.decision_fusion?.per_feature_reliability || {}),
+    "Fusion per-source class contributions": JSON.stringify(fusion.decision_fusion?.per_source_class_contributions ?? null),
+    "Fusion per-feature class support changes": fusion.decision_fusion ? JSON.stringify(Object.fromEntries(Object.entries(fusion.decision_fusion.features || {}).map(([family, feature]) => [family, feature?.class_support_delta ?? null]))) : "",
+    "Fusion resolved Model 2 score reasons": fusion.decision_fusion ? JSON.stringify(fusion.decision_fusion.resolved_score_review_reasons || []) : "",
     "Anatomical association diagnostics": JSON.stringify(analysis.quality_inference?.association || analysis.association || event.association || {}),
     "Anatomical part decisions and candidate scores": JSON.stringify((analysis.quality_inference?.association || analysis.association || event.association || {}).parts || []),
     "Anatomical inference and clipping provenance": JSON.stringify(analysis.quality_inference || {}),
@@ -1881,7 +2027,8 @@ function resultReportHtml(rows = selectedResultEvents()) {
     const segmentationHtml = segmentation.backend === "mobilesam_experimental" || segmentation.experimental === true
       ? `<h4>G. Experimental Fish Mask</h4><p>Candidate masks and shadow ownership do not change the active verdict. A high model score is not proof of fish identity.</p>${jsonTable({backend: segmentation.backend || null, state: segmentation.status || null, ownership_checks: segmentation.ownership_status || null, validation: "Not independently validated (experimental)", reliability_reasons: segmentation.reasons || [], checkpoint_sha256: segmentation.checkpoint_sha256 || null, frame_id: segmentation.mask_overlay?.frame_id ?? segmentation.frame_id ?? null, timings: segmentation.timings || {}, shadow_association_not_applied: segmentation.shadow_association || {}})}` : "";
     const fusionHtml = typeof decisionFusionEvidence === "function" && decisionFusionEvidence(event) ? `<h4>H. Intelligent grading comparison</h4>${table(["Feature", "Assessment", "Reliability", "Configured weight", "Effective weight", "Contribution", "Eligibility reasons"], decisionFusionFeatureRows(event))}<p>Model 2 retains 70%. Missing supporting weights are redistributed only within the supporting 30% among eligible calibrated features. With no eligible features, the record identifies its fallback and unallocated supporting weight. Evidence Agreement measures consistency, not correctness.</p>` : "";
-    return article.replace("</article>", `${segmentationHtml}${fusionHtml}</article>`);
+    const anatomyHtml = typeof anatomicalVerificationRows === "function" ? `<h4>Head / Body anatomical verification</h4>${table(["Anatomical evidence", "Recorded result"], anatomicalVerificationRows(event))}` : "";
+    return article.replace("</article>", `${anatomyHtml}${segmentationHtml}${fusionHtml}</article>`);
   }).join("")}</section>`).join("");
   const metadata = resultDatasets[resultsSource].metadata;
   const dates = rows.map((event) => recordedResultTimestamp(event, metadata)).filter(Boolean).sort();
@@ -2624,7 +2771,7 @@ function ensureHistoryVerdictFilter() {
   elements.historyVerdict = $("history-verdict-status");
   const header = elements.historyBody?.closest("table")?.querySelector("thead tr");
   if (header && !header.dataset.verdictColumns) {
-    header.dataset.verdictColumns = "true"; header.replaceChildren(); ["Fish ID", "Timestamp", "Original AI verdict", "Weighted support", "Model 1 detection", "Model 2 best evidence", "Coverage", "Verdict status", "Reason", "Manual final", "Processing"].forEach((name) => { const cell = document.createElement("th"); cell.scope = "col"; cell.textContent = name; header.append(cell); });
+    header.dataset.verdictColumns = "true"; header.replaceChildren(); ["Fish ID", "Timestamp", "Original AI verdict", "Weighted support", "Model 1 detection", "Model 2 best evidence", "Coverage", "Verdict status", "Head / Body verification", "Reason", "Manual final", "Processing"].forEach((name) => { const cell = document.createElement("th"); cell.scope = "col"; cell.textContent = name; header.append(cell); });
   }
 }
 function renderHistoryRows(rows) {
@@ -2632,7 +2779,10 @@ function renderHistoryRows(rows) {
   elements.historyBody.replaceChildren();
   rows.forEach((event) => {
     const evidence = model2BestEvidence(event); const reason = verdictReason(event); const row = document.createElement("tr"); const fish = fishHistoryCell(event);
-    row.append(fish, historyCell(formatTime(event.timestamp)), historyCell(aiFinalGrade(event), "grade-cell"), historyCell(scoreText(weightedFinalSupport(event))), historyCell(scoreText(model1Confidence(event))), historyCell(`${evidence.grade || "-"} ${scoreText(evidence.score)}`, "status-note"), historyCell(coverageText(event)), historyCell(readableVerdictStatus(verdictStatus(event)), needsReview(event) ? "review-status" : "status-note"), historyCell(reason.text || reason.label || "-", "status-note"), historyCell(manualGrade(event) || "-", manualGrade(event) ? "manual-grade" : "status-note"), historyCell(formatMs(event.processing_time_ms)));
+    const verification = event.analysis?.anatomical_verification || {};
+    const anatomy = historyCell(verification.status || "UNAVAILABLE", verification.status === "UNCERTAIN" ? "review-status" : "status-note");
+    anatomy.title = anatomicalVerificationRows(event).map(([label, value]) => `${label}: ${value}`).join("\n");
+    row.append(fish, historyCell(formatTime(event.timestamp)), historyCell(aiFinalGrade(event), "grade-cell"), historyCell(scoreText(weightedFinalSupport(event))), historyCell(scoreText(model1Confidence(event))), historyCell(`${evidence.grade || "-"} ${scoreText(evidence.score)}`, "status-note"), historyCell(coverageText(event)), historyCell(readableVerdictStatus(verdictStatus(event)), needsReview(event) ? "review-status" : "status-note"), anatomy, historyCell(verification.rejection_reason || reason.text || reason.label || "-", "status-note"), historyCell(manualGrade(event) || "-", manualGrade(event) ? "manual-grade" : "status-note"), historyCell(formatMs(event.processing_time_ms)));
     elements.historyBody.append(row);
   });
   labelHistoryRows(elements.historyBody);
@@ -4033,6 +4183,7 @@ function pixelBoxText(box) {
 }
 
 ensureHistoryVerdictFilter();
+ensureAnatomicalExportFields();
 if (elements.viewAll) elements.viewAll.addEventListener("click", () => showView("history")); elements.historyFilter.addEventListener("click", () => loadHistory(true)); elements.historySession.addEventListener("change", () => loadHistory(true)); elements.historyPrev.addEventListener("click", () => { if (historyState.page > 1) { historyState.page -= 1; loadHistory(); } }); elements.historyNext.addEventListener("click", () => { if (historyState.page < historyState.totalPages) { historyState.page += 1; loadHistory(); } });
 elements.resultsSource.addEventListener("change", () => selectResultsSource(elements.resultsSource.value));
 elements.resultsExportCsv.addEventListener("click", exportResultsCsv); elements.resultsExportPdf.addEventListener("click", exportResultsPdf);
@@ -4064,6 +4215,23 @@ elements.debugRuntimeEnabled.addEventListener("change", () => postRuntimeDiagnos
 elements.debugPause.addEventListener("click", () => postRuntimeDiagnostics({ paused: !Boolean(latestStatus?.runtime_diagnostics?.paused) }));
 Object.entries(overlayControls).forEach(([name, controls]) => controls.filter(Boolean).forEach((control) => control.addEventListener("change", () => setOverlay(name, control.checked))));
 function selectedExportRange() { return document.querySelector("input[name=export-range]:checked").value; }
+function anatomicalVerificationExportFields() {
+  return ["anatomical_verification_status", "anatomical_secondary_activated", "anatomical_automatic_rejection",
+    "anatomical_missing_regions", "anatomical_rejection_reason", "anatomical_verification_reason", "anatomical_verification",
+    ...["head", "body"].flatMap(region => [`model2_${region}_detected`, `model2_${region}_detection_status`,
+      `model2_${region}_detection_confidence`, `${region}_anatomical_state`, `${region}_anatomical_source`,
+      `${region}_anatomical_confidence`, `${region}_anatomical_reason`]),
+    "anatomical_fish_id", "anatomical_frame_id", "anatomical_review_reason", "anatomical_uncertainty_causes", "needs_review_reason",
+    "model2_tail_detected", "model2_tail_detection_status", "model2_tail_detection_confidence", "anatomical_geometry_caveat",
+    ...["head", "body"].flatMap(region => [`${region}_anatomical_evidence_summary`, `${region}_anatomical_evidence`])];
+}
+function ensureAnatomicalExportFields() {
+  const container = document.querySelector(".export-fields");
+  if (!container || container.querySelector('input[value="anatomical_verification"]')) return;
+  const label = document.createElement("label");
+  const input = document.createElement("input"); input.type = "checkbox"; input.value = "anatomical_verification"; input.checked = true;
+  label.append(input, document.createTextNode(" Head / Body verification, optional Tail, supporting evidence and review reason")); container.append(label);
+}
 function syncExportRangeControls() {
   const range = selectedExportRange();
   elements.dateRange.classList.toggle("hidden", range !== "custom");
@@ -4090,6 +4258,7 @@ elements.exportForm.addEventListener("submit", async (event) => {
   if (exportInFlight) return;
   const button = $("confirm-export-button");
   const fields = [...document.querySelectorAll(".export-fields input:checked")].map((input) => input.value);
+  if (fields.includes("anatomical_verification")) fields.push(...anatomicalVerificationExportFields().filter(field => !fields.includes(field)));
   const completeAnalysis = $("export-all-evidence").checked;
   const invalidSelection = !completeAnalysis && !fields.length;
   $("export-fields-error").classList.toggle("hidden", !invalidSelection);

@@ -18,10 +18,10 @@ import numpy as np
 from src.inference.decision_fusion import (
     EXTRACTOR_VERSION, FAMILIES, FEATURE_KEYS, GRADE_NAMES, DecisionFusionConfig,
     digest_valid, fingerprint, fuse_decision, load_decision_fusion_config,
-    measurement_issues, model_probabilities, normalize_scores, reference_support,
+    leading_grade_indices, measurement_issues, model_probabilities, normalize_scores, reference_support,
     source_matches, validate_calibration,
 )
-from src.inference.grading_policy import FishPolicyVerdict
+from src.inference.grading_policy import FishPolicyVerdict, PART_NAMES
 
 SPLITS = ("calibration", "validation", "test")
 UNKNOWN = {"", "unknown", "none", "n/a", "null"}
@@ -45,6 +45,10 @@ def validate_records(records):
     for row in records:
         if not isinstance(row, dict) or row.get("split") not in SPLITS:
             raise ValueError("Every record needs a calibration/validation/test partition.")
+        # Historical v1 manifests already define one human grade per fish.
+        # Explicit part targets must never be silently reinterpreted that way.
+        if row.get("reference_unit", "whole_fish") != "whole_fish":
+            raise ValueError("Whole-fish fusion calibration requires a whole-fish reference grade; independently graded parts require part-level feature calibration.")
         if row.get("annotator_verified") is not True or row.get("human_grade") not in GRADE_NAMES:
             raise ValueError("Every label must be an explicitly annotator-verified human grade.")
         for key in ("annotator_id", "review_id", "specimen_id", "capture_group_id", "duplicate_group_id"):
@@ -57,7 +61,8 @@ def validate_records(records):
             raise ValueError("Each original image requires its SHA-256 fingerprint.")
         measures = row.get("measurements", {})
         source = row.get("source", {})
-        if (measures.get("extractor_version") != EXTRACTOR_VERSION
+        if (measures.get("reference_unit", "whole_fish") != "whole_fish"
+                or measures.get("extractor_version") != EXTRACTOR_VERSION
                 or not source_matches(measures, fish_id=row.get("fish_id"), frame_id=row.get("frame_id"), source=source)):
             raise ValueError("Measurements must match the original source, fish, frame and extractor.")
         if not digest_valid(source.get("frame_pixels_sha256")):
@@ -97,17 +102,20 @@ def _probability_metrics(truth, predictions):
     p = np.asarray(predictions)
     onehot = np.eye(len(GRADE_NAMES))[y]
     labels = p.argmax(axis=1)
-    recalls = {grade: float(np.mean(labels[y == i] == i)) if np.any(y == i) else None for i, grade in enumerate(GRADE_NAMES)}
+    unique = np.array([len(leading_grade_indices(row)) == 1 for row in p])
+    correct = (labels == y) & unique
+    recalls = {grade: float(np.mean(correct[y == i])) if np.any(y == i) else None for i, grade in enumerate(GRADE_NAMES)}
     confidence = p.max(axis=1)
     ece = 0.
     for index in range(10):
         selected = (confidence >= index / 10) & ((confidence <= 1.) if index == 9 else (confidence < (index + 1) / 10))
         if selected.any():
-            ece += selected.mean() * abs(float((labels[selected] == y[selected]).mean() - confidence[selected].mean()))
+            ece += selected.mean() * abs(float(correct[selected].mean() - confidence[selected].mean()))
     return {"brier_score": float(np.mean(np.sum((p - onehot) ** 2, axis=1))),
             "negative_log_likelihood": float(-np.log(np.maximum(p[np.arange(len(y)), y], 1e-12)).mean()),
             "balanced_accuracy": float(np.mean([v for v in recalls.values() if v is not None])),
-            "per_class_recall": recalls, "expected_calibration_error_10_bins": float(ece), "specimen_count": len(y)}
+            "per_class_recall": recalls, "expected_calibration_error_10_bins": float(ece),
+            "ambiguous_prediction_count": int((~unique).sum()), "specimen_count": len(y)}
 
 
 def _temperature(truth, predictor):
@@ -134,6 +142,7 @@ def fit_calibration(records, config=None):
     original_metrics = _probability_metrics(truth, [normalize_scores(scores) for scores in score_rows])
     model_validated = model_metrics["brier_score"] <= original_metrics["brier_score"] + 1e-12
     artifact = {"schema_version": "decision_fusion_calibration_v1", "extractor_version": EXTRACTOR_VERSION,
+                "reference_unit": "whole_fish",
                 "classes": list(GRADE_NAMES), "fusion_policy_id": config.policy_id(),
                 "model_context": deepcopy(records[0]["model_context"]),
                 "anatomical_policy": deepcopy(records[0]["anatomical_policy"]),
@@ -193,10 +202,11 @@ def fit_calibration(records, config=None):
     comparison = evaluate_calibration(records, artifact, config, split="validation", candidate=True)
     passed = (comparison["candidate"]["macro_f1"] + 1e-12 >= comparison["model2_only"]["macro_f1"]
               and comparison["candidate"]["false_rejected_rate"] <= comparison["model2_only"]["false_rejected_rate"] + 1e-12
-              and comparison["candidate"]["automatic_count"] > 0
+              and comparison["candidate"]["per_class_recall"]["Rejected"] + 1e-12 >= comparison["model2_only"]["per_class_recall"]["Rejected"]
+              and comparison["eligible_fusion_automatic_count"] > 0
               and any(entry.get("validated") for entry in artifact["features"].values()))
     artifact["validation"] = {"passed": bool(passed), "comparison": comparison,
-                              "rule": "paired four-class macro F1 must not decline, false Rejected rate must not increase, eligible features and automatic decisions must exist"}
+                              "rule": "paired four-class macro F1 and Rejected recall must not decline, false Rejected rate must not increase, automatic decisions using eligible features must exist"}
     return artifact
 
 
@@ -219,6 +229,12 @@ def evaluate_calibration(records, artifact, config=None, *, split="test", candid
                          "human_grade": row["human_grade"], "model2_only": baseline.final_grade or "Ungraded",
                          "candidate": decision.final_grade or "Ungraded", "decision_state": report["decision_state"],
                          "review_required": report["review_required"], "mode": report["mode"],
+                         "features_used": [family for family, entry in report["features"].items() if entry["used_for_grading"]],
+                         "model2_leading_grades": report["model2_leading_grades"],
+                         "feature_only_leading_grades": report["feature_only_leading_grades"],
+                         "combined_leading_grades": report["combined_leading_grades"],
+                         "tie_resolving_features": report["tie_resolving_features"],
+                         "resolved_score_review_reasons": report["resolved_score_review_reasons"],
                          "disagreement_reasons": report["disagreement_reasons"]})
     def metrics(name):
         matrix = np.zeros((4, 5), dtype=int)
@@ -252,6 +268,11 @@ def evaluate_calibration(records, artifact, config=None, *, split="test", candid
             sample = [r for key in rng.choice(capture_ids, len(capture_ids), replace=True) for r in by_group[key]]
             intervals.append(sum((r["candidate"] == r["human_grade"]) - (r["model2_only"] == r["human_grade"]) for r in sample) / len(sample))
     return {"split": split, "specimen_count": len(rows), "capture_group_count": len(capture_ids),
+            "eligible_fusion_count": sum(row["mode"] == "calibrated_fusion" for row in outcomes),
+            "eligible_fusion_automatic_count": sum(row["mode"] == "calibrated_fusion" and not row["review_required"] for row in outcomes),
+            "per_feature_usage_counts": {family: sum(family in row["features_used"] for row in outcomes) for family in FAMILIES},
+            "resolved_score_review_count": sum(bool(row["resolved_score_review_reasons"]) for row in outcomes),
+            "resolved_score_review_correct_count": sum(bool(row["resolved_score_review_reasons"]) and row["candidate"] == row["human_grade"] for row in outcomes),
             "model2_only": baseline_metrics, "candidate": candidate_metrics,
             "paired_accuracy_delta_group_bootstrap_95_interval": np.quantile(intervals, [.025, .975]).tolist() if intervals else None,
             "bootstrap_seed": 42, "bootstrap_repetitions": len(intervals),
@@ -284,16 +305,82 @@ def export_review_records(database, identities):
             grade = audit[0] if audit[0] in GRADE_NAMES else f"Class {audit[0]}"
             records.append({**identity, "fish_id": track, "frame_id": latest["fusion_measurements"]["frame_id"],
                 "annotator_verified": True, "annotator_id": audit[1], "review_id": f"review-audit:{session}:{audit[2]}",
-                "human_grade": grade, "original_ai_prediction": fusion["model_only_prediction"],
+                "reference_unit": "whole_fish", "human_grade": grade,
+                "original_ai_prediction": fusion["model_only_prediction"],
                 "ai_baseline": fusion["model_only_verdict"], "measurements": latest["fusion_measurements"],
                 "model_context": fusion["model_context"], "anatomical_policy": fusion["anatomical_policy"], "source": latest.get("source_context", {})})
     return {"schema_version": "decision_fusion_records_v1", "records": records, "withheld": withheld}
 
 
+def _annotation_references(data):
+    """Inventory real class labels without promoting part boxes into fish masks."""
+    from src.preprocessing.audit_v7_exports import (
+        ExportAuditError, is_rectangular_polygon, map_part_category,
+    )
+    names = {category["id"]: category.get("name") for category in data.get("categories", [])}
+    counts = Counter()
+    part_grades = {region: Counter() for region in PART_NAMES}
+    part_count = whole_count = rectangular_parts = identified_parts = unknown_count = 0
+    for annotation in data.get("annotations", []):
+        name = names.get(annotation.get("category_id"))
+        if name in GRADE_NAMES:
+            counts[name] += 1
+            whole_count += 1
+            continue
+        try:
+            grade_id, region = map_part_category(name)
+        except (ExportAuditError, TypeError):
+            unknown_count += 1
+            continue
+        counts[GRADE_NAMES[grade_id]] += 1
+        part_grades[region][GRADE_NAMES[grade_id]] += 1
+        part_count += 1
+        identified_parts += int(any(
+            not isinstance(annotation.get(key), bool)
+            and isinstance(annotation.get(key), (int, str))
+            and str(annotation[key]).strip().lower() not in UNKNOWN
+            for key in ("fish_id", "specimen_id")
+        ))
+        polygons = annotation.get("segmentation")
+        if isinstance(polygons, list) and len(polygons) == 1:
+            ring = polygons[0]
+            if (isinstance(ring, list) and len(ring) >= 6 and len(ring) % 2 == 0
+                    and all(isinstance(value, (int, float)) and not isinstance(value, bool)
+                            and np.isfinite(value) for value in ring)
+                    and is_rectangular_polygon(tuple(zip(ring[::2], ring[1::2])))):
+                rectangular_parts += 1
+    return {
+        "class_label_reference_count": sum(counts.values()),
+        "grade_annotation_counts": {grade: counts[grade] for grade in GRADE_NAMES},
+        "part_grade_reference_counts": {
+            region: {grade: part_grades[region][grade] for grade in GRADE_NAMES}
+            for region in PART_NAMES
+        },
+        "reference_unit": "mixed" if part_count and whole_count else "fish_part" if part_count else "whole_fish" if whole_count else "unavailable",
+        "missing_reference_grades": [grade for grade in GRADE_NAMES if not counts[grade]],
+        "part_annotation_reference_count": part_count,
+        "whole_fish_annotation_reference_count": whole_count,
+        "part_annotations_with_fish_identity": identified_parts,
+        "rectangular_part_annotation_count": rectangular_parts,
+        "all_part_annotations_are_rectangles": bool(part_count) and rectangular_parts == part_count,
+        "unknown_class_annotation_count": unknown_count,
+    }
+
+
 def audit_existing(root):
     root = Path(root)
     report = {"calibration_ready": False, "inspection_count": 0, "human_review_count": 0,
-              "source_bound_feature_records": 0, "datasets": [], "limitations": []}
+              "source_bound_feature_records": 0, "datasets": [], "limitations": [],
+              "class_label_reference_count": 0, "dataset_label_reference_available": False,
+              "runtime_manual_reviews_required_for_dataset_labels": False}
+    provenance_path = root / "configs/dataset_class_reference.json"
+    provenance = json.loads(provenance_path.read_text(encoding="utf-8")) if provenance_path.exists() else {}
+    if (not isinstance(provenance, dict) or (provenance and (
+            provenance.get("schema_version") != "dataset_class_reference_v1"
+            or not isinstance(provenance.get("dataset_directory"), str)
+            or not provenance["dataset_directory"].strip()))):
+        raise ValueError("Expected a dataset_class_reference_v1 declaration with a dataset directory.")
+    report["dataset_class_provenance"] = deepcopy(provenance)
     database = root / "results/inspection_history.sqlite3"
     if database.exists():
         with sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True) as connection:
@@ -306,11 +393,21 @@ def audit_existing(root):
     for path in root.glob("*/**/_annotations.coco.json"):
         data = json.loads(path.read_text(encoding="utf-8"))
         images = data.get("images", [])
+        references = _annotation_references(data)
+        report["class_label_reference_count"] += references["class_label_reference_count"]
+        confirmed = (bool(provenance) and provenance.get("user_confirmed_label_reference") is True
+                     and path.parent.parent.resolve() == (root / provenance["dataset_directory"]).resolve())
         report["datasets"].append({"path": path.relative_to(root).as_posix(), "images": len(images),
             "annotations": len(data.get("annotations", [])), "categories": [c.get("name") for c in data.get("categories", [])],
+            **references, "user_confirmed_class_reference": confirmed,
             "specimen_ids_present": all(bool(image.get("specimen_id")) for image in images) if images else False,
             "whole_fish_feature_reference_records": 0})
-    report["limitations"] = ["Part annotations are not verified whole-fish feature-to-grade reference distributions.",
+    report["dataset_label_reference_available"] = report["class_label_reference_count"] > 0
+    report["limitations"] = [
+        "Existing human annotation classes can provide the reference labels; application review-history entries are not required for those labels.",
+        "Reference labels and fitted feature-to-grade distributions are separate; class annotations alone do not supply calibrated measurements.",
+        "Part-to-fish associations must preserve the supplied labels; no whole-fish grade or silhouette is inferred from a part rectangle.",
+        "Independently assigned Head/Body/Tail grades are part-level targets. A weighted final fish grade is a policy result, not a separate human whole-fish reference label.",
         "Known physical specimen, capture and duplicate-family IDs are required before partitioning.",
         "Calibrated size endpoints/widths, crack nuisance negatives, lighting-aware color and texture validation are required.",
         "No calibration or accuracy improvement is inferred from saved AI predictions."]
@@ -340,8 +437,9 @@ def main():
         result = audit_existing(args.root)
     elif args.command == "template":
         result = {"schema_version": "decision_fusion_records_v1", "records": [],
+                  "record_defaults": {"reference_unit": "whole_fish"},
                   "required_record_fields": ["specimen_id", "capture_group_id", "duplicate_group_id", "image_sha256", "split", "annotator_verified", "annotator_id", "review_id", "human_grade", "original_ai_prediction", "ai_baseline", "measurements", "model_context", "anatomical_policy", "source", "fish_id", "frame_id"],
-                  "notes": ["No example labels or measurements are approved.", "Use original runtime fusion measurements and separate verified human labels; never use AI grades as truth.", "Assign one representative per physical specimen; reserve independent capture/duplicate families for calibration, validation and test."]}
+                  "notes": ["No example labels or measurements are approved.", "Use original runtime fusion measurements and separate verified human labels; never use AI grades as truth.", "Independently graded part labels require part-level feature calibration; do not copy one part label or a computed weighted verdict into human_grade.", "Assign one representative per physical specimen; reserve independent capture/duplicate families for calibration, validation and test."]}
     elif args.command == "export-reviews":
         result = export_review_records(args.database, json.loads(args.identities.read_text(encoding="utf-8"))["identities"])
     else:

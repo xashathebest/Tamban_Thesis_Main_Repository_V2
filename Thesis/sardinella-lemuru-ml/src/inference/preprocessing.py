@@ -162,6 +162,15 @@ class RuntimeMaskContext:
     def trusted_body_mask(self, parent_id, bounds):
         return self._experimental.body_mask(parent_id, bounds) if self._experimental is not None else (None, {})
 
+    def anatomical_candidate(self, parent_id, bounds):
+        """Reuse this frame's existing segmentation; no additional inference."""
+        if self._experimental is None:
+            return None, {"reason": "No native per-fish segmentation candidate is available."}
+        with self._lock:
+            self._roi_key(parent_id, bounds)
+            mask, metadata = self._experimental.anatomical_candidate(parent_id, bounds)
+            return self._read(self._freeze(mask)), self._read(self._freeze(metadata))
+
     def experimental_fish_mask(self, parent_id, bounds):
         """Native diagnostic support; never replaces the grading foreground."""
         if self._experimental is None:

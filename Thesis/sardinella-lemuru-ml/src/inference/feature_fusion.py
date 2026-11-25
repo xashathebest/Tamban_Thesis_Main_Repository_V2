@@ -11,7 +11,7 @@ import math
 from pathlib import Path
 from typing import Mapping
 
-from src.inference.grading_policy import FishPolicyVerdict, GRADE_NAMES, GradingPolicy
+from src.inference.grading_policy import FishPolicyVerdict, GRADE_NAMES, GradingPolicy, grade_margin_passes
 
 
 @dataclass(frozen=True)
@@ -217,7 +217,7 @@ def integrate_structural_support(decision, evidence, config, policy, *, fish_id,
             available = [grade for grade in GRADE_NAMES if not major or grade != "Class A"]
             ordered = sorted(available, key=lambda grade: (-candidate[grade], GRADE_NAMES.index(grade)))
             first, second = ordered[:2]
-            if (candidate[first] >= policy.final_verdict_threshold and candidate[first] - candidate[second] >= policy.minimum_grade_margin
+            if (candidate[first] >= policy.final_verdict_threshold and grade_margin_passes(candidate[first] - candidate[second], policy.minimum_grade_margin)
                     and first != "Rejected"):
                 scores = candidate
                 report.update(score_shift=shift, score_target=target, score_scale="normalized_combined_support")
@@ -234,7 +234,7 @@ def integrate_structural_support(decision, evidence, config, policy, *, fish_id,
     ordered = sorted(available, key=lambda grade: (-scores[grade], GRADE_NAMES.index(grade)))
     first, second = ordered[:2]
     margin = scores[first] - scores[second]
-    accepted = scores[first] > 0 and scores[first] >= policy.final_verdict_threshold and margin >= policy.minimum_grade_margin
+    accepted = scores[first] > 0 and scores[first] >= policy.final_verdict_threshold and grade_margin_passes(margin, policy.minimum_grade_margin)
     reason = ("GR_CONFIRMED_MAJOR_CRACK_A_EXCLUDED" if major else "GR_REVIEWED_STRUCTURAL_SUPPORT") if accepted else "UG_CONFIRMED_MAJOR_CRACK_NO_ELIGIBLE_GRADE"
     final = replace(decision, weighted_scores=scores, top_grade=first, top_support=scores[first],
                     second_grade=second, second_support=scores[second], grade_margin=margin,

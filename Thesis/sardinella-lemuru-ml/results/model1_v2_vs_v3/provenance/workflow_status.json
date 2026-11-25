@@ -1,0 +1,10 @@
+{
+  "phase": "completed",
+  "pid": 20176,
+  "updated_utc": "2026-11-23T15:20:15.195457+00:00",
+  "images": 2258,
+  "boxes": 12403,
+  "production_promoted": false,
+  "candidate": "C:\\Users\\User\\Downloads\\Tamban_Thesis_Main_Repository\\Thesis\\sardinella-lemuru-ml\\notebooks\\Tamban_Model1_Retrain\\model1_v3\\deduplicated\\runs\\model1_v3_deduplicated_20261123T074613Z\\model1_v3_finetuned_best.pt",
+  "compared": true
+}

@@ -23,6 +23,44 @@
         "Rejected_Head",
         "Rejected_Tail"
       ],
+      "class_label_reference_count": 225,
+      "grade_annotation_counts": {
+        "Class A": 0,
+        "Class B": 4,
+        "Class C": 90,
+        "Rejected": 131
+      },
+      "part_grade_reference_counts": {
+        "Head": {
+          "Class A": 0,
+          "Class B": 2,
+          "Class C": 30,
+          "Rejected": 47
+        },
+        "Body": {
+          "Class A": 0,
+          "Class B": 1,
+          "Class C": 43,
+          "Rejected": 56
+        },
+        "Tail": {
+          "Class A": 0,
+          "Class B": 1,
+          "Class C": 17,
+          "Rejected": 28
+        }
+      },
+      "reference_unit": "fish_part",
+      "missing_reference_grades": [
+        "Class A"
+      ],
+      "part_annotation_reference_count": 225,
+      "whole_fish_annotation_reference_count": 0,
+      "part_annotations_with_fish_identity": 0,
+      "rectangular_part_annotation_count": 219,
+      "all_part_annotations_are_rectangles": false,
+      "unknown_class_annotation_count": 0,
+      "user_confirmed_class_reference": true,
       "specimen_ids_present": false,
       "whole_fish_feature_reference_records": 0
     },
@@ -45,6 +83,42 @@
         "Rejected_Head",
         "Rejected_Tail"
       ],
+      "class_label_reference_count": 9099,
+      "grade_annotation_counts": {
+        "Class A": 1625,
+        "Class B": 3181,
+        "Class C": 1446,
+        "Rejected": 2847
+      },
+      "part_grade_reference_counts": {
+        "Head": {
+          "Class A": 520,
+          "Class B": 1233,
+          "Class C": 503,
+          "Rejected": 1119
+        },
+        "Body": {
+          "Class A": 594,
+          "Class B": 1214,
+          "Class C": 683,
+          "Rejected": 1161
+        },
+        "Tail": {
+          "Class A": 511,
+          "Class B": 734,
+          "Class C": 260,
+          "Rejected": 567
+        }
+      },
+      "reference_unit": "fish_part",
+      "missing_reference_grades": [],
+      "part_annotation_reference_count": 9099,
+      "whole_fish_annotation_reference_count": 0,
+      "part_annotations_with_fish_identity": 0,
+      "rectangular_part_annotation_count": 8799,
+      "all_part_annotations_are_rectangles": false,
+      "unknown_class_annotation_count": 0,
+      "user_confirmed_class_reference": true,
       "specimen_ids_present": false,
       "whole_fish_feature_reference_records": 0
     },
@@ -67,14 +141,87 @@
         "Rejected_Head",
         "Rejected_Tail"
       ],
+      "class_label_reference_count": 399,
+      "grade_annotation_counts": {
+        "Class A": 5,
+        "Class B": 2,
+        "Class C": 127,
+        "Rejected": 265
+      },
+      "part_grade_reference_counts": {
+        "Head": {
+          "Class A": 2,
+          "Class B": 0,
+          "Class C": 44,
+          "Rejected": 110
+        },
+        "Body": {
+          "Class A": 2,
+          "Class B": 0,
+          "Class C": 58,
+          "Rejected": 93
+        },
+        "Tail": {
+          "Class A": 1,
+          "Class B": 2,
+          "Class C": 25,
+          "Rejected": 62
+        }
+      },
+      "reference_unit": "fish_part",
+      "missing_reference_grades": [],
+      "part_annotation_reference_count": 399,
+      "whole_fish_annotation_reference_count": 0,
+      "part_annotations_with_fish_identity": 0,
+      "rectangular_part_annotation_count": 387,
+      "all_part_annotations_are_rectangles": false,
+      "unknown_class_annotation_count": 0,
+      "user_confirmed_class_reference": true,
       "specimen_ids_present": false,
       "whole_fish_feature_reference_records": 0
     }
   ],
   "limitations": [
-    "Part annotations are not verified whole-fish feature-to-grade reference distributions.",
+    "Existing human annotation classes can provide the reference labels; application review-history entries are not required for those labels.",
+    "Reference labels and fitted feature-to-grade distributions are separate; class annotations alone do not supply calibrated measurements.",
+    "Part-to-fish associations must preserve the supplied labels; no whole-fish grade or silhouette is inferred from a part rectangle.",
+    "Independently assigned Head/Body/Tail grades are part-level targets. A weighted final fish grade is a policy result, not a separate human whole-fish reference label.",
     "Known physical specimen, capture and duplicate-family IDs are required before partitioning.",
     "Calibrated size endpoints/widths, crack nuisance negatives, lighting-aware color and texture validation are required.",
     "No calibration or accuracy improvement is inferred from saved AI predictions."
-  ]
+  ],
+  "class_label_reference_count": 9723,
+  "dataset_label_reference_available": true,
+  "runtime_manual_reviews_required_for_dataset_labels": false,
+  "dataset_class_provenance": {
+    "schema_version": "dataset_class_reference_v1",
+    "dataset_directory": "Dried Fish Quality Grading.v7i.coco-segmentation",
+    "user_confirmed_label_reference": true,
+    "class_source": "expert_provided_grading_categories",
+    "annotation_process": "Project annotators assigned a grade to each Head, Body and Tail separately using the expert-provided grading categories.",
+    "confirmation_source": "User clarification in the project conversation on 2026-11-23.",
+    "annotation_unit": "fish_part",
+    "all_parts_inherit_whole_fish_grade": false,
+    "model1": {
+      "task": "whole_fish_detection",
+      "class_names": [
+        "Fish"
+      ],
+      "quality_grading": false
+    },
+    "model2": {
+      "task": "part_quality_detection",
+      "regions": [
+        "Head",
+        "Body",
+        "Tail"
+      ],
+      "grade_assignment": "independent_per_part",
+      "label_source": "annotator_assigned_part_grade"
+    },
+    "final_fish_grade_source": "configured_weighted_part_evidence",
+    "expert_identity": null,
+    "rubric_document": null,
+    "scope": "Existing dataset class labels are the reference. This declaration does not validate foreground masks, individual feature measurements, specimen identities, split independence or fitted feature calibration."
+  }
 }

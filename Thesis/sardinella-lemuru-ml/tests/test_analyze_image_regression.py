@@ -165,7 +165,7 @@ class Scenario1_TrainingImageUngraded(unittest.TestCase):
     def test_still_image_single_frame_bypasses_temporal_gate(self):
         # This is the actual analyze-image code path: stabilize=False
         engine = _engine(minimum_track_observations=2, final_verdict_threshold=0.25)
-        verdict = engine.evaluate(1, _crop(), [_part("Body", "Class A", 0.80)], stabilize=False)
+        verdict = engine.evaluate(1, _crop(), [_part("Body", "Class A", 0.80), _part("Head", "Class A", 0.80)], stabilize=False)
         self.assertEqual(verdict.final_grade, "Class A", "Still-image path must produce a grade from one frame")
         self.assertNotIn(UG_TEMPORAL_EVIDENCE, verdict.reason_codes)
 
@@ -240,17 +240,19 @@ class Scenario3_PartsFailConfidenceGate(unittest.TestCase):
 
     def test_parts_exactly_at_threshold_are_accepted(self):
         engine = _engine(minimum_part_confidence=0.25, final_verdict_threshold=0.10)
-        verdict = engine.evaluate(3, _crop(), [_part("Body", "Class A", 0.25)], stabilize=False)
+        verdict = engine.evaluate(3, _crop(), [_part("Body", "Class A", 0.25), _part("Head", "Class A", 0.25)], stabilize=False)
         self.assertEqual(verdict.final_grade, "Class A")
 
-    def test_head_tail_below_threshold_dont_contribute_body_still_grades(self):
+    def test_head_tail_below_threshold_dont_contribute_and_anatomy_needs_review(self):
         engine = _engine(minimum_part_confidence=0.25, final_verdict_threshold=0.10)
         verdict = engine.evaluate(3, _crop(), [
             _part("Body", "Class A", 0.70),
             _part("Head", "Class A", 0.10),  # below threshold
             _part("Tail", "Class A", 0.10),  # below threshold
         ], stabilize=False)
-        self.assertEqual(verdict.final_grade, "Class A")
+        self.assertIsNone(verdict.final_grade)
+        self.assertIn("UG_ANATOMY_UNCERTAIN", verdict.reason_codes)
+        self.assertAlmostEqual(verdict.weighted_scores["Class A"], .35)
         self.assertNotIn("Head", verdict.observed_regions)
         self.assertNotIn("Tail", verdict.observed_regions)
 
@@ -359,12 +361,14 @@ class Scenario6_PartiallyVisibleFish(unittest.TestCase):
         self.assertGreater(crop.shape[0], 0)
         self.assertEqual(bounds.x1, 0)  # clamped to left edge
 
-    def test_clipped_fish_with_body_only_can_still_grade(self):
+    def test_clipped_fish_with_body_only_keeps_scores_but_requires_anatomy_review(self):
         # Head and Tail cut off; only Body evidence present
         engine = _engine(require_body=True, final_verdict_threshold=0.25, minimum_original_weight_coverage=0.40)
         verdict = engine.evaluate(6, _crop(), [_part("Body", "Class A", 0.70)], stabilize=False)
         # Body weight is 0.50 which meets minimum_original_weight_coverage=0.40
-        self.assertEqual(verdict.final_grade, "Class A")
+        self.assertIsNone(verdict.final_grade)
+        self.assertIn("UG_ANATOMY_UNCERTAIN", verdict.reason_codes)
+        self.assertAlmostEqual(verdict.weighted_scores["Class A"], .35)
         self.assertNotIn("Head", verdict.observed_regions)
         self.assertNotIn("Tail", verdict.observed_regions)
 
@@ -389,13 +393,15 @@ class Scenario7_MissingRegionEvidence(unittest.TestCase):
         self.assertIsNone(verdict.final_grade)
         self.assertIn(UG_MISSING_PART_EVIDENCE, verdict.reason_codes)
 
-    def test_no_body_without_require_body_can_grade_from_head_tail(self):
+    def test_no_body_without_require_body_still_requires_physical_anatomy_review(self):
         engine = _engine(require_body=False, final_verdict_threshold=0.25, minimum_original_weight_coverage=0.40)
         verdict = engine.evaluate(7, _crop(), [
             _part("Head", "Class A", 0.90), _part("Tail", "Class A", 0.85)
         ], stabilize=False)
         # Head weight 0.30 + Tail weight 0.20 = 0.50 >= 0.40 coverage
-        self.assertEqual(verdict.final_grade, "Class A")
+        self.assertIsNone(verdict.final_grade)
+        self.assertIn("UG_ANATOMY_UNCERTAIN", verdict.reason_codes)
+        self.assertAlmostEqual(verdict.weighted_scores["Class A"], .44)
 
     def test_coverage_below_minimum_stays_ungraded(self):
         # Only tail (0.20 original weight) observed; minimum_original_weight_coverage=0.50
@@ -440,9 +446,9 @@ class Scenario8_DefectEvidence(unittest.TestCase):
         verdict = engine.evaluate(8, _crop(), [
             _part("Body", "Class A", 0.70),
             _part("Body", "Rejected", 0.90),
+            _part("Head", "Rejected", 0.90),
         ], stabilize=False)
-        # Class A weighted score = 0.70×0.50 = 0.35 and Rejected = 0.90×0.50 = 0.45
-        # Top grade = Rejected (0.45 >= 0.40 threshold); no reasons → override fires.
+        # Reliable Head evidence passes anatomy; the original Body override remains active.
         self.assertEqual(verdict.final_grade, "Rejected")
         self.assertIsNotNone(verdict.override)
         self.assertTrue(verdict.override["applied"])
@@ -453,13 +459,14 @@ class Scenario8_DefectEvidence(unittest.TestCase):
         verdict = engine.evaluate(8, _crop(), [
             _part("Body", "Class A", 0.90),
             _part("Body", "Rejected", 0.80),  # below override threshold
+            _part("Head", "Class A", 0.90),
         ], stabilize=False)
         # Class A wins the weighted score; override threshold not met
         self.assertEqual(verdict.final_grade, "Class A")
 
     def test_no_rejected_evidence_does_not_trigger_rejected(self):
         engine = _engine(rejected_override_threshold=0.85, final_verdict_threshold=0.25)
-        verdict = engine.evaluate(8, _crop(), [_part("Body", "Class A", 0.70)], stabilize=False)
+        verdict = engine.evaluate(8, _crop(), [_part("Body", "Class A", 0.70), _part("Head", "Class A", 0.70)], stabilize=False)
         self.assertEqual(verdict.final_grade, "Class A")
         self.assertIsNone(verdict.override)
 
@@ -556,15 +563,16 @@ class Scenario10_GenuinelyAmbiguous(unittest.TestCase):
         self.assertIsNotNone(verdict.verdict_reason_text)
         self.assertGreater(len(verdict.verdict_reason_text), 10)
 
-    def test_tied_grades_with_zero_margin_config_still_grades(self):
-        # With minimum_grade_margin=0.0 (default), a tie can still yield a grade
+    def test_tied_grades_with_zero_margin_config_require_review(self):
+        # Zero adds no positive margin threshold; a unique winner is required.
         engine = _engine(final_verdict_threshold=0.25, minimum_grade_margin=0.0)
         verdict = engine.evaluate(10, _crop(), [
             _part("Body", "Class A", 0.50),
             _part("Body", "Class B", 0.50),
         ], stabilize=False)
-        # Both A and B get equal Body support; A comes first alphabetically in GRADE_NAMES
-        self.assertIsNotNone(verdict.final_grade)
+        self.assertIsNone(verdict.final_grade)
+        self.assertIn("UG_LOW_MARGIN", verdict.reason_codes)
+        self.assertIn("no unique winning grade", verdict.verdict_reason_text)
 
     def test_explanation_tuple_is_always_present_and_non_empty(self):
         engine = _engine()

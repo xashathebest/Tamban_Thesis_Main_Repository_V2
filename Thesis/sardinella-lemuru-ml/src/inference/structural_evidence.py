@@ -89,6 +89,12 @@ def requires_human_review(analysis):
     """Head-integrity review holds remain independent of the saved AI grade."""
     if not isinstance(analysis, Mapping):
         return False
+    anatomy = analysis.get("anatomical_verification", {})
+    if isinstance(anatomy, Mapping):
+        if anatomy.get("status") == "MISSING" and anatomy.get("automatic_rejection") is True:
+            return False
+        if anatomy.get("status") == "UNCERTAIN":
+            return True
     structural = analysis.get("structural_evidence", {})
     structural = structural if isinstance(structural, Mapping) else {}
     regions = structural.get("regions", {})

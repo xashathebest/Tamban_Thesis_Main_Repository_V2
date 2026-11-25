@@ -11,16 +11,19 @@ from dataclasses import asdict, dataclass, replace
 import hashlib
 import json
 import math
+from numbers import Integral
 from pathlib import Path
 from typing import Mapping
 
 import numpy as np
 
-from src.inference.grading_policy import GRADE_NAMES
+from src.inference.grading_policy import GRADE_NAMES, UG_LOW_GRADE_SUPPORT, UG_LOW_MARGIN, grade_margin_passes
 
 WEIGHTS = {"model2": .70, "size": .15, "cracks": .05, "color": .05, "texture": .05}
 FAMILIES = tuple(name for name in WEIGHTS if name != "model2")
 EXTRACTOR_VERSION = "owned_fish_fusion_v1"
+CALIBRATION_POLICY_VERSION = "whole_fish_feature_validation_v5"
+SCORE_REVIEW_REASONS = frozenset((UG_LOW_GRADE_SUPPORT, UG_LOW_MARGIN))
 FEATURE_KEYS = {
     "size": ("relative_width_ratio", "body_width_to_length_ratio", "body_width_profile_cv"),
     "cracks": ("crack_area_fraction", "crack_length_to_fish_length"),
@@ -33,6 +36,18 @@ REQUIRED_CHECKS = {
     "cracks": ("complete_mask", "ownership", "measurement", "structural_discrimination"),
     "color": ("complete_mask", "ownership", "measurement", "lighting_calibrated"),
     "texture": ("complete_mask", "ownership", "measurement", "glcm_valid", "lbp_valid", "surface_valid"),
+}
+# Mathematical measurement domains, not biological grade boundaries. The fixed
+# extractor uses 16 GLCM levels and ten LBP bins. Ratios of two lengths may
+# exceed one; normalized pixel fractions may not.
+FEATURE_DOMAINS = {
+    "size": {"relative_width_ratio": (0., None), "body_width_to_length_ratio": (0., None),
+             "body_width_profile_cv": (0., None)},
+    "cracks": {"crack_area_fraction": (0., 1.), "crack_length_to_fish_length": (0., None)},
+    "color": dict.fromkeys(FEATURE_KEYS["color"], (0., 1.)),
+    "texture": {"glcm_contrast": (0., 225.), "glcm_homogeneity": (0., 1.),
+                "glcm_entropy": (0., 8.), "lbp_entropy": (0., math.log2(10)),
+                "lbp_nonuniform_ratio": (0., 1.), "mean_gradient_proxy": (0., math.sqrt(2))},
 }
 
 
@@ -95,6 +110,8 @@ class DecisionFusionConfig:
         values = self.to_dict()
         for key in ("enabled", "artifact_path"):
             values.pop(key)
+        values["validation_policy_version"] = CALIBRATION_POLICY_VERSION
+        values["measurement_domains"] = FEATURE_DOMAINS
         return fingerprint(values)
 
 
@@ -132,6 +149,8 @@ def validate_calibration(artifact, config, *, candidate=False):
             or artifact.get("classes") != list(GRADE_NAMES)
             or artifact.get("fusion_policy_id") != config.policy_id()):
         raise ValueError("Calibration schema, extractor, classes or decision policy does not match.")
+    if artifact.get("reference_unit", "whole_fish") != "whole_fish":
+        raise ValueError("Whole-fish decision fusion cannot use independently graded part references.")
     if not isinstance(artifact.get("calibration_id"), str) or not artifact["calibration_id"].strip():
         raise ValueError("A frozen calibration ID is required.")
     context = artifact.get("model_context", {})
@@ -143,6 +162,9 @@ def validate_calibration(artifact, config, *, candidate=False):
     for key in ("final_verdict_threshold", "minimum_grade_margin"):
         if finite(anatomical_policy.get(key)) is None or not 0 <= anatomical_policy[key] <= 1:
             raise ValueError("Anatomical support/margin acceptance rules must be finite fractions.")
+    rejected_threshold = anatomical_policy.get("rejected_override_threshold")
+    if rejected_threshold is not None and (finite(rejected_threshold) is None or not 0 <= rejected_threshold <= 1):
+        raise ValueError("The trained Rejected override threshold must be a finite fraction or null.")
     provenance = artifact.get("provenance", {})
     if not isinstance(provenance, Mapping) or not digest_valid(provenance.get("manifest_sha256")):
         raise ValueError("Calibration has no verified-record manifest fingerprint.")
@@ -213,6 +235,12 @@ def model_probabilities(scores, model):
     return None if normalized is None else softmax(np.log(np.maximum(normalized, 1e-12)), model["temperature"])
 
 
+def leading_grade_indices(support):
+    """Retain every tied leader using the shared grading roundoff tolerance."""
+    values = np.asarray(support, dtype=float)
+    return tuple(int(index) for index in np.flatnonzero(np.isclose(values, values.max(), rtol=0., atol=1e-12)))
+
+
 def reference_support(values, calibration):
     """Class-conditional likelihoods followed by held-out temperature scaling."""
     sample = np.asarray([values[key] for key in calibration["keys"]], dtype=float)
@@ -228,12 +256,16 @@ def reference_support(values, calibration):
 
 
 def source_matches(record, *, fish_id, frame_id, source):
-    if (not isinstance(record, Mapping) or not isinstance(source, Mapping) or fish_id is None
-            or isinstance(fish_id, bool) or not isinstance(frame_id, (int, str)) or isinstance(frame_id, bool)):
+    def valid_id(value):
+        return isinstance(value, (Integral, str)) and not isinstance(value, (bool, np.bool_))
+
+    if (not isinstance(record, Mapping) or not isinstance(source, Mapping)
+            or not all(valid_id(value) for value in (fish_id, frame_id, record.get("fish_id"), record.get("frame_id")))):
         return False
     digest = source.get("frame_pixels_sha256")
     return (record.get("fish_id") == fish_id and not isinstance(record.get("fish_id"), bool)
             and record.get("frame_id") == frame_id and isinstance(source.get("source_id"), str)
+            and ("parent_track_id" not in record or (valid_id(record["parent_track_id"]) and record["parent_track_id"] == fish_id))
             and bool(source["source_id"].strip()) and record.get("source_id") == source["source_id"]
             and digest_valid(digest) and record.get("frame_pixels_sha256") == digest)
 
@@ -259,10 +291,40 @@ def measurement_issues(family, entry):
     values = entry.get("values", {})
     if not isinstance(values, Mapping) or any(finite(values.get(key)) is None for key in FEATURE_KEYS[family]):
         issues.append("measurements_missing_or_nonfinite")
+    if isinstance(values, Mapping):
+        for key, (lower, upper) in FEATURE_DOMAINS[family].items():
+            value = finite(values.get(key))
+            if value is None:
+                continue
+            if (value < lower or (upper is not None and value > upper + 1e-12)
+                    or (family == "size" and key != "body_width_profile_cv" and value == 0)):
+                issues.append(f"measurement_out_of_range:{key}")
+    if entry.get("measurement_error"):
+        issues.append("measurement_extraction_failed")
     reliability = finite(entry.get("measurement_reliability"))
     if reliability is None or not 0 < reliability <= 1:
         issues.append("measurement_reliability_unavailable")
     return issues
+
+
+def _trained_rejected_evidence(baseline, anatomical_policy):
+    """Retain a trained part override even if raw score gates held the fish.
+
+    The canonical policy applies overrides only after its acceptance gates.
+    Reconsidering score-only holds must not bypass an otherwise pending
+    Rejected_* override. Original regional contributions retain that evidence.
+    """
+    threshold = finite(anatomical_policy.get("rejected_override_threshold"))
+    if threshold is None:
+        return []
+    evidence = []
+    for region in baseline.observed_regions:
+        weight = finite(baseline.effective_weights.get(region))
+        scores = baseline.contributions.get(region, {})
+        support = finite(scores.get("Rejected")) if isinstance(scores, Mapping) else None
+        if weight is not None and weight > 0 and support is not None and support >= threshold * weight:
+            evidence.append({"region": region, "confidence": support / weight, "configured_threshold": threshold})
+    return evidence
 
 
 def fuse_decision(baseline, measurements, config, artifact, *, fish_id, frame_id, source=None,
@@ -275,14 +337,23 @@ def fuse_decision(baseline, measurements, config, artifact, *, fish_id, frame_id
     """
     fallback = baseline if fallback is None else fallback
     measures = measurements if isinstance(measurements, Mapping) else {}
+    score_holds = [code for code in baseline.reason_codes if code in SCORE_REVIEW_REASONS] if baseline.final_grade is None else []
+    blocking_holds = [code for code in baseline.reason_codes if code not in SCORE_REVIEW_REASONS] if baseline.final_grade is None else []
+    if baseline.final_grade is None and not baseline.reason_codes:
+        blocking_holds.append("UG_FUSION_BASELINE_EVIDENCE_UNVERIFIED")
     report = {"schema_version": "decision_fusion_v1", "configured_weights": dict(WEIGHTS),
               "effective_weights": {"model2": .70, **dict.fromkeys(FAMILIES, 0.)},
               "unallocated_supporting_weight": .30, "mode": "model2_only",
               "model_only_prediction": baseline.final_grade or "Ungraded", "model_only_scores": dict(baseline.weighted_scores),
               "model_only_verdict": baseline.to_dict(), "model_context": deepcopy(model_context),
-              "model2_class_probabilities": None, "feature_only_prediction": None,
+              "model2_class_probabilities": None, "model2_leading_grades": [],
+              "feature_only_prediction": None, "feature_only_leading_grades": [],
+              "combined_leading_grades": [], "tie_resolving_features": [],
               "feature_only_class_support": None, "features": {}, "per_feature_reliability": {},
               "per_class_combined_support": dict(fallback.weighted_scores), "evidence_agreement_score": None,
+              "per_source_class_contributions": None, "contribution_target_grade": None,
+              "baseline_score_review_reasons": score_holds, "baseline_blocking_reasons": blocking_holds,
+              "resolved_score_review_reasons": [], "trained_rejected_evidence": [],
               "model_to_feature_disagreement": None, "decision_state": "AGREEMENT", "agreement_validated": False,
               "disagreement_reasons": [], "validation_reasons": [], "calibration_id": None,
               "score_interpretation": "Model 2-only detector support; no supporting 30% evidence is available.",
@@ -301,8 +372,11 @@ def fuse_decision(baseline, measurements, config, artifact, *, fish_id, frame_id
         report["validation_reasons"].append(calibration_error or str(error))
     model_p = model_probabilities(baseline.weighted_scores, valid_artifact["model2"]) if valid_artifact else None
     report["model2_class_probabilities"] = dict(zip(GRADE_NAMES, model_p.tolist())) if model_p is not None else None
+    model_indices = leading_grade_indices(model_p) if model_p is not None else ()
+    report["model2_leading_grades"] = [GRADE_NAMES[index] for index in model_indices]
     eligible = {}
-    bundle_bound = (measures.get("extractor_version") == EXTRACTOR_VERSION
+    bundle_bound = (measures.get("reference_unit", "whole_fish") == "whole_fish"
+                    and measures.get("extractor_version") == EXTRACTOR_VERSION
                     and source_matches(measures, fish_id=fish_id, frame_id=frame_id, source=source))
     for family in FAMILIES:
         entries = measures.get("features", {})
@@ -320,7 +394,10 @@ def fuse_decision(baseline, measurements, config, artifact, *, fish_id, frame_id
         support, distance, reliability = None, None, 0.
         if not issues and model_p is not None:
             support, distance = reference_support(entry["values"], calibration)
-            class_reliability = calibration["per_class_reliability"][GRADE_NAMES[int(np.argmax(support))]]
+            # An ambiguous reference must meet the reliability gate for every
+            # tied class; class-list order cannot select the convenient one.
+            class_reliability = min(calibration["per_class_reliability"][GRADE_NAMES[index]]
+                                    for index in leading_grade_indices(support))
             reliability = min(calibration["reliability"], class_reliability) * entry["measurement_reliability"]
             if distance > calibration["distance_limit"]:
                 issues.append("outside_calibrated_reference_distribution")
@@ -328,12 +405,16 @@ def fuse_decision(baseline, measurements, config, artifact, *, fish_id, frame_id
                 issues.append("reliability_below_acceptance_threshold")
         if model_p is None:
             issues.append("calibrated_model2_probabilities_unavailable")
+        leaders = [GRADE_NAMES[index] for index in leading_grade_indices(support)] if support is not None else []
         info = {"eligible": not issues, "used_for_grading": False, "reliability": reliability,
+                "weighted_class_contributions": dict.fromkeys(GRADE_NAMES, 0.),
+                "class_support_delta": dict.fromkeys(GRADE_NAMES, 0.),
                 "measurement_reliability": entry.get("measurement_reliability"),
                 "calibration_reliability": calibration.get("reliability"), "reasons": issues,
                 "measurements": serializable_evidence(entry.get("values", {})), "checks": deepcopy(entry.get("checks", {})),
                 "class_support": dict(zip(GRADE_NAMES, support.tolist())) if support is not None else None,
-                "reference_distance": distance, "assessment": GRADE_NAMES[int(np.argmax(support))] if support is not None else "Unavailable",
+                "reference_distance": distance, "leading_grades": leaders,
+                "assessment": leaders[0] if len(leaders) == 1 else "Ambiguous" if leaders else "Unavailable",
                 "validation_metrics": deepcopy(calibration.get("validation_metrics", {}))}
         report["features"][family] = info
         report["per_feature_reliability"][family] = reliability
@@ -347,9 +428,10 @@ def fuse_decision(baseline, measurements, config, artifact, *, fish_id, frame_id
         report["mode"] = "calibrated_fusion"
         report["score_interpretation"] = "70% calibrated Model 2 plus 30% eligible class support; decision confidence is a conflict-penalized support score, not measured accuracy."
         denominator = sum(WEIGHTS[f] * r for f, (_, r) in eligible.items())
+        source_contributions = {name: dict.fromkeys(GRADE_NAMES, 0.) for name in WEIGHTS}
+        source_contributions["model2"] = dict(zip(GRADE_NAMES, (.70 * model_p).tolist()))
         feature_p, adjusted_feature_p = np.zeros(len(GRADE_NAMES)), np.zeros(len(GRADE_NAMES))
         mean_distance, severity_distance, strong, contrary = 0., 0., [], []
-        model_index = int(np.argmax(model_p))
         for family, (support, reliability) in eligible.items():
             weight = .30 * WEIGHTS[family] * reliability / denominator
             report["effective_weights"][family] = weight
@@ -361,50 +443,83 @@ def fuse_decision(baseline, measurements, config, artifact, *, fish_id, frame_id
             distance = float(.5 * np.abs(model_p - support).sum())
             mean_distance += weight / .30 * distance
             info = report["features"][family]
+            weighted_support = dict(zip(GRADE_NAMES, (weight * adjusted).tolist()))
+            source_contributions[family] = weighted_support
             info.update(used_for_grading=True, model_disagreement=distance, effective_weight=weight,
+                        weighted_class_contributions=weighted_support,
+                        # Compare this feature's share with assigning that same
+                        # share to calibrated Model 2. The deltas sum to the
+                        # complete change from Model 2 to fused class support.
+                        class_support_delta=dict(zip(GRADE_NAMES, (weight * (adjusted - model_p)).tolist())),
                         reliability_adjusted_support=dict(zip(GRADE_NAMES, adjusted.tolist())))
-            if int(np.argmax(support)) != model_index:
+            feature_indices = leading_grade_indices(support)
+            # Supporting one of Model 2's tied leaders resolves uncertainty;
+            # it does not contradict an arbitrarily selected first class.
+            if set(feature_indices).isdisjoint(model_indices):
                 contrary.append(family)
-                margin = float(support.max() - support[model_index])
-                severity = abs(int(np.argmax(support)) - model_index) / (len(GRADE_NAMES) - 1)
+                margin = float(support.max() - support[list(model_indices)].max())
+                severity = min(abs(feature - model) for feature in feature_indices for model in model_indices) / (len(GRADE_NAMES) - 1)
                 severity_distance += weight / .30 * distance * severity
                 info.update(conflict_margin=margin, conflict_severity=severity)
-                report["disagreement_reasons"].append(f"{family}: supports {info['assessment']} over {GRADE_NAMES[model_index]} by {margin:.4f}; reliability {reliability:.4f}; distribution distance {distance:.4f}.")
+                report["disagreement_reasons"].append(f"{family}: supports {' / '.join(info['leading_grades'])} over {' / '.join(report['model2_leading_grades'])} by {margin:.4f}; reliability {reliability:.4f}; distribution distance {distance:.4f}.")
                 if reliability >= config.strong_conflict_reliability and margin >= config.strong_conflict_margin:
                     strong.append(family)
         combined = .70 * model_p + .30 * adjusted_feature_p
+        feature_leaders = [GRADE_NAMES[index] for index in leading_grade_indices(feature_p)]
         report.update(unallocated_supporting_weight=0., agreement_validated=True,
                       evidence_agreement_score=1 - mean_distance,
                       model_to_feature_disagreement=float(.5 * np.abs(model_p - feature_p).sum()),
-                      feature_only_prediction=GRADE_NAMES[int(np.argmax(feature_p))],
+                      feature_only_prediction=feature_leaders[0] if len(feature_leaders) == 1 else None,
+                      feature_only_leading_grades=feature_leaders,
                       feature_only_class_support=dict(zip(GRADE_NAMES, feature_p.tolist())),
                       per_class_combined_support=dict(zip(GRADE_NAMES, combined.tolist())),
+                      per_source_class_contributions=source_contributions,
                       decision_state="MAJOR_DISAGREEMENT" if len(strong) >= 2 else "MINOR_DISAGREEMENT" if contrary else "AGREEMENT")
         order = sorted(range(len(GRADE_NAMES)), key=lambda i: (-combined[i], i))
         first, second = order[:2]
+        combined_leaders = leading_grade_indices(combined)
+        unique_candidate = len(combined_leaders) == 1
+        report["combined_leading_grades"] = [GRADE_NAMES[index] for index in combined_leaders]
+        report["contribution_target_grade"] = GRADE_NAMES[first] if unique_candidate else None
         report["severity_weighted_disagreement"] = severity_distance
         confidence = float(combined[first]) * (1 - config.disagreement_penalty * (mean_distance + severity_distance) / 2)
         reasons = []
         if len(strong) >= 2:
             confidence *= config.major_conflict_penalty
             reasons.append("UG_FUSION_MAJOR_DISAGREEMENT")
-        if len(contrary) == 1 and WEIGHTS[contrary[0]] <= .05 and first != model_index:
+        single_low_weight_change = (unique_candidate and len(contrary) == 1 and WEIGHTS[contrary[0]] <= .05 and first not in model_indices)
+        if unique_candidate and len(model_indices) > 1 and first in model_indices:
+            other_leaders = [index for index in model_indices if index != first]
+            resolving_families = set()
+            for rival in other_leaders:
+                resolvers = [family for family, (support, _) in eligible.items()
+                             if grade_margin_passes(float(support[first] - support[rival]), 0.)]
+                resolving_families.update(resolvers)
+                # Check every tied rival, including three/four-way ties.
+                # Families neutral between this pair cannot corroborate a
+                # lone 5% feature that decides their relative support.
+                single_low_weight_change |= len(resolvers) == 1 and WEIGHTS[resolvers[0]] <= .05
+            report["tie_resolving_features"] = [family for family in eligible if family in resolving_families]
+        if single_low_weight_change:
             reasons.append("UG_FUSION_SINGLE_LOW_WEIGHT_FEATURE_CHANGED_GRADE")
-        if baseline.final_grade is None:
-            reasons.extend(baseline.reason_codes)
+        # Calibrated supporting evidence may resolve low support or a close
+        # class tie. All other original holds remain authoritative, including
+        # unknown future reason codes. The combined scores face fresh gates.
+        reasons.extend(blocking_holds)
         confidence_threshold = max(config.minimum_decision_confidence, artifact["anatomical_policy"]["final_verdict_threshold"])
         margin_threshold = max(config.minimum_fused_margin, artifact["anatomical_policy"]["minimum_grade_margin"])
         report["acceptance_thresholds"] = {"decision_confidence": confidence_threshold, "class_margin": margin_threshold}
         if confidence < confidence_threshold:
             reasons.append("UG_FUSION_LOW_DECISION_CONFIDENCE")
-        if combined[first] - combined[second] < margin_threshold:
+        if not grade_margin_passes(float(combined[first] - combined[second]), margin_threshold):
             reasons.append("UG_FUSION_LOW_MARGIN")
-        if GRADE_NAMES[first] in restricted_grades:
+        if unique_candidate and GRADE_NAMES[first] in restricted_grades:
             reasons.append("UG_FUSION_REVIEWED_ELIGIBILITY_RESTRICTION")
-        if baseline.override or baseline.final_grade == "Rejected":
-            if GRADE_NAMES[first] != "Rejected":
+        report["trained_rejected_evidence"] = _trained_rejected_evidence(baseline, artifact["anatomical_policy"])
+        if baseline.override or baseline.final_grade == "Rejected" or report["trained_rejected_evidence"]:
+            if unique_candidate and GRADE_NAMES[first] != "Rejected":
                 reasons.append("UG_FUSION_REJECTED_SAFEGUARD")
-        report["fused_candidate_prediction"] = GRADE_NAMES[first]
+        report["fused_candidate_prediction"] = report["contribution_target_grade"]
         decision = replace(baseline, weighted_scores=report["per_class_combined_support"],
                            top_grade=GRADE_NAMES[first], top_support=float(combined[first]),
                            second_grade=GRADE_NAMES[second], second_support=float(combined[second]),
@@ -417,6 +532,7 @@ def fuse_decision(baseline, measurements, config, artifact, *, fish_id, frame_id
         decision = replace(decision, final_grade=None, reason_codes=("UG_CONFIRMED_MISSING_HEAD",))
         confidence = 0.
     report.update(final_fused_prediction=decision.final_grade or "Ungraded", decision_confidence=confidence,
+                  resolved_score_review_reasons=list(score_holds) if eligible and decision.final_grade is not None else [],
                   confidence_kind="conflict_penalized_support_not_accuracy" if eligible else "model2_support_not_probability",
                   review_required=decision.final_grade is None,
                   automatic_status="HUMAN_REVIEW" if decision.final_grade is None else "AUTOMATIC",

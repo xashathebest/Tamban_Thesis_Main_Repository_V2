@@ -1,0 +1,25 @@
+{
+  "schema_version": "dataset_class_reference_v1",
+  "dataset_directory": "Dried Fish Quality Grading.v7i.coco-segmentation",
+  "user_confirmed_label_reference": true,
+  "class_source": "expert_provided_grading_categories",
+  "annotation_process": "Project annotators assigned a grade to each Head, Body and Tail separately using the expert-provided grading categories.",
+  "confirmation_source": "User clarification in the project conversation on 2026-11-23.",
+  "annotation_unit": "fish_part",
+  "all_parts_inherit_whole_fish_grade": false,
+  "model1": {
+    "task": "whole_fish_detection",
+    "class_names": ["Fish"],
+    "quality_grading": false
+  },
+  "model2": {
+    "task": "part_quality_detection",
+    "regions": ["Head", "Body", "Tail"],
+    "grade_assignment": "independent_per_part",
+    "label_source": "annotator_assigned_part_grade"
+  },
+  "final_fish_grade_source": "configured_weighted_part_evidence",
+  "expert_identity": null,
+  "rubric_document": null,
+  "scope": "Existing dataset class labels are the reference. This declaration does not validate foreground masks, individual feature measurements, specimen identities, split independence or fitted feature calibration."
+}

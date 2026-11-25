@@ -1,0 +1,13 @@
+{
+  "endpoint": "http://127.0.0.1:8001/api/status",
+  "detector_name": "Model 1 V2 — YOLO26s Fish Detector",
+  "checkpoint": "model1_v2_yolo26s_best.pt",
+  "status": "ready",
+  "device": "cpu",
+  "image_size": 768,
+  "detection_confidence": 0.5,
+  "reported_checkpoint_hash": "c79f597c2ed5",
+  "disk_sha256_verified": "c79f597c2ed51b45ac2911cdbc744f8d2a4bea2411efc6a6ec0d4bcab35901e2",
+  "quality_model": "yolo26m_partdet",
+  "quality_status": "ready"
+}

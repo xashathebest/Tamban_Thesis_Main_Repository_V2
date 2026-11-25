@@ -43,20 +43,28 @@ class VerdictAcceptanceTests(unittest.TestCase):
         body_only = candidate.evaluate(1, crop(), [body], stabilize=False)
         self.assertIsNone(body_only.final_grade)
         self.assertIn("UG_TWO_PART_EVIDENCE", body_only.reason_codes)
+        self.assertIn("UG_ANATOMY_UNCERTAIN", body_only.reason_codes)
         no_body = candidate.evaluate(2, crop(), [head, tail], stabilize=False)
         self.assertIsNone(no_body.final_grade)
         self.assertIn("UG_MISSING_PART_EVIDENCE", no_body.reason_codes)
+        self.assertIn("UG_ANATOMY_UNCERTAIN", no_body.reason_codes)
         body_head = candidate.evaluate(3, crop(), [body, head], stabilize=False)
         self.assertEqual(body_head.final_grade, "Class A")
         self.assertAlmostEqual(body_head.weighted_scores["Class A"], .672)
         body_tail = candidate.evaluate(4, crop(), [body, tail], stabilize=False)
-        self.assertEqual(body_tail.final_grade, "Class A")
+        self.assertIsNone(body_tail.final_grade)
+        self.assertIn("UG_ANATOMY_UNCERTAIN", body_tail.reason_codes)
+        self.assertEqual(body_tail.provisional_grade, "Class A")
+        self.assertAlmostEqual(body_tail.provisional_score or 0, .593)
         self.assertAlmostEqual(body_tail.weighted_scores["Class A"], .593)
         self.assertIsNone(body_tail.part_results["Head"]["physical_missing"])
         self.assertIn("unverified", " ".join(body_tail.explanation))
         self.assertEqual(body_tail.part_results["Head"]["missing_status"], "unknown_not_observed")
         baseline = engine(final_verdict_threshold=.25).evaluate(5, crop(), [body], stabilize=False)
-        self.assertEqual(baseline.final_grade, "Class A")
+        self.assertIsNone(baseline.final_grade)
+        self.assertIn("UG_ANATOMY_UNCERTAIN", baseline.reason_codes)
+        self.assertEqual(baseline.provisional_grade, "Class A")
+        self.assertAlmostEqual(baseline.weighted_scores["Class A"], .435)
 
     def test_two_part_policy_still_obeys_thresholds_and_temporal_eligibility(self) -> None:
         candidate = engine(grading_mode="two_part_v1", minimum_track_observations=2)
@@ -73,7 +81,12 @@ class VerdictAcceptanceTests(unittest.TestCase):
         self.assertIsNone(result.final_grade)
         for frame_id in (3, 4):
             result = candidate.evaluate(3, crop(), [part("Body", "Class A", .9), part("Tail", "Class A", .9)], stabilize=True, frame_id=frame_id)
-        self.assertEqual(result.final_grade, "Class A")
+        self.assertIsNone(result.final_grade)
+        self.assertIn("UG_ANATOMY_UNCERTAIN", result.reason_codes)
+        self.assertEqual(result.provisional_grade, "Class A")
+        self.assertAlmostEqual(result.weighted_scores["Class A"], .63)
+        self.assertEqual(result.temporal_stability["evidence_bearing_frame_count"], 2)
+        self.assertTrue(result.temporal_stability["ready"])
 
     def test_full_strong_evidence_is_automatically_graded(self) -> None:
         verdict = engine().evaluate(1, crop(), [
@@ -164,7 +177,10 @@ class VerdictAcceptanceTests(unittest.TestCase):
         second = live.evaluate(11, crop(), [part("Body", "Class A", .70)], stabilize=True, frame_id=2)
         stats = second.part_results["Body"]["temporal_statistics"]["by_grade"]["Class A"]
         self.assertEqual(first.verdict_reason_code, "UG_TEMPORAL_EVIDENCE")
-        self.assertEqual(second.final_grade, "Class A")
+        self.assertIsNone(second.final_grade)
+        self.assertIn("UG_ANATOMY_UNCERTAIN", second.reason_codes)
+        self.assertEqual(second.provisional_grade, "Class A")
+        self.assertAlmostEqual(second.provisional_score or 0, .30)
         self.assertEqual(stats["number_of_valid_observations"], 2)
         self.assertAlmostEqual(stats["mean_confidence"], .60)
         self.assertAlmostEqual(stats["max_confidence"], .70)
@@ -180,8 +196,14 @@ class VerdictAcceptanceTests(unittest.TestCase):
         live.evaluate(202, crop(), [part("Body", "Class C", .80)], stabilize=True, frame_id=1)
         first = live.evaluate(101, crop(), [part("Body", "Class A", .70)], stabilize=True, frame_id=2)
         second = live.evaluate(202, crop(), [part("Body", "Class C", .70)], stabilize=True, frame_id=2)
-        self.assertEqual(first.final_grade, "Class A")
-        self.assertEqual(second.final_grade, "Class C")
+        self.assertIsNone(first.final_grade)
+        self.assertIsNone(second.final_grade)
+        self.assertIn("UG_ANATOMY_UNCERTAIN", first.reason_codes)
+        self.assertIn("UG_ANATOMY_UNCERTAIN", second.reason_codes)
+        self.assertEqual(first.provisional_grade, "Class A")
+        self.assertEqual(second.provisional_grade, "Class C")
+        self.assertAlmostEqual(first.provisional_score or 0, .375)
+        self.assertAlmostEqual(second.provisional_score or 0, .375)
         self.assertAlmostEqual(first.weighted_scores["Class C"], 0.0)
         self.assertAlmostEqual(second.weighted_scores["Class A"], 0.0)
 
@@ -204,14 +226,17 @@ class VerdictAcceptanceTests(unittest.TestCase):
         for frame_id in range(300):
             result = live.evaluate(88, crop(), [part("Body", "Class B", .72)], stabilize=True, frame_id=frame_id)
         self.assertIsNotNone(result)
-        self.assertEqual(result.final_grade, "Class B")
+        self.assertIsNone(result.final_grade)
+        self.assertIn("UG_ANATOMY_UNCERTAIN", result.reason_codes)
+        self.assertEqual(result.provisional_grade, "Class B")
+        self.assertAlmostEqual(result.provisional_score or 0, .36)
         self.assertEqual(result.observation_count, 8)
         self.assertEqual(len(live._tracks[88].usable_frames), 8)  # bounded live-session storage
 
     def test_hsv_remains_descriptive_and_config_version_is_retained(self) -> None:
         verdict = engine().evaluate(13, crop(), [part("Body", "Class B", .80)], stabilize=False)
         self.assertEqual(verdict.color["Body"]["grade_adjustment"], 0.0)
-        self.assertEqual(verdict.to_dict()["grading_config"]["config_version"], "3.0")
+        self.assertEqual(verdict.to_dict()["grading_config"]["config_version"], "3.1")
         self.assertEqual(verdict.to_dict()["grading_config"]["active_final_verdict_threshold"], .5)
 
 

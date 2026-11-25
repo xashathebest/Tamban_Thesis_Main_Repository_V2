@@ -1,7 +1,7 @@
 # Explainable whole-fish grading configuration for the supplied two-model flow.
 # These values are operating rules, not scientifically validated biological
 # thresholds. Keep a version with each finalized fish record for traceability.
-config_version: "4.0"
+config_version: "4.1"
 
 grading:
   # These weights apply to Model 2 Head/Body/Tail evidence only. They are not
@@ -28,8 +28,9 @@ grading:
   # Thesis-safe strict mode requires reliable evidence for every region.
   strict_minimum_regions_observed: 3
   strict_minimum_original_weight_coverage: 1.00
-  # Zero preserves the current baseline; select a nonzero value only through
-  # validation, not as an assumed scientific optimum.
+  # Zero requires a unique winner without an extra positive-margin cutoff.
+  # Equal scores (within floating-point roundoff) always require review.
+  # Select a larger margin only through validation.
   minimum_grade_margin: 0.00
 
   # Live tracks require distinct, quality-usable observations that each meet

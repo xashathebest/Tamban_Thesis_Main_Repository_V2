@@ -8,6 +8,22 @@ describes the 70/15/5/5/5 evidence weights, disagreement/review safeguards,
 per-fish explanations and verified-reference calibration commands. Supporting
 features affect actual verdicts only after their calibration and measurement
 checks pass. No eligible feature calibration is installed in the current data.
+The explanation panel and exports record each eligible feature's numeric score
+contribution; an unavailable calibration is reported as no contribution.
+With validated calibration, features can also resolve low-support or close-tie
+Ungraded results after the original evidence and temporal gates pass. Original
+Model 2 verdicts and resolved score holds remain separately recorded.
+Tied Model 2 grades are compared together, so resolving a tie does not depend
+on class order. Explanations and exports retain tied feature/combined grades;
+a lone low-weight feature still cannot decide a Model 2 tie.
+The existing annotated dataset supplies the human class-label reference, as
+confirmed by the project owner in
+`configs/dataset_class_reference.json`. Fitting feature calibration from those
+labels is separate from collecting application review history.
+Model 1 detects the single `Fish` class. Model 2 learns the independently graded
+Head/Body/Tail annotations, and the grading policy combines their evidence into
+the final fish grade. These part labels do not provide a shared whole-fish
+reference grade for the current 70/30 calibration tool.
 
 ---
 
@@ -238,6 +254,13 @@ Key rules:
   live temporal gate.
 - **Ungraded ≠ Rejected.** Use UG_* reason codes for low evidence;
   RJ_GRADE_EVIDENCE for trained Rejected-class evidence.
+- **A unique winning grade is required.** Equal top scores, including floating-point
+  roundoff ties, remain Ungraded even when `minimum_grade_margin` is zero.
+  Unavailable Model 2 inference and rejected frame-quality evidence remain holds
+  even when cached part scores look confident. Offline replay retains these holds.
+  If an explicitly configured trained Rejected override applies, final support
+  reports weighted Rejected evidence; the provisional winner and override's part
+  confidence remain separate.
 
 Each result records `weighting_method`, `tail_status`, `weights_used` and the
 original coverage. `below_threshold` means a low-confidence Tail detection was
@@ -278,8 +301,10 @@ The dashboard's **Supporting Image Measurements** and the corresponding
 export field report optional rectangular-ROI color and brightness proxies with
 fish, frame, source and algorithm provenance. They are not used for the final
 grade and may include background. Set `grading.image_diagnostics_enabled` to
-`false` to skip their calculation. Masked texture is unavailable in the live
-pipeline because the deployed detectors do not provide a validated fish mask.
+`false` to skip their calculation. Masked diagnostic texture is available when
+foreground support exists. The separate size, cracks, color and texture fusion
+path requires reviewed native masks, validated measurements and calibrated
+references; diagnostic display settings do not activate or disable that path.
 
 ---
 
@@ -494,3 +519,9 @@ live debug coordinate translation, mask status explanations, Excel evidence
 truncation and video source-ID overlays. Final regression: 1,715 passed,
 12 skipped; real HTTP/Chrome checks passed. Fish-level accuracy remains
 unmeasured without independent ownership and final-grade truth.
+
+The [secondary anatomical verification audit](docs/anatomical_verification.md)
+documents the Model 2-first Head/Body gate, conservative MobileSAM/OpenCV
+investigation, independently confirmed physical-absence rejection, uncertainty
+safeguards and UI/CSV evidence. Tail remains optional. The current silhouette
+path does not claim validated automatic headless/bodyless recognition.

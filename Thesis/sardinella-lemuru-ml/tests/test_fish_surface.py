@@ -214,6 +214,31 @@ def test_identical_masks_retain_uncertain_candidates_without_assigning_either_fi
         assert all(c["area_px"] > 0 and c["owned_area_px"] == 0 and c["crack_density"] is None for c in damage["candidates"])
 
 
+def test_silhouette_without_anatomical_identity_cannot_measure_background_as_a_fish():
+    image, mask, _ = scene("straight", brightness=250)
+    reports = {7: {"status": "ambiguous", "reasons": [
+        "required_body_evidence_unavailable", "required_head_evidence_unavailable"],
+        "metrics": {"detected_part_box_coverage": {}}}}
+    result = measure_owned_surface(provider(image, {7: mask}, reports=reports), 7)
+    assert result["brightness"]["mean_brightness"] is None
+    assert not result["brightness"]["mask_metadata"]["surface_eligible"]
+    assert result["surface_damage"]["candidates"] == []
+    assert result["surface_damage"]["crack_area_px"] is None
+    assert not result["surface_damage"]["overlay_mask"].any()
+
+
+def test_ambiguous_anatomical_identity_never_assigns_a_crack_despite_unique_pixels():
+    image, mask, _ = scene("straight")
+    reports = {7: {"status": "ambiguous", "reasons": ["required_anatomical_ownership_ambiguous"],
+        "metrics": {"detected_part_box_coverage": {"Body": .7}}}}
+    result = measure_owned_surface(provider(image, {7: mask}, reports=reports), 7)
+    assert result["brightness"]["measurement_reliability"] == "limited_ownership"
+    candidates = result["surface_damage"]["candidates"]
+    assert candidates
+    assert all(c["owner_fish_id"] is None and c["candidate_type"] == "uncertain_defect" for c in candidates)
+    assert not result["surface_damage"]["overlay_mask"].any()
+
+
 def test_missing_neighbor_mask_leaves_potential_shared_pixels_unassigned():
     image, mask, _ = scene("straight")
     instance = provider(image, {7:mask}, boxes={7:(15,25,305,135),8:(140,20,310,140)})

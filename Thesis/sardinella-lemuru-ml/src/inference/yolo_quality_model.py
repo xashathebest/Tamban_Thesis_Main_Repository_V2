@@ -18,6 +18,7 @@ import numpy as np
 from src.api.domain import QualitySummary
 from src.inference.association import ParentAnchor, associate_parts_to_parents, association_summary, required_pair_geometry
 from src.inference.body_width import analyze_body_width, analyze_anatomical_body_width, boxes_overlap
+from src.inference.anatomical_verification import inspect_silhouette, load_anatomical_evidence
 from src.inference.fish_geometry import load_fish_geometry_config, load_physical_calibration, measure_fish_geometry
 from src.inference.fish_geometry_pipeline import analyze_fish_geometry
 from src.inference.stage_metrics import TIMING_RELATIONSHIPS, milliseconds
@@ -617,9 +618,9 @@ class YoloQualityModel:
         feature_mask_metadata = dict(fish_mask_metadata or {})
         context_crop_bounds = None
         context_crop_matches = False
+        source_crop_matches = False
         if (
-            mask_context is not None and bounds is not None
-            and measurement_frame is not None and mask_context.is_for_frame(measurement_frame)
+            bounds is not None and measurement_frame is not None
             and all(float(value).is_integer() for value in bounds)
         ):
             context_crop_bounds = CropBounds(*(int(value) for value in bounds))
@@ -627,7 +628,11 @@ class YoloQualityModel:
                 context_crop_bounds.y1:context_crop_bounds.y2,
                 context_crop_bounds.x1:context_crop_bounds.x2,
             ]
-            context_crop_matches = np.array_equal(crop, expected_crop)
+            source_crop_matches = np.array_equal(crop, expected_crop)
+            context_crop_matches = (source_crop_matches and mask_context is not None
+                                    and mask_context.is_for_frame(measurement_frame)
+                                    and mask_context.frame_id == frame_id
+                                    and not isinstance(mask_context.frame_id, (bool, float)))
         if feature_mask is None and context_crop_matches:
             try:
                 if inference_metadata.get("mode") == "full_frame" and parent_bbox is not None and not width_context.get("overlapping"):
@@ -687,7 +692,7 @@ class YoloQualityModel:
             geometry_context_reasons.append("source_frame_unusable")
         if quality_payload.get("parent_usable") is False or quality_payload.get("parent_uncertain"):
             geometry_context_reasons.append("parent_detection_unreliable")
-        if context_crop_bounds is not None and not context_crop_matches:
+        if context_crop_bounds is not None and not source_crop_matches:
             geometry_context_reasons.append("source_crop_pixels_mismatch")
         geometry_confidence_threshold = self._grading_engine.config.minimum_detection_confidence
         if detection_confidence is not None and geometry_confidence_threshold is not None and detection_confidence < geometry_confidence_threshold:
@@ -741,6 +746,54 @@ class YoloQualityModel:
         grading_started = perf_counter()
         quality_payload["fusion_geometry"] = geometry
         quality_payload["fusion_checkpoint_sha256"] = getattr(self, "checkpoint_sha256_full", None)
+        # Crop mode has no independent ownership assignment across parents.
+        # Two boxes inside an overlapping ROI cannot establish that both
+        # regions belong to this fish. Full-frame assigned evidence retains
+        # its existing per-parent association rules.
+        if inference_metadata.get("mode") != "full_frame" and width_context.get("overlapping"):
+            quality_payload["association_ambiguous"] = True
+        # Secondary anatomy runs only for a completed primary attempt with a
+        # missing required region. Reuse cached segmentation and keep all
+        # existing detector/association/grade thresholds unchanged.
+        required_present = {part.region for part in parts
+                            if part.confidence > 0 and part.confidence >= self._grading_engine.config.minimum_part_confidence}
+        quality_payload["anatomical_input_context"] = {"fish_id": track_id, "frame_id": frame_id,
+                                                       "crop_bounds": list(bounds) if bounds is not None else None}
+        if measurement_frame is not None and not source_crop_matches:
+            quality_payload["source_pixels_mismatch"] = True
+        if mask_context is not None and measurement_frame is not None and not context_crop_matches:
+            quality_payload["evidence_identity_mismatch"] = True
+        if model2_available and not {"Head", "Body"}.issubset(required_present):
+            if measurement_frame is not None and not source_crop_matches:
+                quality_payload["source_pixels_mismatch"] = True
+            secondary_mask, secondary_metadata = feature_mask, geometry_mask_metadata
+            if mask_context is not None and context_crop_matches and mask_context.backend == "mobilesam_experimental":
+                try:
+                    secondary_mask, secondary_metadata = mask_context.anatomical_candidate(track_id, context_crop_bounds)
+                except Exception as error:
+                    LOGGER.warning("Fish %s anatomy candidate unavailable: %s", track_id, error)
+                    secondary_mask, secondary_metadata = None, {"reason": "Anatomical segmentation candidate processing failed."}
+            try:
+                quality_payload["anatomical_geometry"] = inspect_silhouette(
+                    secondary_mask, secondary_metadata,
+                    [part for part in parts if part.confidence >= self._grading_engine.config.minimum_part_confidence],
+                    fish_id=track_id, frame_id=frame_id,
+                )
+            except Exception as error:
+                LOGGER.warning("Fish %s anatomical geometry unavailable: %s", track_id, error)
+                quality_payload["anatomical_geometry"] = {"status": "unavailable", "orientation": "UNCERTAIN",
+                    "reason": "Silhouette verification failed; no anatomical absence can be inferred.", "error_type": type(error).__name__}
+            quality_payload["overlapping"] = bool(width_context.get("overlapping"))
+            source = dict(quality_payload.get("source_context") or width_context.get("source_context") or {})
+            if source_crop_matches:
+                source.setdefault("source_id", "inspection_frame")
+                if not source.get("frame_pixels_sha256"):
+                    source["frame_pixels_sha256"] = hashlib.sha256(memoryview(np.ascontiguousarray(measurement_frame))).hexdigest()
+            quality_payload["source_context"] = source
+            records, catalog_status = load_anatomical_evidence(fish_id=track_id, frame_id=frame_id, source=source)
+            supplied_records = quality_payload.get("anatomical_evidence", [])
+            quality_payload["anatomical_evidence"] = (list(supplied_records) if isinstance(supplied_records, (list, tuple)) else []) + records
+            quality_payload["anatomical_catalog"] = catalog_status
         verdict: FishVerdict = self._grading_engine.evaluate(
             track_id, crop, list(parts), stabilize=stabilize, frame_id=frame_id,
             frame_quality=quality_payload, best_frame=best_frame, model2_available=model2_available,
@@ -751,7 +804,22 @@ class YoloQualityModel:
         self.last_grading_seconds = perf_counter() - grading_started
         votes = {name: round(value, 4) for name, value in verdict.weighted_scores.items()}
         analysis = verdict.to_dict()
-        analysis["fish_geometry"] = geometry
+        decision_fusion = analysis.get("feature_fusion", {}).get("decision_fusion", {})
+        size_contribution = decision_fusion.get("features", {}).get("size", {})
+        # Measurement validation and actual grading use are separate facts.
+        # Attach use only after fusion has decided; retain the original input
+        # geometry in the evidence snapshot without rewriting its provenance.
+        analysis["fish_geometry"] = {**geometry, "used_for_grading": size_contribution.get("used_for_grading") is True}
+        if size_contribution.get("used_for_grading") is True:
+            analysis["fish_geometry"]["grading_contribution"] = {
+                "source": "calibrated_decision_fusion", "family": "size",
+                "calibration_id": decision_fusion.get("calibration_id"),
+                "effective_weight": decision_fusion["effective_weights"]["size"],
+                "weighted_class_contributions": deepcopy(size_contribution["weighted_class_contributions"]),
+                "class_support_delta": deepcopy(size_contribution["class_support_delta"]),
+                "candidate_grade": decision_fusion.get("contribution_target_grade"),
+                "final_grade": decision_fusion.get("final_fused_prediction"),
+            }
         segmentation_report = mask_context.segmentation_report(track_id) if mask_context is not None else None
         if segmentation_report is not None:
             analysis["segmentation"] = segmentation_report
@@ -867,6 +935,9 @@ class YoloQualityModel:
             for rows in (raw_payload, selected_payload, rejected_payload):
                 for row in rows:
                     row["coordinate_space"] = debug_coordinates
+                    row["frame_id"] = frame_id
+            for row in selected_payload:
+                row["parent_track_id"] = track_id
             unassigned = inference_metadata.get("unassigned_detections", ())
             if isinstance(unassigned, Sequence) and not isinstance(unassigned, (str, bytes)):
                 analysis["model2_debug"]["unassigned_detections"] = [
@@ -1057,8 +1128,9 @@ class YoloQualityModel:
             raise YoloQualityModelInferenceError(self.error or "Model 2 is not loaded.")
         try:
             frame = validate_image(frame_bgr, name="Quality full frame")
-            if mask_context is None or not mask_context.is_for_frame(frame):
-                mask_context = RuntimeMaskContext(frame, frame_id=frame_id)
+            if (mask_context is None or not mask_context.is_for_frame(frame) or mask_context.frame_id != frame_id
+                    or isinstance(mask_context.frame_id, (bool, float))):
+                mask_context = RuntimeMaskContext(frame, frame_id=frame_id, backend=getattr(mask_context, "backend", None))
             parent_ids = [parent.track_id for parent in parents]
             if len(set(parent_ids)) != len(parent_ids):
                 raise ValueError("Full-frame parent track IDs must be unique.")
@@ -1147,7 +1219,8 @@ class YoloQualityModel:
                         record = reviewed[parent.track_id].get(key)
                         if isinstance(record, Mapping):
                             payload = deepcopy(dict(record))
-                            payload.update(review_frame_id=payload.get("frame_id"), frame_id=frame_id)
+                            if key == "fusion_validation":
+                                payload.update(review_frame_id=payload.get("frame_id"), frame_id=frame_id)
                             quality_payload[key] = payload
                 if parent.track_id in reviewed and not reviewed_usable:
                     quality_payload["association_ambiguous"] = True

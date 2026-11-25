@@ -523,5 +523,11 @@ def test_all_seven_saved_grade_records_are_identical_with_projected_texture_mask
         for key in ("final_score", "weighted_scores", "effective_weights", "original_weight_coverage", "reason_codes", "adjustments", "color"):
             assert after[key] == before[key]
         assert after["weighted_scores"] == saved["weighted_scores"]
-        assert after["final_score"] == saved["final_score"]
+        if after["anatomical_verification"]["status"] == "UNCERTAIN":
+            # The new anatomy hold has no final quality score. The historical
+            # quality evidence remains available without becoming a verdict.
+            assert after["final_score"] is None
+            assert after["provisional_score"] == saved["provisional_score"]
+        else:
+            assert after["final_score"] == saved["final_score"]
     assert len(records) == 7

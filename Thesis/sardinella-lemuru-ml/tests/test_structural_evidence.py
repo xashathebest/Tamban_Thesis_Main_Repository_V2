@@ -96,10 +96,14 @@ class StructuralEvidenceTests(unittest.TestCase):
         body = PartDetection.from_source_class(0, .9, (10, 4, 45, 28))
         tail = PartDetection.from_source_class(2, .9, (45, 5, 60, 25))
         result = engine.evaluate(1, image, [body, tail], stabilize=False)
-        self.assertEqual(result.final_grade, "Class A")
+        self.assertIsNone(result.final_grade)
+        self.assertIn("UG_ANATOMY_UNCERTAIN", result.reason_codes)
+        self.assertEqual(result.provisional_grade, "Class A")
+        self.assertAlmostEqual(result.weighted_scores["Class A"], .63)
         self.assertIsNone(result.part_results["Head"]["physical_missing"])
         no_body = engine.evaluate(2, image, [tail], stabilize=False)
         self.assertIsNone(no_body.final_grade)
+        self.assertIn("UG_ANATOMY_UNCERTAIN", no_body.reason_codes)
         self.assertNotIn("RJ_GRADE_EVIDENCE", no_body.reason_codes)
 
     def test_structural_metadata_survives_late_grade_refresh(self) -> None:

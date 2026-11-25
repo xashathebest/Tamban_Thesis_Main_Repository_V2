@@ -170,7 +170,12 @@ class FishLevelValidationTests(unittest.TestCase):
             {"fish_id": "7", "true_grade": "Class A", "analysis": runtime.to_dict()},
             EvaluationRules.from_mapping(config.to_dict()),
         )
-        self.assertEqual(replay["final_grade"], runtime.final_grade)
+        self.assertIsNone(runtime.final_grade)
+        self.assertEqual(replay["final_grade"], runtime.final_grade or "Ungraded")
+        self.assertIn("UG_ANATOMY_UNCERTAIN", runtime.reason_codes)
+        self.assertIn("UG_ANATOMY_UNCERTAIN", replay["reason_codes"])
+        self.assertEqual(runtime.provisional_grade, "Class A")
+        self.assertAlmostEqual(runtime.provisional_score or 0, .593)
         self.assertEqual(replay["weighted_scores"], runtime.weighted_scores)
         self.assertEqual(replay["reason_codes"], list(runtime.reason_codes))
 

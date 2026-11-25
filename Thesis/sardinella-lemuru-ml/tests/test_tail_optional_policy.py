@@ -32,7 +32,7 @@ class TailOptionalPolicyTests(unittest.TestCase):
     def test_runtime_config_selects_versioned_tail_optional_policy(self):
         config = load_grading_config()
         self.assertEqual(config.grading_mode, "tail_optional_v1")
-        self.assertEqual(config.config_version, "4.0")
+        self.assertEqual(config.config_version, "4.1")
 
     def test_three_parts_and_absent_or_weak_tail(self):
         body, head = part("Body", "Class A", .87), part("Head", "Class A", .79)
@@ -106,14 +106,15 @@ class TailOptionalPolicyTests(unittest.TestCase):
         self.assertIsNone(zero.final_grade)
         self.assertIn("UG_MISSING_PART_EVIDENCE", zero.reason_codes)
 
-    def test_equal_support_obeys_configured_grade_margin(self):
+    def test_equal_support_requires_review_even_with_zero_configured_margin(self):
         evidence = FishGradingInput(
             part_scores={region: {"Class A": .8, "Class B": .8} for region in ("Body", "Head")},
             presence_confidence={"Body": .8, "Head": .8},
         )
         default_margin = grade_fish(evidence, GradingPolicy(grading_mode="tail_optional_v1"))
         required_margin = grade_fish(evidence, GradingPolicy(grading_mode="tail_optional_v1", minimum_grade_margin=.01))
-        self.assertEqual(default_margin.final_grade, "Class A")
+        self.assertIsNone(default_margin.final_grade)
+        self.assertIn("UG_LOW_MARGIN", default_margin.reason_codes)
         self.assertIsNone(required_margin.final_grade)
         self.assertIn("UG_LOW_MARGIN", required_margin.reason_codes)
 

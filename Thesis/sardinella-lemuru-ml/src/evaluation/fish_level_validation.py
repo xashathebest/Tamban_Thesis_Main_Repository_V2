@@ -684,9 +684,13 @@ def recompute_final_verdict(record: Mapping[str, Any] | object, rules: Evaluatio
         _boolean(frame_quality.get(key, False), field=key)
         for key in ("out_of_frame", "parent_frame_clipped", "parent_crop_clipped")
     )
-    model2_available = _boolean(
-        payload.get("model2_available", analysis.get("model2_available", True)),
-        field="model2_available",
+    # Retained scores cannot undo a saved inference failure. Older exports may
+    # carry availability only inside frame quality; any explicit unavailable
+    # state remains a hold when cached wrapper fields disagree.
+    latest_quality = _as_mapping(frame_quality.get("latest")) or {}
+    model2_available = all(
+        _boolean(scope.get("model2_available", True), field="model2_available")
+        for scope in (payload, analysis, frame_quality, latest_quality)
     )
     rejected_frame_count = _finite_number(frame_quality.get("rejected_frame_count", 0)) or 0.0
     width_replay = None
@@ -750,6 +754,33 @@ def recompute_final_verdict(record: Mapping[str, Any] | object, rules: Evaluatio
             fish_id=payload.get("track_id", payload.get("id", payload.get("fish_id"))), frame_id=latest.get("frame_id"),
             source_context=latest.get("source_context"))
         structural_fusion = feature_fusion_report(anatomical_decision, geometric_support or {}, structural, eligibility, decision)
+    anatomy_replay = None
+    if isinstance(analysis.get("anatomical_verification"), Mapping) and analysis["anatomical_verification"].get("version") == "1":
+        from src.inference.anatomical_verification import verify_anatomy, apply_anatomical_gate
+
+        saved_anatomy = analysis["anatomical_verification"]
+        latest_anatomy_quality = _as_mapping(frame_quality.get("latest")) or {}
+        current_presence = {region: saved_anatomy.get("primary", {}).get(region, {}).get("confidence", 0.)
+                            for region in ("Head", "Body", "Tail")}
+        records = list(latest_anatomy_quality.get("anatomical_evidence", []))
+        if isinstance(latest_anatomy_quality.get("head_integrity_evidence"), Mapping):
+            records.append({"source": "expert_review", **latest_anatomy_quality["head_integrity_evidence"], "region": "Head"})
+        anatomy_replay = verify_anatomy(
+            current_presence, threshold=rules.model2_evidence_threshold,
+            fish_id=payload.get("track_id", payload.get("fish_id", saved_anatomy.get("fish_id"))),
+            frame_id=latest_anatomy_quality.get("frame_id"), source=latest_anatomy_quality.get("source_context"),
+            geometry=latest_anatomy_quality.get("anatomical_geometry"), evidence=records,
+            frame_quality={**latest_anatomy_quality, "parent_usable": parent_usable,
+                           "association_status": association_status, "out_of_frame": out_of_frame,
+                           "usable": latest_anatomy_quality.get("usable", True)
+                                     and not (rejected_frame_count > 0.0 and observation_count == 0)},
+            model2_available=model2_available,
+        )
+        decision = apply_anatomical_gate(decision, anatomy_replay)
+        if structural_fusion is not None:
+            structural_fusion.update(final_grade=decision.final_grade or UNGRADED,
+                                     final_support=decision.final_support,
+                                     anatomical_verification=anatomy_replay)
     result = {
         "final_grade": decision.final_grade or UNGRADED,
         "final_support": decision.final_support,
@@ -782,6 +813,8 @@ def recompute_final_verdict(record: Mapping[str, Any] | object, rules: Evaluatio
         result["geometric_support"] = geometric_support
     if structural_fusion is not None:
         result["feature_fusion"] = structural_fusion
+    if anatomy_replay is not None:
+        result["anatomical_verification"] = anatomy_replay
     return result
 
 
