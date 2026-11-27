@@ -36,6 +36,14 @@ from src.inference.inspection_results import normalize_inspection_results
 from src.api.domain import FEATURE_CAPABILITIES, QUALITY_COUNTER_NAMES, InspectionState, TrackingConfig
 from src.api.export import DEFAULT_EXPORT_FIELDS, EXPORT_FIELDS, make_csv, make_xlsx, make_surface_csv
 from src.api.expert_library import router as expert_library_router
+from src.api.annotation_library import router as annotation_library_router
+from src.api.annotation_workspace import router as annotation_workspace_router, set_automation as set_annotation_automation
+from src.api.annotation_automation import generate_annotations
+from src.api.annotation_review import (
+    router as annotation_review_router, annotation_quality_model, apply_learning_context,
+    start_learning_maintenance, stop_learning_maintenance,
+)
+from src.annotation.store import get_annotation_store
 from src.api.runtime import (
     PART_PREVIEW_MODE,
     resolve_part_weights_path,
@@ -663,9 +671,11 @@ async def lifespan(_: FastAPI):
         # This preview-only model never participates in the production pipeline.
         upload_test_model.load()
     LOGGER.info("[RUNTIME] device_report=%s", _device_report())
+    start_learning_maintenance()
     try:
         yield
     finally:
+        stop_learning_maintenance()
         # API stop requests remain bounded; process shutdown waits for the
         # worker/finalizer so accepted durable writes cannot be abandoned.
         service.stop(timeout=None)
@@ -685,9 +695,54 @@ async def lifespan(_: FastAPI):
                 LOGGER.critical("Durable session remains open because event persistence did not flush before shutdown.")
 
 
+def _annotation_candidates(document, frame, classes):
+    """Reuse the live models under their existing inference/change guards."""
+    with _model_change_lock, service._processing_lock:
+        if RUNTIME_MODE == PART_PREVIEW_MODE or getattr(model, "model", None) is None:
+            raise HTTPException(503, "Whole-fish annotation requires the existing Model 1 detector to be ready.")
+        strict = os.getenv("FISH_STRICT_MODEL_INTEGRITY", "0").strip().lower() in {"1", "true", "yes", "on"}
+        if strict and (getattr(model, "checkpoint_integrity", None) != "verified"
+                       or getattr(quality_model, "checkpoint_integrity", None) != "verified"):
+            raise HTTPException(503, "Strict model integrity requires both existing checkpoints to be verified.")
+        try:
+            workspace = get_annotation_store()
+            registry = workspace.datasets()
+            selected = next((d for d in registry["datasets"] if d["id"] == registry.get("primary_dataset_id")), None)
+            if selected and selected.get("status") != "ready":
+                raise HTTPException(503, "The selected manual baseline is still being indexed. Annotation will be available when its source checks finish.")
+            try:
+                annotation_model = annotation_quality_model(workspace) or quality_model
+            except (RuntimeError, ValueError, ImportError, OSError):
+                LOGGER.exception("Annotation candidate unavailable; using existing model.")
+                annotation_model = quality_model
+            reference_path = workspace.root / selected["reference_profile_path"] if selected and selected.get("reference_profile_path") else None
+            if selected and reference_path is None:
+                raise HTTPException(503, "The selected manual baseline has no verified reference descriptor. Complete its import before Auto-Annotate.")
+            output = generate_annotations(document, frame, classes, detector=model, quality_model=annotation_model,
+                                          reference_root=reference_path)
+            output.setdefault("automation", {})["prediction_model_version"] = getattr(annotation_model, "version", "existing-detectors")
+            output["automation"]["annotation_input_size"] = getattr(annotation_model, "image_size", None)
+        except (RuntimeError, ImportError, OSError) as error:
+            raise HTTPException(503, str(error)) from error
+        except ValueError as error:
+            raise HTTPException(422, str(error)) from error
+    # Reference retrieval is CPU work over saved labels; release live inference
+    # locks once the existing annotation engine has completed its model passes.
+    try:
+        return apply_learning_context(workspace, document, output)
+    except Exception:
+        LOGGER.exception("Annotation references unavailable; predictions still require human review.")
+        output.setdefault("automation", {}).setdefault("errors", []).append("Verified reference context is temporarily unavailable.")
+        return output
+
+
+set_annotation_automation(_annotation_candidates)
 app = FastAPI(title="Sardinella Lemuru Fish Detection API", version="3.0.0", lifespan=lifespan)
 app.mount("/assets", StaticFiles(directory=FRONTEND_DIR), name="assets")
 app.include_router(expert_library_router)
+app.include_router(annotation_library_router)
+app.include_router(annotation_workspace_router)
+app.include_router(annotation_review_router)
 app.include_router(lan_security.router)
 
 
@@ -1113,6 +1168,11 @@ def _status_payload(*, include_analytics: bool = True) -> dict[str, object]:
 @app.get("/", include_in_schema=False)
 def dashboard() -> FileResponse:
     return FileResponse(FRONTEND_DIR / "index.html")
+
+
+@app.get("/annotations", include_in_schema=False)
+def annotation_workspace() -> FileResponse:
+    return FileResponse(FRONTEND_DIR / "annotations.html", headers={"Cache-Control": "no-store"})
 
 
 @app.get("/api/status")

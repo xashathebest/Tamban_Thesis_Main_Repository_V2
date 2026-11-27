@@ -1,0 +1,23 @@
+.annotation-training { margin: 20px 0; padding: 20px; }
+.annotation-training summary { cursor: pointer; font-weight: 650; }
+.annotation-training h3 { margin: 22px 0 8px; }
+.annotation-training p { line-height: 1.5; }
+.annotation-training .training-controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin: 16px 0; }
+.annotation-training label { display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.annotation-training input, .annotation-training select { max-width: 100%; padding: 8px 10px; border: 1px solid #c9d5d2; border-radius: 7px; background: #fff; color: #183a35; }
+.annotation-training .training-checkbox { flex-direction: row; align-items: center; padding: 10px 0; }
+.annotation-training .training-result { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 280px; overflow: auto; padding: 12px; background: #f2f6f4; border-radius: 8px; font: inherit; }
+.annotation-training .training-result:empty { display: none; }
+.annotation-training .training-error { color: #9f2732; }
+.annotation-training .class-editor-grid { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; margin: 12px 0; }
+.annotation-training .class-editor-grid label { flex: 1 1 180px; }
+.annotation-training .class-editor-grid input[type="color"] { padding: 4px; width: 64px; height: 38px; }
+@media (max-width: 600px) { .annotation-training { padding: 16px; } .annotation-training .training-controls > label { flex: 1 1 100%; } .annotation-training button { min-height: 40px; } }
+.annotation-training-panel label,
+.annotation-training-panel input,
+.annotation-training-panel select,
+#annotation-training-panel label,
+#annotation-training-panel input,
+#annotation-training-panel select { min-width: 0; max-width: 100%; }
+#annotation-training-panel select,
+#annotation-training-panel input:not([type="checkbox"]):not([type="color"]) { width: 100%; }

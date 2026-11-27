@@ -54,6 +54,7 @@ Ultralytics/
 
 # Generated QA and benchmark results
 results/qa/
+qa/pytest-*/
 
 # Temporary dependency and audit outputs
 ../tmp/
@@ -63,3 +64,6 @@ notebooks/tamban_model1_1900_work/
 notebooks/Tamban_Model1_Retrain/
 results/qa/fixbody/
 results/qa/qualitycheck/
+
+# Persistent local annotation images/masks/revisions are dataset artifacts.
+/dataset/annotation_workspace/

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#123d3a">
+  <title>Annotation Library · Sardinella</title>
+  <link rel="stylesheet" href="/assets/annotations.css?v=library-1">
+  <script src="/assets/annotations.js?v=library-1" defer></script>
+  <link rel="stylesheet" href="/assets/annotations-training.css?v=1">
+  <script src="/assets/annotations-training.js?v=1" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to workspace</a>
+  <div class="app-layout">
+    <aside class="navigation" aria-label="Annotation navigation">
+      <a class="brand" href="/annotations"><span class="brand-mark" aria-hidden="true">S</span><span>Sardinella<small>Annotation library</small></span></a>
+      <p class="nav-caption">WORKSPACE</p>
+      <nav id="navigation">
+        <button type="button" data-view="dashboard" class="nav-item active" aria-current="page"><span aria-hidden="true">▦</span>Dashboard</button>
+        <button type="button" data-view="annotate" class="nav-item"><span aria-hidden="true">✎</span>Annotate</button>
+        <button type="button" data-view="completed" class="nav-item"><span aria-hidden="true">✓</span>Completed Annotations</button>
+        <button type="button" data-view="dataset" class="nav-item"><span aria-hidden="true">▤</span>Dataset</button>
+        <button type="button" data-view="export" class="nav-item"><span aria-hidden="true">↓</span>Export</button>
+      </nav>
+      <div class="nav-footer"><span class="connection-dot" aria-hidden="true"></span>Persistent local library<p>Your images, masks, and review history.</p><a href="/">← Return to inspection</a></div>
+    </aside>
+    <main id="main" tabindex="-1">
+      <header class="page-header"><div><p class="eyebrow">DATASET WORKSPACE</p><h1 id="page-title">Annotation dashboard</h1><p id="page-description">Review your progress and pick up where you left off.</p></div><div class="header-actions"><span id="library-state" class="muted">Connecting…</span><button type="button" id="refresh-button" class="button secondary">Refresh</button></div></header>
+      <div id="notice" class="notice hidden" role="status" aria-live="polite"></div>
+      <div id="auth-message" class="notice error hidden" role="alert">This workspace needs an authenticated session. <a href="/">Open inspection to sign in</a>, then refresh this page.</div>
+      <div class="dataset-selection"><label for="dataset-select">Dataset</label><select id="dataset-select" aria-label="Choose saved dataset"><option value="">All saved datasets</option></select><span id="dataset-scope-note" class="muted">Review and export the selected dataset. Source libraries remain separate.</span></div>
+      <section id="summary-section" aria-label="Annotation progress">
+        <div id="summary-cards" class="summary-grid" aria-live="polite"></div>
+        <div class="progress-panel panel"><div><h2>Review progress</h2><p id="progress-caption" class="muted">Loading saved annotation counts…</p></div><div class="progress-track" role="progressbar" id="review-progress" aria-label="Approved images" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="progress-fill"></span></div><span id="progress-value">0%</span></div>
+      </section>
+      <section id="dataset-section" class="panel dataset-panel hidden" aria-labelledby="dataset-title">
+        <div><p class="eyebrow">YOUR SOURCE DATA</p><h2 id="dataset-title">One library. Original files preserved.</h2><p>Discover existing COCO annotations or upload original images. Existing annotations are imported once and remain available when you reopen the application.</p><p id="storage-location" class="muted"></p></div>
+        <div class="dataset-actions"><button type="button" id="scan-button" class="button secondary">Discover existing annotations</button><label class="button primary upload-label" for="upload-input">Add images</label><input id="upload-input" type="file" accept="image/jpeg,image/png,image/webp,image/bmp,image/tiff" multiple hidden></div>
+      </section>
+      <section id="export-section" class="panel hidden" aria-labelledby="export-title">
+        <p class="eyebrow">ANNOTATION EXPORTS</p><h2 id="export-title">Download your saved work</h2><p>Exports include original class IDs, real segmentation polygons or masks, fish associations, review state, source metadata, and timestamps.</p>
+        <div class="export-options"><label>Export scope<select id="export-scope"><option value="all">All saved annotations</option><option value="approved">Approved annotations only</option><option value="selected">Selected images</option><option value="current">Current image</option></select></label><label class="checkbox-label"><input type="checkbox" id="export-package"> Include corresponding image files (.zip)</label><button type="button" id="download-export" class="button primary">Download JSON</button></div>
+        <p id="export-feedback" class="muted" role="status"></p><details><summary>About the JSON format</summary><p>The dataset object describes the format and export time. Each image includes its identifier, dimensions, file name, categories, metadata, and saved annotations. Each annotation retains its class ID/name, bounding box in [x, y, width, height] pixels, COCO polygons or RLE mask, fish/object IDs, confidence, source, review state, and creation/modification timestamps. Class registry IDs and original source metadata are retained. Unreviewed archival exports require review before training.</p></details>
+      </section>
+      <section id="library-section" aria-labelledby="library-title">
+        <div class="section-heading"><div><h2 id="library-title">Your images</h2><p class="muted" id="library-caption">Saved annotations stay here between sessions.</p></div><button id="discover-button" type="button" class="button secondary">Discover existing annotations</button></div>
+        <div class="library-tools panel"><label class="search-field"><span class="sr-only">Search image filenames</span><input type="search" id="search-input" placeholder="Search by filename…" autocomplete="off"></label><label><span class="sr-only">Filter by annotation status</span><select id="status-filter"><option value="">All statuses</option><option value="saved">Saved</option><option value="not_annotated">Not Annotated</option><option value="ai_annotated">AI Annotated</option><option value="needs_review">Needs Review</option><option value="approved">Approved</option><option value="edited">Edited</option><option value="rejected">Rejected</option><option value="needs_correction">Needs Correction</option></select></label><label><span class="sr-only">Sort images</span><select id="sort-order"><option value="updated_desc">Recently modified</option><option value="updated_asc">Oldest modified</option><option value="filename_asc">Filename A–Z</option><option value="filename_desc">Filename Z–A</option><option value="status">Annotation status</option></select></label></div>
+        <div class="selection-tools"><label class="checkbox-label"><input id="select-page" type="checkbox"> Select page</label><span id="selection-count" class="muted">0 selected</span><button id="clear-selection" type="button" class="text-button">Clear</button><div class="selection-actions"><button id="approve-selected" type="button" class="button secondary" disabled>Approve reviewed</button><button id="export-selected" type="button" class="button secondary" disabled>Export selected</button></div></div>
+        <div id="gallery" class="image-grid" aria-live="polite" aria-busy="true"></div>
+        <div id="empty-library" class="empty-state panel hidden"><span aria-hidden="true">▧</span><h3>No images yet</h3><p>Discover existing annotations or add images from the Dataset page.</p><button id="empty-discover" type="button" class="button primary">Discover existing annotations</button></div>
+        <div class="pagination"><span id="page-caption" class="muted"></span><div><button id="previous-page" type="button" class="button secondary" disabled>← Previous</button><button id="next-page" type="button" class="button secondary" disabled>Next →</button></div></div>
+      </section>
+      <section id="workspace" class="hidden" aria-labelledby="workspace-title">
+        <div class="workspace-heading"><div><button type="button" id="back-library" class="text-button">← Image library</button><h2 id="workspace-title"></h2><p id="image-details" class="muted"></p></div><div class="workspace-status"><span id="image-status" class="badge"></span><span id="save-state" class="save-state" role="status" aria-live="polite">Saved</span><button type="button" id="save-button" class="button secondary">Save</button><button type="button" id="review-button" class="button secondary">Mark reviewed</button><button type="button" id="approve-button" class="button primary">Approve</button></div></div>
+        <div id="draft-recovery" class="notice warning hidden"><div><strong>Recoverable draft found</strong><p id="draft-message"></p></div><div><button type="button" id="restore-draft" class="button secondary">Restore draft</button><button type="button" id="download-draft" class="text-button">Download draft</button><button type="button" id="discard-draft" class="text-button">Discard draft</button></div></div>
+        <div id="save-error" class="notice error hidden" role="alert"><span id="save-error-message"></span><button type="button" id="retry-save" class="button secondary">Retry save</button><button type="button" id="reload-image" class="text-button">Reload saved version</button><button type="button" id="download-unsaved" class="text-button">Download recovery draft</button></div>
+        <div class="review-layout">
+          <div class="viewer-panel panel"><div class="viewer-toolbar" role="toolbar" aria-label="Image display"><div class="zoom-tools"><button type="button" id="zoom-out" aria-label="Zoom out">−</button><span id="zoom-label">Fit</span><button type="button" id="zoom-in" aria-label="Zoom in">+</button><button type="button" id="fit-image">Fit</button><button type="button" id="undo-edit" disabled title="Undo edit (Ctrl+Z)">Undo</button><button type="button" id="redo-edit" disabled title="Redo edit (Ctrl+Shift+Z)">Redo</button></div><label><input type="checkbox" id="show-masks" checked> Masks</label><label><input type="checkbox" id="show-boxes"> Boxes</label><label><input type="checkbox" id="show-labels" checked> Labels</label><a id="original-link" href="#" target="_blank" rel="noopener">Original ↗</a></div><div id="image-stage" class="image-stage"><svg id="annotation-svg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Image with selectable annotations" tabindex="0"><title>Annotation review</title></svg><div id="viewer-loading" class="viewer-loading">Loading image…</div><span id="drawing-hint" class="drawing-hint hidden"></span></div><div class="viewer-footer"><span id="viewer-help">Scroll to zoom · Drag empty space to pan · Click a mask to select</span><span id="object-count"></span></div></div>
+          <aside class="annotation-panel panel" aria-labelledby="annotation-title"><div class="annotation-heading"><h3 id="annotation-title">Annotations</h3><span id="annotation-total" class="count-pill">0</span></div><div id="annotation-list" class="annotation-list"></div>
+            <form id="annotation-editor" class="annotation-editor hidden"><div class="editor-heading"><h3>Selected annotation</h3><span id="selected-source" class="muted"></span></div><p id="selected-id" class="small muted"></p><label>Class<select id="class-editor"></select></label><label>Fish association<input id="fish-editor" type="text" list="fish-options" placeholder="Unassigned: choose an existing fish ID" maxlength="100" autocomplete="off"><datalist id="fish-options"></datalist></label><p class="small muted">Choose an existing Whole fish annotation ID. Draw a whole fish first when assigning imported anatomical parts.</p><label>Bounding box [x, y, width, height]<input id="bbox-editor" type="text" placeholder="No bounding box"></label><details id="polygon-details"><summary>Polygon coordinates</summary><p class="small muted">Pixel coordinates: [[x, y, …]]. Each polygon needs at least three points. RLE masks are preserved unless explicitly replaced.</p><textarea id="polygon-editor" rows="4" spellcheck="false" aria-label="Segmentation polygon coordinates"></textarea><button type="button" id="apply-polygon" class="button secondary">Apply coordinates</button></details><div class="editor-actions"><button type="button" id="replace-polygon" class="button secondary">Redraw mask</button><button type="button" id="approve-object" class="button secondary">Approve object</button><button type="button" id="reject-object" class="text-button danger-text">Reject object</button><button type="button" id="delete-annotation" class="text-button danger-text">Delete annotation</button></div><p id="editor-feedback" class="small" role="status"></p></form>
+            <div class="add-annotation"><label>Class for new annotation<select id="new-class"></select></label><button type="button" id="add-polygon" class="button secondary">+ Draw annotation</button><button type="button" id="finish-polygon" class="button primary hidden">Finish polygon</button><button type="button" id="cancel-polygon" class="text-button hidden">Cancel</button></div>
+          </aside>
+        </div>
+        <div class="workspace-bottom panel"><div class="review-actions"><button type="button" id="needs-correction" class="button secondary">Needs correction</button><button type="button" id="reject-image" class="text-button danger-text">Reject image</button><button type="button" id="run-ai" class="button secondary">Run AI annotation</button><button type="button" id="export-current" class="button secondary">↓ JSON for this image</button></div><div class="history-tools"><label for="history-select">Saved versions</label><select id="history-select"><option value="">Current version</option></select><button id="restore-version" type="button" class="button secondary hidden">Restore as new version</button></div></div>
+        <p id="history-note" class="muted small"></p>
+      </section>
+      <details id="annotation-training-panel" class="panel annotation-training">
+        <summary>Training exports and class management</summary>
+        <h3>Export reviewed training labels</h3>
+        <p class="muted">Includes approved images and your original manual baseline. New unreviewed predictions, corrections awaiting approval and rejected images are excluded.</p>
+        <div class="training-controls">
+          <label>Images<select id="training-scope"><option value="all">All approved and manual baseline images</option><option value="selected">Selected gallery images</option><option value="current">Current image</option></select></label>
+          <label>Format<select id="training-format"><option value="coco">COCO segmentation + exact PNG masks</option><option value="yolo_detection">YOLO detection + exact PNG masks</option><option value="yolo_segmentation">YOLO segmentation + exact PNG masks</option></select></label>
+          <label class="training-checkbox"><input id="training-split" type="checkbox" checked> Organize train, validation and test</label>
+          <button id="training-validate" class="button secondary" type="button">Validate dataset</button>
+          <button id="training-download" class="button primary" type="button">Download training ZIP</button>
+          <button id="training-report-download" class="text-button" type="button" disabled>Download validation report</button>
+        </div>
+        <p class="small muted">Original splits are retained. Matching image pixels stay in one split. COCO preserves holes and disconnected regions; YOLO segmentation identifies unsupported masks rather than changing their boundaries.</p>
+        <pre id="training-result" class="training-result" role="status" aria-live="polite"></pre>
+        <h3>Class definitions</h3>
+        <p class="muted">Classes keep stable IDs. Whole fish, anatomy and quality classes retain separate meanings. A class used in any saved version cannot be removed.</p>
+        <div class="class-editor-grid">
+          <label>Existing class<select id="training-class-select"></select></label>
+          <label>Name<input id="training-class-name" maxlength="120"></label>
+          <label>Overlay color<input id="training-class-color" type="color" value="#1982c4"></label>
+          <button id="training-class-save" class="button secondary" type="button">Save class</button>
+          <button id="training-class-remove" class="text-button danger-text" type="button">Remove unused class</button>
+        </div>
+        <div class="class-editor-grid">
+          <label>New class<input id="training-new-class-name" maxlength="120" placeholder="Class name"></label>
+          <label>Meaning<select id="training-new-class-kind"><option value="anatomy">Anatomical part</option><option value="quality">Quality grade</option><option value="whole_fish">Whole fish</option><option value="other">Other</option></select></label>
+          <button id="training-class-add" class="button secondary" type="button">Add class</button>
+        </div>
+        <p id="training-class-result" class="training-result" role="status" aria-live="polite"></p>
+      </details>
+      <footer class="page-footer">Sardinella annotation workspace <span>Original data stays intact. Every saved edit has a version.</span></footer>
+    </main>
+  </div>
+</body>
+</html>

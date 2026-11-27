@@ -525,3 +525,17 @@ documents the Model 2-first Head/Body gate, conservative MobileSAM/OpenCV
 investigation, independently confirmed physical-absence rejection, uncertainty
 safeguards and UI/CSV evidence. Tail remains optional. The current silhouette
 path does not claim validated automatic headless/bodyless recognition.
+
+## Local annotation workspace
+
+Open `/annotations` on the existing API server to upload/select images,
+Auto-Annotate, edit actual masks/classes, approve results and export a local
+dataset. The selected primary baseline is `Fish_Annotations_Cleaned.zip`
+(345 images); the V2 910-image COCO source remains a separate secondary dataset.
+Original sources are preserved. Approved annotations, masks and immutable
+revisions are stored under `dataset/annotation_workspace/`; all adapters share
+that folder and its SQLite database.
+
+See [annotation workflow and QA](docs/annotation_workflow_qa.md) for source
+protection, persistence, supported COCO/YOLO exports, executed checks and current
+limitations, and [library controls](docs/annotation_library.md) for usage.

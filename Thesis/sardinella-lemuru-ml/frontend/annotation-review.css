@@ -1,0 +1,45 @@
+/* Scoped annotation workflow; the existing inspection and grade review stay independent. */
+.annotation-review { display: grid; gap: 14px; padding: 20px; margin-bottom: 32px; }
+.annotation-review-heading, .annotation-image-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.annotation-review-heading h2 { margin-bottom: 4px; font-size: 21px; }
+.annotation-review-import { display: flex; align-items: center; gap: 8px; }
+.annotation-review-import label { cursor: pointer; }
+.annotation-review-import:has(input:focus-visible) label { outline: 3px solid var(--ocean-500); outline-offset: 3px; }
+.annotation-review-import:has(input:disabled) label { cursor: wait; opacity: .5; }
+.annotation-learning-status { border-radius: 7px; padding: 9px 12px; background: var(--accent-soft); color: var(--accent-text); font-size: 12px; }
+.annotation-review-message { min-height: 20px; font-size: 13px; color: var(--text-secondary); overflow-wrap: anywhere; }
+.annotation-review-message[data-error="true"] { color: var(--danger); }
+.annotation-review-empty { padding: 36px 20px; text-align: center; color: var(--text-muted); background: var(--surface-muted); border-radius: 8px; }
+.annotation-image-heading { margin: 0 0 10px; }
+.annotation-image-heading strong { overflow-wrap: anywhere; }
+.annotation-review-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.annotation-review-layout.is-editing { grid-template-columns: minmax(0, 1fr) 240px; }
+.annotation-stage { display: grid; place-items: center; min-width: 0; min-height: 300px; border-radius: 8px; background: #102124; overflow: hidden; }
+#annotation-canvas { display: block; width: 100%; height: min(68vh, 760px); min-height: 300px; touch-action: none; user-select: none; }
+#annotation-canvas.is-editing { cursor: crosshair; }
+#annotation-canvas path { cursor: pointer; }
+#annotation-canvas circle { cursor: grab; }
+#annotation-canvas circle:active { cursor: grabbing; }
+.annotation-editor { display: flex; flex-direction: column; align-items: stretch; gap: 7px; min-width: 0; margin: 0; padding: 12px; border: 1px solid var(--border-strong); border-radius: 8px; }
+.annotation-editor legend { font-weight: 650; padding: 0 5px; }
+.annotation-editor label { color: var(--text-secondary); font-size: 12px; }
+.annotation-editor-buttons { display: grid; gap: 7px; margin: 6px 0; }
+.annotation-drawing-actions { display: grid; gap: 8px; }
+.annotation-labels { display: flex; flex-wrap: wrap; gap: 7px; margin: 10px 0; padding: 0; list-style: none; }
+.annotation-labels button { display: flex; align-items: center; gap: 6px; min-height: 32px; padding: 5px 9px; border: 1px solid var(--border-strong); border-radius: 5px; color: var(--text-primary); background: var(--surface); font-size: 12px; }
+.annotation-labels button[aria-pressed="true"] { border-color: var(--ocean-500); background: var(--mint-soft); }
+.annotation-label-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
+.annotation-review-warning { padding: 9px 12px; margin: 10px 0; border-radius: 7px; background: var(--warning-soft); color: var(--warning); font-size: 12px; }
+.annotation-primary-actions { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 10px; margin: 16px 0 12px; }
+.annotation-primary-actions button { min-height: 52px; font-size: 15px; }
+.annotation-primary-actions kbd { font-size: 10px; padding: 2px 5px; opacity: .75; border: 1px solid currentColor; border-radius: 4px; }
+.annotation-decline-reason { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.annotation-decline-reason input { flex: 1; max-width: 450px; }
+.annotation-reference-details { margin-top: 12px; }
+.annotation-reference-details ul { margin-top: 8px; padding-left: 20px; font-size: 12px; }
+.annotation-progress { border-top: 1px solid var(--border); padding-top: 5px; }
+.annotation-progress dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 12px; margin: 8px 0 14px; }
+.annotation-progress dt { color: var(--text-muted); font-size: 12px; }
+.annotation-progress dd { margin-top: 2px; color: var(--text-primary); font-size: 13px; overflow-wrap: anywhere; }
+@media (max-width: 900px) { .annotation-review-layout.is-editing { grid-template-columns: minmax(0, 1fr); } .annotation-editor { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; } .annotation-editor label { grid-column: 1; } .annotation-editor select, .annotation-editor input { grid-column: 2; } .annotation-editor-buttons, .annotation-editor p, .annotation-drawing-actions { grid-column: 1 / -1; } .annotation-editor-buttons { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 540px) { .annotation-review { padding: 12px; } .annotation-primary-actions { gap: 6px; } .annotation-primary-actions button { font-size: 12px; padding: 8px 6px; } .annotation-primary-actions kbd { display: none; } .annotation-decline-reason { display: grid; gap: 4px; } .annotation-editor-buttons { grid-template-columns: 1fr; } }

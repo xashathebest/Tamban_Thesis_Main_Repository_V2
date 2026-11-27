@@ -6,6 +6,7 @@
     <meta name="theme-color" content="#FFFFFF">
     <title>Tamban Quality Inspection System | Live Inspection</title>
     <link rel="stylesheet" href="/assets/styles.css?v=surface-features-20261123">
+    <link rel="stylesheet" href="/assets/annotation-review.css?v=verified-learning-1">
   </head>
   <body>
     <svg class="icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -60,6 +61,10 @@
           </div>
           <p class="nav-section-label">WORKSPACE</p>
           <nav class="navigation" id="sidebar-navigation" aria-label="Workspace">
+            <a class="nav-item" href="/annotations" data-tooltip="Annotation Library" aria-label="Annotation Library">
+              <span aria-hidden="true"><svg class="icon" viewBox="0 0 24 24"><use href="#icon-review"></use></svg></span>
+              <b>Annotation Library</b>
+            </a>
             <button class="nav-item active" type="button" data-view="live" data-tooltip="Live Inspection" aria-label="Live Inspection" aria-current="page">
               <span aria-hidden="true">
                 <svg class="icon" aria-hidden="true" viewBox="0 0 24 24">
@@ -704,9 +709,41 @@
             </section>
           </section>
           <section class="view hidden" id="view-review" aria-label="Manual review queue">
+            <section class="surface annotation-review" id="annotation-review" aria-label="Annotation review" aria-busy="false">
+              <div class="annotation-review-heading">
+                <div><p class="eyebrow">VERIFIED ANNOTATIONS</p><h2>Inspect. Approve. Next.</h2><p class="muted">Review every mask and class before accepting the complete annotation set.</p></div>
+                <div class="annotation-review-import"><label class="button quiet" for="annotation-upload">Add images</label><input class="visually-hidden" id="annotation-upload" type="file" accept="image/jpeg,image/png,image/webp,image/bmp,image/tiff" multiple><button class="button quiet" id="annotation-refresh" type="button">Refresh</button></div>
+              </div>
+              <p class="annotation-learning-status" id="annotation-learning-status" role="status">Loading verified learning status…</p>
+              <p class="annotation-review-message" id="annotation-message" role="status" aria-live="polite">Open the review queue to load the next image.</p>
+              <div class="annotation-review-empty" id="annotation-empty">No annotation images are pending. Add local images to start a review.</div>
+              <div class="hidden" id="annotation-current">
+                <div class="annotation-image-heading"><strong id="annotation-filename"></strong><span class="muted" id="annotation-next"></span></div>
+                <div class="annotation-review-layout" id="annotation-layout">
+                  <div class="annotation-stage"><svg id="annotation-canvas" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Original image with predicted annotation masks" tabindex="0"></svg></div>
+                  <fieldset class="annotation-editor hidden" id="annotation-editor"><legend>Correct this image</legend>
+                    <label for="annotation-object">Annotation</label><select id="annotation-object" aria-label="Select an annotation"></select>
+                    <label for="annotation-fish">Fish ID</label><input id="annotation-fish" maxlength="80" value="1" autocomplete="off">
+                    <label for="annotation-class">Anatomical class</label><select id="annotation-class"></select>
+                    <div class="annotation-editor-buttons"><button class="button quiet" id="annotation-redraw" type="button">Redraw mask</button><button class="button quiet" id="annotation-add" type="button">Add missing part</button><button class="button danger" id="annotation-remove" type="button">Remove annotation</button></div>
+                    <button class="button quiet" id="annotation-cancel-edit" type="button">Cancel edits</button>
+                    <p class="muted" id="annotation-edit-help">Drag a mask point to correct its boundary. Double-click a boundary to add a point. Select a point to remove it.</p>
+                    <button class="button quiet hidden" id="annotation-remove-point" type="button">Remove selected point</button>
+                    <div class="annotation-drawing-actions hidden" id="annotation-drawing-actions"><p class="muted">Click around the boundary, then finish the mask (at least 3 points).</p><button class="button primary" id="annotation-finish" type="button">Finish mask</button><button class="button quiet" id="annotation-cancel-drawing" type="button">Cancel drawing</button></div>
+                  </fieldset>
+                </div>
+                <ul class="annotation-labels" id="annotation-labels" aria-label="Annotation classes"></ul>
+                <p class="annotation-review-warning hidden" id="annotation-warnings"></p>
+                <div class="annotation-primary-actions"><button class="button primary" id="annotation-approve" type="button">Approve <kbd>A</kbd></button><button class="button quiet" id="annotation-edit" type="button">Edit <kbd>E</kbd></button><button class="button danger" id="annotation-decline" type="button">Decline <kbd>D</kbd></button></div>
+                <label class="annotation-decline-reason muted" for="annotation-reason">Decline reason (optional)<input id="annotation-reason" maxlength="500" placeholder="Unusable image, duplicate fish, uncertain anatomy…"></label>
+                <p class="muted">Approve accepts every annotation shown. Save verified edits accepts the complete corrected set. Decline preserves the source image and excludes its labels from learning.</p>
+                <details class="annotation-reference-details" id="annotation-reference-details"><summary>Reference evidence</summary><p class="muted">Previous verified examples provide context. Their masks are never copied onto this image.</p><ul id="annotation-references"></ul></details>
+              </div>
+              <details class="annotation-progress"><summary>Learning progress</summary><dl id="annotation-progress-values"></dl><p class="muted">Stored feedback is not proof of improved accuracy. Model improvement is reported only after a held-out evaluation.</p></details>
+            </section>
             <div class="view-intro">
               <p class="eyebrow">REVIEW QUEUE</p>
-              <h2>Needs Review</h2>
+              <h2>Fish grade review</h2>
               <p>These fish remain Ungraded because the final acceptance rules did not find sufficient reliable evidence. They are not Rejected fish.</p>
             </div>
             <section class="surface history-workspace review-workspace">
@@ -1160,5 +1197,6 @@
       </div>
     </section>
     <script src="/assets/app.js?v=feature-contributions-20261123" defer></script>
+    <script src="/assets/annotation-review.js?v=verified-learning-1" defer></script>
   </body>
 </html>
